@@ -4,7 +4,7 @@
 
 A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes, com dados de endereço embutidos e paginação nas listagens.
 
-A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional e conta com documentação interativa via **Swagger UI**.
+A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, conta com documentação interativa via **Swagger UI** e possui suíte de testes cobrindo as camadas de serviço e controller.
 
 ---
 
@@ -21,6 +21,8 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Maven | 3.9 | Build e gerenciamento de dependências |
 | Docker | - | Containerização |
 | Docker Compose | - | Orquestração local |
+| JUnit 5 + Mockito | (via spring-boot-starter-test) | Testes unitários e de controller |
+| H2 | (in-memory, test scope) | Banco em memória para testes de integração |
 
 ---
 
@@ -47,23 +49,31 @@ Requisição HTTP
 ### Estrutura de pacotes
 
 ```
-com.carlesso.pilatesapi
-├── config/
-│   └── OpenApiConfig.java
-├── controller/
-│   └── PacienteController.java
-├── service/
-│   └── PacienteService.java
-├── repository/
-│   └── PacienteRepository.java
-├── entity/
-│   ├── Paciente.java
-│   └── Endereco.java
-└── dto/
-    ├── PacienteRequestDTO.java
-    ├── PacienteUpdateDTO.java
-    ├── PacienteResponseDTO.java
-    └── EnderecoDTO.java
+src/
+├── main/java/com/carlesso/pilatesapi/
+│   ├── config/
+│   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
+│   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   ├── controller/
+│   │   └── PacienteController.java      # Endpoints REST
+│   ├── service/
+│   │   └── PacienteService.java         # Regras de negócio
+│   ├── repository/
+│   │   └── PacienteRepository.java      # Acesso ao banco
+│   ├── entity/
+│   │   ├── Paciente.java                # Entidade JPA
+│   │   └── Endereco.java                # Embeddable de endereço
+│   └── dto/
+│       ├── PacienteRequestDTO.java      # Payload de criação
+│       ├── PacienteUpdateDTO.java       # Payload de atualização
+│       ├── PacienteResponseDTO.java     # Resposta da API
+│       └── EnderecoDTO.java             # DTO de endereço
+└── test/java/com/carlesso/pilatesapi/
+    ├── PilatesApiApplicationTests.java  # Context load test
+    ├── service/
+    │   └── PacienteServiceTest.java     # Testes unitários do serviço (11 casos)
+    └── controller/
+        └── PacienteControllerTest.java  # Testes de controller com MockMvc (13 casos)
 ```
 
 ---
@@ -457,3 +467,68 @@ curl -s -X DELETE http://localhost:8080/pacientes/1 -o /dev/null -w "%{http_code
 | `app` | build local | `8080` | Aplicação Spring Boot |
 
 O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) antes de iniciar.
+
+---
+
+## 11. Testes
+
+### Visão geral
+
+A suíte de testes possui **25 casos** distribuídos em três classes:
+
+| Classe | Tipo | Casos |
+|---|---|---|
+| `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 11 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest` + MockMvc) | 13 |
+| `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
+
+### Estratégia por camada
+
+**Serviço (`PacienteServiceTest`)**
+
+Usa `@ExtendWith(MockitoExtension.class)` — nenhum contexto Spring é carregado. O `PacienteRepository` é mockado com `@Mock`. Cobre:
+
+- `cadastrar` — payload completo (com endereço) e sem endereço
+- `listar` — retorno paginado com e sem resultados
+- `buscarPorId` — paciente encontrado e `EntityNotFoundException` para ID inexistente
+- `atualizar` — atualização de campos individuais, atualização de endereço, ID inexistente
+- `inativar` — inativação correta do flag `ativo`, ID inexistente
+
+**Controller (`PacienteControllerTest`)**
+
+Usa `@WebMvcTest(PacienteController.class)` — carrega apenas a camada web. O `PacienteService` é mockado com `@MockitoBean`. Cobre:
+
+| Endpoint | Cenários testados |
+|---|---|
+| `POST /pacientes` | 201 com header Location, 400 sem nome, 400 sem CPF, 400 e-mail inválido, 400 body vazio |
+| `GET /pacientes` | 200 com página de resultados, 200 com página vazia |
+| `GET /pacientes/{id}` | 200 com dados, 404 com mensagem de erro |
+| `PUT /pacientes/{id}` | 200 com dados atualizados, 404 |
+| `DELETE /pacientes/{id}` | 204 sem corpo, 404 |
+
+**Integração (`PilatesApiApplicationTests`)**
+
+Usa `@SpringBootTest` com banco H2 em memória (configurado em `src/test/resources/application.properties`). Valida que o contexto da aplicação sobe corretamente.
+
+### Executar os testes
+
+```bash
+JAVA_HOME=/caminho/para/jdk21 mvn test
+```
+
+Saída esperada:
+```
+Tests run: 11 — PacienteServiceTest
+Tests run: 13 — PacienteControllerTest
+Tests run:  1 — PilatesApiApplicationTests
+Tests run: 25, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```
+
+### Tratamento de erros (`GlobalExceptionHandler`)
+
+Um `@RestControllerAdvice` global captura `EntityNotFoundException` e retorna `404` com body:
+
+```json
+{ "erro": "Paciente não encontrado: 99" }
+```

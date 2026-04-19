@@ -14,29 +14,39 @@ API REST para gestão de pacientes do estúdio Carlesso Pilates, desenvolvida co
 | springdoc-openapi | 2.8.3 |
 | Maven | 3.9 |
 | Docker / Docker Compose | - |
+| JUnit 5 + Mockito | (via spring-boot-starter-test) |
+| H2 (testes) | (in-memory) |
 
 ---
 
 ## Estrutura do projeto
 
 ```
-src/main/java/com/carlesso/pilatesapi/
-├── config/
-│   └── OpenApiConfig.java         # Configuração do Swagger/OpenAPI
-├── controller/
-│   └── PacienteController.java    # Endpoints REST
-├── service/
-│   └── PacienteService.java       # Regras de negócio
-├── repository/
-│   └── PacienteRepository.java    # Acesso ao banco
-├── entity/
-│   ├── Paciente.java              # Entidade JPA
-│   └── Endereco.java              # Embeddable de endereço
-└── dto/
-    ├── PacienteRequestDTO.java    # Payload de criação
-    ├── PacienteUpdateDTO.java     # Payload de atualização
-    ├── PacienteResponseDTO.java   # Resposta da API
-    └── EnderecoDTO.java           # DTO de endereço
+src/
+├── main/java/com/carlesso/pilatesapi/
+│   ├── config/
+│   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
+│   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   ├── controller/
+│   │   └── PacienteController.java      # Endpoints REST
+│   ├── service/
+│   │   └── PacienteService.java         # Regras de negócio
+│   ├── repository/
+│   │   └── PacienteRepository.java      # Acesso ao banco
+│   ├── entity/
+│   │   ├── Paciente.java                # Entidade JPA
+│   │   └── Endereco.java                # Embeddable de endereço
+│   └── dto/
+│       ├── PacienteRequestDTO.java      # Payload de criação
+│       ├── PacienteUpdateDTO.java       # Payload de atualização
+│       ├── PacienteResponseDTO.java     # Resposta da API
+│       └── EnderecoDTO.java             # DTO de endereço
+└── test/java/com/carlesso/pilatesapi/
+    ├── PilatesApiApplicationTests.java  # Context load test
+    ├── service/
+    │   └── PacienteServiceTest.java     # Testes unitários do serviço
+    └── controller/
+        └── PacienteControllerTest.java  # Testes do controller com MockMvc
 ```
 
 ---
@@ -257,3 +267,39 @@ curl -s -X PUT http://localhost:8080/pacientes/1 \
 ```bash
 curl -s -X DELETE http://localhost:8080/pacientes/1 -w "%{http_code}"
 ```
+
+---
+
+## Testes
+
+O projeto possui **25 testes** organizados em duas suítes:
+
+| Suíte | Tipo | Testes |
+|---|---|---|
+| `PacienteServiceTest` | Unitário (Mockito) | 11 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest` + MockMvc) | 13 |
+| `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
+
+### Executar os testes
+
+```bash
+JAVA_HOME=/caminho/para/jdk21 mvn test
+```
+
+Os testes de serviço e controller não necessitam de banco de dados. O `@SpringBootTest` usa H2 em memória automaticamente via `src/test/resources/application.properties`.
+
+### O que é testado
+
+**PacienteServiceTest** — lógica de negócio com repositório mockado:
+- `cadastrar` com e sem endereço
+- `listar` com e sem resultados
+- `buscarPorId` — encontrado e não encontrado (`EntityNotFoundException`)
+- `atualizar` — campos parciais, com endereço, não encontrado
+- `inativar` — inativação e não encontrado
+
+**PacienteControllerTest** — camada HTTP com serviço mockado:
+- `POST /pacientes` — 201, validação de `nome`/`cpf` ausentes, e-mail inválido, body vazio
+- `GET /pacientes` — 200 com página, página vazia
+- `GET /pacientes/{id}` — 200 encontrado, 404 com mensagem de erro
+- `PUT /pacientes/{id}` — 200 com dados atualizados, 404
+- `DELETE /pacientes/{id}` — 204 sem corpo, 404
