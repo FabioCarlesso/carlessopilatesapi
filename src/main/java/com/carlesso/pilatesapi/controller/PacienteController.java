@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -55,7 +56,7 @@ public class PacienteController {
     })
     @GetMapping
     public ResponseEntity<Page<PacienteResponseDTO>> listar(
-            @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
+            @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
     }
 
