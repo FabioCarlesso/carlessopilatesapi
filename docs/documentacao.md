@@ -17,6 +17,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Spring Data JPA | 3.4.5 | Persistência e ORM |
 | Spring Validation | 3.4.5 | Validação de entrada |
 | PostgreSQL | 16 | Banco de dados relacional |
+| Flyway | (via spring-boot-starter-parent) | Versionamento e migração de schema do banco |
 | springdoc-openapi | 2.8.3 | Documentação Swagger/OpenAPI |
 | Maven | 3.9 | Build e gerenciamento de dependências |
 | Docker | - | Containerização |
@@ -50,24 +51,30 @@ Requisição HTTP
 
 ```
 src/
-├── main/java/com/carlesso/pilatesapi/
-│   ├── config/
-│   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
-│   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
-│   ├── controller/
-│   │   └── PacienteController.java      # Endpoints REST
-│   ├── service/
-│   │   └── PacienteService.java         # Regras de negócio
-│   ├── repository/
-│   │   └── PacienteRepository.java      # Acesso ao banco
-│   ├── entity/
-│   │   ├── Paciente.java                # Entidade JPA
-│   │   └── Endereco.java                # Embeddable de endereço
-│   └── dto/
-│       ├── PacienteRequestDTO.java      # Payload de criação
-│       ├── PacienteUpdateDTO.java       # Payload de atualização
-│       ├── PacienteResponseDTO.java     # Resposta da API
-│       └── EnderecoDTO.java             # DTO de endereço
+├── main/
+│   ├── java/com/carlesso/pilatesapi/
+│   │   ├── config/
+│   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
+│   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   ├── controller/
+│   │   │   └── PacienteController.java      # Endpoints REST
+│   │   ├── service/
+│   │   │   └── PacienteService.java         # Regras de negócio
+│   │   ├── repository/
+│   │   │   └── PacienteRepository.java      # Acesso ao banco
+│   │   ├── entity/
+│   │   │   ├── Paciente.java                # Entidade JPA
+│   │   │   └── Endereco.java                # Embeddable de endereço
+│   │   └── dto/
+│   │       ├── PacienteRequestDTO.java      # Payload de criação
+│   │       ├── PacienteUpdateDTO.java       # Payload de atualização
+│   │       ├── PacienteResponseDTO.java     # Resposta da API
+│   │       └── EnderecoDTO.java             # DTO de endereço
+│   └── resources/
+│       ├── application.properties
+│       └── db/migration/
+│           ├── V1__create_pacientes_table.sql  # Criação da tabela pacientes
+│           └── V2__insert_pacientes_teste.sql  # Carga inicial com 10 pacientes de teste
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java  # Context load test
     ├── service/
@@ -330,12 +337,55 @@ spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${D
 spring.datasource.username=${DB_USER:postgres}
 spring.datasource.password=${DB_PASSWORD:postgres}
 
-spring.jpa.hibernate.ddl-auto=update
+spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=true
+
+spring.flyway.enabled=true
+spring.flyway.locations=classpath:db/migration
 
 springdoc.swagger-ui.path=/swagger-ui.html
 springdoc.api-docs.path=/api-docs
 ```
+
+> O DDL mode foi alterado de `update` para `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
+
+---
+
+## 7.1 Migrações de Banco (Flyway)
+
+O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, seguindo a ordem das versões. Os arquivos ficam em `src/main/resources/db/migration/`.
+
+### Convenção de nomes
+
+```
+V{versão}__{descrição}.sql
+```
+
+### Migrações existentes
+
+| Versão | Arquivo | Descrição |
+|---|---|---|
+| V1 | `V1__create_pacientes_table.sql` | Cria a tabela `pacientes` com todos os campos, PKs, constraints de unicidade e valor padrão para `ativo` |
+| V2 | `V2__insert_pacientes_teste.sql` | Insere 10 pacientes de teste representando estados diferentes do Brasil |
+
+### Pacientes de carga inicial (V2)
+
+| # | Nome | Estado |
+|---|---|---|
+| 1 | Ana Clara Ferreira | SP |
+| 2 | Bruno Santos Lima | RJ |
+| 3 | Carla Oliveira Mendes | MG |
+| 4 | Diego Alves Costa | PR |
+| 5 | Eduarda Rocha Pinheiro | RS |
+| 6 | Felipe Nascimento Brito | DF |
+| 7 | Gabriela Torres Souza | BA |
+| 8 | Henrique Lima Cardoso | CE |
+| 9 | Isabela Martins Gomes | PA |
+| 10 | João Pedro Araújo | PE |
+
+### Comportamento nos testes
+
+Nos testes automatizados o Flyway fica **desabilitado** (`spring.flyway.enabled=false` em `src/test/resources/application.properties`). O banco H2 em memória é gerenciado pelo Hibernate com `ddl-auto=create-drop`, garantindo isolamento e idempotência dos testes.
 
 ---
 
