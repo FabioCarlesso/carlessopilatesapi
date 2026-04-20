@@ -11,6 +11,7 @@ API REST para gestão de pacientes do estúdio Carlesso Pilates, desenvolvida co
 | Spring Data JPA | 3.4.5 |
 | Spring Validation | 3.4.5 |
 | PostgreSQL | 16 |
+| Flyway | (via spring-boot-starter-parent) |
 | springdoc-openapi | 2.8.3 |
 | Maven | 3.9 |
 | Docker / Docker Compose | - |
@@ -23,24 +24,30 @@ API REST para gestão de pacientes do estúdio Carlesso Pilates, desenvolvida co
 
 ```
 src/
-├── main/java/com/carlesso/pilatesapi/
-│   ├── config/
-│   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
-│   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
-│   ├── controller/
-│   │   └── PacienteController.java      # Endpoints REST
-│   ├── service/
-│   │   └── PacienteService.java         # Regras de negócio
-│   ├── repository/
-│   │   └── PacienteRepository.java      # Acesso ao banco
-│   ├── entity/
-│   │   ├── Paciente.java                # Entidade JPA
-│   │   └── Endereco.java                # Embeddable de endereço
-│   └── dto/
-│       ├── PacienteRequestDTO.java      # Payload de criação
-│       ├── PacienteUpdateDTO.java       # Payload de atualização
-│       ├── PacienteResponseDTO.java     # Resposta da API
-│       └── EnderecoDTO.java             # DTO de endereço
+├── main/
+│   ├── java/com/carlesso/pilatesapi/
+│   │   ├── config/
+│   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
+│   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   ├── controller/
+│   │   │   └── PacienteController.java      # Endpoints REST
+│   │   ├── service/
+│   │   │   └── PacienteService.java         # Regras de negócio
+│   │   ├── repository/
+│   │   │   └── PacienteRepository.java      # Acesso ao banco
+│   │   ├── entity/
+│   │   │   ├── Paciente.java                # Entidade JPA
+│   │   │   └── Endereco.java                # Embeddable de endereço
+│   │   └── dto/
+│   │       ├── PacienteRequestDTO.java      # Payload de criação
+│   │       ├── PacienteUpdateDTO.java       # Payload de atualização
+│   │       ├── PacienteResponseDTO.java     # Resposta da API
+│   │       └── EnderecoDTO.java             # DTO de endereço
+│   └── resources/
+│       ├── application.properties
+│       └── db/migration/
+│           ├── V1__create_pacientes_table.sql  # Criação da tabela pacientes
+│           └── V2__insert_pacientes_teste.sql  # Carga inicial com 10 pacientes de teste
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java  # Context load test
     ├── service/
@@ -208,6 +215,19 @@ Com a aplicação rodando, acesse:
 |---|---|
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | OpenAPI JSON | http://localhost:8080/api-docs |
+
+---
+
+## Migrações de banco (Flyway)
+
+O projeto utiliza **Flyway** para versionamento e execução automática das migrações de banco de dados. As migrações ficam em `src/main/resources/db/migration/` e são aplicadas na ordem de versão ao subir a aplicação.
+
+| Arquivo | Descrição |
+|---|---|
+| `V1__create_pacientes_table.sql` | Criação da tabela `pacientes` com todos os campos e constraints |
+| `V2__insert_pacientes_teste.sql` | Carga inicial com 10 pacientes de teste de diferentes estados do Brasil |
+
+> Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
 ---
 
