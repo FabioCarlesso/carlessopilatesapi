@@ -68,7 +68,8 @@ Base URL: `http://localhost:8080`
 | `GET` | `/pacientes` | Listar pacientes ativos (paginado) |
 | `GET` | `/pacientes/{id}` | Buscar paciente por ID |
 | `PUT` | `/pacientes/{id}` | Atualizar dados do paciente |
-| `DELETE` | `/pacientes/{id}` | Inativar paciente (soft delete) |
+| `PATCH` | `/pacientes/{id}/ativar` | Reativar paciente |
+| `PATCH` | `/pacientes/{id}/inativar` | Inativar paciente (soft delete) |
 
 ### Paginação
 
@@ -283,9 +284,14 @@ curl -s -X PUT http://localhost:8080/pacientes/1 \
   -d '{"telefone": "(11) 99999-0000"}' | jq
 ```
 
+### Ativar paciente
+```bash
+curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -w "%{http_code}"
+```
+
 ### Inativar paciente
 ```bash
-curl -s -X DELETE http://localhost:8080/pacientes/1 -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 ```
 
 ---
@@ -322,4 +328,5 @@ Os testes de serviço e controller não necessitam de banco de dados. O `@Spring
 - `GET /pacientes` — 200 com página, página vazia
 - `GET /pacientes/{id}` — 200 encontrado, 404 com mensagem de erro
 - `PUT /pacientes/{id}` — 200 com dados atualizados, 404
-- `DELETE /pacientes/{id}` — 204 sem corpo, 404
+- `PATCH /pacientes/{id}/ativar` — 204 sem corpo, 404
+- `PATCH /pacientes/{id}/inativar` — 204 sem corpo, 404

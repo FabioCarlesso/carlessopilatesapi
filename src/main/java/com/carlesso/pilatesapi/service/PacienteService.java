@@ -71,6 +71,12 @@ public class PacienteService {
     }
 
     @Transactional
+    public void ativar(Long id) {
+        Paciente paciente = encontrar(id);
+        paciente.setAtivo(true);
+    }
+
+    @Transactional
     public void inativar(Long id) {
         Paciente paciente = encontrar(id);
         paciente.setAtivo(false);

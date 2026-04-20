@@ -91,6 +91,21 @@ public class PacienteController {
     }
 
     @Operation(
+            summary = "Ativar paciente",
+            description = "Reativa um paciente previamente inativado, definindo ativo = true."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Paciente ativado com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+    })
+    @PatchMapping("/{id}/ativar")
+    public ResponseEntity<Void> ativar(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long id) {
+        service.ativar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
             summary = "Inativar paciente",
             description = "Realiza soft delete do paciente, marcando-o como inativo. O registro não é removido do banco de dados."
     )
@@ -98,7 +113,7 @@ public class PacienteController {
             @ApiResponse(responseCode = "204", description = "Paciente inativado com sucesso"),
             @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
-    @DeleteMapping("/{id}")
+    @PatchMapping("/{id}/inativar")
     public ResponseEntity<Void> inativar(
             @Parameter(description = "ID do paciente", required = true) @PathVariable Long id) {
         service.inativar(id);
