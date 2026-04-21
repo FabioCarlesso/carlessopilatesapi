@@ -79,7 +79,8 @@ O endereço é um `@Embeddable` (`Endereco`), suas colunas ficam diretamente na 
 | GET | `/pacientes` | Listar ativos (paginado) | 200 + Page |
 | GET | `/pacientes/{id}` | Buscar por ID | 200 / 404 |
 | PUT | `/pacientes/{id}` | Atualização parcial | 200 / 404 |
-| DELETE | `/pacientes/{id}` | Soft delete (inativar) | 204 / 404 |
+| PATCH | `/pacientes/{id}/ativar` | Reativar paciente | 204 / 404 |
+| PATCH | `/pacientes/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
 
 Campos obrigatórios no cadastro: `nome`, `email`, `cpf`.  
 CPF não pode ser alterado após o cadastro.  

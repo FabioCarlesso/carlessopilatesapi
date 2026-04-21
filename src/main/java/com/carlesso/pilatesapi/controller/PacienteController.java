@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -55,7 +56,7 @@ public class PacienteController {
     })
     @GetMapping
     public ResponseEntity<Page<PacienteResponseDTO>> listar(
-            @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
+            @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
     }
 
@@ -90,6 +91,21 @@ public class PacienteController {
     }
 
     @Operation(
+            summary = "Ativar paciente",
+            description = "Reativa um paciente previamente inativado, definindo ativo = true."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Paciente ativado com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+    })
+    @PatchMapping("/{id}/ativar")
+    public ResponseEntity<Void> ativar(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long id) {
+        service.ativar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
             summary = "Inativar paciente",
             description = "Realiza soft delete do paciente, marcando-o como inativo. O registro não é removido do banco de dados."
     )
@@ -97,7 +113,7 @@ public class PacienteController {
             @ApiResponse(responseCode = "204", description = "Paciente inativado com sucesso"),
             @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
-    @DeleteMapping("/{id}")
+    @PatchMapping("/{id}/inativar")
     public ResponseEntity<Void> inativar(
             @Parameter(description = "ID do paciente", required = true) @PathVariable Long id) {
         service.inativar(id);

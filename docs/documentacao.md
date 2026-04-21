@@ -417,18 +417,41 @@ GET /pacientes/1
 
 ---
 
-### 5.5 Inativar Paciente
+### 5.5 Ativar Paciente
 
 | | |
 |---|---|
-| **Método** | `DELETE` |
-| **Rota** | `/pacientes/{id}` |
+| **Método** | `PATCH` |
+| **Rota** | `/pacientes/{id}/ativar` |
+| **Descrição** | Reativa um paciente previamente inativado, definindo `ativo = true`. |
+
+**Exemplo:**
+
+```
+PATCH /pacientes/1/ativar
+```
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `204` | Paciente ativado com sucesso |
+| `404` | Paciente não encontrado |
+
+---
+
+### 5.6 Inativar Paciente
+
+| | |
+|---|---|
+| **Método** | `PATCH` |
+| **Rota** | `/pacientes/{id}/inativar` |
 | **Descrição** | Realiza **soft delete**: marca o paciente como inativo (`ativo = false`). O registro permanece no banco. |
 
 **Exemplo:**
 
 ```
-DELETE /pacientes/1
+PATCH /pacientes/1/inativar
 ```
 
 **Códigos de resposta:**
@@ -624,10 +647,17 @@ curl -s -X PUT http://localhost:8080/pacientes/1 \
   -d '{"telefone": "(11) 99999-0000"}' | jq
 ```
 
+### Ativar paciente
+
+```bash
+curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -o /dev/null -w "%{http_code}"
+# Retorna: 204
+```
+
 ### Inativar paciente
 
 ```bash
-curl -s -X DELETE http://localhost:8080/pacientes/1 -o /dev/null -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{http_code}"
 # Retorna: 204
 ```
 
@@ -693,7 +723,8 @@ Usa `@WebMvcTest(PacienteController.class)` — carrega apenas a camada web. O `
 | `GET /pacientes` | 200 com página de resultados, 200 com página vazia |
 | `GET /pacientes/{id}` | 200 com dados, 404 com mensagem de erro |
 | `PUT /pacientes/{id}` | 200 com dados atualizados, 404 |
-| `DELETE /pacientes/{id}` | 204 sem corpo, 404 |
+| `PATCH /pacientes/{id}/ativar` | 204 sem corpo, 404 |
+| `PATCH /pacientes/{id}/inativar` | 204 sem corpo, 404 |
 
 **Integração (`PilatesApiApplicationTests`)**
 
