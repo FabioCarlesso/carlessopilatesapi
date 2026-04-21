@@ -4,7 +4,7 @@
 
 A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes, com dados de endereço embutidos e paginação nas listagens.
 
-A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, conta com documentação interativa via **Swagger UI** e possui suíte de testes cobrindo as camadas de serviço e controller.
+A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com documentação interativa via **Swagger UI**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
 
 ---
 
@@ -18,6 +18,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Spring Validation | 3.4.5 | Validação de entrada |
 | PostgreSQL | 16 | Banco de dados relacional |
 | Flyway | (via spring-boot-starter-parent) | Versionamento e migração de schema do banco |
+| Spring Scheduler | (via spring-boot-starter) | Processos automáticos agendados |
 | springdoc-openapi | 2.8.3 | Documentação Swagger/OpenAPI |
 | Maven | 3.9 | Build e gerenciamento de dependências |
 | Docker | - | Containerização |
@@ -70,22 +71,99 @@ src/
 │   │       ├── PacienteUpdateDTO.java       # Payload de atualização
 │   │       ├── PacienteResponseDTO.java     # Resposta da API
 │   │       └── EnderecoDTO.java             # DTO de endereço
+│   ├── java/com/carlesso/pilatesapi/
+│   │   ├── entity/enums/
+│   │   │   ├── TipoPagamento.java
+│   │   │   ├── FrequenciaSemanal.java
+│   │   │   └── StatusPagamento.java
+│   │   ├── entity/
+│   │   │   ├── Plano.java
+│   │   │   ├── Pagamento.java
+│   │   │   └── Aula.java
+│   │   ├── service/
+│   │   │   ├── PlanoService.java
+│   │   │   ├── PagamentoService.java
+│   │   │   └── AulaService.java
+│   │   ├── controller/
+│   │   │   ├── PlanoController.java
+│   │   │   ├── PagamentoController.java
+│   │   │   └── AulaController.java
+│   │   └── scheduler/
+│   │       └── CobrancaScheduler.java
 │   └── resources/
 │       ├── application.properties
 │       └── db/migration/
-│           ├── V1__create_pacientes_table.sql  # Criação da tabela pacientes
-│           └── V2__insert_pacientes_teste.sql  # Carga inicial com 10 pacientes de teste
+│           ├── V1__create_pacientes_table.sql
+│           ├── V2__insert_pacientes_teste.sql
+│           ├── V3__create_planos_table.sql
+│           ├── V4__create_pagamentos_table.sql
+│           └── V5__create_aulas_table.sql
 └── test/java/com/carlesso/pilatesapi/
-    ├── PilatesApiApplicationTests.java  # Context load test
+    ├── PilatesApiApplicationTests.java
     ├── service/
-    │   └── PacienteServiceTest.java     # Testes unitários do serviço (11 casos)
+    │   ├── PacienteServiceTest.java      # 11 casos
+    │   ├── PlanoServiceTest.java         # 8 casos
+    │   ├── PagamentoServiceTest.java     # 8 casos
+    │   └── AulaServiceTest.java          # 8 casos
     └── controller/
-        └── PacienteControllerTest.java  # Testes de controller com MockMvc (13 casos)
+        ├── PacienteControllerTest.java   # 13 casos
+        ├── PlanoControllerTest.java      # 11 casos
+        ├── PagamentoControllerTest.java  # 9 casos
+        └── AulaControllerTest.java       # 7 casos
 ```
 
 ---
 
-## 4. Modelo de Dados
+## 4. Regras de Negócio
+
+### 4.1 Pacientes
+- Um paciente pode ter **apenas um plano ativo** por vez
+- Pacientes com `ativo = false` não podem receber novas cobranças nem ter aulas geradas
+
+### 4.2 Planos de Pagamento
+
+| Tipo | Duração |
+|---|---|
+| `MENSAL` | 1 mês |
+| `TRIMESTRAL` | 3 meses |
+| `ANUAL` | 12 meses |
+
+- A quantidade de dias da semana selecionados deve corresponder à frequência (ex: `DUAS_VEZES` → exatamente 2 dias)
+- Ao criar um novo plano para o paciente, o plano ativo anterior é automaticamente inativado
+- Alterações de plano valem apenas para os próximos ciclos
+
+### 4.3 Frequência de Aulas
+
+| Enum | Vezes/semana | Aulas/mês (referência) |
+|---|---|---|
+| `UMA_VEZ` | 1 | 4 |
+| `DUAS_VEZES` | 2 | 8 |
+| `TRES_VEZES` | 3 | 12 |
+
+### 4.4 Pagamentos
+
+- Status possíveis: `PENDENTE` → `PAGO` ou `VENCIDO`
+- O valor pago não pode ser menor que o valor do plano
+- Não pode haver dois pagamentos para o mesmo plano no mesmo `periodoInicio`
+- Ao confirmar como `PAGO`, as aulas do período são geradas automaticamente
+- Pagamentos `VENCIDO` bloqueiam geração de novas aulas (via scheduler)
+
+### 4.5 Geração de Aulas
+
+- Aulas são geradas a partir dos dias da semana definidos no plano, percorrendo dia a dia entre `periodoInicio` e `periodoFim`
+- Não gera aulas duplicadas: se o paciente já tiver aula naquela data, ela é ignorada
+- Requer: paciente ativo + pagamento com status `PAGO`
+
+### 4.6 Processos Automáticos (Scheduler)
+
+| Cron | Ação |
+|---|---|
+| `0 0 6 * * *` (06:00) | Marca como `VENCIDO` todos os pagamentos `PENDENTE` com `dataVencimento` anterior à data atual |
+| `0 0 7 * * *` (07:00) | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual |
+
+---
+
+## 5. Modelo de Dados
 
 ### Entidade: Paciente
 
@@ -116,7 +194,62 @@ Armazenada nas colunas da própria tabela `pacientes`.
 
 ---
 
-## 5. Endpoints
+### Entidade: Plano
+
+Tabela: `planos`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, auto-increment | Identificador único |
+| `paciente_id` | `BIGINT` | NOT NULL, FK | Paciente vinculado |
+| `tipo` | `VARCHAR(20)` | NOT NULL | MENSAL / TRIMESTRAL / ANUAL |
+| `valor` | `DECIMAL(10,2)` | NOT NULL | Valor do plano |
+| `frequencia_semanal` | `VARCHAR(20)` | NOT NULL | UMA_VEZ / DUAS_VEZES / TRES_VEZES |
+| `data_inicio` | `DATE` | NOT NULL | Data de início do plano |
+| `ativo` | `BOOLEAN` | NOT NULL, default `true` | Status do plano |
+
+Tabela de join: `plano_dias_semana`
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `plano_id` | `BIGINT` | FK para planos |
+| `dia_semana` | `VARCHAR(15)` | Dia da semana (MONDAY, TUESDAY…) |
+
+### Entidade: Pagamento
+
+Tabela: `pagamentos`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK | Identificador único |
+| `paciente_id` | `BIGINT` | NOT NULL, FK | Paciente vinculado |
+| `plano_id` | `BIGINT` | NOT NULL, FK | Plano vinculado |
+| `valor` | `DECIMAL(10,2)` | NOT NULL | Valor pago |
+| `status` | `VARCHAR(20)` | NOT NULL | PENDENTE / PAGO / VENCIDO |
+| `data_pagamento` | `DATE` | nullable | Data de confirmação do pagamento |
+| `data_vencimento` | `DATE` | NOT NULL | Prazo limite para pagamento |
+| `periodo_inicio` | `DATE` | NOT NULL | Início do período cobrado |
+| `periodo_fim` | `DATE` | NOT NULL | Fim do período cobrado |
+
+Constraint: `UNIQUE (plano_id, periodo_inicio)`
+
+### Entidade: Aula
+
+Tabela: `aulas`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK | Identificador único |
+| `paciente_id` | `BIGINT` | NOT NULL, FK | Paciente vinculado |
+| `pagamento_id` | `BIGINT` | NOT NULL, FK | Pagamento que gerou a aula |
+| `data` | `DATE` | NOT NULL | Data da aula |
+| `realizada` | `BOOLEAN` | NOT NULL, default `false` | Presença confirmada |
+
+Constraint: `UNIQUE (paciente_id, data)`
+
+---
+
+## 6. Endpoints
 
 **Base URL:** `http://localhost:8080`
 
@@ -330,7 +463,7 @@ PATCH /pacientes/1/inativar
 
 ---
 
-## 6. Documentação Interativa
+## 7. Documentação Interativa
 
 Com a aplicação rodando, acesse o Swagger UI para explorar e testar os endpoints diretamente pelo navegador:
 
@@ -341,7 +474,7 @@ Com a aplicação rodando, acesse o Swagger UI para explorar e testar os endpoin
 
 ---
 
-## 7. Configuração
+## 8. Configuração
 
 ### Variáveis de ambiente
 
@@ -374,7 +507,7 @@ springdoc.api-docs.path=/api-docs
 
 ---
 
-## 7.1 Migrações de Banco (Flyway)
+## 8.1 Migrações de Banco (Flyway)
 
 O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, seguindo a ordem das versões. Os arquivos ficam em `src/main/resources/db/migration/`.
 
@@ -412,7 +545,7 @@ Nos testes automatizados o Flyway fica **desabilitado** (`spring.flyway.enabled=
 
 ---
 
-## 8. Como Rodar
+## 9. Como Rodar
 
 ### Opção A — Docker Compose (recomendado)
 
@@ -470,7 +603,7 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 
 ---
 
-## 9. Exemplos com curl
+## 10. Exemplos com curl
 
 ### Cadastrar paciente
 
@@ -530,7 +663,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{h
 
 ---
 
-## 10. Infraestrutura Docker
+## 11. Infraestrutura Docker
 
 ### Dockerfile (multi-stage build)
 
@@ -550,16 +683,22 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ---
 
-## 11. Testes
+## 12. Testes
 
 ### Visão geral
 
-A suíte de testes possui **25 casos** distribuídos em três classes:
+A suíte de testes possui **76 casos** distribuídos em nove classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
-| `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 11 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest` + MockMvc) | 13 |
+| `PacienteServiceTest` | Unitário (Mockito) | 11 |
+| `PlanoServiceTest` | Unitário (Mockito) | 8 |
+| `PagamentoServiceTest` | Unitário (Mockito) | 8 |
+| `AulaServiceTest` | Unitário (Mockito) | 8 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 13 |
+| `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
+| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 
 ### Estratégia por camada
@@ -602,7 +741,7 @@ Saída esperada:
 Tests run: 11 — PacienteServiceTest
 Tests run: 13 — PacienteControllerTest
 Tests run:  1 — PilatesApiApplicationTests
-Tests run: 25, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 76, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
 

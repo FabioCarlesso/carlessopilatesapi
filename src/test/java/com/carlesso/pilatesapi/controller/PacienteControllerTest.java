@@ -129,7 +129,7 @@ class PacienteControllerTest {
         mvc.perform(get("/pacientes"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nome").value("Maria Souza"))
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$.page.totalElements").value(1));
     }
 
     @Test
@@ -138,7 +138,7 @@ class PacienteControllerTest {
 
         mvc.perform(get("/pacientes"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.page.totalElements").value(0))
                 .andExpect(jsonPath("$.content").isEmpty());
     }
 
@@ -197,14 +197,14 @@ class PacienteControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // DELETE /pacientes/{id}
+    // PATCH /pacientes/{id}/inativar e /ativar
     // -------------------------------------------------------------------------
 
     @Test
     void inativar_deveRetornar204SemCorpo() throws Exception {
         doNothing().when(service).inativar(1L);
 
-        mvc.perform(delete("/pacientes/1"))
+        mvc.perform(patch("/pacientes/1/inativar"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
     }
@@ -214,7 +214,25 @@ class PacienteControllerTest {
         doThrow(new EntityNotFoundException("Paciente não encontrado: 99"))
                 .when(service).inativar(99L);
 
-        mvc.perform(delete("/pacientes/99"))
+        mvc.perform(patch("/pacientes/99/inativar"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void ativar_deveRetornar204SemCorpo() throws Exception {
+        doNothing().when(service).ativar(1L);
+
+        mvc.perform(patch("/pacientes/1/ativar"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void ativar_quandoNaoExistente_deveRetornar404() throws Exception {
+        doThrow(new EntityNotFoundException("Paciente não encontrado: 99"))
+                .when(service).ativar(99L);
+
+        mvc.perform(patch("/pacientes/99/ativar"))
                 .andExpect(status().isNotFound());
     }
 }
