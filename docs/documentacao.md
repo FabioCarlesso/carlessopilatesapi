@@ -97,7 +97,9 @@ src/
 │           ├── V2__insert_pacientes_teste.sql
 │           ├── V3__create_planos_table.sql
 │           ├── V4__create_pagamentos_table.sql
-│           └── V5__create_aulas_table.sql
+│           ├── V5__create_aulas_table.sql
+│           ├── V6__create_profissionais_table.sql
+│           └── V7__insert_profissionais_teste.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── service/
@@ -249,11 +251,34 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 ---
 
+### 5.2 Cadastrar Profissional
+
+| | |
+|---|---|
+| **Método** | `POST` |
+| **Endpoint** | `/profissionais` |
+| **Descrição** | Cadastra profissional com percentual de pagamento por aula. |
+
+**Exemplo de payload**
+
+```json
+{
+  "nome": "Paula Mendes",
+  "email": "paula.mendes@carlessopilates.com",
+  "cpf": "123.456.111-00",
+  "telefone": "(11) 98888-1111",
+  "tipoContrato": "PJ",
+  "percentualPagamentoAula": 45.00,
+  "dataInicio": "2024-01-15"
+}
+```
+
 ## 6. Endpoints
 
 **Base URL:** `http://localhost:8080`
 
 ### 5.1 Cadastrar Paciente
+
 
 | | |
 |---|---|

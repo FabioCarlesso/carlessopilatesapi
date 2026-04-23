@@ -70,7 +70,9 @@ src/
 │           ├── V2__insert_pacientes_teste.sql
 │           ├── V3__create_planos_table.sql
 │           ├── V4__create_pagamentos_table.sql
-│           └── V5__create_aulas_table.sql
+│           ├── V5__create_aulas_table.sql
+│           ├── V6__create_profissionais_table.sql
+│           └── V7__insert_profissionais_teste.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── service/
@@ -101,6 +103,18 @@ Base URL: `http://localhost:8080`
 | `PUT` | `/pacientes/{id}` | Atualizar dados do paciente |
 | `PATCH` | `/pacientes/{id}/ativar` | Reativar paciente |
 | `PATCH` | `/pacientes/{id}/inativar` | Inativar paciente (soft delete) |
+
+
+### Profissionais
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/profissionais` | Cadastrar novo profissional |
+| `GET` | `/profissionais` | Listar profissionais ativos (paginado) |
+| `GET` | `/profissionais/{id}` | Buscar profissional por ID |
+| `PUT` | `/profissionais/{id}` | Atualizar dados do profissional |
+| `PATCH` | `/profissionais/{id}/ativar` | Reativar profissional |
+| `PATCH` | `/profissionais/{id}/inativar` | Inativar profissional (soft delete) |
 
 ### Planos de Pagamento
 
@@ -163,6 +177,23 @@ GET /pacientes?page=0&size=10&sort=nome,asc
 ```
 
 > Campos obrigatórios: `nome`, `email`, `cpf`
+
+
+### POST /profissionais — corpo da requisição
+
+```json
+{
+  "nome": "Paula Mendes",
+  "email": "paula.mendes@carlessopilates.com",
+  "cpf": "123.456.111-00",
+  "telefone": "(11) 98888-1111",
+  "tipoContrato": "PJ",
+  "percentualPagamentoAula": 45.00,
+  "dataInicio": "2024-01-15"
+}
+```
+
+> Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`
 
 ### PUT /pacientes/{id} — corpo da requisição
 
@@ -360,6 +391,18 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 ### Pacientes
 - Um paciente pode ter **apenas um plano ativo** por vez
 - Pacientes **inativos** não recebem novas cobranças nem têm aulas geradas
+
+
+### Profissionais
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/profissionais` | Cadastrar novo profissional |
+| `GET` | `/profissionais` | Listar profissionais ativos (paginado) |
+| `GET` | `/profissionais/{id}` | Buscar profissional por ID |
+| `PUT` | `/profissionais/{id}` | Atualizar dados do profissional |
+| `PATCH` | `/profissionais/{id}/ativar` | Reativar profissional |
+| `PATCH` | `/profissionais/{id}/inativar` | Inativar profissional (soft delete) |
 
 ### Planos de Pagamento
 - Tipos: `MENSAL`, `TRIMESTRAL`, `ANUAL`
