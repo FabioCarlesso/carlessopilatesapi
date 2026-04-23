@@ -249,29 +249,23 @@ Tabela: `aulas`
 
 Constraint: `UNIQUE (paciente_id, data)`
 
+### Entidade: Profissional
+
+Tabela: `profissionais`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, auto-increment | Identificador único |
+| `nome` | `VARCHAR` | NOT NULL | Nome completo |
+| `email` | `VARCHAR` | NOT NULL, UNIQUE | Endereço de e-mail |
+| `cpf` | `VARCHAR` | NOT NULL, UNIQUE | CPF do profissional |
+| `telefone` | `VARCHAR` | — | Telefone de contato |
+| `tipo_contrato` | `VARCHAR(30)` | NOT NULL | CLT / PJ / AUTONOMO |
+| `percentual_pagamento_aula` | `NUMERIC(3,2)` | NOT NULL | Percentual por aula (0.01–1.00) |
+| `data_inicio` | `DATE` | NOT NULL | Data de início do contrato |
+| `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o profissional está ativo |
+
 ---
-
-### 5.2 Cadastrar Profissional
-
-| | |
-|---|---|
-| **Método** | `POST` |
-| **Endpoint** | `/profissionais` |
-| **Descrição** | Cadastra profissional com percentual de pagamento por aula. |
-
-**Exemplo de payload**
-
-```json
-{
-  "nome": "Paula Mendes",
-  "email": "paula.mendes@carlessopilates.com",
-  "cpf": "123.456.111-00",
-  "telefone": "(11) 98888-1111",
-  "tipoContrato": "PJ",
-  "percentualPagamentoAula": 45.00,
-  "dataInicio": "2024-01-15"
-}
-```
 
 ## 6. Endpoints
 
@@ -485,6 +479,127 @@ PATCH /pacientes/1/inativar
 |---|---|
 | `204` | Paciente inativado com sucesso |
 | `404` | Paciente não encontrado |
+
+---
+
+## 6.7 Endpoints Profissionais
+
+### 6.7.1 Cadastrar Profissional
+
+| | |
+|---|---|
+| **Método** | `POST` |
+| **Rota** | `/profissionais` |
+| **Descrição** | Registra um novo profissional. Retorna `201 Created` com o header `Location` apontando para o recurso. |
+
+**Corpo da requisição:**
+
+```json
+{
+  "nome": "Paula Mendes",
+  "email": "paula.mendes@carlessopilates.com",
+  "cpf": "123.456.111-00",
+  "telefone": "(11) 98888-1111",
+  "tipoContrato": "PJ",
+  "percentualPagamentoAula": 0.45,
+  "dataInicio": "2024-01-15"
+}
+```
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `201` | Profissional cadastrado com sucesso |
+| `400` | Dados inválidos ou campos obrigatórios ausentes |
+| `409` | E-mail ou CPF já cadastrado |
+
+---
+
+### 6.7.2 Listar Profissionais Ativos
+
+| | |
+|---|---|
+| **Método** | `GET` |
+| **Rota** | `/profissionais` |
+| **Descrição** | Retorna uma página de profissionais ativos. Suporta `page`, `size` e `sort`. |
+
+**Exemplo:** `GET /profissionais?page=0&size=10&sort=nome`
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `200` | Lista retornada com sucesso |
+
+---
+
+### 6.7.3 Buscar Profissional por ID
+
+| | |
+|---|---|
+| **Método** | `GET` |
+| **Rota** | `/profissionais/{id}` |
+| **Descrição** | Retorna os dados completos de um profissional pelo ID. |
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `200` | Profissional encontrado |
+| `404` | Profissional não encontrado |
+
+---
+
+### 6.7.4 Atualizar Profissional
+
+| | |
+|---|---|
+| **Método** | `PUT` |
+| **Rota** | `/profissionais/{id}` |
+| **Descrição** | Atualiza os dados de um profissional. Apenas os campos enviados serão alterados. |
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `200` | Profissional atualizado com sucesso |
+| `400` | Dados inválidos |
+| `404` | Profissional não encontrado |
+
+---
+
+### 6.7.5 Ativar Profissional
+
+| | |
+|---|---|
+| **Método** | `PATCH` |
+| **Rota** | `/profissionais/{id}/ativar` |
+| **Descrição** | Reativa um profissional previamente inativado (`ativo = true`). |
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `204` | Profissional ativado com sucesso |
+| `404` | Profissional não encontrado |
+
+---
+
+### 6.7.6 Inativar Profissional
+
+| | |
+|---|---|
+| **Método** | `PATCH` |
+| **Rota** | `/profissionais/{id}/inativar` |
+| **Descrição** | Realiza **soft delete**: marca o profissional como inativo (`ativo = false`). O registro permanece no banco. |
+
+**Códigos de resposta:**
+
+| Código | Situação |
+|---|---|
+| `204` | Profissional inativado com sucesso |
+| `404` | Profissional não encontrado |
 
 ---
 

@@ -8,4 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProfissionalRepository extends JpaRepository<Profissional, Long> {
 
     Page<Profissional> findAllByAtivoTrue(Pageable pageable);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByCpf(String cpf);
 }

@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.controller;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.service.ProfissionalService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,6 +23,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -40,13 +42,13 @@ class ProfissionalControllerTest {
 
     private ProfissionalResponseDTO response() {
         return new ProfissionalResponseDTO(1L, "Paula Mendes", "paula@email.com", "12345678900", "11999999999",
-                "PJ", new BigDecimal("45.00"), LocalDate.of(2024, 1, 15), true);
+                TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15), true);
     }
 
     @Test
     void cadastrar_deveRetornar201() throws Exception {
         var request = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900", "11999999999",
-                "PJ", new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+                TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
         when(service.cadastrar(any())).thenReturn(response());
 
         mvc.perform(post("/profissionais")
@@ -54,7 +56,8 @@ class ProfissionalControllerTest {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
-                .andExpect(jsonPath("$.nome").value("Paula Mendes"));
+                .andExpect(jsonPath("$.nome").value("Paula Mendes"))
+                .andExpect(jsonPath("$.tipoContrato").value("PJ"));
     }
 
     @Test
@@ -63,22 +66,34 @@ class ProfissionalControllerTest {
 
         mvc.perform(get("/profissionais"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].tipoContrato").value("PJ"));
+                .andExpect(jsonPath("$.content[0].tipoContrato").value("PJ"))
+                .andExpect(jsonPath("$.page.totalElements").value(1));
     }
 
     @Test
-    void buscar_naoEncontrado_deveRetornar404() throws Exception {
+    void buscar_quandoExistente_deveRetornar200() throws Exception {
+        when(service.buscarPorId(1L)).thenReturn(response());
+
+        mvc.perform(get("/profissionais/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.cpf").value("12345678900"));
+    }
+
+    @Test
+    void buscar_quandoNaoExistente_deveRetornar404() throws Exception {
         when(service.buscarPorId(eq(99L))).thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
 
         mvc.perform(get("/profissionais/99"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Profissional não encontrado: 99"));
     }
 
     @Test
     void atualizar_deveRetornar200() throws Exception {
         var update = new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null);
         when(service.atualizar(eq(1L), any())).thenReturn(new ProfissionalResponseDTO(1L, "Novo Nome", "paula@email.com",
-                "12345678900", "11999999999", "PJ", new BigDecimal("45.00"), LocalDate.of(2024, 1, 15), true));
+                "12345678900", "11999999999", TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15), true));
 
         mvc.perform(put("/profissionais/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -88,10 +103,49 @@ class ProfissionalControllerTest {
     }
 
     @Test
-    void inativar_deveRetornar204() throws Exception {
+    void atualizar_quandoNaoExistente_deveRetornar404() throws Exception {
+        when(service.atualizar(eq(99L), any()))
+                .thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
+
+        mvc.perform(put("/profissionais/99")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new ProfissionalUpdateDTO("Nome", null, null, null, null, null))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void ativar_deveRetornar204SemCorpo() throws Exception {
+        doNothing().when(service).ativar(1L);
+
+        mvc.perform(patch("/profissionais/1/ativar"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void ativar_quandoNaoExistente_deveRetornar404() throws Exception {
+        doThrow(new EntityNotFoundException("Profissional não encontrado: 99"))
+                .when(service).ativar(99L);
+
+        mvc.perform(patch("/profissionais/99/ativar"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void inativar_deveRetornar204SemCorpo() throws Exception {
         doNothing().when(service).inativar(1L);
 
         mvc.perform(patch("/profissionais/1/inativar"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void inativar_quandoNaoExistente_deveRetornar404() throws Exception {
+        doThrow(new EntityNotFoundException("Profissional não encontrado: 99"))
+                .when(service).inativar(99L);
+
+        mvc.perform(patch("/profissionais/99/inativar"))
+                .andExpect(status().isNotFound());
     }
 }

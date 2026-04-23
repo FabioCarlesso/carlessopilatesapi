@@ -22,6 +22,12 @@ public class ProfissionalService {
 
     @Transactional
     public ProfissionalResponseDTO cadastrar(ProfissionalRequestDTO dto) {
+        if (repository.existsByEmail(dto.email())) {
+            throw new IllegalStateException("E-mail já cadastrado: " + dto.email());
+        }
+        if (repository.existsByCpf(dto.cpf())) {
+            throw new IllegalStateException("CPF já cadastrado: " + dto.cpf());
+        }
         Profissional profissional = new Profissional();
         profissional.setNome(dto.nome());
         profissional.setEmail(dto.email());
@@ -33,10 +39,12 @@ public class ProfissionalService {
         return ProfissionalResponseDTO.from(repository.save(profissional));
     }
 
+    @Transactional(readOnly = true)
     public Page<ProfissionalResponseDTO> listar(Pageable pageable) {
         return repository.findAllByAtivoTrue(pageable).map(ProfissionalResponseDTO::from);
     }
 
+    @Transactional(readOnly = true)
     public ProfissionalResponseDTO buscarPorId(Long id) {
         return ProfissionalResponseDTO.from(encontrar(id));
     }

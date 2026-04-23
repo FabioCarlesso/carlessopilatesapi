@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.entity;
 
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -24,10 +25,11 @@ public class Profissional {
 
     private String telefone;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String tipoContrato;
+    private TipoContrato tipoContrato;
 
-    @Column(nullable = false, precision = 5, scale = 2)
+    @Column(nullable = false, precision = 3, scale = 2)
     private BigDecimal percentualPagamentoAula;
 
     @Column(nullable = false)
@@ -40,6 +42,10 @@ public class Profissional {
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getNome() {
@@ -74,11 +80,11 @@ public class Profissional {
         this.telefone = telefone;
     }
 
-    public String getTipoContrato() {
+    public TipoContrato getTipoContrato() {
         return tipoContrato;
     }
 
-    public void setTipoContrato(String tipoContrato) {
+    public void setTipoContrato(TipoContrato tipoContrato) {
         this.tipoContrato = tipoContrato;
     }
 

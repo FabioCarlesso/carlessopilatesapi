@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.Profissional;
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,7 +12,7 @@ public record ProfissionalResponseDTO(
         String email,
         String cpf,
         String telefone,
-        String tipoContrato,
+        TipoContrato tipoContrato,
         BigDecimal percentualPagamentoAula,
         LocalDate dataInicio,
         boolean ativo

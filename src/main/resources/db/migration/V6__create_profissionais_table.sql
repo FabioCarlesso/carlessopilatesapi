@@ -5,7 +5,7 @@ CREATE TABLE profissionais (
     cpf                         VARCHAR(14)     NOT NULL UNIQUE,
     telefone                    VARCHAR(20),
     tipo_contrato               VARCHAR(30)     NOT NULL,
-    percentual_pagamento_aula   NUMERIC(5,2)    NOT NULL,
+    percentual_pagamento_aula   NUMERIC(3,2)    NOT NULL,
     data_inicio                 DATE            NOT NULL,
     ativo                       BOOLEAN         NOT NULL DEFAULT TRUE
 );
