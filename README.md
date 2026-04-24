@@ -1,6 +1,6 @@
 # Carlesso Pilates API
 
-API REST para gestão de pacientes do estúdio Carlesso Pilates, desenvolvida com Spring Boot 3 e Java 21.
+API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates, desenvolvida com Spring Boot 3 e Java 21.
 
 ## Tecnologias
 
@@ -31,36 +31,48 @@ src/
 │   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
 │   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
 │   │   ├── controller/
-│   │   │   └── PacienteController.java      # Endpoints REST
-│   │   ├── service/
-│   │   │   └── PacienteService.java         # Regras de negócio
-│   │   ├── repository/
-│   │   │   └── PacienteRepository.java      # Acesso ao banco
-│   │   ├── entity/
-│   │   │   ├── Paciente.java                # Entidade JPA
-│   │   │   └── Endereco.java                # Embeddable de endereço
-│   │   └── dto/
-│   │       ├── PacienteRequestDTO.java      # Payload de criação
-│   │       ├── PacienteUpdateDTO.java       # Payload de atualização
-│   │       ├── PacienteResponseDTO.java     # Resposta da API
-│   │       └── EnderecoDTO.java             # DTO de endereço
-│   ├── java/com/carlesso/pilatesapi/
-│   │   ├── entity/enums/
-│   │   │   ├── TipoPagamento.java           # MENSAL, TRIMESTRAL, ANUAL
-│   │   │   ├── FrequenciaSemanal.java        # UMA_VEZ, DUAS_VEZES, TRES_VEZES
-│   │   │   └── StatusPagamento.java          # PENDENTE, PAGO, VENCIDO
-│   │   ├── entity/
-│   │   │   ├── Plano.java                   # Plano de pagamento do paciente
-│   │   │   ├── Pagamento.java               # Cobrança por período
-│   │   │   └── Aula.java                    # Aula agendada (com presença)
-│   │   ├── service/
-│   │   │   ├── PlanoService.java            # Regras de plano e frequência
-│   │   │   ├── PagamentoService.java        # Cobranças, confirmação, vencimentos
-│   │   │   └── AulaService.java             # Geração e controle de aulas
-│   │   ├── controller/
+│   │   │   ├── PacienteController.java      # Endpoints REST de pacientes
+│   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
 │   │   │   ├── PlanoController.java         # /planos
 │   │   │   ├── PagamentoController.java     # /pagamentos
 │   │   │   └── AulaController.java          # /aulas
+│   │   ├── service/
+│   │   │   ├── PacienteService.java         # Regras de negócio de pacientes
+│   │   │   ├── ProfissionalService.java     # Regras de negócio de profissionais
+│   │   │   ├── PlanoService.java            # Regras de plano e frequência
+│   │   │   ├── PagamentoService.java        # Cobranças, confirmação, vencimentos
+│   │   │   └── AulaService.java             # Geração e controle de aulas
+│   │   ├── repository/
+│   │   │   ├── PacienteRepository.java      # Acesso ao banco
+│   │   │   ├── ProfissionalRepository.java  # Acesso ao banco
+│   │   │   ├── PlanoRepository.java
+│   │   │   ├── PagamentoRepository.java
+│   │   │   └── AulaRepository.java
+│   │   ├── entity/
+│   │   │   ├── Paciente.java                # Entidade JPA
+│   │   │   ├── Endereco.java                # Embeddable de endereço
+│   │   │   ├── Profissional.java            # Entidade JPA
+│   │   │   ├── Plano.java                   # Plano de pagamento do paciente
+│   │   │   ├── Pagamento.java               # Cobrança por período
+│   │   │   └── Aula.java                    # Aula agendada (com presença)
+│   │   ├── entity/enums/
+│   │   │   ├── TipoPagamento.java           # MENSAL, TRIMESTRAL, ANUAL
+│   │   │   ├── TipoContrato.java            # CLT, PJ, AUTONOMO
+│   │   │   ├── FrequenciaSemanal.java       # UMA_VEZ, DUAS_VEZES, TRES_VEZES
+│   │   │   └── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   ├── dto/
+│   │   │   ├── PacienteRequestDTO.java
+│   │   │   ├── PacienteUpdateDTO.java
+│   │   │   ├── PacienteResponseDTO.java
+│   │   │   ├── EnderecoDTO.java
+│   │   │   ├── ProfissionalRequestDTO.java
+│   │   │   ├── ProfissionalUpdateDTO.java
+│   │   │   ├── ProfissionalResponseDTO.java
+│   │   │   ├── PlanoRequestDTO.java
+│   │   │   ├── PlanoResponseDTO.java
+│   │   │   ├── PagamentoRequestDTO.java
+│   │   │   ├── PagamentoResponseDTO.java
+│   │   │   └── AulaResponseDTO.java
 │   │   └── scheduler/
 │   │       └── CobrancaScheduler.java       # Atualiza vencidos + gera cobranças futuras
 │   └── resources/
@@ -70,16 +82,21 @@ src/
 │           ├── V2__insert_pacientes_teste.sql
 │           ├── V3__create_planos_table.sql
 │           ├── V4__create_pagamentos_table.sql
-│           └── V5__create_aulas_table.sql
+│           ├── V5__create_aulas_table.sql
+│           ├── V6__create_profissionais_table.sql
+│           ├── V7__insert_profissionais_teste.sql
+│           └── V8__alter_pacientes_uf_to_varchar.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── service/
     │   ├── PacienteServiceTest.java
+    │   ├── ProfissionalServiceTest.java
     │   ├── PlanoServiceTest.java
     │   ├── PagamentoServiceTest.java
     │   └── AulaServiceTest.java
     └── controller/
         ├── PacienteControllerTest.java
+        ├── ProfissionalControllerTest.java
         ├── PlanoControllerTest.java
         ├── PagamentoControllerTest.java
         └── AulaControllerTest.java
@@ -101,6 +118,17 @@ Base URL: `http://localhost:8080`
 | `PUT` | `/pacientes/{id}` | Atualizar dados do paciente |
 | `PATCH` | `/pacientes/{id}/ativar` | Reativar paciente |
 | `PATCH` | `/pacientes/{id}/inativar` | Inativar paciente (soft delete) |
+
+### Profissionais
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/profissionais` | Cadastrar novo profissional |
+| `GET` | `/profissionais` | Listar profissionais ativos (paginado) |
+| `GET` | `/profissionais/{id}` | Buscar profissional por ID |
+| `PUT` | `/profissionais/{id}` | Atualizar dados do profissional |
+| `PATCH` | `/profissionais/{id}/ativar` | Reativar profissional |
+| `PATCH` | `/profissionais/{id}/inativar` | Inativar profissional (soft delete) |
 
 ### Planos de Pagamento
 
@@ -132,10 +160,11 @@ Base URL: `http://localhost:8080`
 
 ### Paginação
 
-O endpoint `GET /pacientes` suporta os query params padrão do Spring:
+Os endpoints de listagem suportam os query params padrão do Spring:
 
 ```
 GET /pacientes?page=0&size=10&sort=nome,asc
+GET /profissionais?page=0&size=10&sort=nome,asc
 ```
 
 ---
@@ -163,6 +192,22 @@ GET /pacientes?page=0&size=10&sort=nome,asc
 ```
 
 > Campos obrigatórios: `nome`, `email`, `cpf`
+
+### POST /profissionais — corpo da requisição
+
+```json
+{
+  "nome": "Paula Mendes",
+  "email": "paula.mendes@carlessopilates.com",
+  "cpf": "123.456.111-00",
+  "telefone": "(11) 98888-1111",
+  "tipoContrato": "PJ",
+  "percentualPagamentoAula": 45.00,
+  "dataInicio": "2024-01-15"
+}
+```
+
+> Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`
 
 ### PUT /pacientes/{id} — corpo da requisição
 
@@ -286,6 +331,12 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 |---|---|
 | `V1__create_pacientes_table.sql` | Criação da tabela `pacientes` com todos os campos e constraints |
 | `V2__insert_pacientes_teste.sql` | Carga inicial com 10 pacientes de teste de diferentes estados do Brasil |
+| `V3__create_planos_table.sql` | Criação da tabela `planos` com join table `plano_dias_semana` |
+| `V4__create_pagamentos_table.sql` | Criação da tabela `pagamentos` com constraint de unicidade `(plano_id, periodo_inicio)` |
+| `V5__create_aulas_table.sql` | Criação da tabela `aulas` com constraint de unicidade `(paciente_id, data)` |
+| `V6__create_profissionais_table.sql` | Criação da tabela `profissionais` com tipo de contrato e percentual por aula |
+| `V7__insert_profissionais_teste.sql` | Carga inicial com profissionais de teste e ajuste da coluna `percentual_pagamento_aula` |
+| `V8__alter_pacientes_uf_to_varchar.sql` | Altera coluna `uf` da tabela `pacientes` para `VARCHAR(2)` |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
@@ -361,6 +412,11 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 - Um paciente pode ter **apenas um plano ativo** por vez
 - Pacientes **inativos** não recebem novas cobranças nem têm aulas geradas
 
+### Profissionais
+- Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
+- O `percentualPagamentoAula` representa o percentual recebido por aula ministrada
+- Profissionais inativos são mantidos no banco (soft delete)
+
 ### Planos de Pagamento
 - Tipos: `MENSAL`, `TRIMESTRAL`, `ANUAL`
 - A quantidade de dias da semana selecionados deve corresponder exatamente à frequência contratada (1x, 2x ou 3x)
@@ -394,7 +450,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **76 testes** organizados em seis suítes:
+O projeto possui **96 testes** organizados em onze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -402,10 +458,12 @@ O projeto possui **76 testes** organizados em seis suítes:
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 8 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 10 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 
 ### Executar os testes
@@ -415,49 +473,3 @@ JAVA_HOME=/caminho/para/jdk21 mvn test
 ```
 
 Os testes de serviço e controller não necessitam de banco de dados. O `@SpringBootTest` usa H2 em memória automaticamente via `src/test/resources/application.properties`.
-
-### O que é testado
-
-**PlanoServiceTest** — regras de plano:
-- Criação com sucesso (frequência compatível com dias)
-- Paciente inativo bloqueia criação
-- Frequência incompatível com dias lança exceção
-- Criação de novo plano desativa o plano ativo anterior
-- Paciente não encontrado lança 404
-- Busca de plano ativo por paciente
-- Inativação de plano e tentativa de inativar já inativo
-
-**PagamentoServiceTest** — cobranças:
-- Criação com sucesso (status PENDENTE, período calculado)
-- Paciente inativo bloqueia cobrança
-- Valor abaixo do plano lança exceção
-- Duplicidade de período lança exceção
-- Paciente não encontrado lança 404
-- Confirmação muda status para PAGO e chama geração de aulas
-- Tentativa de pagar já confirmado lança exceção
-- Atualização de pagamentos vencidos
-
-**AulaServiceTest** — geração e controle de aulas:
-- Cálculo correto de aulas por frequência (fevereiro 2025: 2x semana = 8 aulas exatas)
-- Geração de datas corretas para os dias definidos
-- Não gera aulas duplicadas quando já existe registro
-- Pagamento pendente bloqueia geração
-- Paciente inativo bloqueia geração
-- Marcar aula como realizada
-- Tentativa de realizar já realizada lança exceção
-- Aula não encontrada lança 404
-
-**PacienteServiceTest** — lógica de negócio com repositório mockado:
-- `cadastrar` com e sem endereço
-- `listar` com e sem resultados
-- `buscarPorId` — encontrado e não encontrado (`EntityNotFoundException`)
-- `atualizar` — campos parciais, com endereço, não encontrado
-- `inativar` — inativação e não encontrado
-
-**PacienteControllerTest** — camada HTTP com serviço mockado:
-- `POST /pacientes` — 201, validação de `nome`/`cpf` ausentes, e-mail inválido, body vazio
-- `GET /pacientes` — 200 com página, página vazia
-- `GET /pacientes/{id}` — 200 encontrado, 404 com mensagem de erro
-- `PUT /pacientes/{id}` — 200 com dados atualizados, 404
-- `PATCH /pacientes/{id}/ativar` — 204 sem corpo, 404
-- `PATCH /pacientes/{id}/inativar` — 204 sem corpo, 404
