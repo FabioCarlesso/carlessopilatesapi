@@ -10,6 +10,7 @@ API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates,
 | Spring Boot | 3.4.5 |
 | Spring Data JPA | 3.4.5 |
 | Spring Validation | 3.4.5 |
+| Spring Boot Actuator | 3.4.5 |
 | PostgreSQL | 16 |
 | Flyway | (via spring-boot-starter-parent) |
 | springdoc-openapi | 2.8.3 |
@@ -323,6 +324,19 @@ Com a aplicação rodando, acesse:
 
 ---
 
+## Observabilidade (Actuator)
+
+O projeto expõe endpoints operacionais do Spring Boot Actuator para acompanhamento da aplicação em desenvolvimento:
+
+| Recurso | URL |
+|---|---|
+| Health | http://localhost:8080/actuator/health |
+| Info | http://localhost:8080/actuator/info |
+
+Somente `health` e `info` ficam expostos via HTTP.
+
+---
+
 ## Migrações de banco (Flyway)
 
 O projeto utiliza **Flyway** para versionamento e execução automática das migrações de banco de dados. As migrações ficam em `src/main/resources/db/migration/` e são aplicadas na ordem de versão ao subir a aplicação.
@@ -450,7 +464,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **96 testes** organizados em onze suítes:
+O projeto possui **98 testes** organizados em onze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -459,7 +473,7 @@ O projeto possui **96 testes** organizados em onze suítes:
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 8 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 10 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 13 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 15 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
