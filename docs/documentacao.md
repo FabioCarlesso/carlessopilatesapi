@@ -4,7 +4,7 @@
 
 A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes e profissionais de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
 
-A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com documentação interativa via **Swagger UI**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
+A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
 
 ---
 
@@ -16,6 +16,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Spring Boot | 3.4.5 | Framework da aplicação |
 | Spring Data JPA | 3.4.5 | Persistência e ORM |
 | Spring Validation | 3.4.5 | Validação de entrada |
+| Spring Boot Actuator | 3.4.5 | Endpoints operacionais de health e info |
 | PostgreSQL | 16 | Banco de dados relacional |
 | Flyway | (via spring-boot-starter-parent) | Versionamento e migração de schema do banco |
 | Spring Scheduler | (via spring-boot-starter) | Processos automáticos agendados |
@@ -122,7 +123,7 @@ src/
     │   ├── PagamentoServiceTest.java     # 8 casos
     │   └── AulaServiceTest.java          # 8 casos
     └── controller/
-        ├── PacienteControllerTest.java   # 13 casos
+        ├── PacienteControllerTest.java   # 15 casos
         ├── ProfissionalControllerTest.java # 10 casos
         ├── PlanoControllerTest.java      # 11 casos
         ├── PagamentoControllerTest.java  # 9 casos
@@ -512,7 +513,18 @@ Com a aplicação rodando, acesse o Swagger UI para explorar e testar os endpoin
 
 ---
 
-## 8. Configuração
+## 8. Observabilidade (Actuator)
+
+O projeto utiliza **Spring Boot Actuator** para expor endpoints operacionais. Em desenvolvimento, apenas `health` e `info` ficam disponíveis via HTTP.
+
+| Endpoint | Descrição |
+|---|---|
+| `GET /actuator/health` | Status da aplicação |
+| `GET /actuator/info` | Metadados configurados da aplicação |
+
+---
+
+## 9. Configuração
 
 ### Variáveis de ambiente
 
@@ -539,13 +551,18 @@ spring.flyway.locations=classpath:db/migration
 
 springdoc.swagger-ui.path=/swagger-ui.html
 springdoc.api-docs.path=/api-docs
+
+management.endpoints.web.exposure.include=health,info
+management.info.env.enabled=true
+info.app.name=${spring.application.name}
+info.app.description=Carlesso Pilates API
 ```
 
 > O DDL mode é `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
 
 ---
 
-## 8.1 Migrações de Banco (Flyway)
+## 9.1 Migrações de Banco (Flyway)
 
 O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, seguindo a ordem das versões. Os arquivos ficam em `src/main/resources/db/migration/`.
 
@@ -568,7 +585,7 @@ Nos testes automatizados o Flyway fica **desabilitado** (`spring.flyway.enabled=
 
 ---
 
-## 9. Como Rodar
+## 10. Como Rodar
 
 ### Opção A — Docker Compose (recomendado)
 
@@ -619,7 +636,7 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 
 ---
 
-## 10. Exemplos com curl
+## 11. Exemplos com curl
 
 ### Cadastrar paciente
 
@@ -673,7 +690,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{h
 
 ---
 
-## 11. Infraestrutura Docker
+## 12. Infraestrutura Docker
 
 ### Dockerfile (multi-stage build)
 
@@ -693,11 +710,11 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ---
 
-## 12. Testes
+## 13. Testes
 
 ### Visão geral
 
-A suíte de testes possui **96 casos** distribuídos em onze classes:
+A suíte de testes possui **98 casos** distribuídos em onze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
@@ -706,7 +723,7 @@ A suíte de testes possui **96 casos** distribuídos em onze classes:
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 8 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 13 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 15 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |

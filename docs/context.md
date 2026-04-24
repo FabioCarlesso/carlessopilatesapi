@@ -17,6 +17,7 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 | Migrações | Flyway |
 | Validação | Spring Validation (Bean Validation) |
 | Documentação | springdoc-openapi 2.8.3 (Swagger UI) |
+| Observabilidade | Spring Boot Actuator |
 | Scheduler | Spring Scheduler |
 | Build | Maven 3.9 |
 | Containerização | Docker + Docker Compose |
@@ -260,6 +261,26 @@ CPF não pode ser alterado após o cadastro.
 | API base | `http://localhost:8080` |
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 | OpenAPI JSON | `http://localhost:8080/api-docs` |
+| Actuator health | `http://localhost:8080/actuator/health` |
+| Actuator info | `http://localhost:8080/actuator/info` |
+
+### Observabilidade
+
+O projeto usa Spring Boot Actuator para endpoints operacionais. Em desenvolvimento, ficam expostos via HTTP apenas `health` e `info`.
+
+| Endpoint | Uso |
+|---|---|
+| `GET /actuator/health` | Verificar status da aplicação e componentes monitorados |
+| `GET /actuator/info` | Consultar metadados configurados da aplicação |
+
+Configurações relevantes:
+
+```properties
+management.endpoints.web.exposure.include=health,info
+management.info.env.enabled=true
+info.app.name=${spring.application.name}
+info.app.description=Carlesso Pilates API
+```
 
 ---
 
@@ -295,7 +316,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 13 |
+| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 15 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
