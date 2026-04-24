@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-API REST para gerenciar pacientes de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes, com dados de endereço embutidos e paginação nas listagens.
+API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
 
 ---
 
@@ -14,8 +14,10 @@ API REST para gerenciar pacientes de um estúdio de pilates. Permite cadastro, c
 | Framework | Spring Boot 3.4.5 |
 | Persistência | Spring Data JPA + Hibernate |
 | Banco de dados | PostgreSQL 16 |
+| Migrações | Flyway |
 | Validação | Spring Validation (Bean Validation) |
 | Documentação | springdoc-openapi 2.8.3 (Swagger UI) |
+| Scheduler | Spring Scheduler |
 | Build | Maven 3.9 |
 | Containerização | Docker + Docker Compose |
 | Testes | JUnit 5 + Mockito + MockMvc + H2 (test scope) |
@@ -30,19 +32,50 @@ com.carlesso.pilatesapi
 │   ├── GlobalExceptionHandler.java   — captura EntityNotFoundException → 404
 │   └── OpenApiConfig.java            — configuração do Swagger/OpenAPI
 ├── controller
-│   └── PacienteController.java       — endpoints REST
+│   ├── PacienteController.java       — endpoints REST de pacientes
+│   ├── ProfissionalController.java   — endpoints REST de profissionais
+│   ├── PlanoController.java          — endpoints REST de planos
+│   ├── PagamentoController.java      — endpoints REST de pagamentos
+│   └── AulaController.java           — endpoints REST de aulas
 ├── service
-│   └── PacienteService.java          — lógica de negócio
+│   ├── PacienteService.java          — lógica de negócio de pacientes
+│   ├── ProfissionalService.java      — lógica de negócio de profissionais
+│   ├── PlanoService.java             — regras de plano e frequência
+│   ├── PagamentoService.java         — cobranças, confirmação, vencimentos
+│   └── AulaService.java              — geração e controle de aulas
 ├── repository
-│   └── PacienteRepository.java       — acesso ao banco via Spring Data JPA
+│   ├── PacienteRepository.java       — acesso ao banco via Spring Data JPA
+│   ├── ProfissionalRepository.java   — acesso ao banco via Spring Data JPA
+│   ├── PlanoRepository.java
+│   ├── PagamentoRepository.java
+│   └── AulaRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
-│   └── Endereco.java                 — @Embeddable, colunas embutidas em `pacientes`
-└── dto
-    ├── PacienteRequestDTO.java       — payload de criação (record)
-    ├── PacienteUpdateDTO.java        — payload de atualização parcial (record)
-    ├── PacienteResponseDTO.java      — resposta da API (record com factory method `from`)
-    └── EnderecoDTO.java              — DTO de endereço (record)
+│   ├── Endereco.java                 — @Embeddable, colunas embutidas em `pacientes`
+│   ├── Profissional.java             — entidade JPA, tabela `profissionais`
+│   ├── Plano.java                    — entidade JPA, tabela `planos`
+│   ├── Pagamento.java                — entidade JPA, tabela `pagamentos`
+│   └── Aula.java                     — entidade JPA, tabela `aulas`
+├── entity/enums
+│   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
+│   ├── TipoContrato.java             — CLT, PJ, AUTONOMO
+│   ├── FrequenciaSemanal.java        — UMA_VEZ, DUAS_VEZES, TRES_VEZES
+│   └── StatusPagamento.java          — PENDENTE, PAGO, VENCIDO
+├── dto
+│   ├── PacienteRequestDTO.java       — payload de criação (record)
+│   ├── PacienteUpdateDTO.java        — payload de atualização parcial (record)
+│   ├── PacienteResponseDTO.java      — resposta da API (record com factory method `from`)
+│   ├── EnderecoDTO.java              — DTO de endereço (record)
+│   ├── ProfissionalRequestDTO.java   — payload de criação de profissional (record)
+│   ├── ProfissionalUpdateDTO.java    — payload de atualização de profissional (record)
+│   ├── ProfissionalResponseDTO.java  — resposta da API de profissional (record)
+│   ├── PlanoRequestDTO.java
+│   ├── PlanoResponseDTO.java
+│   ├── PagamentoRequestDTO.java
+│   ├── PagamentoResponseDTO.java
+│   └── AulaResponseDTO.java
+└── scheduler
+    └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
 ```
 
 ---
@@ -64,10 +97,66 @@ com.carlesso.pilatesapi
 | `numero` | VARCHAR | — |
 | `bairro` | VARCHAR | — |
 | `cidade` | VARCHAR | — |
-| `uf` | VARCHAR | — |
+| `uf` | VARCHAR(2) | — |
 | `cep` | VARCHAR | — |
 
 O endereço é um `@Embeddable` (`Endereco`), suas colunas ficam diretamente na tabela `pacientes`.
+
+### Tabela `profissionais`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `nome` | VARCHAR(255) | NOT NULL |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE |
+| `cpf` | VARCHAR(14) | NOT NULL, UNIQUE |
+| `telefone` | VARCHAR | — |
+| `tipo_contrato` | VARCHAR(30) | NOT NULL (`CLT`, `PJ`, `AUTONOMO`) |
+| `percentual_pagamento_aula` | NUMERIC(5,2) | NOT NULL |
+| `data_inicio` | DATE | NOT NULL |
+| `ativo` | BOOLEAN | NOT NULL, default `true` |
+
+### Tabela `planos`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → pacientes |
+| `tipo` | VARCHAR(20) | NOT NULL |
+| `valor` | DECIMAL(10,2) | NOT NULL |
+| `frequencia_semanal` | VARCHAR(20) | NOT NULL |
+| `data_inicio` | DATE | NOT NULL |
+| `ativo` | BOOLEAN | NOT NULL, default `true` |
+
+Join table `plano_dias_semana`: `plano_id` + `dia_semana` (MONDAY, TUESDAY…)
+
+### Tabela `pagamentos`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK |
+| `paciente_id` | BIGINT | NOT NULL, FK |
+| `plano_id` | BIGINT | NOT NULL, FK |
+| `valor` | DECIMAL(10,2) | NOT NULL |
+| `status` | VARCHAR(20) | NOT NULL |
+| `data_pagamento` | DATE | nullable |
+| `data_vencimento` | DATE | NOT NULL |
+| `periodo_inicio` | DATE | NOT NULL |
+| `periodo_fim` | DATE | NOT NULL |
+
+Constraint: `UNIQUE (plano_id, periodo_inicio)`
+
+### Tabela `aulas`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK |
+| `paciente_id` | BIGINT | NOT NULL, FK |
+| `pagamento_id` | BIGINT | NOT NULL, FK |
+| `data` | DATE | NOT NULL |
+| `realizada` | BOOLEAN | NOT NULL, default `false` |
+
+Constraint: `UNIQUE (paciente_id, data)`
 
 ---
 
@@ -81,21 +170,74 @@ O endereço é um `@Embeddable` (`Endereco`), suas colunas ficam diretamente na 
 | PUT | `/pacientes/{id}` | Atualização parcial | 200 / 404 |
 | PATCH | `/pacientes/{id}/ativar` | Reativar paciente | 204 / 404 |
 | PATCH | `/pacientes/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
+| POST | `/profissionais` | Cadastrar profissional | 201 + Location header |
+| GET | `/profissionais` | Listar ativos (paginado) | 200 + Page |
+| GET | `/profissionais/{id}` | Buscar por ID | 200 / 404 |
+| PUT | `/profissionais/{id}` | Atualização parcial | 200 / 404 |
+| PATCH | `/profissionais/{id}/ativar` | Reativar profissional | 204 / 404 |
+| PATCH | `/profissionais/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
+| POST | `/planos` | Criar plano para paciente | 201 |
+| GET | `/planos/{id}` | Buscar plano por ID | 200 / 404 |
+| GET | `/planos/paciente/{id}` | Listar planos do paciente | 200 |
+| GET | `/planos/paciente/{id}/ativo` | Buscar plano ativo | 200 / 404 |
+| DELETE | `/planos/{id}` | Inativar plano | 204 |
+| POST | `/pagamentos` | Criar pagamento (PENDENTE) | 201 |
+| GET | `/pagamentos/{id}` | Buscar pagamento | 200 / 404 |
+| GET | `/pagamentos/paciente/{id}` | Listar pagamentos | 200 |
+| PATCH | `/pagamentos/{id}/pagar` | Confirmar e gerar aulas | 200 |
+| GET | `/aulas/{id}` | Buscar aula | 200 / 404 |
+| GET | `/aulas/paciente/{id}` | Listar aulas do paciente | 200 |
+| GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
+| PATCH | `/aulas/{id}/realizar` | Marcar como realizada | 200 / 404 |
 
-Campos obrigatórios no cadastro: `nome`, `email`, `cpf`.  
-CPF não pode ser alterado após o cadastro.  
-A listagem filtra apenas pacientes com `ativo = true`, ordenados por `nome` por padrão.
+Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
+Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
+CPF não pode ser alterado após o cadastro.
+
+---
+
+## Regras de negócio
+
+### Pacientes
+- Apenas um plano ativo por paciente por vez
+- Pacientes inativos não recebem cobranças nem têm aulas geradas
+
+### Profissionais
+- Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
+- Soft delete mantém o registro no banco
+
+### Planos
+- Tipo determina duração: `MENSAL` (1 mês), `TRIMESTRAL` (3 meses), `ANUAL` (12 meses)
+- Dias da semana selecionados devem corresponder à frequência contratada
+- Criar novo plano inativa automaticamente o plano anterior
+
+### Pagamentos
+- Status: `PENDENTE` → `PAGO` ou `VENCIDO`
+- Valor não pode ser menor que o valor do plano
+- Sem duplicidade por período (`UNIQUE plano_id + periodo_inicio`)
+- Ao confirmar (`PAGO`), as aulas são geradas automaticamente
+
+### Aulas
+- Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`
+- Sem duplicatas: ignora datas onde o paciente já tem aula registrada
+- Requer: paciente ativo + pagamento `PAGO`
+
+### Scheduler (processos automáticos)
+| Cron | Ação |
+|---|---|
+| 06:00 todo dia | Marca como `VENCIDO` pagamentos `PENDENTE` com `dataVencimento` passada |
+| 07:00 todo dia | Gera cobranças futuras quando faltam ≤ 7 dias para o fim do período atual |
 
 ---
 
 ## Decisões de design
 
-- **Soft delete**: o `DELETE` não remove o registro — apenas seta `ativo = false`. Pacientes inativos não aparecem na listagem.
-- **Atualização parcial via PUT**: o `PacienteUpdateDTO` tem todos os campos opcionais; o service só sobrescreve o que vier não-nulo.
-- **DTOs como records**: `PacienteRequestDTO`, `PacienteUpdateDTO`, `PacienteResponseDTO` e `EnderecoDTO` são Java records.
-- **Factory method**: `PacienteResponseDTO.from(Paciente)` centraliza o mapeamento entidade → DTO.
-- **Tratamento de 404**: `GlobalExceptionHandler` (`@RestControllerAdvice`) captura `EntityNotFoundException` e retorna `{"erro": "Paciente não encontrado: <id>"}`.
-- **DDL automático**: `spring.jpa.hibernate.ddl-auto=update` — o schema é gerenciado pelo Hibernate.
+- **Soft delete**: `DELETE` não remove o registro — apenas seta `ativo = false`.
+- **Atualização parcial via PUT**: DTOs de update têm todos os campos opcionais; o service só sobrescreve os campos não-nulos.
+- **DTOs como records**: todos os DTOs de request e response são Java records.
+- **Factory method**: `*ResponseDTO.from(Entity)` centraliza o mapeamento entidade → DTO.
+- **Tratamento de 404**: `GlobalExceptionHandler` captura `EntityNotFoundException` e retorna `{"erro": "..."}`.
+- **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
 
 ---
 
@@ -149,7 +291,15 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 11 |
+| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 10 |
+| `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 13 |
+| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
+| `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
+| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 7 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 
 ```bash

@@ -2,7 +2,7 @@
 
 ## 1. Visão Geral
 
-A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes, com dados de endereço embutidos e paginação nas listagens.
+A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes e profissionais de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
 
 A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com documentação interativa via **Swagger UI**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
 
@@ -58,36 +58,48 @@ src/
 │   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
 │   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
 │   │   ├── controller/
-│   │   │   └── PacienteController.java      # Endpoints REST
+│   │   │   ├── PacienteController.java      # Endpoints REST de pacientes
+│   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
+│   │   │   ├── PlanoController.java         # /planos
+│   │   │   ├── PagamentoController.java     # /pagamentos
+│   │   │   └── AulaController.java          # /aulas
 │   │   ├── service/
-│   │   │   └── PacienteService.java         # Regras de negócio
+│   │   │   ├── PacienteService.java         # Regras de negócio de pacientes
+│   │   │   ├── ProfissionalService.java     # Regras de negócio de profissionais
+│   │   │   ├── PlanoService.java            # Regras de plano e frequência
+│   │   │   ├── PagamentoService.java        # Cobranças, confirmação, vencimentos
+│   │   │   └── AulaService.java             # Geração e controle de aulas
 │   │   ├── repository/
-│   │   │   └── PacienteRepository.java      # Acesso ao banco
+│   │   │   ├── PacienteRepository.java
+│   │   │   ├── ProfissionalRepository.java
+│   │   │   ├── PlanoRepository.java
+│   │   │   ├── PagamentoRepository.java
+│   │   │   └── AulaRepository.java
 │   │   ├── entity/
 │   │   │   ├── Paciente.java                # Entidade JPA
-│   │   │   └── Endereco.java                # Embeddable de endereço
-│   │   └── dto/
-│   │       ├── PacienteRequestDTO.java      # Payload de criação
-│   │       ├── PacienteUpdateDTO.java       # Payload de atualização
-│   │       ├── PacienteResponseDTO.java     # Resposta da API
-│   │       └── EnderecoDTO.java             # DTO de endereço
-│   ├── java/com/carlesso/pilatesapi/
-│   │   ├── entity/enums/
-│   │   │   ├── TipoPagamento.java
-│   │   │   ├── FrequenciaSemanal.java
-│   │   │   └── StatusPagamento.java
-│   │   ├── entity/
+│   │   │   ├── Endereco.java                # @Embeddable de endereço
+│   │   │   ├── Profissional.java            # Entidade JPA
 │   │   │   ├── Plano.java
 │   │   │   ├── Pagamento.java
 │   │   │   └── Aula.java
-│   │   ├── service/
-│   │   │   ├── PlanoService.java
-│   │   │   ├── PagamentoService.java
-│   │   │   └── AulaService.java
-│   │   ├── controller/
-│   │   │   ├── PlanoController.java
-│   │   │   ├── PagamentoController.java
-│   │   │   └── AulaController.java
+│   │   ├── entity/enums/
+│   │   │   ├── TipoPagamento.java           # MENSAL, TRIMESTRAL, ANUAL
+│   │   │   ├── TipoContrato.java            # CLT, PJ, AUTONOMO
+│   │   │   ├── FrequenciaSemanal.java       # UMA_VEZ, DUAS_VEZES, TRES_VEZES
+│   │   │   └── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   ├── dto/
+│   │   │   ├── PacienteRequestDTO.java
+│   │   │   ├── PacienteUpdateDTO.java
+│   │   │   ├── PacienteResponseDTO.java
+│   │   │   ├── EnderecoDTO.java
+│   │   │   ├── ProfissionalRequestDTO.java
+│   │   │   ├── ProfissionalUpdateDTO.java
+│   │   │   ├── ProfissionalResponseDTO.java
+│   │   │   ├── PlanoRequestDTO.java
+│   │   │   ├── PlanoResponseDTO.java
+│   │   │   ├── PagamentoRequestDTO.java
+│   │   │   ├── PagamentoResponseDTO.java
+│   │   │   └── AulaResponseDTO.java
 │   │   └── scheduler/
 │   │       └── CobrancaScheduler.java
 │   └── resources/
@@ -99,16 +111,19 @@ src/
 │           ├── V4__create_pagamentos_table.sql
 │           ├── V5__create_aulas_table.sql
 │           ├── V6__create_profissionais_table.sql
-│           └── V7__insert_profissionais_teste.sql
+│           ├── V7__insert_profissionais_teste.sql
+│           └── V8__alter_pacientes_uf_to_varchar.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── service/
     │   ├── PacienteServiceTest.java      # 11 casos
+    │   ├── ProfissionalServiceTest.java  # 10 casos
     │   ├── PlanoServiceTest.java         # 8 casos
     │   ├── PagamentoServiceTest.java     # 8 casos
     │   └── AulaServiceTest.java          # 8 casos
     └── controller/
         ├── PacienteControllerTest.java   # 13 casos
+        ├── ProfissionalControllerTest.java # 10 casos
         ├── PlanoControllerTest.java      # 11 casos
         ├── PagamentoControllerTest.java  # 9 casos
         └── AulaControllerTest.java       # 7 casos
@@ -122,7 +137,12 @@ src/
 - Um paciente pode ter **apenas um plano ativo** por vez
 - Pacientes com `ativo = false` não podem receber novas cobranças nem ter aulas geradas
 
-### 4.2 Planos de Pagamento
+### 4.2 Profissionais
+- Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
+- O campo `percentualPagamentoAula` representa o percentual recebido por aula ministrada
+- Soft delete: profissionais inativos são mantidos no banco
+
+### 4.3 Planos de Pagamento
 
 | Tipo | Duração |
 |---|---|
@@ -134,7 +154,7 @@ src/
 - Ao criar um novo plano para o paciente, o plano ativo anterior é automaticamente inativado
 - Alterações de plano valem apenas para os próximos ciclos
 
-### 4.3 Frequência de Aulas
+### 4.4 Frequência de Aulas
 
 | Enum | Vezes/semana | Aulas/mês (referência) |
 |---|---|---|
@@ -142,7 +162,7 @@ src/
 | `DUAS_VEZES` | 2 | 8 |
 | `TRES_VEZES` | 3 | 12 |
 
-### 4.4 Pagamentos
+### 4.5 Pagamentos
 
 - Status possíveis: `PENDENTE` → `PAGO` ou `VENCIDO`
 - O valor pago não pode ser menor que o valor do plano
@@ -150,13 +170,13 @@ src/
 - Ao confirmar como `PAGO`, as aulas do período são geradas automaticamente
 - Pagamentos `VENCIDO` bloqueiam geração de novas aulas (via scheduler)
 
-### 4.5 Geração de Aulas
+### 4.6 Geração de Aulas
 
 - Aulas são geradas a partir dos dias da semana definidos no plano, percorrendo dia a dia entre `periodoInicio` e `periodoFim`
 - Não gera aulas duplicadas: se o paciente já tiver aula naquela data, ela é ignorada
 - Requer: paciente ativo + pagamento com status `PAGO`
 
-### 4.6 Processos Automáticos (Scheduler)
+### 4.7 Processos Automáticos (Scheduler)
 
 | Cron | Ação |
 |---|---|
@@ -191,8 +211,26 @@ Armazenada nas colunas da própria tabela `pacientes`.
 | `numero` | `VARCHAR` | Número |
 | `bairro` | `VARCHAR` | Bairro |
 | `cidade` | `VARCHAR` | Cidade |
-| `uf` | `VARCHAR` | Estado (sigla) |
+| `uf` | `VARCHAR(2)` | Estado (sigla) |
 | `cep` | `VARCHAR` | CEP |
+
+---
+
+### Entidade: Profissional
+
+Tabela: `profissionais`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, auto-increment | Identificador único |
+| `nome` | `VARCHAR(255)` | NOT NULL | Nome completo |
+| `email` | `VARCHAR(255)` | NOT NULL, UNIQUE | Endereço de e-mail |
+| `cpf` | `VARCHAR(14)` | NOT NULL, UNIQUE | CPF do profissional |
+| `telefone` | `VARCHAR` | — | Telefone de contato |
+| `tipo_contrato` | `VARCHAR(30)` | NOT NULL | `CLT` / `PJ` / `AUTONOMO` |
+| `percentual_pagamento_aula` | `NUMERIC(5,2)` | NOT NULL | Percentual por aula ministrada |
+| `data_inicio` | `DATE` | NOT NULL | Data de início do contrato |
+| `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o profissional está ativo |
 
 ---
 
@@ -249,30 +287,15 @@ Tabela: `aulas`
 
 Constraint: `UNIQUE (paciente_id, data)`
 
-### Entidade: Profissional
-
-Tabela: `profissionais`
-
-| Campo | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | `BIGINT` | PK, auto-increment | Identificador único |
-| `nome` | `VARCHAR` | NOT NULL | Nome completo |
-| `email` | `VARCHAR` | NOT NULL, UNIQUE | Endereço de e-mail |
-| `cpf` | `VARCHAR` | NOT NULL, UNIQUE | CPF do profissional |
-| `telefone` | `VARCHAR` | — | Telefone de contato |
-| `tipo_contrato` | `VARCHAR(30)` | NOT NULL | CLT / PJ / AUTONOMO |
-| `percentual_pagamento_aula` | `NUMERIC(3,2)` | NOT NULL | Percentual por aula (0.01–1.00) |
-| `data_inicio` | `DATE` | NOT NULL | Data de início do contrato |
-| `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o profissional está ativo |
-
 ---
 
 ## 6. Endpoints
 
 **Base URL:** `http://localhost:8080`
 
-### 5.1 Cadastrar Paciente
+### 6.1 Pacientes
 
+#### Cadastrar Paciente
 
 | | |
 |---|---|
@@ -302,28 +325,6 @@ Tabela: `profissionais`
 
 > Campos obrigatórios: `nome`, `email`, `cpf`
 
-**Resposta — 201 Created:**
-
-```json
-{
-  "id": 1,
-  "nome": "Maria Souza",
-  "email": "maria@email.com",
-  "cpf": "123.456.789-00",
-  "telefone": "(11) 91234-5678",
-  "dataNascimento": "1990-05-20",
-  "endereco": {
-    "logradouro": "Rua das Flores",
-    "numero": "42",
-    "bairro": "Centro",
-    "cidade": "São Paulo",
-    "uf": "SP",
-    "cep": "01001-000"
-  },
-  "ativo": true
-}
-```
-
 **Códigos de resposta:**
 
 | Código | Situação |
@@ -334,41 +335,15 @@ Tabela: `profissionais`
 
 ---
 
-### 5.2 Listar Pacientes Ativos
+#### Listar Pacientes Ativos
 
 | | |
 |---|---|
 | **Método** | `GET` |
 | **Rota** | `/pacientes` |
-| **Descrição** | Retorna página de pacientes ativos. Ordenação padrão por `nome`. |
+| **Descrição** | Retorna página de pacientes ativos. Suporta `page`, `size` e `sort`. |
 
-**Query params de paginação:**
-
-| Parâmetro | Padrão | Descrição |
-|---|---|---|
-| `page` | `0` | Número da página (base 0) |
-| `size` | `10` | Quantidade de itens por página |
-| `sort` | `nome,asc` | Campo e direção de ordenação |
-
-**Exemplo:**
-
-```
-GET /pacientes?page=0&size=5&sort=nome,asc
-```
-
-**Resposta — 200 OK:**
-
-```json
-{
-  "content": [ { ... } ],
-  "pageable": { "pageNumber": 0, "pageSize": 10 },
-  "totalElements": 1,
-  "totalPages": 1,
-  "last": true
-}
-```
-
-**Códigos de resposta:**
+**Exemplo:** `GET /pacientes?page=0&size=5&sort=nome,asc`
 
 | Código | Situação |
 |---|---|
@@ -376,21 +351,12 @@ GET /pacientes?page=0&size=5&sort=nome,asc
 
 ---
 
-### 5.3 Buscar Paciente por ID
+#### Buscar Paciente por ID
 
 | | |
 |---|---|
 | **Método** | `GET` |
 | **Rota** | `/pacientes/{id}` |
-| **Descrição** | Retorna os dados completos de um paciente pelo ID. |
-
-**Exemplo:**
-
-```
-GET /pacientes/1
-```
-
-**Códigos de resposta:**
 
 | Código | Situação |
 |---|---|
@@ -399,34 +365,13 @@ GET /pacientes/1
 
 ---
 
-### 5.4 Atualizar Paciente
+#### Atualizar Paciente
 
 | | |
 |---|---|
 | **Método** | `PUT` |
 | **Rota** | `/pacientes/{id}` |
 | **Descrição** | Atualização parcial: apenas os campos presentes no body serão alterados. CPF não pode ser alterado. |
-
-**Corpo da requisição (todos os campos opcionais):**
-
-```json
-{
-  "nome": "Maria Souza Silva",
-  "email": "maria.silva@email.com",
-  "telefone": "(11) 99999-0000",
-  "dataNascimento": "1990-05-20",
-  "endereco": {
-    "logradouro": "Av. Paulista",
-    "numero": "1000",
-    "bairro": "Bela Vista",
-    "cidade": "São Paulo",
-    "uf": "SP",
-    "cep": "01310-100"
-  }
-}
-```
-
-**Códigos de resposta:**
 
 | Código | Situação |
 |---|---|
@@ -436,61 +381,24 @@ GET /pacientes/1
 
 ---
 
-### 5.5 Ativar Paciente
+#### Ativar / Inativar Paciente
 
-| | |
-|---|---|
-| **Método** | `PATCH` |
-| **Rota** | `/pacientes/{id}/ativar` |
-| **Descrição** | Reativa um paciente previamente inativado, definindo `ativo = true`. |
-
-**Exemplo:**
-
-```
-PATCH /pacientes/1/ativar
-```
-
-**Códigos de resposta:**
-
-| Código | Situação |
-|---|---|
-| `204` | Paciente ativado com sucesso |
-| `404` | Paciente não encontrado |
+| Método | Rota | Descrição | Código |
+|---|---|---|---|
+| `PATCH` | `/pacientes/{id}/ativar` | Reativa o paciente (`ativo = true`) | 204 / 404 |
+| `PATCH` | `/pacientes/{id}/inativar` | Soft delete (`ativo = false`) | 204 / 404 |
 
 ---
 
-### 5.6 Inativar Paciente
+### 6.2 Profissionais
 
-| | |
-|---|---|
-| **Método** | `PATCH` |
-| **Rota** | `/pacientes/{id}/inativar` |
-| **Descrição** | Realiza **soft delete**: marca o paciente como inativo (`ativo = false`). O registro permanece no banco. |
-
-**Exemplo:**
-
-```
-PATCH /pacientes/1/inativar
-```
-
-**Códigos de resposta:**
-
-| Código | Situação |
-|---|---|
-| `204` | Paciente inativado com sucesso |
-| `404` | Paciente não encontrado |
-
----
-
-## 6.7 Endpoints Profissionais
-
-### 6.7.1 Cadastrar Profissional
+#### Cadastrar Profissional
 
 | | |
 |---|---|
 | **Método** | `POST` |
 | **Rota** | `/profissionais` |
-| **Descrição** | Registra um novo profissional. Retorna `201 Created` com o header `Location` apontando para o recurso. |
+| **Descrição** | Registra um novo profissional. Retorna `201 Created` com o header `Location`. |
 
 **Corpo da requisição:**
 
@@ -501,10 +409,12 @@ PATCH /pacientes/1/inativar
   "cpf": "123.456.111-00",
   "telefone": "(11) 98888-1111",
   "tipoContrato": "PJ",
-  "percentualPagamentoAula": 0.45,
+  "percentualPagamentoAula": 45.00,
   "dataInicio": "2024-01-15"
 }
 ```
+
+> Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`
 
 **Códigos de resposta:**
 
@@ -516,7 +426,7 @@ PATCH /pacientes/1/inativar
 
 ---
 
-### 6.7.2 Listar Profissionais Ativos
+#### Listar Profissionais Ativos
 
 | | |
 |---|---|
@@ -526,23 +436,18 @@ PATCH /pacientes/1/inativar
 
 **Exemplo:** `GET /profissionais?page=0&size=10&sort=nome`
 
-**Códigos de resposta:**
-
 | Código | Situação |
 |---|---|
 | `200` | Lista retornada com sucesso |
 
 ---
 
-### 6.7.3 Buscar Profissional por ID
+#### Buscar Profissional por ID
 
 | | |
 |---|---|
 | **Método** | `GET` |
 | **Rota** | `/profissionais/{id}` |
-| **Descrição** | Retorna os dados completos de um profissional pelo ID. |
-
-**Códigos de resposta:**
 
 | Código | Situação |
 |---|---|
@@ -551,15 +456,13 @@ PATCH /pacientes/1/inativar
 
 ---
 
-### 6.7.4 Atualizar Profissional
+#### Atualizar Profissional
 
 | | |
 |---|---|
 | **Método** | `PUT` |
 | **Rota** | `/profissionais/{id}` |
 | **Descrição** | Atualiza os dados de um profissional. Apenas os campos enviados serão alterados. |
-
-**Códigos de resposta:**
 
 | Código | Situação |
 |---|---|
@@ -569,37 +472,32 @@ PATCH /pacientes/1/inativar
 
 ---
 
-### 6.7.5 Ativar Profissional
+#### Ativar / Inativar Profissional
 
-| | |
-|---|---|
-| **Método** | `PATCH` |
-| **Rota** | `/profissionais/{id}/ativar` |
-| **Descrição** | Reativa um profissional previamente inativado (`ativo = true`). |
-
-**Códigos de resposta:**
-
-| Código | Situação |
-|---|---|
-| `204` | Profissional ativado com sucesso |
-| `404` | Profissional não encontrado |
+| Método | Rota | Descrição | Código |
+|---|---|---|---|
+| `PATCH` | `/profissionais/{id}/ativar` | Reativa o profissional (`ativo = true`) | 204 / 404 |
+| `PATCH` | `/profissionais/{id}/inativar` | Soft delete (`ativo = false`) | 204 / 404 |
 
 ---
 
-### 6.7.6 Inativar Profissional
+### 6.3 Planos, Pagamentos e Aulas
 
-| | |
-|---|---|
-| **Método** | `PATCH` |
-| **Rota** | `/profissionais/{id}/inativar` |
-| **Descrição** | Realiza **soft delete**: marca o profissional como inativo (`ativo = false`). O registro permanece no banco. |
-
-**Códigos de resposta:**
-
-| Código | Situação |
-|---|---|
-| `204` | Profissional inativado com sucesso |
-| `404` | Profissional não encontrado |
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/planos` | Criar plano para paciente |
+| `GET` | `/planos/{id}` | Buscar plano por ID |
+| `GET` | `/planos/paciente/{id}` | Listar planos do paciente |
+| `GET` | `/planos/paciente/{id}/ativo` | Buscar plano ativo do paciente |
+| `DELETE` | `/planos/{id}` | Inativar plano |
+| `POST` | `/pagamentos` | Criar pagamento (PENDENTE) |
+| `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
+| `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente |
+| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas |
+| `GET` | `/aulas/{id}` | Buscar aula por ID |
+| `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
+| `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
+| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada |
 
 ---
 
@@ -643,7 +541,7 @@ springdoc.swagger-ui.path=/swagger-ui.html
 springdoc.api-docs.path=/api-docs
 ```
 
-> O DDL mode foi alterado de `update` para `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
+> O DDL mode é `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
 
 ---
 
@@ -651,33 +549,18 @@ springdoc.api-docs.path=/api-docs
 
 O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, seguindo a ordem das versões. Os arquivos ficam em `src/main/resources/db/migration/`.
 
-### Convenção de nomes
-
-```
-V{versão}__{descrição}.sql
-```
-
 ### Migrações existentes
 
 | Versão | Arquivo | Descrição |
 |---|---|---|
-| V1 | `V1__create_pacientes_table.sql` | Cria a tabela `pacientes` com todos os campos, PKs, constraints de unicidade e valor padrão para `ativo` |
+| V1 | `V1__create_pacientes_table.sql` | Cria a tabela `pacientes` com todos os campos, PKs e constraints de unicidade |
 | V2 | `V2__insert_pacientes_teste.sql` | Insere 10 pacientes de teste representando estados diferentes do Brasil |
-
-### Pacientes de carga inicial (V2)
-
-| # | Nome | Estado |
-|---|---|---|
-| 1 | Ana Clara Ferreira | SP |
-| 2 | Bruno Santos Lima | RJ |
-| 3 | Carla Oliveira Mendes | MG |
-| 4 | Diego Alves Costa | PR |
-| 5 | Eduarda Rocha Pinheiro | RS |
-| 6 | Felipe Nascimento Brito | DF |
-| 7 | Gabriela Torres Souza | BA |
-| 8 | Henrique Lima Cardoso | CE |
-| 9 | Isabela Martins Gomes | PA |
-| 10 | João Pedro Araújo | PE |
+| V3 | `V3__create_planos_table.sql` | Cria as tabelas `planos` e `plano_dias_semana` |
+| V4 | `V4__create_pagamentos_table.sql` | Cria a tabela `pagamentos` com constraint `UNIQUE (plano_id, periodo_inicio)` |
+| V5 | `V5__create_aulas_table.sql` | Cria a tabela `aulas` com constraint `UNIQUE (paciente_id, data)` |
+| V6 | `V6__create_profissionais_table.sql` | Cria a tabela `profissionais` com tipo de contrato e percentual por aula |
+| V7 | `V7__insert_profissionais_teste.sql` | Ajusta tipo de `percentual_pagamento_aula` e insere profissionais de teste |
+| V8 | `V8__alter_pacientes_uf_to_varchar.sql` | Altera coluna `uf` da tabela `pacientes` para `VARCHAR(2)` |
 
 ### Comportamento nos testes
 
@@ -704,13 +587,6 @@ docker compose down
 # Derrubar e apagar dados do banco
 docker compose down -v
 ```
-
-> Caso receba "permission denied" ao usar o Docker, execute com `sudo` ou adicione seu usuário ao grupo docker:
-> ```bash
-> sudo groupadd docker
-> sudo usermod -aG docker $USER
-> newgrp docker
-> ```
 
 ### Opção B — Localmente com Maven
 
@@ -773,32 +649,26 @@ curl -s -X POST http://localhost:8080/pacientes \
 curl -s "http://localhost:8080/pacientes?page=0&size=5" | jq
 ```
 
-### Buscar por ID
+### Cadastrar profissional
 
 ```bash
-curl -s http://localhost:8080/pacientes/1 | jq
-```
-
-### Atualizar telefone
-
-```bash
-curl -s -X PUT http://localhost:8080/pacientes/1 \
+curl -s -X POST http://localhost:8080/profissionais \
   -H "Content-Type: application/json" \
-  -d '{"telefone": "(11) 99999-0000"}' | jq
+  -d '{
+    "nome": "Paula Mendes",
+    "email": "paula@carlessopilates.com",
+    "cpf": "123.456.111-00",
+    "tipoContrato": "PJ",
+    "percentualPagamentoAula": 45.00,
+    "dataInicio": "2024-01-15"
+  }' | jq
 ```
 
-### Ativar paciente
+### Ativar / Inativar paciente
 
 ```bash
 curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -o /dev/null -w "%{http_code}"
-# Retorna: 204
-```
-
-### Inativar paciente
-
-```bash
 curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{http_code}"
-# Retorna: 204
 ```
 
 ---
@@ -827,62 +697,26 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **76 casos** distribuídos em nove classes:
+A suíte de testes possui **96 casos** distribuídos em onze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 11 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 10 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 8 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 13 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 
-### Estratégia por camada
-
-**Serviço (`PacienteServiceTest`)**
-
-Usa `@ExtendWith(MockitoExtension.class)` — nenhum contexto Spring é carregado. O `PacienteRepository` é mockado com `@Mock`. Cobre:
-
-- `cadastrar` — payload completo (com endereço) e sem endereço
-- `listar` — retorno paginado com e sem resultados
-- `buscarPorId` — paciente encontrado e `EntityNotFoundException` para ID inexistente
-- `atualizar` — atualização de campos individuais, atualização de endereço, ID inexistente
-- `inativar` — inativação correta do flag `ativo`, ID inexistente
-
-**Controller (`PacienteControllerTest`)**
-
-Usa `@WebMvcTest(PacienteController.class)` — carrega apenas a camada web. O `PacienteService` é mockado com `@MockitoBean`. Cobre:
-
-| Endpoint | Cenários testados |
-|---|---|
-| `POST /pacientes` | 201 com header Location, 400 sem nome, 400 sem CPF, 400 e-mail inválido, 400 body vazio |
-| `GET /pacientes` | 200 com página de resultados, 200 com página vazia |
-| `GET /pacientes/{id}` | 200 com dados, 404 com mensagem de erro |
-| `PUT /pacientes/{id}` | 200 com dados atualizados, 404 |
-| `PATCH /pacientes/{id}/ativar` | 204 sem corpo, 404 |
-| `PATCH /pacientes/{id}/inativar` | 204 sem corpo, 404 |
-
-**Integração (`PilatesApiApplicationTests`)**
-
-Usa `@SpringBootTest` com banco H2 em memória (configurado em `src/test/resources/application.properties`). Valida que o contexto da aplicação sobe corretamente.
-
 ### Executar os testes
 
 ```bash
 JAVA_HOME=/caminho/para/jdk21 mvn test
-```
-
-Saída esperada:
-```
-Tests run: 11 — PacienteServiceTest
-Tests run: 13 — PacienteControllerTest
-Tests run:  1 — PilatesApiApplicationTests
-Tests run: 76, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
 ```
 
 ### Tratamento de erros (`GlobalExceptionHandler`)
