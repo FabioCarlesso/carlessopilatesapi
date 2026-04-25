@@ -29,7 +29,7 @@ public class Profissional {
     @Column(nullable = false)
     private TipoContrato tipoContrato;
 
-    @Column(nullable = false, precision = 3, scale = 2)
+    @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal percentualPagamentoAula;
 
     @Column(nullable = false)

@@ -1,13 +1,10 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Profissional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface ProfissionalRepository extends JpaRepository<Profissional, Long> {
-
-    Page<Profissional> findAllByAtivoTrue(Pageable pageable);
+public interface ProfissionalRepository extends JpaRepository<Profissional, Long>, JpaSpecificationExecutor<Profissional> {
 
     boolean existsByEmail(String email);
 

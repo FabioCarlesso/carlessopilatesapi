@@ -128,7 +128,7 @@ Base URL: `http://localhost:8080`
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `POST` | `/profissionais` | Cadastrar novo profissional |
-| `GET` | `/profissionais` | Listar profissionais ativos (paginado) |
+| `GET` | `/profissionais` | Listar e filtrar profissionais (paginado) |
 | `GET` | `/profissionais/{id}` | Buscar profissional por ID |
 | `PUT` | `/profissionais/{id}` | Atualizar dados do profissional |
 | `PATCH` | `/profissionais/{id}/ativar` | Reativar profissional |
@@ -176,6 +176,13 @@ O endpoint `GET /pacientes` também suporta filtros opcionais por `nome`, `email
 ```
 GET /pacientes?nome=maria&email=email.com&cpf=123&telefone=119&ativo=true&page=0&size=10&sort=nome,asc
 GET /pacientes?ativo=false
+```
+
+O endpoint `GET /profissionais` também suporta filtros opcionais por `nome`, `email`, `tipoContrato`, `percentualPagamentoAula` e `ativo`. Quando `ativo` é omitido, retorna apenas profissionais ativos.
+
+```
+GET /profissionais?nome=paula&email=email.com&tipoContrato=PJ&percentualPagamentoAula=45.00&ativo=true&page=0&size=10&sort=nome,asc
+GET /profissionais?ativo=false
 ```
 
 ---

@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,11 +91,31 @@ class ProfissionalServiceTest {
     @Test
     void listar_deveRetornarApenasAtivos() {
         var pageable = PageRequest.of(0, 10);
-        when(repository.findAllByAtivoTrue(pageable)).thenReturn(new PageImpl<>(List.of(profissional())));
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Profissional>>any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(profissional())));
 
-        var resultado = service.listar(pageable);
+        var resultado = service.listar(null, null, null, null, null, pageable);
 
         assertThat(resultado.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void listar_comFiltros_deveConsultarRepositoryComSpecification() {
+        var pageable = PageRequest.of(0, 10);
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Profissional>>any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(profissional()), pageable, 1));
+
+        var resultado = service.listar(
+                "paula",
+                "email.com",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                false,
+                pageable);
+
+        assertThat(resultado.getTotalElements()).isEqualTo(1);
+        assertThat(resultado.getContent().get(0).tipoContrato()).isEqualTo(TipoContrato.PJ);
+        verify(repository).findAll(org.mockito.ArgumentMatchers.<Specification<Profissional>>any(), eq(pageable));
     }
 
     @Test

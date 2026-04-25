@@ -113,7 +113,7 @@ O endereço é um `@Embeddable` (`Endereco`), suas colunas ficam diretamente na 
 | `cpf` | VARCHAR(14) | NOT NULL, UNIQUE |
 | `telefone` | VARCHAR | — |
 | `tipo_contrato` | VARCHAR(30) | NOT NULL (`CLT`, `PJ`, `AUTONOMO`) |
-| `percentual_pagamento_aula` | NUMERIC(3,2) | NOT NULL |
+| `percentual_pagamento_aula` | NUMERIC(5,2) | NOT NULL |
 | `data_inicio` | DATE | NOT NULL |
 | `ativo` | BOOLEAN | NOT NULL, default `true` |
 
@@ -172,7 +172,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | PATCH | `/pacientes/{id}/ativar` | Reativar paciente | 204 / 404 |
 | PATCH | `/pacientes/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
 | POST | `/profissionais` | Cadastrar profissional | 201 + Location header |
-| GET | `/profissionais` | Listar ativos (paginado) | 200 + Page |
+| GET | `/profissionais` | Listar e filtrar por nome, e-mail, contrato, percentual por aula e ativo/inativo (paginado) | 200 + Page |
 | GET | `/profissionais/{id}` | Buscar por ID | 200 / 404 |
 | PUT | `/profissionais/{id}` | Atualização parcial | 200 / 404 |
 | PATCH | `/profissionais/{id}/ativar` | Reativar profissional | 204 / 404 |
@@ -195,6 +195,7 @@ Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
 CPF não pode ser alterado após o cadastro.  
 `GET /pacientes` retorna pacientes ativos por padrão e aceita `ativo=false` para consultar inativos.
+`GET /profissionais` retorna profissionais ativos por padrão e aceita filtros opcionais por `nome`, `email`, `tipoContrato`, `percentualPagamentoAula` e `ativo=false` para consultar inativos.
 
 ---
 
