@@ -89,8 +89,11 @@ src/
 │           └── V8__alter_pacientes_uf_to_varchar.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
+    ├── actuator/
+    │   └── ActuatorTest.java
     ├── service/
     │   ├── PacienteServiceTest.java
+    │   ├── PacienteServiceIntegrationTest.java
     │   ├── ProfissionalServiceTest.java
     │   ├── PlanoServiceTest.java
     │   ├── PagamentoServiceTest.java
@@ -114,7 +117,7 @@ Base URL: `http://localhost:8080`
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `POST` | `/pacientes` | Cadastrar novo paciente |
-| `GET` | `/pacientes` | Listar pacientes ativos (paginado) |
+| `GET` | `/pacientes` | Listar e filtrar pacientes (paginado) |
 | `GET` | `/pacientes/{id}` | Buscar paciente por ID |
 | `PUT` | `/pacientes/{id}` | Atualizar dados do paciente |
 | `PATCH` | `/pacientes/{id}/ativar` | Reativar paciente |
@@ -166,6 +169,13 @@ Os endpoints de listagem suportam os query params padrão do Spring:
 ```
 GET /pacientes?page=0&size=10&sort=nome,asc
 GET /profissionais?page=0&size=10&sort=nome,asc
+```
+
+O endpoint `GET /pacientes` também suporta filtros opcionais por `nome`, `email`, `cpf`, `telefone` e `ativo`. Quando `ativo` é omitido, retorna apenas pacientes ativos.
+
+```
+GET /pacientes?nome=maria&email=email.com&cpf=123&telefone=119&ativo=true&page=0&size=10&sort=nome,asc
+GET /pacientes?ativo=false
 ```
 
 ---
@@ -391,9 +401,9 @@ curl -s -X POST http://localhost:8080/pacientes \
   }' | jq
 ```
 
-### Listar pacientes ativos
+### Listar e filtrar pacientes
 ```bash
-curl -s http://localhost:8080/pacientes | jq
+curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=10&sort=nome,asc" | jq
 ```
 
 ### Buscar por ID
@@ -464,20 +474,22 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **98 testes** organizados em onze suítes:
+O projeto possui **107 testes** organizados em treze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
-| `PacienteServiceTest` | Unitário (Mockito) | 11 |
+| `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 8 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 10 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 15 |
+| `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 
 ### Executar os testes
