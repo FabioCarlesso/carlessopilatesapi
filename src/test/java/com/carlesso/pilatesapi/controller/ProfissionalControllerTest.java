@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -62,12 +63,36 @@ class ProfissionalControllerTest {
 
     @Test
     void listar_deveRetornar200() throws Exception {
-        when(service.listar(any())).thenReturn(new PageImpl<>(List.of(response()), PageRequest.of(0, 10), 1));
+        when(service.listar(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(response()), PageRequest.of(0, 10), 1));
 
         mvc.perform(get("/profissionais"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].tipoContrato").value("PJ"))
                 .andExpect(jsonPath("$.page.totalElements").value(1));
+    }
+
+    @Test
+    void listar_comFiltros_deveRepassarParametrosParaService() throws Exception {
+        when(service.listar(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(response()), PageRequest.of(0, 10), 1));
+
+        mvc.perform(get("/profissionais")
+                        .param("nome", "paula")
+                        .param("email", "email.com")
+                        .param("tipoContrato", "PJ")
+                        .param("percentualPagamentoAula", "45.00")
+                        .param("ativo", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nome").value("Paula Mendes"));
+
+        verify(service).listar(
+                eq("paula"),
+                eq("email.com"),
+                eq(TipoContrato.PJ),
+                eq(new BigDecimal("45.00")),
+                eq(false),
+                any());
     }
 
     @Test

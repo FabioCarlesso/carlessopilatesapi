@@ -232,7 +232,7 @@ Tabela: `profissionais`
 | `cpf` | `VARCHAR(14)` | NOT NULL, UNIQUE | CPF do profissional |
 | `telefone` | `VARCHAR` | — | Telefone de contato |
 | `tipo_contrato` | `VARCHAR(30)` | NOT NULL | `CLT` / `PJ` / `AUTONOMO` |
-| `percentual_pagamento_aula` | `NUMERIC(3,2)` | NOT NULL | Percentual por aula ministrada |
+| `percentual_pagamento_aula` | `NUMERIC(5,2)` | NOT NULL | Percentual por aula ministrada |
 | `data_inicio` | `DATE` | NOT NULL | Data de início do contrato |
 | `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o profissional está ativo |
 
@@ -436,15 +436,21 @@ GET /pacientes?ativo=false
 
 ---
 
-#### Listar Profissionais Ativos
+#### Listar e Filtrar Profissionais
 
 | | |
 |---|---|
 | **Método** | `GET` |
 | **Rota** | `/profissionais` |
-| **Descrição** | Retorna uma página de profissionais ativos. Suporta `page`, `size` e `sort`. |
+| **Descrição** | Retorna uma página de profissionais filtrando por nome, e-mail, tipo de contrato, percentual por aula e status ativo/inativo. Quando `ativo` é omitido, retorna apenas ativos. Suporta `page`, `size` e `sort`. |
 
-**Exemplo:** `GET /profissionais?page=0&size=10&sort=nome`
+**Exemplos:**
+
+```http
+GET /profissionais?page=0&size=10&sort=nome
+GET /profissionais?nome=paula&email=email.com&tipoContrato=PJ&percentualPagamentoAula=45.00&ativo=true&page=0&size=10&sort=nome
+GET /profissionais?ativo=false
+```
 
 | Código | Situação |
 |---|---|

@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.controller;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.service.ProfissionalService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,6 +18,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.math.BigDecimal;
 
 @Tag(name = "Profissionais", description = "Gerenciamento de profissionais do estúdio")
 @RestController
@@ -43,14 +46,19 @@ public class ProfissionalController {
         return ResponseEntity.created(uri).body(response);
     }
 
-    @Operation(summary = "Listar profissionais ativos", description = "Retorna uma página de profissionais com status ativo. Suporta paginação e ordenação via query params.")
+    @Operation(summary = "Listar e filtrar profissionais", description = "Retorna uma página de profissionais filtrando por nome, e-mail, tipo de contrato, percentual por aula e status ativo/inativo. Por padrão retorna profissionais ativos. Suporta paginação e ordenação via query params.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     })
     @GetMapping
     public ResponseEntity<Page<ProfissionalResponseDTO>> listar(
+            @Parameter(description = "Filtro parcial por nome") @RequestParam(required = false) String nome,
+            @Parameter(description = "Filtro parcial por e-mail") @RequestParam(required = false) String email,
+            @Parameter(description = "Filtro por tipo de contrato") @RequestParam(required = false) TipoContrato tipoContrato,
+            @Parameter(description = "Filtro por percentual de pagamento por aula") @RequestParam(required = false) BigDecimal percentualPagamentoAula,
+            @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.") @RequestParam(required = false) Boolean ativo,
             @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+        return ResponseEntity.ok(service.listar(nome, email, tipoContrato, percentualPagamentoAula, ativo, pageable));
     }
 
     @Operation(summary = "Buscar profissional por ID", description = "Retorna os dados completos de um profissional pelo seu identificador único.")
