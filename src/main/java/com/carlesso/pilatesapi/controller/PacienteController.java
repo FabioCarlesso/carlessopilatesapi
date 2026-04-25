@@ -48,16 +48,21 @@ public class PacienteController {
     }
 
     @Operation(
-            summary = "Listar pacientes ativos",
-            description = "Retorna uma página de pacientes com status ativo. Suporta paginação e ordenação via query params (page, size, sort)."
+            summary = "Listar e filtrar pacientes",
+            description = "Retorna uma página de pacientes filtrando por nome, e-mail, CPF, telefone e status ativo/inativo. Por padrão retorna pacientes ativos. Suporta paginação e ordenação via query params (page, size, sort)."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     })
     @GetMapping
     public ResponseEntity<Page<PacienteResponseDTO>> listar(
+            @Parameter(description = "Filtro parcial por nome") @RequestParam(required = false) String nome,
+            @Parameter(description = "Filtro parcial por e-mail") @RequestParam(required = false) String email,
+            @Parameter(description = "Filtro parcial por CPF") @RequestParam(required = false) String cpf,
+            @Parameter(description = "Filtro parcial por telefone") @RequestParam(required = false) String telefone,
+            @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.") @RequestParam(required = false) Boolean ativo,
             @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+        return ResponseEntity.ok(service.listar(nome, email, cpf, telefone, ativo, pageable));
     }
 
     @Operation(

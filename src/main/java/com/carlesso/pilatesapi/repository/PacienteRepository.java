@@ -1,11 +1,8 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Paciente;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface PacienteRepository extends JpaRepository<Paciente, Long> {
-
-    Page<Paciente> findAllByAtivoTrue(Pageable pageable);
+public interface PacienteRepository extends JpaRepository<Paciente, Long>, JpaSpecificationExecutor<Paciente> {
 }

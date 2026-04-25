@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,9 +116,9 @@ class PacienteServiceTest {
     void listar_deveRetornarPageComPacientesAtivos() {
         var pageable = PageRequest.of(0, 10);
         var page = new PageImpl<>(List.of(paciente()), pageable, 1);
-        when(repository.findAllByAtivoTrue(pageable)).thenReturn(page);
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable))).thenReturn(page);
 
-        var resultado = service.listar(pageable);
+        var resultado = service.listar(null, null, null, null, null, pageable);
 
         assertThat(resultado.getTotalElements()).isEqualTo(1);
         assertThat(resultado.getContent().get(0).nome()).isEqualTo("Maria Souza");
@@ -125,12 +127,25 @@ class PacienteServiceTest {
     @Test
     void listar_semPacientes_deveRetornarPageVazia() {
         var pageable = PageRequest.of(0, 10);
-        when(repository.findAllByAtivoTrue(pageable)).thenReturn(new PageImpl<>(List.of()));
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable))).thenReturn(new PageImpl<>(List.of()));
 
-        var resultado = service.listar(pageable);
+        var resultado = service.listar(null, null, null, null, null, pageable);
 
         assertThat(resultado.getTotalElements()).isZero();
         assertThat(resultado.getContent()).isEmpty();
+    }
+
+    @Test
+    void listar_comFiltros_deveConsultarRepositoryComSpecification() {
+        var pageable = PageRequest.of(0, 10);
+        var page = new PageImpl<>(List.of(paciente()), pageable, 1);
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable))).thenReturn(page);
+
+        var resultado = service.listar("maria", "email.com", "123", "119", false, pageable);
+
+        assertThat(resultado.getTotalElements()).isEqualTo(1);
+        assertThat(resultado.getContent().get(0).email()).isEqualTo("maria@email.com");
+        verify(repository).findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable));
     }
 
     // -------------------------------------------------------------------------

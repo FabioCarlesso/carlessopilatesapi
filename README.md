@@ -114,7 +114,7 @@ Base URL: `http://localhost:8080`
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `POST` | `/pacientes` | Cadastrar novo paciente |
-| `GET` | `/pacientes` | Listar pacientes ativos (paginado) |
+| `GET` | `/pacientes` | Listar e filtrar pacientes (paginado) |
 | `GET` | `/pacientes/{id}` | Buscar paciente por ID |
 | `PUT` | `/pacientes/{id}` | Atualizar dados do paciente |
 | `PATCH` | `/pacientes/{id}/ativar` | Reativar paciente |
@@ -166,6 +166,13 @@ Os endpoints de listagem suportam os query params padrão do Spring:
 ```
 GET /pacientes?page=0&size=10&sort=nome,asc
 GET /profissionais?page=0&size=10&sort=nome,asc
+```
+
+O endpoint `GET /pacientes` também suporta filtros opcionais por `nome`, `email`, `cpf`, `telefone` e `ativo`. Quando `ativo` é omitido, retorna apenas pacientes ativos.
+
+```
+GET /pacientes?nome=maria&email=email.com&cpf=123&telefone=119&ativo=true&page=0&size=10&sort=nome,asc
+GET /pacientes?ativo=false
 ```
 
 ---
@@ -391,9 +398,9 @@ curl -s -X POST http://localhost:8080/pacientes \
   }' | jq
 ```
 
-### Listar pacientes ativos
+### Listar e filtrar pacientes
 ```bash
-curl -s http://localhost:8080/pacientes | jq
+curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=10&sort=nome,asc" | jq
 ```
 
 ### Buscar por ID

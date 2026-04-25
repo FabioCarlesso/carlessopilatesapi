@@ -9,8 +9,11 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Locale;
 
 @Service
 public class PacienteService {
@@ -42,8 +45,15 @@ public class PacienteService {
         return PacienteResponseDTO.from(repository.save(paciente));
     }
 
-    public Page<PacienteResponseDTO> listar(Pageable pageable) {
-        return repository.findAllByAtivoTrue(pageable).map(PacienteResponseDTO::from);
+    public Page<PacienteResponseDTO> listar(
+            String nome,
+            String email,
+            String cpf,
+            String telefone,
+            Boolean ativo,
+            Pageable pageable) {
+        return repository.findAll(filtros(nome, email, cpf, telefone, ativo), pageable)
+                .map(PacienteResponseDTO::from);
     }
 
     public PacienteResponseDTO buscarPorId(Long id) {
@@ -85,5 +95,29 @@ public class PacienteService {
     private Paciente encontrar(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado: " + id));
+    }
+
+    private Specification<Paciente> filtros(String nome, String email, String cpf, String telefone, Boolean ativo) {
+        Specification<Paciente> spec = porStatus(ativo);
+        spec = spec.and(contemIgnorandoCase("nome", nome));
+        spec = spec.and(contemIgnorandoCase("email", email));
+        spec = spec.and(contemIgnorandoCase("cpf", cpf));
+        spec = spec.and(contemIgnorandoCase("telefone", telefone));
+        return spec;
+    }
+
+    private Specification<Paciente> porStatus(Boolean ativo) {
+        boolean status = ativo == null || ativo;
+        return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("ativo"), status);
+    }
+
+    private Specification<Paciente> contemIgnorandoCase(String campo, String valor) {
+        if (valor == null || valor.isBlank()) {
+            return Specification.where(null);
+        }
+
+        String filtro = "%" + valor.trim().toLowerCase(Locale.ROOT) + "%";
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), filtro);
     }
 }

@@ -336,15 +336,21 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 ---
 
-#### Listar Pacientes Ativos
+#### Listar e Filtrar Pacientes
 
 | | |
 |---|---|
 | **Método** | `GET` |
 | **Rota** | `/pacientes` |
-| **Descrição** | Retorna página de pacientes ativos. Suporta `page`, `size` e `sort`. |
+| **Descrição** | Retorna página de pacientes com filtros opcionais por `nome`, `email`, `cpf`, `telefone` e `ativo`. Quando `ativo` é omitido, retorna apenas pacientes ativos. Suporta `page`, `size` e `sort`. |
 
-**Exemplo:** `GET /pacientes?page=0&size=5&sort=nome,asc`
+**Exemplos:**
+
+```http
+GET /pacientes?nome=maria&ativo=true&page=0&size=5&sort=nome,asc
+GET /pacientes?cpf=123&telefone=119
+GET /pacientes?ativo=false
+```
 
 | Código | Situação |
 |---|---|
@@ -663,7 +669,7 @@ curl -s -X POST http://localhost:8080/pacientes \
 ### Listar pacientes
 
 ```bash
-curl -s "http://localhost:8080/pacientes?page=0&size=5" | jq
+curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" | jq
 ```
 
 ### Cadastrar profissional

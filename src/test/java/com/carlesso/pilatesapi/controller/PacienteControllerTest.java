@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -124,7 +125,7 @@ class PacienteControllerTest {
     @Test
     void listar_deveRetornar200ComPaginaDeResultados() throws Exception {
         var page = new PageImpl<>(List.of(responseDTO()), PageRequest.of(0, 10), 1);
-        when(service.listar(any())).thenReturn(page);
+        when(service.listar(any(), any(), any(), any(), any(), any())).thenReturn(page);
 
         mvc.perform(get("/pacientes"))
                 .andExpect(status().isOk())
@@ -134,12 +135,29 @@ class PacienteControllerTest {
 
     @Test
     void listar_semPacientes_deveRetornar200ComPaginaVazia() throws Exception {
-        when(service.listar(any())).thenReturn(new PageImpl<>(List.of()));
+        when(service.listar(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
         mvc.perform(get("/pacientes"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page.totalElements").value(0))
                 .andExpect(jsonPath("$.content").isEmpty());
+    }
+
+    @Test
+    void listar_comFiltros_deveEncaminharParametrosParaService() throws Exception {
+        var page = new PageImpl<>(List.of(responseDTO()), PageRequest.of(0, 10), 1);
+        when(service.listar(any(), any(), any(), any(), any(), any())).thenReturn(page);
+
+        mvc.perform(get("/pacientes")
+                        .param("nome", "Maria")
+                        .param("email", "maria@email.com")
+                        .param("cpf", "123")
+                        .param("telefone", "119")
+                        .param("ativo", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nome").value("Maria Souza"));
+
+        verify(service).listar(eq("Maria"), eq("maria@email.com"), eq("123"), eq("119"), eq(false), any());
     }
 
     // -------------------------------------------------------------------------

@@ -166,7 +166,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | Método | Rota | Ação | Retorno |
 |---|---|---|---|
 | POST | `/pacientes` | Cadastrar paciente | 201 + Location header |
-| GET | `/pacientes` | Listar ativos (paginado) | 200 + Page |
+| GET | `/pacientes` | Listar e filtrar pacientes por nome, e-mail, CPF, telefone e ativo/inativo (paginado) | 200 + Page |
 | GET | `/pacientes/{id}` | Buscar por ID | 200 / 404 |
 | PUT | `/pacientes/{id}` | Atualização parcial | 200 / 404 |
 | PATCH | `/pacientes/{id}/ativar` | Reativar paciente | 204 / 404 |
@@ -193,7 +193,8 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
-CPF não pode ser alterado após o cadastro.
+CPF não pode ser alterado após o cadastro.  
+`GET /pacientes` retorna pacientes ativos por padrão e aceita `ativo=false` para consultar inativos.
 
 ---
 
