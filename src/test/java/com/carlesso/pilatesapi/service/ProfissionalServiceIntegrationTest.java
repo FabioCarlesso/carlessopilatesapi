@@ -80,6 +80,18 @@ class ProfissionalServiceIntegrationTest {
                 .isEqualTo(3);
     }
 
+    @Test
+    void listar_filtraPorPercentualPagamentoAulaIsolado() {
+        var resultado = service.listar(null, null, null, new BigDecimal("40.00"), null, PageRequest.of(0, 10));
+
+        assertThat(resultado.getContent())
+                .singleElement()
+                .satisfies(profissional -> {
+                    assertThat(profissional.nome()).isEqualTo("Ricardo Souza");
+                    assertThat(profissional.percentualPagamentoAula()).isEqualByComparingTo("40.00");
+                });
+    }
+
     private Profissional profissional(
             String nome,
             String email,

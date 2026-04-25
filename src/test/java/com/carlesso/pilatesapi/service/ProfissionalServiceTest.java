@@ -89,7 +89,7 @@ class ProfissionalServiceTest {
     }
 
     @Test
-    void listar_deveRetornarApenasAtivos() {
+    void listar_semFiltros_delegaAoRepository() {
         var pageable = PageRequest.of(0, 10);
         when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Profissional>>any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(profissional())));
