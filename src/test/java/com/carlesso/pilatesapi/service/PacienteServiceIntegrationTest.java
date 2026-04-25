@@ -23,8 +23,6 @@ class PacienteServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        repository.deleteAll();
-
         repository.save(paciente("Maria Souza", "maria@email.com", "12345678900", "11912345678", true));
         repository.save(paciente("Mariana Lima", "mariana@email.com", "98765432100", "11999990000", false));
         repository.save(paciente("João Silva", "joao@email.com", "11122233344", "21912340000", true));
@@ -49,6 +47,26 @@ class PacienteServiceIntegrationTest {
                     assertThat(paciente.nome()).isEqualTo("Mariana Lima");
                     assertThat(paciente.ativo()).isFalse();
                 });
+    }
+
+    @Test
+    void listar_filtroNomeEmBranco_deveIgnorarFiltro() {
+        var resultado = service.listar("   ", null, null, null, null, PageRequest.of(0, 10));
+
+        assertThat(resultado.getContent())
+                .extracting("nome")
+                .containsExactlyInAnyOrder("Maria Souza", "João Silva");
+    }
+
+    @Test
+    void listar_semAtivoNaoRetornaTodosPacientes() {
+        var ativos = service.listar(null, null, null, null, null, PageRequest.of(0, 10));
+        var inativos = service.listar(null, null, null, null, false, PageRequest.of(0, 10));
+
+        assertThat(ativos.getTotalElements()).isEqualTo(2);
+        assertThat(inativos.getTotalElements()).isEqualTo(1);
+        assertThat(ativos.getTotalElements() + inativos.getTotalElements())
+                .isEqualTo(3);
     }
 
     private Paciente paciente(String nome, String email, String cpf, String telefone, boolean ativo) {

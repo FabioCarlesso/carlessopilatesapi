@@ -45,6 +45,7 @@ public class PacienteService {
         return PacienteResponseDTO.from(repository.save(paciente));
     }
 
+    @Transactional(readOnly = true)
     public Page<PacienteResponseDTO> listar(
             String nome,
             String email,
