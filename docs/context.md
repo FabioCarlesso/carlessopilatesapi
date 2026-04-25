@@ -113,7 +113,7 @@ O endereço é um `@Embeddable` (`Endereco`), suas colunas ficam diretamente na 
 | `cpf` | VARCHAR(14) | NOT NULL, UNIQUE |
 | `telefone` | VARCHAR | — |
 | `tipo_contrato` | VARCHAR(30) | NOT NULL (`CLT`, `PJ`, `AUTONOMO`) |
-| `percentual_pagamento_aula` | NUMERIC(5,2) | NOT NULL |
+| `percentual_pagamento_aula` | NUMERIC(3,2) | NOT NULL |
 | `data_inicio` | DATE | NOT NULL |
 | `ativo` | BOOLEAN | NOT NULL, default `true` |
 
@@ -312,16 +312,18 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 
 | Classe | Tipo | Casos |
 |---|---|---|
-| `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 11 |
+| `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 15 |
+| `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
+| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 7 |
+| `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 
 ```bash

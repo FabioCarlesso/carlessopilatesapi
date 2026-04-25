@@ -116,18 +116,21 @@ src/
 │           └── V8__alter_pacientes_uf_to_varchar.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
+    ├── actuator/
+    │   └── ActuatorTest.java                    # 3 casos
     ├── service/
-    │   ├── PacienteServiceTest.java      # 11 casos
-    │   ├── ProfissionalServiceTest.java  # 10 casos
-    │   ├── PlanoServiceTest.java         # 8 casos
-    │   ├── PagamentoServiceTest.java     # 8 casos
-    │   └── AulaServiceTest.java          # 8 casos
+    │   ├── PacienteServiceTest.java             # 12 casos
+    │   ├── PacienteServiceIntegrationTest.java  # 4 casos
+    │   ├── ProfissionalServiceTest.java         # 10 casos
+    │   ├── PlanoServiceTest.java                # 8 casos
+    │   ├── PagamentoServiceTest.java            # 8 casos
+    │   └── AulaServiceTest.java                 # 8 casos
     └── controller/
-        ├── PacienteControllerTest.java   # 15 casos
-        ├── ProfissionalControllerTest.java # 10 casos
-        ├── PlanoControllerTest.java      # 11 casos
-        ├── PagamentoControllerTest.java  # 9 casos
-        └── AulaControllerTest.java       # 7 casos
+        ├── PacienteControllerTest.java          # 16 casos
+        ├── ProfissionalControllerTest.java      # 10 casos
+        ├── PlanoControllerTest.java             # 11 casos
+        ├── PagamentoControllerTest.java         # 9 casos
+        └── AulaControllerTest.java              # 7 casos
 ```
 
 ---
@@ -229,7 +232,7 @@ Tabela: `profissionais`
 | `cpf` | `VARCHAR(14)` | NOT NULL, UNIQUE | CPF do profissional |
 | `telefone` | `VARCHAR` | — | Telefone de contato |
 | `tipo_contrato` | `VARCHAR(30)` | NOT NULL | `CLT` / `PJ` / `AUTONOMO` |
-| `percentual_pagamento_aula` | `NUMERIC(5,2)` | NOT NULL | Percentual por aula ministrada |
+| `percentual_pagamento_aula` | `NUMERIC(3,2)` | NOT NULL | Percentual por aula ministrada |
 | `data_inicio` | `DATE` | NOT NULL | Data de início do contrato |
 | `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o profissional está ativo |
 
