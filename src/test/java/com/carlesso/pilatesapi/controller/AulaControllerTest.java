@@ -13,6 +13,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -66,7 +68,7 @@ class AulaControllerTest {
 
     @Test
     void realizar_retorna200ComRealizadaTrue() throws Exception {
-        when(aulaService.realizarAula(1L)).thenReturn(aulaResponse(true));
+        when(aulaService.realizarAula(eq(1L), isNull())).thenReturn(aulaResponse(true));
 
         mockMvc.perform(patch("/aulas/1/realizar"))
                 .andExpect(status().isOk())
@@ -74,8 +76,26 @@ class AulaControllerTest {
     }
 
     @Test
+    void realizar_comProfissional_retorna200ComRealizadaTrue() throws Exception {
+        when(aulaService.realizarAula(1L, 2L)).thenReturn(aulaResponse(true));
+
+        mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.realizada").value(true));
+    }
+
+    @Test
+    void realizar_comProfissionalInexistente_retorna404() throws Exception {
+        when(aulaService.realizarAula(eq(1L), eq(99L)))
+                .thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
+
+        mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "99"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void realizar_aaulaJaRealizada_retorna409() throws Exception {
-        when(aulaService.realizarAula(1L))
+        when(aulaService.realizarAula(eq(1L), isNull()))
                 .thenThrow(new IllegalStateException("Aula já foi marcada como realizada"));
 
         mockMvc.perform(patch("/aulas/1/realizar"))
@@ -85,7 +105,7 @@ class AulaControllerTest {
 
     @Test
     void realizar_naoEncontrada_retorna404() throws Exception {
-        when(aulaService.realizarAula(99L))
+        when(aulaService.realizarAula(eq(99L), isNull()))
                 .thenThrow(new EntityNotFoundException("Aula não encontrada: 99"));
 
         mockMvc.perform(patch("/aulas/99/realizar"))

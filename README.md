@@ -69,6 +69,8 @@ src/
 │   │   │   ├── ProfissionalRequestDTO.java
 │   │   │   ├── ProfissionalUpdateDTO.java
 │   │   │   ├── ProfissionalResponseDTO.java
+│   │   │   ├── ProfissionalPagamentoRelatorioDTO.java
+│   │   │   ├── ProfissionalPagamentoAulaDTO.java
 │   │   │   ├── PlanoRequestDTO.java
 │   │   │   ├── PlanoResponseDTO.java
 │   │   │   ├── PagamentoRequestDTO.java
@@ -86,7 +88,9 @@ src/
 │           ├── V5__create_aulas_table.sql
 │           ├── V6__create_profissionais_table.sql
 │           ├── V7__insert_profissionais_teste.sql
-│           └── V8__alter_pacientes_uf_to_varchar.sql
+│           ├── V8__alter_pacientes_uf_to_varchar.sql
+│           ├── V9__alter_profissionais_percentual_precision.sql
+│           └── V10__add_profissional_to_aulas.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -133,6 +137,7 @@ Base URL: `http://localhost:8080`
 | `PUT` | `/profissionais/{id}` | Atualizar dados do profissional |
 | `PATCH` | `/profissionais/{id}/ativar` | Reativar profissional |
 | `PATCH` | `/profissionais/{id}/inativar` | Inativar profissional (soft delete) |
+| `GET` | `/profissionais/{id}/relatorio-pagamento` | Gerar relatório de pagamento por período |
 
 ### Planos de Pagamento
 
@@ -160,7 +165,7 @@ Base URL: `http://localhost:8080`
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
-| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada |
+| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` |
 
 ### Paginação
 
@@ -183,6 +188,7 @@ O endpoint `GET /profissionais` também suporta filtros opcionais por `nome`, `e
 ```
 GET /profissionais?nome=paula&email=email.com&tipoContrato=PJ&percentualPagamentoAula=45.00&ativo=true&page=0&size=10&sort=nome,asc
 GET /profissionais?ativo=false
+GET /profissionais/1/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28
 ```
 
 ---
@@ -447,6 +453,8 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - O `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Profissionais inativos são mantidos no banco (soft delete)
+- O relatório de pagamento considera aulas realizadas vinculadas ao profissional no período informado
+- O valor devido por aula é calculado por `valor do pagamento / quantidade de aulas do pagamento * percentualPagamentoAula / 100`
 
 ### Planos de Pagamento
 - Tipos: `MENSAL`, `TRIMESTRAL`, `ANUAL`
@@ -470,6 +478,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento
 - Sem duplicatas: se a aula do paciente naquela data já existir, ela é ignorada
 - Requer paciente ativo e pagamento confirmado
+- Ao marcar uma aula como realizada, `profissionalId` pode ser informado para alimentar o relatório de pagamento do profissional
 
 ### Scheduler (processos automáticos)
 | Horário | Ação |
@@ -481,21 +490,21 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **107 testes** organizados em treze suítes:
+O projeto possui **122 testes** organizados em treze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 8 |
-| `ProfissionalServiceTest` | Unitário (Mockito) | 10 |
+| `AulaServiceTest` | Unitário (Mockito) | 10 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
-| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 

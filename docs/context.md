@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
+API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças, geração automática de aulas e relatório de pagamento de profissionais.
 
 ---
 
@@ -70,6 +70,8 @@ com.carlesso.pilatesapi
 │   ├── ProfissionalRequestDTO.java   — payload de criação de profissional (record)
 │   ├── ProfissionalUpdateDTO.java    — payload de atualização de profissional (record)
 │   ├── ProfissionalResponseDTO.java  — resposta da API de profissional (record)
+│   ├── ProfissionalPagamentoRelatorioDTO.java — relatório de pagamento do profissional
+│   ├── ProfissionalPagamentoAulaDTO.java      — detalhe de aula no relatório
 │   ├── PlanoRequestDTO.java
 │   ├── PlanoResponseDTO.java
 │   ├── PagamentoRequestDTO.java
@@ -154,6 +156,7 @@ Constraint: `UNIQUE (plano_id, periodo_inicio)`
 | `id` | BIGINT | PK |
 | `paciente_id` | BIGINT | NOT NULL, FK |
 | `pagamento_id` | BIGINT | NOT NULL, FK |
+| `profissional_id` | BIGINT | nullable, FK → profissionais |
 | `data` | DATE | NOT NULL |
 | `realizada` | BOOLEAN | NOT NULL, default `false` |
 
@@ -177,6 +180,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | PUT | `/profissionais/{id}` | Atualização parcial | 200 / 404 |
 | PATCH | `/profissionais/{id}/ativar` | Reativar profissional | 204 / 404 |
 | PATCH | `/profissionais/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
+| GET | `/profissionais/{id}/relatorio-pagamento?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Gerar relatório de pagamento do profissional | 200 / 400 / 404 |
 | POST | `/planos` | Criar plano para paciente | 201 |
 | GET | `/planos/{id}` | Buscar plano por ID | 200 / 404 |
 | GET | `/planos/paciente/{id}` | Listar planos do paciente | 200 |
@@ -189,7 +193,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | GET | `/aulas/{id}` | Buscar aula | 200 / 404 |
 | GET | `/aulas/paciente/{id}` | Listar aulas do paciente | 200 |
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
-| PATCH | `/aulas/{id}/realizar` | Marcar como realizada | 200 / 404 |
+| PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
@@ -208,6 +212,9 @@ CPF não pode ser alterado após o cadastro.
 ### Profissionais
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - Soft delete mantém o registro no banco
+- O relatório de pagamento considera apenas aulas `realizada = true` vinculadas ao profissional e dentro do período informado
+- Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
+- Valor devido ao profissional por aula: `valor por aula * percentualPagamentoAula / 100`
 
 ### Planos
 - Tipo determina duração: `MENSAL` (1 mês), `TRIMESTRAL` (3 meses), `ANUAL` (12 meses)
@@ -224,6 +231,7 @@ CPF não pode ser alterado após o cadastro.
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`
 - Sem duplicatas: ignora datas onde o paciente já tem aula registrada
 - Requer: paciente ativo + pagamento `PAGO`
+- Uma aula realizada pode ser vinculada ao profissional que ministrou a aula
 
 ### Scheduler (processos automáticos)
 | Cron | Ação |
@@ -314,16 +322,16 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
-| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 10 |
+| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 13 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
-| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
-| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 7 |
+| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

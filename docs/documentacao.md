@@ -96,6 +96,8 @@ src/
 │   │   │   ├── ProfissionalRequestDTO.java
 │   │   │   ├── ProfissionalUpdateDTO.java
 │   │   │   ├── ProfissionalResponseDTO.java
+│   │   │   ├── ProfissionalPagamentoRelatorioDTO.java
+│   │   │   ├── ProfissionalPagamentoAulaDTO.java
 │   │   │   ├── PlanoRequestDTO.java
 │   │   │   ├── PlanoResponseDTO.java
 │   │   │   ├── PagamentoRequestDTO.java
@@ -113,7 +115,9 @@ src/
 │           ├── V5__create_aulas_table.sql
 │           ├── V6__create_profissionais_table.sql
 │           ├── V7__insert_profissionais_teste.sql
-│           └── V8__alter_pacientes_uf_to_varchar.sql
+│           ├── V8__alter_pacientes_uf_to_varchar.sql
+│           ├── V9__alter_profissionais_percentual_precision.sql
+│           └── V10__add_profissional_to_aulas.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -121,16 +125,16 @@ src/
     ├── service/
     │   ├── PacienteServiceTest.java             # 12 casos
     │   ├── PacienteServiceIntegrationTest.java  # 4 casos
-    │   ├── ProfissionalServiceTest.java         # 10 casos
+    │   ├── ProfissionalServiceTest.java         # 13 casos
     │   ├── PlanoServiceTest.java                # 8 casos
     │   ├── PagamentoServiceTest.java            # 8 casos
-    │   └── AulaServiceTest.java                 # 8 casos
+    │   └── AulaServiceTest.java                 # 10 casos
     └── controller/
         ├── PacienteControllerTest.java          # 16 casos
-        ├── ProfissionalControllerTest.java      # 10 casos
+        ├── ProfissionalControllerTest.java      # 13 casos
         ├── PlanoControllerTest.java             # 11 casos
         ├── PagamentoControllerTest.java         # 9 casos
-        └── AulaControllerTest.java              # 7 casos
+        └── AulaControllerTest.java              # 9 casos
 ```
 
 ---
@@ -145,6 +149,8 @@ src/
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - O campo `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Soft delete: profissionais inativos são mantidos no banco
+- O relatório de pagamento considera aulas realizadas vinculadas ao profissional dentro do período solicitado
+- O valor devido por aula é proporcional ao valor do pagamento (`valor / quantidade de aulas geradas`) multiplicado pelo `percentualPagamentoAula`
 
 ### 4.3 Planos de Pagamento
 
@@ -286,6 +292,7 @@ Tabela: `aulas`
 | `id` | `BIGINT` | PK | Identificador único |
 | `paciente_id` | `BIGINT` | NOT NULL, FK | Paciente vinculado |
 | `pagamento_id` | `BIGINT` | NOT NULL, FK | Pagamento que gerou a aula |
+| `profissional_id` | `BIGINT` | nullable, FK | Profissional que ministrou a aula realizada |
 | `data` | `DATE` | NOT NULL | Data da aula |
 | `realizada` | `BOOLEAN` | NOT NULL, default `false` | Presença confirmada |
 
@@ -495,6 +502,39 @@ GET /profissionais?ativo=false
 | `PATCH` | `/profissionais/{id}/ativar` | Reativa o profissional (`ativo = true`) | 204 / 404 |
 | `PATCH` | `/profissionais/{id}/inativar` | Soft delete (`ativo = false`) | 204 / 404 |
 
+#### Relatório de Pagamento do Profissional
+
+```http
+GET /profissionais/{id}/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28
+```
+
+Retorna aulas realizadas no período e o total devido ao profissional.
+
+```json
+{
+  "profissionalId": 1,
+  "profissionalNome": "Paula Mendes",
+  "periodoInicio": "2025-02-01",
+  "periodoFim": "2025-02-28",
+  "totalAulas": 2,
+  "totalPagamento": 22.50,
+  "aulas": [
+    {
+      "aulaId": 10,
+      "data": "2025-02-03",
+      "pacienteId": 1,
+      "pacienteNome": "Ana",
+      "pagamentoId": 5,
+      "valorPagamento": 200.00,
+      "quantidadeAulasPagamento": 8,
+      "valorBaseAula": 25.00,
+      "percentualPagamentoAula": 45.00,
+      "valorProfissional": 11.25
+    }
+  ]
+}
+```
+
 ---
 
 ### 6.3 Planos, Pagamentos e Aulas
@@ -513,7 +553,7 @@ GET /profissionais?ativo=false
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
-| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada |
+| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada; aceita `profissionalId` opcional |
 
 ---
 
@@ -729,20 +769,22 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **98 casos** distribuídos em onze classes:
+A suíte de testes possui **122 casos** distribuídos em treze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
-| `PacienteServiceTest` | Unitário (Mockito) | 11 |
-| `ProfissionalServiceTest` | Unitário (Mockito) | 10 |
+| `PacienteServiceTest` | Unitário (Mockito) | 12 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 8 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 15 |
-| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `AulaServiceTest` | Unitário (Mockito) | 10 |
+| `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 7 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 
 ### Executar os testes

@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
@@ -172,5 +173,39 @@ class ProfissionalControllerTest {
 
         mvc.perform(patch("/profissionais/99/inativar"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void gerarRelatorioPagamento_deveRetornar200() throws Exception {
+        var relatorio = new ProfissionalPagamentoRelatorioDTO(
+                1L,
+                "Paula Mendes",
+                LocalDate.of(2025, 2, 1),
+                LocalDate.of(2025, 2, 28),
+                2,
+                new BigDecimal("22.50"),
+                List.of());
+        when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                .thenReturn(relatorio);
+
+        mvc.perform(get("/profissionais/1/relatorio-pagamento")
+                        .param("inicio", "2025-02-01")
+                        .param("fim", "2025-02-28"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profissionalId").value(1))
+                .andExpect(jsonPath("$.totalAulas").value(2))
+                .andExpect(jsonPath("$.totalPagamento").value(22.50));
+    }
+
+    @Test
+    void gerarRelatorioPagamento_periodoInvalido_deveRetornar400() throws Exception {
+        when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 3, 1), LocalDate.of(2025, 2, 28)))
+                .thenThrow(new IllegalArgumentException("Período inicial não pode ser maior que o período final"));
+
+        mvc.perform(get("/profissionais/1/relatorio-pagamento")
+                        .param("inicio", "2025-03-01")
+                        .param("fim", "2025-02-28"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
     }
 }
