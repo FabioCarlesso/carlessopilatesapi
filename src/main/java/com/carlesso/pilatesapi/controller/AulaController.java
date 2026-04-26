@@ -58,7 +58,9 @@ public class AulaController {
     })
     @PatchMapping("/{id}/realizar")
     public ResponseEntity<AulaResponseDTO> realizar(
-            @Parameter(description = "ID da aula") @PathVariable Long id) {
-        return ResponseEntity.ok(service.realizarAula(id));
+            @Parameter(description = "ID da aula") @PathVariable Long id,
+            @Parameter(description = "ID do profissional que ministrou a aula")
+            @RequestParam(required = false) Long profissionalId) {
+        return ResponseEntity.ok(service.realizarAula(id, profissionalId));
     }
 }

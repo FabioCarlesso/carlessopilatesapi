@@ -14,4 +14,11 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
     List<Aula> findByPacienteIdOrderByData(Long pacienteId);
 
     List<Aula> findByPagamentoIdOrderByData(Long pagamentoId);
+
+    long countByPagamentoId(Long pagamentoId);
+
+    List<Aula> findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(
+            Long profissionalId,
+            LocalDate inicio,
+            LocalDate fim);
 }

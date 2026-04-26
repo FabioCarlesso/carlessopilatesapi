@@ -22,6 +22,10 @@ public class Aula {
     @JoinColumn(name = "pagamento_id", nullable = false)
     private Pagamento pagamento;
 
+    @ManyToOne
+    @JoinColumn(name = "profissional_id")
+    private Profissional profissional;
+
     @Column(nullable = false)
     private LocalDate data;
 
@@ -37,6 +41,9 @@ public class Aula {
 
     public Pagamento getPagamento() { return pagamento; }
     public void setPagamento(Pagamento pagamento) { this.pagamento = pagamento; }
+
+    public Profissional getProfissional() { return profissional; }
+    public void setProfissional(Profissional profissional) { this.profissional = profissional; }
 
     public LocalDate getData() { return data; }
     public void setData(LocalDate data) { this.data = data; }

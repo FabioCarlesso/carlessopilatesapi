@@ -4,10 +4,13 @@ import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.repository.AulaRepository;
+import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.*;
 class AulaServiceTest {
 
     @Mock AulaRepository aulaRepository;
+    @Mock ProfissionalRepository profissionalRepository;
     @InjectMocks AulaService service;
 
     private Paciente paciente;
@@ -137,6 +141,49 @@ class AulaServiceTest {
         var response = service.realizarAula(1L);
 
         assertThat(response.realizada()).isTrue();
+    }
+
+    @Test
+    void realizarAula_comProfissional_vinculaProfissional() {
+        Aula aula = new Aula();
+        aula.setPaciente(paciente);
+        aula.setPagamento(pagamentoPago);
+        aula.setData(LocalDate.of(2025, 2, 3));
+
+        Profissional profissional = new Profissional();
+        profissional.setId(1L);
+        profissional.setNome("Paula Mendes");
+        profissional.setEmail("paula@email.com");
+        profissional.setCpf("12345678900");
+        profissional.setTipoContrato(TipoContrato.PJ);
+        profissional.setPercentualPagamentoAula(new BigDecimal("45.00"));
+        profissional.setDataInicio(LocalDate.of(2024, 1, 15));
+
+        when(aulaRepository.findById(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
+
+        service.realizarAula(1L, 1L);
+
+        assertThat(aula.getProfissional()).isEqualTo(profissional);
+        assertThat(aula.isRealizada()).isTrue();
+    }
+
+    @Test
+    void realizarAula_profissionalInativo_lancaExcecao() {
+        Aula aula = new Aula();
+        aula.setPaciente(paciente);
+        aula.setPagamento(pagamentoPago);
+        aula.setData(LocalDate.of(2025, 2, 3));
+
+        Profissional profissional = new Profissional();
+        profissional.setAtivo(false);
+
+        when(aulaRepository.findById(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
+
+        assertThatThrownBy(() -> service.realizarAula(1L, 1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Profissional inativo");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Tag(name = "Profissionais", description = "Gerenciamento de profissionais do estúdio")
 @RestController
@@ -107,5 +109,19 @@ public class ProfissionalController {
             @Parameter(description = "ID do profissional", required = true) @PathVariable Long id) {
         service.inativar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Gerar relatório de pagamento do profissional", description = "Retorna aulas realizadas pelo profissional no período e o valor devido com base no percentual de pagamento por aula.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Relatório gerado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Período inválido"),
+            @ApiResponse(responseCode = "404", description = "Profissional não encontrado")
+    })
+    @GetMapping("/{id}/relatorio-pagamento")
+    public ResponseEntity<ProfissionalPagamentoRelatorioDTO> gerarRelatorioPagamento(
+            @Parameter(description = "ID do profissional", required = true) @PathVariable Long id,
+            @Parameter(description = "Data inicial do relatório", required = true) @RequestParam LocalDate inicio,
+            @Parameter(description = "Data final do relatório", required = true) @RequestParam LocalDate fim) {
+        return ResponseEntity.ok(service.gerarRelatorioPagamento(id, inicio, fim));
     }
 }

@@ -1,10 +1,18 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.entity.Aula;
+import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Pagamento;
+import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.Profissional;
+import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
+import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
+import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -33,6 +41,9 @@ class ProfissionalServiceTest {
 
     @Mock
     private ProfissionalRepository repository;
+
+    @Mock
+    private AulaRepository aulaRepository;
 
     @InjectMocks
     private ProfissionalService service;
@@ -175,5 +186,68 @@ class ProfissionalServiceTest {
         assertThatThrownBy(() -> service.inativar(99L))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    @Test
+    void gerarRelatorioPagamento_deveSomarAulasRealizadasNoPeriodo() {
+        Profissional profissional = profissional();
+        Aula aula = aula(profissional);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(profissional));
+        when(aulaRepository.findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(
+                1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                .thenReturn(List.of(aula, aula));
+        when(aulaRepository.countByPagamentoId(null)).thenReturn(8L);
+
+        var relatorio = service.gerarRelatorioPagamento(
+                1L,
+                LocalDate.of(2025, 2, 1),
+                LocalDate.of(2025, 2, 28));
+
+        assertThat(relatorio.totalAulas()).isEqualTo(2);
+        assertThat(relatorio.totalPagamento()).isEqualByComparingTo("22.50");
+        assertThat(relatorio.aulas().getFirst().valorBaseAula()).isEqualByComparingTo("25.00");
+        assertThat(relatorio.aulas().getFirst().valorProfissional()).isEqualByComparingTo("11.25");
+    }
+
+    @Test
+    void gerarRelatorioPagamento_periodoInvalido_deveLancarBadRequest() {
+        assertThatThrownBy(() -> service.gerarRelatorioPagamento(
+                1L,
+                LocalDate.of(2025, 3, 1),
+                LocalDate.of(2025, 2, 28)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não pode ser maior");
+    }
+
+    private Aula aula(Profissional profissional) {
+        Paciente paciente = new Paciente();
+        paciente.setNome("Ana");
+        paciente.setEmail("ana@email.com");
+        paciente.setCpf("11122233344");
+
+        Plano plano = new Plano();
+        plano.setPaciente(paciente);
+        plano.setTipo(TipoPagamento.MENSAL);
+        plano.setValor(new BigDecimal("200.00"));
+        plano.setFrequenciaSemanal(FrequenciaSemanal.DUAS_VEZES);
+        plano.setDataInicio(LocalDate.of(2025, 2, 1));
+
+        Pagamento pagamento = new Pagamento();
+        pagamento.setPaciente(paciente);
+        pagamento.setPlano(plano);
+        pagamento.setValor(new BigDecimal("200.00"));
+        pagamento.setStatus(StatusPagamento.PAGO);
+        pagamento.setPeriodoInicio(LocalDate.of(2025, 2, 1));
+        pagamento.setPeriodoFim(LocalDate.of(2025, 2, 28));
+        pagamento.setDataVencimento(LocalDate.of(2025, 2, 10));
+
+        Aula aula = new Aula();
+        aula.setPaciente(paciente);
+        aula.setPagamento(pagamento);
+        aula.setProfissional(profissional);
+        aula.setData(LocalDate.of(2025, 2, 3));
+        aula.setRealizada(true);
+        return aula;
     }
 }
