@@ -208,11 +208,12 @@ CPF não pode ser alterado após o cadastro.
 ### Pacientes
 - Apenas um plano ativo por paciente por vez
 - Pacientes inativos não recebem cobranças nem têm aulas geradas
+- Consultas de aulas não retornam registros associados a pacientes inativos
 
 ### Profissionais
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - Soft delete mantém o registro no banco
-- O relatório de pagamento considera apenas aulas `realizada = true` vinculadas ao profissional e dentro do período informado
+- O relatório de pagamento considera apenas aulas `realizada = true` vinculadas ao profissional, dentro do período informado e associadas a pacientes ativos
 - Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
 - Valor devido ao profissional por aula: `valor por aula * percentualPagamentoAula / 100`
 
@@ -231,6 +232,7 @@ CPF não pode ser alterado após o cadastro.
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`
 - Sem duplicatas: ignora datas onde o paciente já tem aula registrada
 - Requer: paciente ativo + pagamento `PAGO`
+- Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
 - Uma aula realizada pode ser vinculada ao profissional que ministrou a aula
 
 ### Scheduler (processos automáticos)

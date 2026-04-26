@@ -125,10 +125,13 @@ src/
     ├── service/
     │   ├── PacienteServiceTest.java             # 12 casos
     │   ├── PacienteServiceIntegrationTest.java  # 4 casos
+    │   ├── ProfissionalServiceIntegrationTest.java # 5 casos
     │   ├── ProfissionalServiceTest.java         # 13 casos
     │   ├── PlanoServiceTest.java                # 8 casos
     │   ├── PagamentoServiceTest.java            # 8 casos
     │   └── AulaServiceTest.java                 # 10 casos
+    ├── repository/
+    │   └── AulaRepositoryTest.java              # 5 casos
     └── controller/
         ├── PacienteControllerTest.java          # 16 casos
         ├── ProfissionalControllerTest.java      # 13 casos
@@ -144,12 +147,13 @@ src/
 ### 4.1 Pacientes
 - Um paciente pode ter **apenas um plano ativo** por vez
 - Pacientes com `ativo = false` não podem receber novas cobranças nem ter aulas geradas
+- Consultas de aulas não retornam registros associados a pacientes inativos
 
 ### 4.2 Profissionais
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - O campo `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Soft delete: profissionais inativos são mantidos no banco
-- O relatório de pagamento considera aulas realizadas vinculadas ao profissional dentro do período solicitado
+- O relatório de pagamento considera aulas realizadas vinculadas ao profissional dentro do período solicitado e associadas a pacientes ativos
 - O valor devido por aula é proporcional ao valor do pagamento (`valor / quantidade de aulas geradas`) multiplicado pelo `percentualPagamentoAula`
 
 ### 4.3 Planos de Pagamento
@@ -185,6 +189,7 @@ src/
 - Aulas são geradas a partir dos dias da semana definidos no plano, percorrendo dia a dia entre `periodoInicio` e `periodoFim`
 - Não gera aulas duplicadas: se o paciente já tiver aula naquela data, ela é ignorada
 - Requer: paciente ativo + pagamento com status `PAGO`
+- Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
 
 ### 4.7 Processos Automáticos (Scheduler)
 
