@@ -774,7 +774,7 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **122 casos** distribuídos em treze classes:
+A suíte de testes possui **129 casos** distribuídos em quinze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
@@ -782,8 +782,10 @@ A suíte de testes possui **122 casos** distribuídos em treze classes:
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 10 |
+| `AulaServiceTest` | Unitário (Mockito) | 12 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
+| `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
+| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
