@@ -30,8 +30,12 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 ```
 com.carlesso.pilatesapi
 ├── config
-│   ├── GlobalExceptionHandler.java   — captura EntityNotFoundException → 404
+│   ├── GlobalExceptionHandler.java   — mapeia exceções customizadas para HTTP (404/409/422)
 │   └── OpenApiConfig.java            — configuração do Swagger/OpenAPI
+├── exception
+│   ├── ResourceNotFoundException.java — 404 (recurso não encontrado)
+│   ├── ConflictException.java         — 409 (conflito de estado/duplicidade)
+│   └── BusinessException.java         — 422 (violação de regra de negócio)
 ├── controller
 │   ├── PacienteController.java       — endpoints REST de pacientes
 │   ├── ProfissionalController.java   — endpoints REST de profissionais
@@ -251,7 +255,7 @@ CPF não pode ser alterado após o cadastro.
 - **Atualização parcial via PUT**: DTOs de update têm todos os campos opcionais; o service só sobrescreve os campos não-nulos.
 - **DTOs como records**: todos os DTOs de request e response são Java records.
 - **Factory method**: `*ResponseDTO.from(Entity)` centraliza o mapeamento entidade → DTO.
-- **Tratamento de 404**: `GlobalExceptionHandler` captura `EntityNotFoundException` e retorna `{"erro": "..."}`.
+- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409.
 - **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
 - **Transações de leitura**: métodos de consulta nos services usam `@Transactional(readOnly = true)` para evitar flush desnecessário e permitir otimizações de conexão.
 
@@ -330,15 +334,16 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 13 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 13 |
+| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 5 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
-| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 13 |
+| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 14 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
-| `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 10 |
-| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 9 |
+| `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
+| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

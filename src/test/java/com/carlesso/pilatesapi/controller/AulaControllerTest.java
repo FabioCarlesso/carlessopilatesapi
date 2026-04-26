@@ -1,8 +1,10 @@
 package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AulaService;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -41,7 +43,7 @@ class AulaControllerTest {
     @Test
     void buscar_naoEncontrada_retorna404() throws Exception {
         when(aulaService.buscarPorId(99L))
-                .thenThrow(new EntityNotFoundException("Aula não encontrada: 99"));
+                .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
 
         mockMvc.perform(get("/aulas/99"))
                 .andExpect(status().isNotFound())
@@ -87,7 +89,7 @@ class AulaControllerTest {
     @Test
     void realizar_comProfissionalInexistente_retorna404() throws Exception {
         when(aulaService.realizarAula(eq(1L), eq(99L)))
-                .thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
+                .thenThrow(new ResourceNotFoundException("Profissional não encontrado: 99"));
 
         mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "99"))
                 .andExpect(status().isNotFound());
@@ -96,7 +98,7 @@ class AulaControllerTest {
     @Test
     void realizar_aaulaJaRealizada_retorna409() throws Exception {
         when(aulaService.realizarAula(eq(1L), isNull()))
-                .thenThrow(new IllegalStateException("Aula já foi marcada como realizada"));
+                .thenThrow(new ConflictException("Aula já foi marcada como realizada"));
 
         mockMvc.perform(patch("/aulas/1/realizar"))
                 .andExpect(status().isConflict())
@@ -104,9 +106,19 @@ class AulaControllerTest {
     }
 
     @Test
+    void realizar_profissionalInativo_retorna422() throws Exception {
+        when(aulaService.realizarAula(eq(1L), eq(2L)))
+                .thenThrow(new BusinessException("Profissional inativo não pode ser vinculado à aula"));
+
+        mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "2"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
     void realizar_naoEncontrada_retorna404() throws Exception {
         when(aulaService.realizarAula(eq(99L), isNull()))
-                .thenThrow(new EntityNotFoundException("Aula não encontrada: 99"));
+                .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
 
         mockMvc.perform(patch("/aulas/99/realizar"))
                 .andExpect(status().isNotFound());

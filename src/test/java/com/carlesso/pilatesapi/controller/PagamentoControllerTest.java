@@ -3,9 +3,11 @@ package com.carlesso.pilatesapi.controller;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.PagamentoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -72,12 +74,27 @@ class PagamentoControllerTest {
     }
 
     @Test
-    void criar_pacienteInativo_retorna409() throws Exception {
+    void criar_pacienteInativo_retorna422() throws Exception {
         var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("200.00"),
                 LocalDate.now().plusDays(10), LocalDate.now());
 
         when(pagamentoService.criar(any()))
-                .thenThrow(new IllegalStateException("Paciente inativo não pode receber novas cobranças"));
+                .thenThrow(new BusinessException("Paciente inativo não pode receber novas cobranças"));
+
+        mockMvc.perform(post("/pagamentos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void criar_pagamentoDuplicado_retorna409() throws Exception {
+        var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("200.00"),
+                LocalDate.now().plusDays(10), LocalDate.now());
+
+        when(pagamentoService.criar(any()))
+                .thenThrow(new ConflictException("Já existe um pagamento para este plano no período"));
 
         mockMvc.perform(post("/pagamentos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -113,7 +130,7 @@ class PagamentoControllerTest {
     @Test
     void buscar_naoEncontrado_retorna404() throws Exception {
         when(pagamentoService.buscarPorId(99L))
-                .thenThrow(new EntityNotFoundException("Pagamento não encontrado: 99"));
+                .thenThrow(new ResourceNotFoundException("Pagamento não encontrado: 99"));
 
         mockMvc.perform(get("/pagamentos/99"))
                 .andExpect(status().isNotFound());
@@ -158,7 +175,7 @@ class PagamentoControllerTest {
     @Test
     void pagar_jaConfirmado_retorna409() throws Exception {
         when(pagamentoService.pagar(eq(1L), isNull()))
-                .thenThrow(new IllegalStateException("Pagamento já foi confirmado"));
+                .thenThrow(new ConflictException("Pagamento já foi confirmado"));
 
         mockMvc.perform(patch("/pagamentos/1/pagar"))
                 .andExpect(status().isConflict())

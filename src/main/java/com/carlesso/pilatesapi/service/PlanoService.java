@@ -4,9 +4,11 @@ import com.carlesso.pilatesapi.dto.PlanoRequestDTO;
 import com.carlesso.pilatesapi.dto.PlanoResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +30,10 @@ public class PlanoService {
     @Transactional
     public PlanoResponseDTO criar(PlanoRequestDTO dto) {
         Paciente paciente = pacienteRepository.findById(dto.pacienteId())
-                .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         if (!paciente.isAtivo()) {
-            throw new IllegalStateException("Paciente inativo não pode receber novo plano");
+            throw new BusinessException("Paciente inativo não pode receber novo plano");
         }
 
         if (dto.diasSemana().size() != dto.frequenciaSemanal().getVezesPorSemana()) {
@@ -85,13 +87,13 @@ public class PlanoService {
     public void inativar(Long id) {
         Plano plano = encontrar(id);
         if (!plano.isAtivo()) {
-            throw new IllegalStateException("Plano já está inativo");
+            throw new ConflictException("Plano já está inativo");
         }
         plano.setAtivo(false);
     }
 
     private Plano encontrar(Long id) {
         return planoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Plano não encontrado: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Plano não encontrado: " + id));
     }
 }

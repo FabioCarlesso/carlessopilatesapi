@@ -8,10 +8,12 @@ import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -91,7 +93,7 @@ class PagamentoServiceTest {
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
 
         assertThatThrownBy(() -> service.criar(dto))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("inativo");
     }
 
@@ -118,7 +120,7 @@ class PagamentoServiceTest {
         when(pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio())).thenReturn(true);
 
         assertThatThrownBy(() -> service.criar(dto))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Já existe um pagamento");
     }
 
@@ -130,7 +132,7 @@ class PagamentoServiceTest {
         when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.criar(dto))
-                .isInstanceOf(EntityNotFoundException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -167,7 +169,7 @@ class PagamentoServiceTest {
         when(pagamentoRepository.findById(1L)).thenReturn(Optional.of(pagamento));
 
         assertThatThrownBy(() -> service.pagar(1L, null))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("já foi confirmado");
     }
 

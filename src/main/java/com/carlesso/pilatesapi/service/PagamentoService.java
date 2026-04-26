@@ -6,10 +6,12 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,14 +39,14 @@ public class PagamentoService {
     @Transactional
     public PagamentoResponseDTO criar(PagamentoRequestDTO dto) {
         Paciente paciente = pacienteRepository.findById(dto.pacienteId())
-                .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         if (!paciente.isAtivo()) {
-            throw new IllegalStateException("Paciente inativo não pode receber novas cobranças");
+            throw new BusinessException("Paciente inativo não pode receber novas cobranças");
         }
 
         Plano plano = planoRepository.findById(dto.planoId())
-                .orElseThrow(() -> new EntityNotFoundException("Plano não encontrado: " + dto.planoId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Plano não encontrado: " + dto.planoId()));
 
         if (dto.valor().compareTo(plano.getValor()) < 0) {
             throw new IllegalArgumentException(
@@ -56,7 +58,7 @@ public class PagamentoService {
         LocalDate periodoFim = dto.periodoInicio().plusMonths(plano.getTipo().getMeses()).minusDays(1);
 
         if (pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio())) {
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "Já existe um pagamento para este plano no período iniciado em " + dto.periodoInicio()
             );
         }
@@ -77,7 +79,7 @@ public class PagamentoService {
         Pagamento pagamento = encontrar(id);
 
         if (pagamento.getStatus() == StatusPagamento.PAGO) {
-            throw new IllegalStateException("Pagamento já foi confirmado");
+            throw new ConflictException("Pagamento já foi confirmado");
         }
 
         pagamento.setStatus(StatusPagamento.PAGO);
@@ -147,6 +149,6 @@ public class PagamentoService {
 
     private Pagamento encontrar(Long id) {
         return pagamentoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Pagamento não encontrado: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Pagamento não encontrado: " + id));
     }
 }

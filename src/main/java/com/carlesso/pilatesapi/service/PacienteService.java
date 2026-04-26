@@ -5,8 +5,8 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -95,7 +95,7 @@ public class PacienteService {
 
     private Paciente encontrar(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + id));
     }
 
     private Specification<Paciente> filtros(String nome, String email, String cpf, String telefone, Boolean ativo) {

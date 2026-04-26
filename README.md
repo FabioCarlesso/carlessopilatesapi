@@ -29,8 +29,12 @@ src/
 ├── main/
 │   ├── java/com/carlesso/pilatesapi/
 │   │   ├── config/
-│   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
+│   │   │   ├── GlobalExceptionHandler.java  # Mapeia exceções customizadas para HTTP (404/409/422)
 │   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   ├── exception/
+│   │   │   ├── ResourceNotFoundException.java  # 404 — recurso não encontrado
+│   │   │   ├── ConflictException.java          # 409 — conflito de estado/duplicidade
+│   │   │   └── BusinessException.java          # 422 — violação de regra de negócio
 │   │   ├── controller/
 │   │   │   ├── PacienteController.java      # Endpoints REST de pacientes
 │   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
@@ -502,27 +506,46 @@ curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
 ### Boas práticas Spring
 - Métodos de leitura em services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e preparar a aplicação para roteamento futuro de leituras.
 
+### Tratamento de erros
+
+A API utiliza exceções customizadas mapeadas pelo `GlobalExceptionHandler` para retornar o status HTTP semanticamente correto:
+
+| Exceção | HTTP | Quando é lançada |
+|---|---|---|
+| `ResourceNotFoundException` | `404 Not Found` | Recurso solicitado não existe (ex.: paciente, plano, pagamento ou aula não encontrada) |
+| `ConflictException` | `409 Conflict` | Conflito de estado ou duplicidade (ex.: e-mail/CPF já cadastrado, pagamento já confirmado, aula já realizada) |
+| `BusinessException` | `422 Unprocessable Entity` | Regra de negócio violada (ex.: paciente inativo não pode receber cobrança, profissional inativo não pode ser vinculado a aula) |
+| `IllegalArgumentException` | `400 Bad Request` | Parâmetros de entrada inválidos (ex.: período inicial maior que o final, valor menor que o do plano) |
+| `DataIntegrityViolationException` | `409 Conflict` | Violação de constraint do banco (ex.: registro duplicado ao salvar) |
+
+Formato da resposta de erro:
+
+```json
+{ "erro": "Mensagem descritiva do problema" }
+```
+
 ---
 
 ## Testes
 
-O projeto possui **132 testes** organizados em quinze suítes:
+O projeto possui **142 testes** organizados em dezesseis suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 13 |
+| `AulaServiceTest` | Unitário (Mockito) | 14 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
-| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 10 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
+| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 14 |
+| `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 

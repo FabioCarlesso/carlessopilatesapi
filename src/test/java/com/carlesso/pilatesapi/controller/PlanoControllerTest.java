@@ -4,9 +4,10 @@ import com.carlesso.pilatesapi.dto.PlanoRequestDTO;
 import com.carlesso.pilatesapi.dto.PlanoResponseDTO;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.PlanoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -66,16 +67,16 @@ class PlanoControllerTest {
     }
 
     @Test
-    void criar_pacienteInativo_retorna409() throws Exception {
+    void criar_pacienteInativo_retorna422() throws Exception {
         var dto = new PlanoRequestDTO(1L, TipoPagamento.MENSAL, new BigDecimal("200.00"),
                 FrequenciaSemanal.UMA_VEZ, List.of(DayOfWeek.MONDAY), null);
 
-        when(planoService.criar(any())).thenThrow(new IllegalStateException("Paciente inativo"));
+        when(planoService.criar(any())).thenThrow(new BusinessException("Paciente inativo"));
 
         mockMvc.perform(post("/planos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isConflict())
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Paciente inativo"));
     }
 
@@ -104,7 +105,7 @@ class PlanoControllerTest {
 
     @Test
     void buscar_naoEncontrado_retorna404() throws Exception {
-        when(planoService.buscarPorId(99L)).thenThrow(new EntityNotFoundException("Plano não encontrado: 99"));
+        when(planoService.buscarPorId(99L)).thenThrow(new ResourceNotFoundException("Plano não encontrado: 99"));
 
         mockMvc.perform(get("/planos/99"))
                 .andExpect(status().isNotFound())
@@ -147,7 +148,7 @@ class PlanoControllerTest {
 
     @Test
     void inativar_naoEncontrado_retorna404() throws Exception {
-        doThrow(new EntityNotFoundException("Plano não encontrado: 99")).when(planoService).inativar(99L);
+        doThrow(new ResourceNotFoundException("Plano não encontrado: 99")).when(planoService).inativar(99L);
 
         mockMvc.perform(delete("/planos/99"))
                 .andExpect(status().isNotFound());

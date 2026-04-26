@@ -6,9 +6,11 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -92,7 +94,7 @@ class PlanoServiceTest {
         when(pacienteRepository.findById(2L)).thenReturn(Optional.of(pacienteInativo));
 
         assertThatThrownBy(() -> service.criar(dto))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("inativo");
     }
 
@@ -144,7 +146,7 @@ class PlanoServiceTest {
         when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.criar(dto))
-                .isInstanceOf(EntityNotFoundException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -195,7 +197,7 @@ class PlanoServiceTest {
         when(planoRepository.findById(1L)).thenReturn(Optional.of(plano));
 
         assertThatThrownBy(() -> service.inativar(1L))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("já está inativo");
     }
 

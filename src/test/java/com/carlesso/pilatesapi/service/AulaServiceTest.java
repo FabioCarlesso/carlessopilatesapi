@@ -9,9 +9,11 @@ import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -125,7 +127,7 @@ class AulaServiceTest {
         pagamentoPago.setStatus(StatusPagamento.PENDENTE);
 
         assertThatThrownBy(() -> service.gerarAulas(pagamentoPago))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("PAGO");
     }
 
@@ -134,7 +136,7 @@ class AulaServiceTest {
         paciente.setAtivo(false);
 
         assertThatThrownBy(() -> service.gerarAulas(pagamentoPago))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("inativo");
     }
 
@@ -191,7 +193,7 @@ class AulaServiceTest {
         when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
 
         assertThatThrownBy(() -> service.realizarAula(1L, 1L))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Profissional inativo");
     }
 
@@ -206,16 +208,16 @@ class AulaServiceTest {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
 
         assertThatThrownBy(() -> service.realizarAula(1L))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("já foi marcada");
     }
 
     @Test
-    void realizarAula_pacienteInativo_lancaEntityNotFound() {
+    void realizarAula_pacienteInativo_lancaResourceNotFound() {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.realizarAula(1L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Aula não encontrada: 1");
     }
 
@@ -224,16 +226,31 @@ class AulaServiceTest {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
-                .isInstanceOf(EntityNotFoundException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void buscarPorId_pacienteInativo_lancaEntityNotFound() {
+    void buscarPorId_pacienteInativo_lancaResourceNotFound() {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(1L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    @Test
+    void realizarAula_profissionalNaoEncontrado_lancaResourceNotFound() {
+        Aula aula = new Aula();
+        aula.setPaciente(paciente);
+        aula.setPagamento(pagamentoPago);
+        aula.setData(LocalDate.of(2025, 2, 3));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.realizarAula(1L, 99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Profissional não encontrado: 99");
     }
 
     private void assertReadOnly(String methodName, Class<?>... parameterTypes) throws Exception {
