@@ -136,7 +136,7 @@ class AulaServiceTest {
         aula.setPagamento(pagamentoPago);
         aula.setData(LocalDate.of(2025, 2, 3));
 
-        when(aulaRepository.findById(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
 
         var response = service.realizarAula(1L);
 
@@ -159,7 +159,7 @@ class AulaServiceTest {
         profissional.setPercentualPagamentoAula(new BigDecimal("45.00"));
         profissional.setDataInicio(LocalDate.of(2024, 1, 15));
 
-        when(aulaRepository.findById(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
         when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
 
         service.realizarAula(1L, 1L);
@@ -178,7 +178,7 @@ class AulaServiceTest {
         Profissional profissional = new Profissional();
         profissional.setAtivo(false);
 
-        when(aulaRepository.findById(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
         when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
 
         assertThatThrownBy(() -> service.realizarAula(1L, 1L))
@@ -194,7 +194,7 @@ class AulaServiceTest {
         aula.setData(LocalDate.of(2025, 2, 3));
         aula.setRealizada(true);
 
-        when(aulaRepository.findById(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
 
         assertThatThrownBy(() -> service.realizarAula(1L))
                 .isInstanceOf(IllegalStateException.class)
@@ -202,10 +202,28 @@ class AulaServiceTest {
     }
 
     @Test
+    void realizarAula_pacienteInativo_lancaEntityNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.realizarAula(1L))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    @Test
     void buscarPorId_naoEncontrado_lancaExcecao() {
-        when(aulaRepository.findById(99L)).thenReturn(Optional.empty());
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void buscarPorId_pacienteInativo_lancaEntityNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.buscarPorId(1L))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Aula não encontrada: 1");
     }
 }

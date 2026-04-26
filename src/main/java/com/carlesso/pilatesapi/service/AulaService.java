@@ -99,7 +99,7 @@ public class AulaService {
     }
 
     private Aula encontrar(Long id) {
-        return aulaRepository.findById(id)
+        return aulaRepository.findByIdAndPacienteAtivoTrue(id)
                 .orElseThrow(() -> new EntityNotFoundException("Aula não encontrada: " + id));
     }
 }

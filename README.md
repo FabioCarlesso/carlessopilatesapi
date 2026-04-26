@@ -98,10 +98,13 @@ src/
     ├── service/
     │   ├── PacienteServiceTest.java
     │   ├── PacienteServiceIntegrationTest.java
+    │   ├── ProfissionalServiceIntegrationTest.java
     │   ├── ProfissionalServiceTest.java
     │   ├── PlanoServiceTest.java
     │   ├── PagamentoServiceTest.java
     │   └── AulaServiceTest.java
+    ├── repository/
+    │   └── AulaRepositoryTest.java
     └── controller/
         ├── PacienteControllerTest.java
         ├── ProfissionalControllerTest.java
@@ -453,7 +456,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - O `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Profissionais inativos são mantidos no banco (soft delete)
-- O relatório de pagamento considera aulas realizadas vinculadas ao profissional no período informado
+- O relatório de pagamento considera aulas realizadas vinculadas ao profissional no período informado e ignora aulas de pacientes inativos
 - O valor devido por aula é calculado por `valor do pagamento / quantidade de aulas do pagamento * percentualPagamentoAula / 100`
 
 ### Planos de Pagamento
@@ -478,6 +481,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento
 - Sem duplicatas: se a aula do paciente naquela data já existir, ela é ignorada
 - Requer paciente ativo e pagamento confirmado
+- Consultas de aulas por ID, paciente, pagamento e relatório retornam apenas aulas associadas a pacientes ativos
 - Ao marcar uma aula como realizada, `profissionalId` pode ser informado para alimentar o relatório de pagamento do profissional
 
 ### Scheduler (processos automáticos)
@@ -490,16 +494,18 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **122 testes** organizados em treze suítes:
+O projeto possui **129 testes** organizados em quinze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 10 |
+| `AulaServiceTest` | Unitário (Mockito) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
+| `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
+| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
