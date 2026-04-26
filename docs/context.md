@@ -75,6 +75,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoRequestDTO.java
 │   ├── PlanoResponseDTO.java
 │   ├── PagamentoRequestDTO.java
+│   ├── PagamentoPagarRequestDTO.java — payload opcional para confirmar pagamento
 │   ├── PagamentoResponseDTO.java
 │   └── AulaResponseDTO.java
 └── scheduler
@@ -189,7 +190,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | POST | `/pagamentos` | Criar pagamento (PENDENTE) | 201 |
 | GET | `/pagamentos/{id}` | Buscar pagamento | 200 / 404 |
 | GET | `/pagamentos/paciente/{id}` | Listar pagamentos | 200 |
-| PATCH | `/pagamentos/{id}/pagar` | Confirmar e gerar aulas | 200 |
+| PATCH | `/pagamentos/{id}/pagar` | Confirmar e gerar aulas; aceita `dataPagamento` opcional no corpo | 200 |
 | GET | `/aulas/{id}` | Buscar aula | 200 / 404 |
 | GET | `/aulas/paciente/{id}` | Listar aulas do paciente | 200 |
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
@@ -227,6 +228,7 @@ CPF não pode ser alterado após o cadastro.
 - Valor não pode ser menor que o valor do plano
 - Sem duplicidade por período (`UNIQUE plano_id + periodo_inicio`)
 - Ao confirmar (`PAGO`), as aulas são geradas automaticamente
+- A confirmação recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
 
 ### Aulas
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`
@@ -334,7 +336,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
-| `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
+| `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

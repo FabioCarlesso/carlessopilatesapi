@@ -101,6 +101,7 @@ src/
 │   │   │   ├── PlanoRequestDTO.java
 │   │   │   ├── PlanoResponseDTO.java
 │   │   │   ├── PagamentoRequestDTO.java
+│   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
 │   │   │   └── AulaResponseDTO.java
 │   │   └── scheduler/
@@ -136,7 +137,7 @@ src/
         ├── PacienteControllerTest.java          # 16 casos
         ├── ProfissionalControllerTest.java      # 13 casos
         ├── PlanoControllerTest.java             # 11 casos
-        ├── PagamentoControllerTest.java         # 9 casos
+        ├── PagamentoControllerTest.java         # 10 casos
         └── AulaControllerTest.java              # 9 casos
 ```
 
@@ -554,7 +555,7 @@ Retorna aulas realizadas no período e o total devido ao profissional.
 | `POST` | `/pagamentos` | Criar pagamento (PENDENTE) |
 | `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente |
-| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas |
+| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` opcional no corpo |
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
@@ -774,7 +775,7 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **129 casos** distribuídos em quinze classes:
+A suíte de testes possui **130 casos** distribuídos em quinze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
@@ -789,7 +790,7 @@ A suíte de testes possui **129 casos** distribuídos em quinze classes:
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
-| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
