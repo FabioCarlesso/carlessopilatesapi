@@ -85,6 +85,15 @@ class AulaControllerTest {
     }
 
     @Test
+    void realizar_comProfissionalInexistente_retorna404() throws Exception {
+        when(aulaService.realizarAula(eq(1L), eq(99L)))
+                .thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
+
+        mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "99"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void realizar_aaulaJaRealizada_retorna409() throws Exception {
         when(aulaService.realizarAula(eq(1L), isNull()))
                 .thenThrow(new IllegalStateException("Aula já foi marcada como realizada"));

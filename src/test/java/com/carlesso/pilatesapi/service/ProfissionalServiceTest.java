@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class ProfissionalServiceTest {
@@ -197,7 +198,8 @@ class ProfissionalServiceTest {
         when(aulaRepository.findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(
                 1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
                 .thenReturn(List.of(aula, aula));
-        when(aulaRepository.countByPagamentoId(null)).thenReturn(8L);
+        when(aulaRepository.countGroupedByPagamentoId(List.of(5L)))
+                .thenReturn(List.<Object[]>of(new Object[]{5L, 8L}));
 
         var relatorio = service.gerarRelatorioPagamento(
                 1L,
@@ -241,6 +243,7 @@ class ProfissionalServiceTest {
         pagamento.setPeriodoInicio(LocalDate.of(2025, 2, 1));
         pagamento.setPeriodoFim(LocalDate.of(2025, 2, 28));
         pagamento.setDataVencimento(LocalDate.of(2025, 2, 10));
+        ReflectionTestUtils.setField(pagamento, "id", 5L);
 
         Aula aula = new Aula();
         aula.setPaciente(paciente);

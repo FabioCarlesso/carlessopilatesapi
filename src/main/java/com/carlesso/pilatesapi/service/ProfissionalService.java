@@ -22,6 +22,8 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ProfissionalService {
@@ -102,10 +104,22 @@ public class ProfissionalService {
         }
 
         Profissional profissional = encontrar(id);
-        List<ProfissionalPagamentoAulaDTO> aulas = aulaRepository
-                .findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(id, inicio, fim)
-                .stream()
-                .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula()))
+        List<Aula> aulasEntidade = aulaRepository
+                .findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(id, inicio, fim);
+
+        List<Long> pagamentoIds = aulasEntidade.stream()
+                .map(a -> a.getPagamento().getId())
+                .distinct()
+                .toList();
+
+        Map<Long, Long> contsPorPagamento = pagamentoIds.isEmpty()
+                ? Map.of()
+                : aulaRepository.countGroupedByPagamentoId(pagamentoIds)
+                        .stream()
+                        .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+
+        List<ProfissionalPagamentoAulaDTO> aulas = aulasEntidade.stream()
+                .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula(), contsPorPagamento))
                 .toList();
 
         BigDecimal totalPagamento = aulas.stream()
@@ -127,8 +141,8 @@ public class ProfissionalService {
                 .orElseThrow(() -> new EntityNotFoundException("Profissional não encontrado: " + id));
     }
 
-    private ProfissionalPagamentoAulaDTO mapearAulaPagamento(Aula aula, BigDecimal percentualPagamentoAula) {
-        long quantidadeAulasPagamento = aulaRepository.countByPagamentoId(aula.getPagamento().getId());
+    private ProfissionalPagamentoAulaDTO mapearAulaPagamento(Aula aula, BigDecimal percentualPagamentoAula, Map<Long, Long> contsPorPagamento) {
+        long quantidadeAulasPagamento = contsPorPagamento.getOrDefault(aula.getPagamento().getId(), 0L);
         if (quantidadeAulasPagamento == 0) {
             throw new IllegalStateException("Pagamento sem aulas geradas: " + aula.getPagamento().getId());
         }

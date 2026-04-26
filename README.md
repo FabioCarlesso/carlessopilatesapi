@@ -490,7 +490,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **121 testes** organizados em treze suítes:
+O projeto possui **122 testes** organizados em treze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -503,7 +503,7 @@ O projeto possui **121 testes** organizados em treze suítes:
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 8 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |

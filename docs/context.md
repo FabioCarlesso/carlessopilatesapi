@@ -322,16 +322,16 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
-| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 10 |
+| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 13 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
-| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
-| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 7 |
+| `AulaControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

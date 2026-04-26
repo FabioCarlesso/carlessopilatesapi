@@ -134,7 +134,7 @@ src/
         ├── ProfissionalControllerTest.java      # 13 casos
         ├── PlanoControllerTest.java             # 11 casos
         ├── PagamentoControllerTest.java         # 9 casos
-        └── AulaControllerTest.java              # 8 casos
+        └── AulaControllerTest.java              # 9 casos
 ```
 
 ---
@@ -769,7 +769,7 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **121 casos** distribuídos em treze classes:
+A suíte de testes possui **122 casos** distribuídos em treze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
@@ -783,7 +783,7 @@ A suíte de testes possui **121 casos** distribuídos em treze classes:
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 8 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 
