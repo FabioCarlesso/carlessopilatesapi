@@ -1,20 +1,14 @@
 package com.carlesso.pilatesapi.service;
 
-import com.carlesso.pilatesapi.entity.Aula;
-import com.carlesso.pilatesapi.entity.Paciente;
-import com.carlesso.pilatesapi.entity.Pagamento;
-import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.Profissional;
-import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
-import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
-import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
+import com.carlesso.pilatesapi.repository.AulaRepository.ProfissionalPagamentoAulaProjection;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,9 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class ProfissionalServiceTest {
@@ -193,14 +187,13 @@ class ProfissionalServiceTest {
     @Test
     void gerarRelatorioPagamento_deveSomarAulasRealizadasNoPeriodo() {
         Profissional profissional = profissional();
-        Aula aula = aula(profissional);
+        var aula = aulaRelatorio(10L, LocalDate.of(2025, 2, 3), 5L);
+        var outraAula = aulaRelatorio(11L, LocalDate.of(2025, 2, 5), 5L);
 
         when(repository.findById(1L)).thenReturn(Optional.of(profissional));
-        when(aulaRepository.findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(
+        when(aulaRepository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
                 1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
-                .thenReturn(List.of(aula, aula));
-        when(aulaRepository.countGroupedByPagamentoId(List.of(5L)))
-                .thenReturn(List.<Object[]>of(new Object[]{5L, 8L}));
+                .thenReturn(List.of(aula, outraAula));
 
         var relatorio = service.gerarRelatorioPagamento(
                 1L,
@@ -211,6 +204,9 @@ class ProfissionalServiceTest {
         assertThat(relatorio.totalPagamento()).isEqualByComparingTo("22.50");
         assertThat(relatorio.aulas().getFirst().valorBaseAula()).isEqualByComparingTo("25.00");
         assertThat(relatorio.aulas().getFirst().valorProfissional()).isEqualByComparingTo("11.25");
+        verify(aulaRepository).findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
+        verify(aulaRepository, never()).countGroupedByPagamentoId(any());
     }
 
     @Test
@@ -223,35 +219,42 @@ class ProfissionalServiceTest {
                 .hasMessageContaining("não pode ser maior");
     }
 
-    private Aula aula(Profissional profissional) {
-        Paciente paciente = new Paciente();
-        paciente.setNome("Ana");
-        paciente.setEmail("ana@email.com");
-        paciente.setCpf("11122233344");
+    private ProfissionalPagamentoAulaProjection aulaRelatorio(Long aulaId, LocalDate data, Long pagamentoId) {
+        return new ProfissionalPagamentoAulaProjection() {
+            @Override
+            public Long getAulaId() {
+                return aulaId;
+            }
 
-        Plano plano = new Plano();
-        plano.setPaciente(paciente);
-        plano.setTipo(TipoPagamento.MENSAL);
-        plano.setValor(new BigDecimal("200.00"));
-        plano.setFrequenciaSemanal(FrequenciaSemanal.DUAS_VEZES);
-        plano.setDataInicio(LocalDate.of(2025, 2, 1));
+            @Override
+            public LocalDate getData() {
+                return data;
+            }
 
-        Pagamento pagamento = new Pagamento();
-        pagamento.setPaciente(paciente);
-        pagamento.setPlano(plano);
-        pagamento.setValor(new BigDecimal("200.00"));
-        pagamento.setStatus(StatusPagamento.PAGO);
-        pagamento.setPeriodoInicio(LocalDate.of(2025, 2, 1));
-        pagamento.setPeriodoFim(LocalDate.of(2025, 2, 28));
-        pagamento.setDataVencimento(LocalDate.of(2025, 2, 10));
-        ReflectionTestUtils.setField(pagamento, "id", 5L);
+            @Override
+            public Long getPacienteId() {
+                return 2L;
+            }
 
-        Aula aula = new Aula();
-        aula.setPaciente(paciente);
-        aula.setPagamento(pagamento);
-        aula.setProfissional(profissional);
-        aula.setData(LocalDate.of(2025, 2, 3));
-        aula.setRealizada(true);
-        return aula;
+            @Override
+            public String getPacienteNome() {
+                return "Ana";
+            }
+
+            @Override
+            public Long getPagamentoId() {
+                return pagamentoId;
+            }
+
+            @Override
+            public BigDecimal getValorPagamento() {
+                return new BigDecimal("200.00");
+            }
+
+            @Override
+            public Long getQuantidadeAulasPagamento() {
+                return 8L;
+            }
+        };
     }
 }

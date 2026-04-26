@@ -469,6 +469,7 @@ curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
 - O `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Profissionais inativos são mantidos no banco (soft delete)
 - O relatório de pagamento considera aulas realizadas vinculadas ao profissional no período informado e ignora aulas de pacientes inativos
+- O relatório de pagamento usa uma consulta consolidada com `JOIN` e `GROUP BY` para buscar os dados das aulas e a quantidade de aulas do pagamento sem round-trips adicionais
 - O valor devido por aula é calculado por `valor do pagamento / quantidade de aulas do pagamento * percentualPagamentoAula / 100`
 
 ### Planos de Pagamento
@@ -539,7 +540,7 @@ O projeto possui **142 testes** organizados em dezesseis suítes:
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
-| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
+| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |

@@ -219,6 +219,7 @@ CPF não pode ser alterado após o cadastro.
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - Soft delete mantém o registro no banco
 - O relatório de pagamento considera apenas aulas `realizada = true` vinculadas ao profissional, dentro do período informado e associadas a pacientes ativos
+- A consulta do relatório de pagamento consolida dados da aula, paciente, pagamento e contagem de aulas por pagamento em um único `JOIN` com `GROUP BY`
 - Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
 - Valor devido ao profissional por aula: `valor por aula * percentualPagamentoAula / 100`
 
@@ -337,7 +338,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
-| `AulaRepositoryTest` | `@DataJpaTest` + H2 | 5 |
+| `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 14 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |

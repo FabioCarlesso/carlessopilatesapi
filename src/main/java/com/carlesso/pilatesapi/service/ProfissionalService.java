@@ -5,13 +5,13 @@ import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
-import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
+import com.carlesso.pilatesapi.repository.AulaRepository.ProfissionalPagamentoAulaProjection;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,8 +24,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class ProfissionalService {
@@ -106,22 +104,10 @@ public class ProfissionalService {
         }
 
         Profissional profissional = encontrar(id);
-        List<Aula> aulasEntidade = aulaRepository
-                .findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(id, inicio, fim);
-
-        List<Long> pagamentoIds = aulasEntidade.stream()
-                .map(a -> a.getPagamento().getId())
-                .distinct()
-                .toList();
-
-        Map<Long, Long> contsPorPagamento = pagamentoIds.isEmpty()
-                ? Map.of()
-                : aulaRepository.countGroupedByPagamentoId(pagamentoIds)
-                        .stream()
-                        .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
-
-        List<ProfissionalPagamentoAulaDTO> aulas = aulasEntidade.stream()
-                .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula(), contsPorPagamento))
+        List<ProfissionalPagamentoAulaDTO> aulas = aulaRepository
+                .findRelatorioPagamentoByProfissionalIdAndPeriodo(id, inicio, fim)
+                .stream()
+                .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula()))
                 .toList();
 
         BigDecimal totalPagamento = aulas.stream()
@@ -143,25 +129,27 @@ public class ProfissionalService {
                 .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + id));
     }
 
-    private ProfissionalPagamentoAulaDTO mapearAulaPagamento(Aula aula, BigDecimal percentualPagamentoAula, Map<Long, Long> contsPorPagamento) {
-        long quantidadeAulasPagamento = contsPorPagamento.getOrDefault(aula.getPagamento().getId(), 0L);
+    private ProfissionalPagamentoAulaDTO mapearAulaPagamento(
+            ProfissionalPagamentoAulaProjection aula,
+            BigDecimal percentualPagamentoAula) {
+        long quantidadeAulasPagamento = aula.getQuantidadeAulasPagamento();
         if (quantidadeAulasPagamento == 0) {
-            throw new BusinessException("Pagamento sem aulas geradas: " + aula.getPagamento().getId());
+            throw new BusinessException("Pagamento sem aulas geradas: " + aula.getPagamentoId());
         }
 
-        BigDecimal valorBaseAula = aula.getPagamento().getValor()
+        BigDecimal valorBaseAula = aula.getValorPagamento()
                 .divide(BigDecimal.valueOf(quantidadeAulasPagamento), 6, RoundingMode.HALF_UP);
         BigDecimal valorProfissional = valorBaseAula
                 .multiply(percentualPagamentoAula)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
         return new ProfissionalPagamentoAulaDTO(
-                aula.getId(),
+                aula.getAulaId(),
                 aula.getData(),
-                aula.getPaciente().getId(),
-                aula.getPaciente().getNome(),
-                aula.getPagamento().getId(),
-                aula.getPagamento().getValor(),
+                aula.getPacienteId(),
+                aula.getPacienteNome(),
+                aula.getPagamentoId(),
+                aula.getValorPagamento(),
                 quantidadeAulasPagamento,
                 valorBaseAula.setScale(2, RoundingMode.HALF_UP),
                 percentualPagamentoAula,
