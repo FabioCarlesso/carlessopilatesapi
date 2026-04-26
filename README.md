@@ -499,18 +499,21 @@ curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
 | 06:00 todo dia | Marca como `VENCIDO` pagamentos `PENDENTE` com data de vencimento passada |
 | 07:00 todo dia | Gera cobranças futuras para planos ativos a partir de 7 dias antes do fim do período |
 
+### Boas práticas Spring
+- Métodos de leitura em services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e preparar a aplicação para roteamento futuro de leituras.
+
 ---
 
 ## Testes
 
-O projeto possui **130 testes** organizados em quinze suítes:
+O projeto possui **132 testes** organizados em quinze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
-| `PlanoServiceTest` | Unitário (Mockito) | 8 |
+| `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 12 |
+| `AulaServiceTest` | Unitário (Mockito) | 13 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |

@@ -18,7 +18,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -66,6 +68,13 @@ class AulaServiceTest {
         pagamentoPago.setPeriodoInicio(LocalDate.of(2025, 2, 1));
         pagamentoPago.setPeriodoFim(LocalDate.of(2025, 2, 28));
         pagamentoPago.setDataVencimento(LocalDate.of(2025, 2, 10));
+    }
+
+    @Test
+    void metodosDeLeitura_saoTransacionaisReadOnly() throws Exception {
+        assertReadOnly("buscarPorId", Long.class);
+        assertReadOnly("buscarPorPaciente", Long.class);
+        assertReadOnly("buscarPorPagamento", Long.class);
     }
 
     @Test
@@ -225,5 +234,13 @@ class AulaServiceTest {
         assertThatThrownBy(() -> service.buscarPorId(1L))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    private void assertReadOnly(String methodName, Class<?>... parameterTypes) throws Exception {
+        Method method = AulaService.class.getMethod(methodName, parameterTypes);
+        Transactional transactional = method.getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.readOnly()).isTrue();
     }
 }

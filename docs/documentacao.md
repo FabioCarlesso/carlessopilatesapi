@@ -128,9 +128,9 @@ src/
     │   ├── PacienteServiceIntegrationTest.java  # 4 casos
     │   ├── ProfissionalServiceIntegrationTest.java # 5 casos
     │   ├── ProfissionalServiceTest.java         # 13 casos
-    │   ├── PlanoServiceTest.java                # 8 casos
+    │   ├── PlanoServiceTest.java                # 9 casos
     │   ├── PagamentoServiceTest.java            # 8 casos
-    │   └── AulaServiceTest.java                 # 12 casos
+    │   └── AulaServiceTest.java                 # 13 casos
     ├── repository/
     │   └── AulaRepositoryTest.java              # 5 casos
     └── controller/
@@ -191,6 +191,7 @@ src/
 - Não gera aulas duplicadas: se o paciente já tiver aula naquela data, ela é ignorada
 - Requer: paciente ativo + pagamento com status `PAGO`
 - Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
+- Métodos de leitura nos services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e permitir otimizações de conexão.
 
 ### 4.7 Processos Automáticos (Scheduler)
 
@@ -775,15 +776,15 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **130 casos** distribuídos em quinze classes:
+A suíte de testes possui **132 casos** distribuídos em quinze classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
-| `PlanoServiceTest` | Unitário (Mockito) | 8 |
+| `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 12 |
+| `AulaServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |

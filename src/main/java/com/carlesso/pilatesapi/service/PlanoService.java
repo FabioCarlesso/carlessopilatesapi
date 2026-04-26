@@ -62,15 +62,18 @@ public class PlanoService {
         return PlanoResponseDTO.from(planoRepository.save(plano));
     }
 
+    @Transactional(readOnly = true)
     public PlanoResponseDTO buscarPorId(Long id) {
         return PlanoResponseDTO.from(encontrar(id));
     }
 
+    @Transactional(readOnly = true)
     public Optional<PlanoResponseDTO> buscarAtivoPorPaciente(Long pacienteId) {
         return planoRepository.findByPacienteIdAndAtivoTrue(pacienteId)
                 .map(PlanoResponseDTO::from);
     }
 
+    @Transactional(readOnly = true)
     public List<PlanoResponseDTO> listarPorPaciente(Long pacienteId) {
         return planoRepository.findByPacienteId(pacienteId)
                 .stream()

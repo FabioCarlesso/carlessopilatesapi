@@ -253,6 +253,7 @@ CPF não pode ser alterado após o cadastro.
 - **Factory method**: `*ResponseDTO.from(Entity)` centraliza o mapeamento entidade → DTO.
 - **Tratamento de 404**: `GlobalExceptionHandler` captura `EntityNotFoundException` e retorna `{"erro": "..."}`.
 - **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
+- **Transações de leitura**: métodos de consulta nos services usam `@Transactional(readOnly = true)` para evitar flush desnecessário e permitir otimizações de conexão.
 
 ---
 
@@ -327,9 +328,9 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 13 |
-| `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 12 |
+| `AulaServiceTest` | Unitário (Mockito, sem Spring) | 13 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 5 |
