@@ -57,6 +57,7 @@ public class AulaService {
         return aulaRepository.saveAll(aulas);
     }
 
+    @Transactional(readOnly = true)
     public List<AulaResponseDTO> buscarPorPaciente(Long pacienteId) {
         return aulaRepository.findByPacienteIdOrderByData(pacienteId)
                 .stream()
@@ -64,6 +65,7 @@ public class AulaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<AulaResponseDTO> buscarPorPagamento(Long pagamentoId) {
         return aulaRepository.findByPagamentoIdOrderByData(pagamentoId)
                 .stream()
@@ -71,6 +73,7 @@ public class AulaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public AulaResponseDTO buscarPorId(Long id) {
         return AulaResponseDTO.from(encontrar(id));
     }

@@ -15,7 +15,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -49,6 +51,13 @@ class PlanoServiceTest {
         pacienteInativo.setEmail("inativo@email.com");
         pacienteInativo.setCpf("999.888.777-66");
         pacienteInativo.setAtivo(false);
+    }
+
+    @Test
+    void metodosDeLeitura_saoTransacionaisReadOnly() throws Exception {
+        assertReadOnly("buscarPorId", Long.class);
+        assertReadOnly("buscarAtivoPorPaciente", Long.class);
+        assertReadOnly("listarPorPaciente", Long.class);
     }
 
     @Test
@@ -188,5 +197,13 @@ class PlanoServiceTest {
         assertThatThrownBy(() -> service.inativar(1L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("já está inativo");
+    }
+
+    private void assertReadOnly(String methodName, Class<?>... parameterTypes) throws Exception {
+        Method method = PlanoService.class.getMethod(methodName, parameterTypes);
+        Transactional transactional = method.getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.readOnly()).isTrue();
     }
 }
