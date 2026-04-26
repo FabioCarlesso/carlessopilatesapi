@@ -4,9 +4,9 @@ import com.carlesso.pilatesapi.dto.EnderecoDTO;
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.PacienteService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -177,7 +177,7 @@ class PacienteControllerTest {
     @Test
     void buscar_quandoNaoExistente_deveRetornar404() throws Exception {
         when(service.buscarPorId(99L))
-                .thenThrow(new EntityNotFoundException("Paciente não encontrado: 99"));
+                .thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
 
         mvc.perform(get("/pacientes/99"))
                 .andExpect(status().isNotFound())
@@ -206,7 +206,7 @@ class PacienteControllerTest {
     @Test
     void atualizar_quandoNaoExistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any()))
-                .thenThrow(new EntityNotFoundException("Paciente não encontrado: 99"));
+                .thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
 
         mvc.perform(put("/pacientes/99")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -229,7 +229,7 @@ class PacienteControllerTest {
 
     @Test
     void inativar_quandoNaoExistente_deveRetornar404() throws Exception {
-        doThrow(new EntityNotFoundException("Paciente não encontrado: 99"))
+        doThrow(new ResourceNotFoundException("Paciente não encontrado: 99"))
                 .when(service).inativar(99L);
 
         mvc.perform(patch("/pacientes/99/inativar"))
@@ -247,7 +247,7 @@ class PacienteControllerTest {
 
     @Test
     void ativar_quandoNaoExistente_deveRetornar404() throws Exception {
-        doThrow(new EntityNotFoundException("Paciente não encontrado: 99"))
+        doThrow(new ResourceNotFoundException("Paciente não encontrado: 99"))
                 .when(service).ativar(99L);
 
         mvc.perform(patch("/pacientes/99/ativar"))

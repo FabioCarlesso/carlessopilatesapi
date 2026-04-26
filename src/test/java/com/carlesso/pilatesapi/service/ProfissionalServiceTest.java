@@ -12,9 +12,10 @@ import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -84,7 +85,7 @@ class ProfissionalServiceTest {
         when(repository.existsByEmail(dto.email())).thenReturn(true);
 
         assertThatThrownBy(() -> service.cadastrar(dto))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("paula@email.com");
     }
 
@@ -96,7 +97,7 @@ class ProfissionalServiceTest {
         when(repository.existsByCpf(dto.cpf())).thenReturn(true);
 
         assertThatThrownBy(() -> service.cadastrar(dto))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("12345678900");
     }
 
@@ -146,7 +147,7 @@ class ProfissionalServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
 
@@ -166,7 +167,7 @@ class ProfissionalServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.ativar(99L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
 
@@ -185,7 +186,7 @@ class ProfissionalServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.inativar(99L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
 

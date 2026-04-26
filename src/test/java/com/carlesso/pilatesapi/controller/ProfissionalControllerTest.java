@@ -5,9 +5,10 @@ import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.ProfissionalService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -63,6 +64,19 @@ class ProfissionalControllerTest {
     }
 
     @Test
+    void cadastrar_emailDuplicado_deveRetornar409() throws Exception {
+        var request = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900", "11999999999",
+                TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+        when(service.cadastrar(any())).thenThrow(new ConflictException("E-mail já cadastrado: paula@email.com"));
+
+        mvc.perform(post("/profissionais")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").value("E-mail já cadastrado: paula@email.com"));
+    }
+
+    @Test
     void listar_deveRetornar200() throws Exception {
         when(service.listar(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(response()), PageRequest.of(0, 10), 1));
@@ -108,7 +122,7 @@ class ProfissionalControllerTest {
 
     @Test
     void buscar_quandoNaoExistente_deveRetornar404() throws Exception {
-        when(service.buscarPorId(eq(99L))).thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
+        when(service.buscarPorId(eq(99L))).thenThrow(new ResourceNotFoundException("Profissional não encontrado: 99"));
 
         mvc.perform(get("/profissionais/99"))
                 .andExpect(status().isNotFound())
@@ -131,7 +145,7 @@ class ProfissionalControllerTest {
     @Test
     void atualizar_quandoNaoExistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any()))
-                .thenThrow(new EntityNotFoundException("Profissional não encontrado: 99"));
+                .thenThrow(new ResourceNotFoundException("Profissional não encontrado: 99"));
 
         mvc.perform(put("/profissionais/99")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -150,7 +164,7 @@ class ProfissionalControllerTest {
 
     @Test
     void ativar_quandoNaoExistente_deveRetornar404() throws Exception {
-        doThrow(new EntityNotFoundException("Profissional não encontrado: 99"))
+        doThrow(new ResourceNotFoundException("Profissional não encontrado: 99"))
                 .when(service).ativar(99L);
 
         mvc.perform(patch("/profissionais/99/ativar"))
@@ -168,7 +182,7 @@ class ProfissionalControllerTest {
 
     @Test
     void inativar_quandoNaoExistente_deveRetornar404() throws Exception {
-        doThrow(new EntityNotFoundException("Profissional não encontrado: 99"))
+        doThrow(new ResourceNotFoundException("Profissional não encontrado: 99"))
                 .when(service).inativar(99L);
 
         mvc.perform(patch("/profissionais/99/inativar"))

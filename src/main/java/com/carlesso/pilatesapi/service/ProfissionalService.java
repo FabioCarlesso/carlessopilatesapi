@@ -8,9 +8,11 @@ import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -39,10 +41,10 @@ public class ProfissionalService {
     @Transactional
     public ProfissionalResponseDTO cadastrar(ProfissionalRequestDTO dto) {
         if (repository.existsByEmail(dto.email())) {
-            throw new IllegalStateException("E-mail já cadastrado: " + dto.email());
+            throw new ConflictException("E-mail já cadastrado: " + dto.email());
         }
         if (repository.existsByCpf(dto.cpf())) {
-            throw new IllegalStateException("CPF já cadastrado: " + dto.cpf());
+            throw new ConflictException("CPF já cadastrado: " + dto.cpf());
         }
         Profissional profissional = new Profissional();
         profissional.setNome(dto.nome());
@@ -138,13 +140,13 @@ public class ProfissionalService {
 
     private Profissional encontrar(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Profissional não encontrado: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + id));
     }
 
     private ProfissionalPagamentoAulaDTO mapearAulaPagamento(Aula aula, BigDecimal percentualPagamentoAula, Map<Long, Long> contsPorPagamento) {
         long quantidadeAulasPagamento = contsPorPagamento.getOrDefault(aula.getPagamento().getId(), 0L);
         if (quantidadeAulasPagamento == 0) {
-            throw new IllegalStateException("Pagamento sem aulas geradas: " + aula.getPagamento().getId());
+            throw new BusinessException("Pagamento sem aulas geradas: " + aula.getPagamento().getId());
         }
 
         BigDecimal valorBaseAula = aula.getPagamento().getValor()

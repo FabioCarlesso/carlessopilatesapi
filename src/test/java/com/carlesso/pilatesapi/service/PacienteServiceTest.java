@@ -6,8 +6,8 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -163,11 +163,11 @@ class PacienteServiceTest {
     }
 
     @Test
-    void buscarPorId_quandoNaoExistente_deveLancarEntityNotFoundException() {
+    void buscarPorId_quandoNaoExistente_deveLancarResourceNotFoundException() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
 
@@ -200,11 +200,11 @@ class PacienteServiceTest {
     }
 
     @Test
-    void atualizar_quandoNaoExistente_deveLancarEntityNotFoundException() {
+    void atualizar_quandoNaoExistente_deveLancarResourceNotFoundException() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.atualizar(99L, new PacienteUpdateDTO(null, null, null, null, null)))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
 
@@ -223,11 +223,11 @@ class PacienteServiceTest {
     }
 
     @Test
-    void inativar_quandoNaoExistente_deveLancarEntityNotFoundException() {
+    void inativar_quandoNaoExistente_deveLancarResourceNotFoundException() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.inativar(99L))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
 }

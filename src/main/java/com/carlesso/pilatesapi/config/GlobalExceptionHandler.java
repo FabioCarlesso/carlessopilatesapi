@@ -1,5 +1,8 @@
 package com.carlesso.pilatesapi.config;
 
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -12,9 +15,9 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EntityNotFoundException.class)
+    @ExceptionHandler({ResourceNotFoundException.class, EntityNotFoundException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, String> handleNotFound(EntityNotFoundException e) {
+    public Map<String, String> handleNotFound(RuntimeException e) {
         return Map.of("erro", e.getMessage());
     }
 
@@ -24,9 +27,15 @@ public class GlobalExceptionHandler {
         return Map.of("erro", e.getMessage());
     }
 
-    @ExceptionHandler(IllegalStateException.class)
+    @ExceptionHandler(ConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public Map<String, String> handleConflict(IllegalStateException e) {
+    public Map<String, String> handleConflict(ConflictException e) {
+        return Map.of("erro", e.getMessage());
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public Map<String, String> handleBusiness(BusinessException e) {
         return Map.of("erro", e.getMessage());
     }
 

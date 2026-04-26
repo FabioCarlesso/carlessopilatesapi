@@ -5,9 +5,11 @@ import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,10 +31,10 @@ public class AulaService {
     @Transactional
     public List<Aula> gerarAulas(Pagamento pagamento) {
         if (pagamento.getStatus() != StatusPagamento.PAGO) {
-            throw new IllegalStateException("Aulas só podem ser geradas para pagamentos com status PAGO");
+            throw new BusinessException("Aulas só podem ser geradas para pagamentos com status PAGO");
         }
         if (!pagamento.getPaciente().isAtivo()) {
-            throw new IllegalStateException("Paciente inativo não pode ter aulas geradas");
+            throw new BusinessException("Paciente inativo não pode ter aulas geradas");
         }
 
         var diasSemana = pagamento.getPlano().getDiasSemana();
@@ -87,13 +89,13 @@ public class AulaService {
     public AulaResponseDTO realizarAula(Long id, Long profissionalId) {
         Aula aula = encontrar(id);
         if (aula.isRealizada()) {
-            throw new IllegalStateException("Aula já foi marcada como realizada");
+            throw new ConflictException("Aula já foi marcada como realizada");
         }
         if (profissionalId != null) {
             Profissional profissional = profissionalRepository.findById(profissionalId)
-                    .orElseThrow(() -> new EntityNotFoundException("Profissional não encontrado: " + profissionalId));
+                    .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + profissionalId));
             if (!profissional.isAtivo()) {
-                throw new IllegalStateException("Profissional inativo não pode ser vinculado à aula");
+                throw new BusinessException("Profissional inativo não pode ser vinculado à aula");
             }
             aula.setProfissional(profissional);
         }
@@ -103,6 +105,6 @@ public class AulaService {
 
     private Aula encontrar(Long id) {
         return aulaRepository.findByIdAndPacienteAtivoTrue(id)
-                .orElseThrow(() -> new EntityNotFoundException("Aula não encontrada: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Aula não encontrada: " + id));
     }
 }

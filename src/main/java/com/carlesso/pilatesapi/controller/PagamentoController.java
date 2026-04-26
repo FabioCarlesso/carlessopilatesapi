@@ -32,7 +32,8 @@ public class PagamentoController {
             @ApiResponse(responseCode = "201", description = "Pagamento criado com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos ou valor abaixo do plano"),
             @ApiResponse(responseCode = "404", description = "Paciente ou plano não encontrado"),
-            @ApiResponse(responseCode = "409", description = "Paciente inativo ou pagamento duplicado para o período")
+            @ApiResponse(responseCode = "409", description = "Pagamento duplicado para o período"),
+            @ApiResponse(responseCode = "422", description = "Paciente inativo")
     })
     @PostMapping
     public ResponseEntity<PagamentoResponseDTO> criar(
@@ -66,7 +67,8 @@ public class PagamentoController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pagamento confirmado e aulas geradas"),
             @ApiResponse(responseCode = "404", description = "Pagamento não encontrado"),
-            @ApiResponse(responseCode = "409", description = "Pagamento já confirmado")
+            @ApiResponse(responseCode = "409", description = "Pagamento já confirmado"),
+            @ApiResponse(responseCode = "422", description = "Pagamento não está PAGO ou paciente está inativo")
     })
     @PatchMapping("/{id}/pagar")
     public ResponseEntity<PagamentoResponseDTO> pagar(

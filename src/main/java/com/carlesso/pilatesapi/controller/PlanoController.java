@@ -34,7 +34,7 @@ public class PlanoController {
             @ApiResponse(responseCode = "201", description = "Plano criado com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos ou frequência incompatível com os dias informados"),
             @ApiResponse(responseCode = "404", description = "Paciente não encontrado"),
-            @ApiResponse(responseCode = "409", description = "Paciente inativo")
+            @ApiResponse(responseCode = "422", description = "Paciente inativo")
     })
     @PostMapping
     public ResponseEntity<PlanoResponseDTO> criar(
