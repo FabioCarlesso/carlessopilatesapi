@@ -494,14 +494,14 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **127 testes** organizados em quinze suítes:
+O projeto possui **129 testes** organizados em quinze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 8 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 10 |
+| `AulaServiceTest` | Unitário (Mockito) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |

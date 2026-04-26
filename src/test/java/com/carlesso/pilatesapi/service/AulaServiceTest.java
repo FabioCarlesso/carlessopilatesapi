@@ -202,10 +202,28 @@ class AulaServiceTest {
     }
 
     @Test
+    void realizarAula_pacienteInativo_lancaEntityNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.realizarAula(1L))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    @Test
     void buscarPorId_naoEncontrado_lancaExcecao() {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void buscarPorId_pacienteInativo_lancaEntityNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.buscarPorId(1L))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Aula não encontrada: 1");
     }
 }

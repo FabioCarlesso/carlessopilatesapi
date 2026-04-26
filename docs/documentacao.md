@@ -129,7 +129,7 @@ src/
     │   ├── ProfissionalServiceTest.java         # 13 casos
     │   ├── PlanoServiceTest.java                # 8 casos
     │   ├── PagamentoServiceTest.java            # 8 casos
-    │   └── AulaServiceTest.java                 # 10 casos
+    │   └── AulaServiceTest.java                 # 12 casos
     ├── repository/
     │   └── AulaRepositoryTest.java              # 5 casos
     └── controller/
