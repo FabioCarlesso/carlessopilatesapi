@@ -130,9 +130,9 @@ src/
     │   ├── ProfissionalServiceTest.java         # 13 casos
     │   ├── PlanoServiceTest.java                # 9 casos
     │   ├── PagamentoServiceTest.java            # 8 casos
-    │   └── AulaServiceTest.java                 # 13 casos
+    │   └── AulaServiceTest.java                 # 14 casos
     ├── repository/
-    │   └── AulaRepositoryTest.java              # 5 casos
+    │   └── AulaRepositoryTest.java              # 6 casos
     └── controller/
         ├── PacienteControllerTest.java          # 16 casos
         ├── ProfissionalControllerTest.java      # 13 casos
@@ -155,6 +155,7 @@ src/
 - O campo `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Soft delete: profissionais inativos são mantidos no banco
 - O relatório de pagamento considera aulas realizadas vinculadas ao profissional dentro do período solicitado e associadas a pacientes ativos
+- A consulta do relatório de pagamento consolida dados de aula, paciente, pagamento e contagem de aulas por pagamento em uma única query com `JOIN` e `GROUP BY`
 - O valor devido por aula é proporcional ao valor do pagamento (`valor / quantidade de aulas geradas`) multiplicado pelo `percentualPagamentoAula`
 
 ### 4.3 Planos de Pagamento
@@ -784,10 +785,10 @@ A suíte de testes possui **132 casos** distribuídos em quinze classes:
 | `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
-| `AulaServiceTest` | Unitário (Mockito) | 13 |
+| `AulaServiceTest` | Unitário (Mockito) | 14 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
-| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
+| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |

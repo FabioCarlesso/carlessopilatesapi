@@ -94,6 +94,29 @@ class AulaRepositoryTest {
     }
 
     @Test
+    void findRelatorioPagamentoByProfissionalIdAndPeriodo_retornaCamposEQuantidadeNaMesmaConsulta() {
+        entityManager.persist(aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.persist(aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 17)));
+        entityManager.flush();
+        entityManager.clear();
+
+        var aulas = repository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                profissional.getId(),
+                LocalDate.of(2025, 1, 1),
+                LocalDate.of(2025, 12, 31));
+
+        assertThat(aulas)
+                .singleElement()
+                .satisfies(aula -> {
+                    assertThat(aula.getAulaId()).isEqualTo(aulaAtiva.getId());
+                    assertThat(aula.getPacienteNome()).isEqualTo("Ana Ativa");
+                    assertThat(aula.getPagamentoId()).isEqualTo(pagamentoAtivo.getId());
+                    assertThat(aula.getValorPagamento()).isEqualByComparingTo("200.00");
+                    assertThat(aula.getQuantidadeAulasPagamento()).isEqualTo(3L);
+                });
+    }
+
+    @Test
     void countGroupedByPagamentoId_naoContaAulasDePacienteInativo() {
         var contagens = repository.countGroupedByPagamentoId(List.of(pagamentoAtivo.getId(), pagamentoInativo.getId()));
 
@@ -155,6 +178,15 @@ class AulaRepositoryTest {
         aula.setProfissional(profissional);
         aula.setData(data);
         aula.setRealizada(true);
+        return aula;
+    }
+
+    private Aula aulaNaoRealizadaSemProfissional(Paciente paciente, Pagamento pagamento, LocalDate data) {
+        Aula aula = new Aula();
+        aula.setPaciente(paciente);
+        aula.setPagamento(pagamento);
+        aula.setData(data);
+        aula.setRealizada(false);
         return aula;
     }
 }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +33,36 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
     List<Object[]> countGroupedByPagamentoId(@Param("ids") List<Long> ids);
 
     @Query("""
+            SELECT a.id AS aulaId,
+                   a.data AS data,
+                   paciente.id AS pacienteId,
+                   paciente.nome AS pacienteNome,
+                   pagamento.id AS pagamentoId,
+                   pagamento.valor AS valorPagamento,
+                   COUNT(aulaPagamento.id) AS quantidadeAulasPagamento
+            FROM Aula a
+            JOIN a.paciente paciente
+            JOIN a.pagamento pagamento
+            JOIN Aula aulaPagamento ON aulaPagamento.pagamento = pagamento
+                                  AND aulaPagamento.paciente.ativo = true
+            WHERE a.profissional.id = :profissionalId
+              AND a.realizada = true
+              AND a.data BETWEEN :inicio AND :fim
+              AND paciente.ativo = true
+            GROUP BY a.id,
+                     a.data,
+                     paciente.id,
+                     paciente.nome,
+                     pagamento.id,
+                     pagamento.valor
+            ORDER BY a.data
+            """)
+    List<ProfissionalPagamentoAulaProjection> findRelatorioPagamentoByProfissionalIdAndPeriodo(
+            @Param("profissionalId") Long profissionalId,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
+
+    @Query("""
             SELECT a
             FROM Aula a
             WHERE a.profissional.id = :profissionalId
@@ -44,4 +75,14 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             @Param("profissionalId") Long profissionalId,
             @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim);
+
+    interface ProfissionalPagamentoAulaProjection {
+        Long getAulaId();
+        LocalDate getData();
+        Long getPacienteId();
+        String getPacienteNome();
+        Long getPagamentoId();
+        BigDecimal getValorPagamento();
+        Long getQuantidadeAulasPagamento();
+    }
 }
