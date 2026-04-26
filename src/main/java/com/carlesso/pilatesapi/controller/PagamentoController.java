@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.PagamentoPagarRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.service.PagamentoService;
@@ -13,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "Pagamentos", description = "Gerenciamento de pagamentos e cobranças")
@@ -62,7 +62,7 @@ public class PagamentoController {
         return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
     }
 
-    @Operation(summary = "Confirmar pagamento", description = "Marca o pagamento como PAGO e gera automaticamente as aulas do período.")
+    @Operation(summary = "Confirmar pagamento", description = "Marca o pagamento como PAGO e gera automaticamente as aulas do período. A data de pagamento pode ser enviada no corpo da requisição.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pagamento confirmado e aulas geradas"),
             @ApiResponse(responseCode = "404", description = "Pagamento não encontrado"),
@@ -71,7 +71,7 @@ public class PagamentoController {
     @PatchMapping("/{id}/pagar")
     public ResponseEntity<PagamentoResponseDTO> pagar(
             @Parameter(description = "ID do pagamento") @PathVariable Long id,
-            @RequestParam(required = false) LocalDate dataPagamento) {
-        return ResponseEntity.ok(service.pagar(id, dataPagamento));
+            @RequestBody(required = false) PagamentoPagarRequestDTO dto) {
+        return ResponseEntity.ok(service.pagar(id, dto != null ? dto.dataPagamento() : null));
     }
 }

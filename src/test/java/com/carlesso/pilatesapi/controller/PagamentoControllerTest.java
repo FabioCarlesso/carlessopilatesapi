@@ -19,6 +19,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -128,16 +130,34 @@ class PagamentoControllerTest {
 
     @Test
     void pagar_retorna200ComStatusPago() throws Exception {
-        when(pagamentoService.pagar(eq(1L), any())).thenReturn(pagamentoPago());
+        when(pagamentoService.pagar(eq(1L), isNull())).thenReturn(pagamentoPago());
 
         mockMvc.perform(patch("/pagamentos/1/pagar"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAGO"));
+
+        verify(pagamentoService).pagar(1L, null);
+    }
+
+    @Test
+    void pagar_comDataPagamentoNoBody_repassaDataParaService() throws Exception {
+        LocalDate dataPagamento = LocalDate.of(2025, 2, 10);
+        when(pagamentoService.pagar(eq(1L), eq(dataPagamento))).thenReturn(pagamentoPago());
+
+        mockMvc.perform(patch("/pagamentos/1/pagar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"dataPagamento":"2025-02-10"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGO"));
+
+        verify(pagamentoService).pagar(1L, dataPagamento);
     }
 
     @Test
     void pagar_jaConfirmado_retorna409() throws Exception {
-        when(pagamentoService.pagar(eq(1L), any()))
+        when(pagamentoService.pagar(eq(1L), isNull()))
                 .thenThrow(new IllegalStateException("Pagamento já foi confirmado"));
 
         mockMvc.perform(patch("/pagamentos/1/pagar"))

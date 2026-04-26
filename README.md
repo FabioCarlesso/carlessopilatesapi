@@ -74,6 +74,7 @@ src/
 │   │   │   ├── PlanoRequestDTO.java
 │   │   │   ├── PlanoResponseDTO.java
 │   │   │   ├── PagamentoRequestDTO.java
+│   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
 │   │   │   └── AulaResponseDTO.java
 │   │   └── scheduler/
@@ -159,7 +160,7 @@ Base URL: `http://localhost:8080`
 | `POST` | `/pagamentos` | Criar pagamento (PENDENTE) |
 | `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente |
-| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas |
+| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` opcional no corpo |
 
 ### Aulas
 
@@ -444,6 +445,13 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -w "%{http_code}"
 curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 ```
 
+### Confirmar pagamento
+```bash
+curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
+  -H "Content-Type: application/json" \
+  -d '{"dataPagamento": "2025-02-10"}' | jq
+```
+
 ---
 
 ## Regras de Negócio
@@ -476,6 +484,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 - Valor não pode ser menor que o valor do plano
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período
 - Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
+- A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
 
 ### Geração de Aulas
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento
@@ -494,7 +503,7 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
 
 ## Testes
 
-O projeto possui **129 testes** organizados em quinze suítes:
+O projeto possui **130 testes** organizados em quinze suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -508,7 +517,7 @@ O projeto possui **129 testes** organizados em quinze suítes:
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
-| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
