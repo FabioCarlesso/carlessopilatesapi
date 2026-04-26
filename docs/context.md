@@ -186,19 +186,19 @@ Constraint: `UNIQUE (paciente_id, data)`
 | PATCH | `/profissionais/{id}/ativar` | Reativar profissional | 204 / 404 |
 | PATCH | `/profissionais/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
 | GET | `/profissionais/{id}/relatorio-pagamento?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Gerar relatório de pagamento do profissional | 200 / 400 / 404 |
-| POST | `/planos` | Criar plano para paciente | 201 |
+| POST | `/planos` | Criar plano para paciente | 201 / 400 / 404 / 422 |
 | GET | `/planos/{id}` | Buscar plano por ID | 200 / 404 |
 | GET | `/planos/paciente/{id}` | Listar planos do paciente | 200 |
-| GET | `/planos/paciente/{id}/ativo` | Buscar plano ativo | 200 / 404 |
-| DELETE | `/planos/{id}` | Inativar plano | 204 |
-| POST | `/pagamentos` | Criar pagamento (PENDENTE) | 201 |
+| GET | `/planos/paciente/{id}/ativo` | Buscar plano ativo | 200 / 204 |
+| DELETE | `/planos/{id}` | Inativar plano | 204 / 404 / 409 |
+| POST | `/pagamentos` | Criar pagamento (PENDENTE) | 201 / 400 / 404 / 409 / 422 |
 | GET | `/pagamentos/{id}` | Buscar pagamento | 200 / 404 |
 | GET | `/pagamentos/paciente/{id}` | Listar pagamentos | 200 |
-| PATCH | `/pagamentos/{id}/pagar` | Confirmar e gerar aulas; aceita `dataPagamento` opcional no corpo | 200 |
+| PATCH | `/pagamentos/{id}/pagar` | Confirmar e gerar aulas; aceita `dataPagamento` opcional no corpo | 200 / 404 / 409 / 422 |
 | GET | `/aulas/{id}` | Buscar aula | 200 / 404 |
 | GET | `/aulas/paciente/{id}` | Listar aulas do paciente | 200 |
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
-| PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 |
+| PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 / 409 / 422 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  

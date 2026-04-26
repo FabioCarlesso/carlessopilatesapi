@@ -53,8 +53,9 @@ public class AulaController {
     @Operation(summary = "Marcar aula como realizada")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Aula marcada como realizada"),
-            @ApiResponse(responseCode = "404", description = "Aula não encontrada"),
-            @ApiResponse(responseCode = "409", description = "Aula já marcada como realizada")
+            @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
+            @ApiResponse(responseCode = "409", description = "Aula já marcada como realizada"),
+            @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/realizar")
     public ResponseEntity<AulaResponseDTO> realizar(
