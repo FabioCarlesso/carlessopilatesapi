@@ -4,7 +4,7 @@
 
 A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes e profissionais de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
 
-A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
+A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com autenticação stateless via **Spring Security + JWT**, documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
 
 ---
 
@@ -16,6 +16,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Spring Boot | 3.4.5 | Framework da aplicação |
 | Spring Data JPA | 3.4.5 | Persistência e ORM |
 | Spring Validation | 3.4.5 | Validação de entrada |
+| Spring Security | 6.4.5 | Autenticação e autorização stateless |
 | Spring Boot Actuator | 3.4.5 | Endpoints operacionais de health e info |
 | PostgreSQL | 16 | Banco de dados relacional |
 | Flyway | (via spring-boot-starter-parent) | Versionamento e migração de schema do banco |
@@ -26,6 +27,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Docker Compose | - | Orquestração local |
 | OpenPDF | 1.3.34 | Geração de relatórios em PDF |
 | Apache POI | 5.4.1 | Geração de planilhas XLSX |
+| JJWT | 0.12.6 | Geração e validação de tokens JWT |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) | Testes unitários e de controller |
 | H2 | (in-memory, test scope) | Banco em memória para testes de integração |
 
@@ -58,39 +60,57 @@ src/
 ├── main/
 │   ├── java/com/carlesso/pilatesapi/
 │   │   ├── config/
-│   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
-│   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   │   ├── GlobalExceptionHandler.java  # Mapeia exceções para HTTP (400/401/404/409/422/429)
+│   │   │   ├── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   │   └── SecurityConfig.java          # Spring Security, JWT stateless e CORS
+│   │   ├── exception/
+│   │   │   ├── ResourceNotFoundException.java
+│   │   │   ├── ConflictException.java
+│   │   │   ├── BusinessException.java
+│   │   │   └── TooManyRequestsException.java
 │   │   ├── controller/
 │   │   │   ├── PacienteController.java      # Endpoints REST de pacientes
 │   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
 │   │   │   ├── PlanoController.java         # /planos
 │   │   │   ├── PagamentoController.java     # /pagamentos
-│   │   │   └── AulaController.java          # /aulas
+│   │   │   ├── AulaController.java          # /aulas
+│   │   │   ├── AuthController.java          # /auth/register e /auth/login
+│   │   │   ├── UserController.java          # /users/me e CRUD administrativo
+│   │   │   └── AdminController.java         # /admin/health
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
 │   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
 │   │   │   ├── PlanoService.java                       # Regras de plano e frequência
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
-│   │   │   └── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
+│   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
+│   │   │   ├── AuthService.java                        # Registro/login, emissão de JWT e rate limiting
+│   │   │   ├── UserService.java                        # CRUD administrativo de usuários e perfis
+│   │   │   ├── JwtService.java                         # Geração (claims role/userId) e validação de JWT
+│   │   │   └── LoginAttemptService.java                # Rate limiting in-memory por e-mail (5 tentativas / 15 min)
 │   │   ├── repository/
 │   │   │   ├── PacienteRepository.java
 │   │   │   ├── ProfissionalRepository.java
 │   │   │   ├── PlanoRepository.java
 │   │   │   ├── PagamentoRepository.java
-│   │   │   └── AulaRepository.java
+│   │   │   ├── AulaRepository.java
+│   │   │   └── UserRepository.java
 │   │   ├── entity/
 │   │   │   ├── Paciente.java                # Entidade JPA
 │   │   │   ├── Endereco.java                # @Embeddable de endereço
 │   │   │   ├── Profissional.java            # Entidade JPA
 │   │   │   ├── Plano.java
 │   │   │   ├── Pagamento.java
-│   │   │   └── Aula.java
+│   │   │   ├── Aula.java
+│   │   │   └── User.java
 │   │   ├── entity/enums/
 │   │   │   ├── TipoPagamento.java           # MENSAL, TRIMESTRAL, ANUAL
 │   │   │   ├── TipoContrato.java            # CLT, PJ, AUTONOMO
 │   │   │   ├── FrequenciaSemanal.java       # UMA_VEZ, DUAS_VEZES, TRES_VEZES
-│   │   │   └── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   │   ├── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   │   └── Role.java                    # USER, ADMIN
+│   │   ├── security/
+│   │   │   └── JwtAuthenticationFilter.java # Validação do Bearer token por requisição
 │   │   ├── dto/
 │   │   │   ├── PacienteRequestDTO.java
 │   │   │   ├── PacienteUpdateDTO.java
@@ -110,7 +130,13 @@ src/
 │   │   │   ├── PagamentoRequestDTO.java
 │   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
-│   │   │   └── AulaResponseDTO.java
+│   │   │   ├── AulaResponseDTO.java
+│   │   │   ├── AuthRegisterRequestDTO.java
+│   │   │   ├── AuthLoginRequestDTO.java
+│   │   │   ├── AuthResponseDTO.java
+│   │   │   ├── UserRequestDTO.java
+│   │   │   ├── UserUpdateDTO.java
+│   │   │   └── UserResponseDTO.java
 │   │   └── scheduler/
 │   │       └── CobrancaScheduler.java
 │   └── resources/
@@ -125,11 +151,17 @@ src/
 │           ├── V7__insert_profissionais_teste.sql
 │           ├── V8__alter_pacientes_uf_to_varchar.sql
 │           ├── V9__alter_profissionais_percentual_precision.sql
-│           └── V10__add_profissional_to_aulas.sql
+│           ├── V10__add_profissional_to_aulas.sql
+│           ├── V11__create_users_table.sql
+│           └── V12__insert_users_perfis_acesso.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
     │   └── ActuatorTest.java                    # 3 casos
+    ├── config/
+    │   └── GlobalExceptionHandlerTest.java      # 6 casos
+    ├── security/
+    │   └── SecurityIntegrationTest.java         # 21 casos
     ├── service/
     │   ├── PacienteServiceTest.java                   # 12 casos
     │   ├── PacienteServiceIntegrationTest.java        # 4 casos
@@ -152,6 +184,20 @@ src/
 ---
 
 ## 4. Regras de Negócio
+
+### 4.0 Segurança
+- `POST /auth/register` e `POST /auth/login` são públicos
+- `GET /users/me` exige usuário autenticado
+- `POST /users`, `GET /users`, `GET /users/{id}`, `PUT /users/{id}` e `DELETE /users/{id}` exigem role `ADMIN`
+- `/admin/**` exige role `ADMIN`
+- As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`
+- Senhas são persistidas com BCrypt e nunca retornadas nos DTOs
+- Usuários administrativos podem definir os perfis de acesso disponíveis: `USER` e `ADMIN`
+- O segredo JWT é configurado por `JWT_SECRET`; token ausente, inválido ou expirado retorna `401`
+- JWT inclui claims `role` e `userId` — o filtro reconstrói o contexto de segurança sem consulta ao banco por requisição
+- Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`; login bem-sucedido redefine o contador
+- Admin não pode excluir a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
 ### 4.1 Pacientes
 - Um paciente pode ter **apenas um plano ativo** por vez
@@ -319,6 +365,22 @@ Constraint: `UNIQUE (paciente_id, data)`
 ## 6. Endpoints
 
 **Base URL:** `http://localhost:8080`
+
+### 6.0 Autenticação e Usuários
+
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `POST` | `/auth/register` | Público | Cria usuário com role `USER`, senha BCrypt e retorna JWT |
+| `POST` | `/auth/login` | Público | Autentica e-mail/senha e retorna JWT |
+| `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email` e `role` do usuário logado |
+| `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
+| `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
+| `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso |
+| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário |
+| `GET` | `/admin/health` | `ADMIN` | Endpoint administrativo inicial |
+
+Fluxo esperado: o frontend faz login ou registro, recebe `accessToken` e envia `Authorization: Bearer <token>` nas chamadas protegidas.
 
 ### 6.1 Pacientes
 
@@ -643,6 +705,9 @@ O projeto utiliza **Spring Boot Actuator** para expor endpoints operacionais. Em
 | `DB_NAME` | `carlesso_pilates` | Nome do banco de dados |
 | `DB_USER` | `postgres` | Usuário do banco |
 | `DB_PASSWORD` | `postgres` | Senha do banco |
+| `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar tokens JWT; use pelo menos 32 caracteres |
+| `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
 
 ### application.properties
 
@@ -664,6 +729,9 @@ management.endpoints.web.exposure.include=health,info
 management.info.env.enabled=true
 info.app.name=${spring.application.name}
 info.app.description=Carlesso Pilates API
+jwt.secret=${JWT_SECRET}
+jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 ```
 
 > O DDL mode é `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
@@ -686,6 +754,12 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V6 | `V6__create_profissionais_table.sql` | Cria a tabela `profissionais` com tipo de contrato e percentual por aula |
 | V7 | `V7__insert_profissionais_teste.sql` | Ajusta tipo de `percentual_pagamento_aula` e insere profissionais de teste |
 | V8 | `V8__alter_pacientes_uf_to_varchar.sql` | Altera coluna `uf` da tabela `pacientes` para `VARCHAR(2)` |
+| V9 | `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula |
+| V10 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
+| V11 | `V11__create_users_table.sql` | Cria a tabela `users` para autenticação e autorização |
+| V12 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
+
+Os usuários iniciais da migração `V12` usam a senha `senha1234`; `admin@carlessopilates.com` e `operacional@carlessopilates.com` têm perfil `ADMIN`.
 
 ### Comportamento nos testes
 
@@ -701,6 +775,7 @@ Não requer instalação de Java ou PostgreSQL localmente.
 
 ```bash
 # Subir banco e aplicação
+cp .env.example .env
 docker compose up --build -d
 
 # Acompanhar logs
@@ -727,6 +802,9 @@ export DB_PORT=5432
 export DB_NAME=carlesso_pilates
 export DB_USER=postgres
 export DB_PASSWORD=postgres
+export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
+export JWT_EXPIRATION_MS=86400000
+export CORS_ALLOWED_ORIGINS=http://localhost:4200
 
 # 3. Rodar
 JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
@@ -749,8 +827,13 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 ### Cadastrar paciente
 
 ```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@carlessopilates.com","password":"senha1234"}' | jq -r .accessToken)
+
 curl -s -X POST http://localhost:8080/pacientes \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "nome": "Maria Souza",
     "email": "maria@email.com",
@@ -771,7 +854,8 @@ curl -s -X POST http://localhost:8080/pacientes \
 ### Listar pacientes
 
 ```bash
-curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" | jq
+curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ### Cadastrar profissional
@@ -779,6 +863,7 @@ curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" | 
 ```bash
 curl -s -X POST http://localhost:8080/profissionais \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "nome": "Paula Mendes",
     "email": "paula@carlessopilates.com",
@@ -792,15 +877,19 @@ curl -s -X POST http://localhost:8080/profissionais \
 ### Ativar / Inativar paciente
 
 ```bash
-curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -o /dev/null -w "%{http_code}"
-curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/ativar \
+  -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/inativar \
+  -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}"
 ```
 
 ### Exportar relatório de pagamento (PDF / XLSX)
 
 ```bash
-curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28"
-curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -829,7 +918,7 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **151 casos** distribuídos em dezessete classes:
+A suíte de testes possui **172 casos** distribuídos em dezoito classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
@@ -848,6 +937,7 @@ A suíte de testes possui **151 casos** distribuídos em dezessete classes:
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 21 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 

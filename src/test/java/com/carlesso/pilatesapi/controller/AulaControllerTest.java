@@ -5,8 +5,11 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AulaService;
+import com.carlesso.pilatesapi.service.CustomUserDetailsService;
+import com.carlesso.pilatesapi.service.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,10 +24,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AulaController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class AulaControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean AulaService aulaService;
+    @MockitoBean JwtService jwtService;
+    @MockitoBean CustomUserDetailsService customUserDetailsService;
 
     private AulaResponseDTO aulaResponse(boolean realizada) {
         return new AulaResponseDTO(1L, 1L, "Ana", 1L, LocalDate.of(2025, 2, 3), realizada);

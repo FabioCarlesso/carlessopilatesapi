@@ -12,11 +12,14 @@ import com.carlesso.pilatesapi.dto.ResumoFinanceiroDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.service.CustomUserDetailsService;
+import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.ProfissionalService;
 import com.carlesso.pilatesapi.service.RelatorioPagamentoExporterService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -39,6 +42,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ProfissionalController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class ProfissionalControllerTest {
 
     @Autowired
@@ -49,6 +53,12 @@ class ProfissionalControllerTest {
 
     @MockitoBean
     private RelatorioPagamentoExporterService exporter;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private CustomUserDetailsService customUserDetailsService;
 
     @Autowired
     private ObjectMapper mapper;
