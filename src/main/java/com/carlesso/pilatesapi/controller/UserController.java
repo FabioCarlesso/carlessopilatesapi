@@ -26,7 +26,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-@Tag(name = "Usuários", description = "Dados do usuário autenticado e gestão administrativa de usuários")
+@Tag(
+        name = "Usuários",
+        description = "Dados do usuário autenticado e gestão administrativa de usuários. O CRUD exige role ADMIN."
+)
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -37,13 +40,19 @@ public class UserController {
         this.service = service;
     }
 
-    @Operation(summary = "Usuário autenticado", description = "Retorna dados seguros do usuário logado.")
+    @Operation(
+            summary = "Usuário autenticado",
+            description = "Requer autenticação JWT. Perfis USER e ADMIN podem acessar. Retorna dados seguros do usuário logado."
+    )
     @GetMapping("/me")
     public ResponseEntity<UserResponseDTO> me(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(UserResponseDTO.from(user));
     }
 
-    @Operation(summary = "Criar usuário", description = "Cria um usuário com o perfil de acesso informado. Requer role ADMIN.")
+    @Operation(
+            summary = "Criar usuário",
+            description = "Requer role ADMIN. Cria um usuário com perfil USER ou ADMIN e nunca retorna a senha."
+    )
     @PostMapping
     public ResponseEntity<UserResponseDTO> criar(
             @RequestBody @Valid UserRequestDTO dto,
@@ -53,21 +62,30 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).location(uri).body(response);
     }
 
-    @Operation(summary = "Listar usuários", description = "Lista usuários cadastrados com paginação. Requer role ADMIN.")
+    @Operation(
+            summary = "Listar usuários",
+            description = "Requer role ADMIN. Lista usuários cadastrados com paginação, sem expor senhas."
+    )
     @GetMapping
     public ResponseEntity<Page<UserResponseDTO>> listar(
             @ParameterObject @PageableDefault(size = 10, sort = "name") Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
     }
 
-    @Operation(summary = "Buscar usuário por ID", description = "Busca um usuário cadastrado sem expor senha. Requer role ADMIN.")
+    @Operation(
+            summary = "Buscar usuário por ID",
+            description = "Requer role ADMIN. Busca um usuário cadastrado sem expor senha."
+    )
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDTO> buscar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Atualizar usuário", description = "Atualiza nome, e-mail, senha e perfil de acesso do usuário. Requer role ADMIN.")
+    @Operation(
+            summary = "Atualizar usuário",
+            description = "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN."
+    )
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDTO> atualizar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
@@ -75,7 +93,10 @@ public class UserController {
         return ResponseEntity.ok(service.atualizar(id, dto));
     }
 
-    @Operation(summary = "Excluir usuário", description = "Remove um usuário cadastrado. Requer role ADMIN.")
+    @Operation(
+            summary = "Excluir usuário",
+            description = "Requer role ADMIN. Remove um usuário cadastrado."
+    )
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {

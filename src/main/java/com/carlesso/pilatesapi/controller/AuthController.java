@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Autenticação", description = "Registro e login com JWT")
+@Tag(
+        name = "Autenticação",
+        description = "Registro e login com JWT. Use o accessToken retornado no botão Authorize do Swagger UI."
+)
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -25,13 +28,19 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @Operation(summary = "Registrar usuário", description = "Cria uma conta com role USER e retorna um JWT.")
+    @Operation(
+            summary = "Registrar usuário",
+            description = "Endpoint público. Cria uma conta com role USER, salva a senha com BCrypt e retorna um JWT."
+    )
     @PostMapping("/register")
     public ResponseEntity<AuthResponseDTO> register(@RequestBody @Valid AuthRegisterRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(dto));
     }
 
-    @Operation(summary = "Login", description = "Valida e-mail e senha e retorna um JWT.")
+    @Operation(
+            summary = "Login",
+            description = "Endpoint público. Valida e-mail/senha e retorna accessToken para uso no Authorize do Swagger UI."
+    )
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid AuthLoginRequestDTO dto) {
         return ResponseEntity.ok(authService.login(dto));
