@@ -39,7 +39,8 @@ src/
 │   │   ├── exception/
 │   │   │   ├── ResourceNotFoundException.java  # 404 — recurso não encontrado
 │   │   │   ├── ConflictException.java          # 409 — conflito de estado/duplicidade
-│   │   │   └── BusinessException.java          # 422 — violação de regra de negócio
+│   │   │   ├── BusinessException.java          # 422 — violação de regra de negócio
+│   │   │   └── TooManyRequestsException.java   # 429 — muitas tentativas de login
 │   │   ├── controller/
 │   │   │   ├── PacienteController.java      # Endpoints REST de pacientes
 │   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
@@ -56,9 +57,10 @@ src/
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
-│   │   │   ├── AuthService.java                       # Registro/login e emissão de JWT
+│   │   │   ├── AuthService.java                       # Registro/login, emissão de JWT e rate limiting
 │   │   │   ├── UserService.java                       # CRUD administrativo de usuários e perfis
-│   │   │   ├── JwtService.java                        # Geração e validação de token JWT
+│   │   │   ├── JwtService.java                        # Geração (com claims role/userId) e validação de JWT
+│   │   │   ├── LoginAttemptService.java               # Rate limiting in-memory por e-mail (5 tentativas / 15 min)
 │   │   │   └── CustomUserDetailsService.java          # Integra usuários ao Spring Security
 │   │   ├── repository/
 │   │   │   ├── PacienteRepository.java      # Acesso ao banco
@@ -154,13 +156,13 @@ Base URL: `http://localhost:8080`
 | Método | Endpoint | Acesso | Descrição |
 |---|---|---|---|
 | `POST` | `/auth/register` | Público | Registra usuário com role `USER`, salva senha com BCrypt e retorna JWT |
-| `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT |
+| `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT. Retorna `429` após 5 tentativas falhas em 15 min |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
-| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso |
-| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil. Admin não pode alterar o próprio role |
+| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário. Admin não pode excluir a própria conta |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
 As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos ou expirados retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.

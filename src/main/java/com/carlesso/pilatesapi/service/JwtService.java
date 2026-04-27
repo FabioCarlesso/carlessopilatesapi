@@ -1,6 +1,8 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.entity.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,40 +18,41 @@ import java.util.Date;
 public class JwtService {
 
     private final SecretKey secretKey;
+    private final JwtParser jwtParser;
     private final long expirationMillis;
 
     public JwtService(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration-ms:86400000}") long expirationMillis) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.jwtParser = Jwts.parser().verifyWith(secretKey).build();
         this.expirationMillis = expirationMillis;
     }
 
     public String generateToken(UserDetails userDetails) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(userDetails.getUsername())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationMillis)))
-                .signWith(secretKey)
-                .compact();
+                .expiration(Date.from(now.plusMillis(expirationMillis)));
+
+        if (userDetails instanceof User user) {
+            builder.claim("role", user.getRole().name())
+                   .claim("userId", user.getId());
+        }
+
+        return builder.signWith(secretKey).compact();
     }
 
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
     }
 
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        Claims claims = extractAllClaims(token);
-        return claims.getSubject().equals(userDetails.getUsername())
-                && !claims.getExpiration().before(new Date());
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return jwtParser.parseSignedClaims(token).getPayload();
     }
 }

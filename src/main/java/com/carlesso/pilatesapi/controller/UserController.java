@@ -3,7 +3,6 @@ package com.carlesso.pilatesapi.controller;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
-import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,7 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,8 +44,8 @@ public class UserController {
             description = "Requer autenticação JWT. Perfis USER e ADMIN podem acessar. Retorna dados seguros do usuário logado."
     )
     @GetMapping("/me")
-    public ResponseEntity<UserResponseDTO> me(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(UserResponseDTO.from(user));
+    public ResponseEntity<UserResponseDTO> me(Authentication authentication) {
+        return ResponseEntity.ok(service.buscarPorEmail(authentication.getName()));
     }
 
     @Operation(
@@ -84,23 +83,25 @@ public class UserController {
 
     @Operation(
             summary = "Atualizar usuário",
-            description = "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN."
+            description = "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN. Admin não pode alterar o próprio role."
     )
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDTO> atualizar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
-            @RequestBody @Valid UserUpdateDTO dto) {
-        return ResponseEntity.ok(service.atualizar(id, dto));
+            @RequestBody @Valid UserUpdateDTO dto,
+            Authentication authentication) {
+        return ResponseEntity.ok(service.atualizar(id, dto, authentication.getName()));
     }
 
     @Operation(
             summary = "Excluir usuário",
-            description = "Requer role ADMIN. Remove um usuário cadastrado."
+            description = "Requer role ADMIN. Remove um usuário cadastrado. Admin não pode excluir a própria conta."
     )
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(
-            @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
-        service.excluir(id);
+            @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
+            Authentication authentication) {
+        service.excluir(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

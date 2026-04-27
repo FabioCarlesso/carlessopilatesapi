@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.UserRepository;
@@ -52,9 +53,21 @@ public class UserService {
         return UserResponseDTO.from(encontrar(id));
     }
 
+    @Transactional(readOnly = true)
+    public UserResponseDTO buscarPorEmail(String email) {
+        return UserResponseDTO.from(
+                repository.findByEmail(email.toLowerCase(Locale.ROOT))
+                        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"))
+        );
+    }
+
     @Transactional
-    public UserResponseDTO atualizar(Long id, UserUpdateDTO dto) {
+    public UserResponseDTO atualizar(Long id, UserUpdateDTO dto, String currentEmail) {
         User user = encontrar(id);
+
+        if (user.getEmail().equals(currentEmail) && dto.role() != null && !dto.role().equals(user.getRole())) {
+            throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
+        }
 
         if (dto.email() != null) {
             String email = normalizarEmail(dto.email());
@@ -67,12 +80,15 @@ public class UserService {
         if (dto.password() != null) user.setPassword(passwordEncoder.encode(dto.password()));
         if (dto.role() != null) user.setRole(dto.role());
 
-        return UserResponseDTO.from(user);
+        return UserResponseDTO.from(repository.save(user));
     }
 
     @Transactional
-    public void excluir(Long id) {
+    public void excluir(Long id, String currentEmail) {
         User user = encontrar(id);
+        if (user.getEmail().equals(currentEmail)) {
+            throw new BusinessException("Não é possível excluir a própria conta");
+        }
         repository.delete(user);
     }
 

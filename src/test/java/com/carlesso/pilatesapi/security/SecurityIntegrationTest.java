@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
+import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,9 +20,11 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.lang.reflect.Field;
+
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -48,9 +51,16 @@ class SecurityIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private LoginAttemptService loginAttemptService;
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         userRepository.deleteAll();
+        // reset in-memory rate limit history between tests
+        Field historyField = LoginAttemptService.class.getDeclaredField("history");
+        historyField.setAccessible(true);
+        ((java.util.concurrent.ConcurrentHashMap<?, ?>) historyField.get(loginAttemptService)).clear();
     }
 
     @Test
@@ -107,6 +117,47 @@ class SecurityIntegrationTest {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.erro").value("Credenciais inválidas"));
+    }
+
+    @Test
+    void login_aposLimiteDefalhas_deveRetornar429() throws Exception {
+        criarUsuario("brute@email.com", Role.USER);
+        var senhaErrada = new AuthLoginRequestDTO("brute@email.com", "errada123");
+
+        for (int i = 0; i < LoginAttemptService.MAX_ATTEMPTS; i++) {
+            mvc.perform(post("/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(mapper.writeValueAsString(senhaErrada)));
+        }
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(senhaErrada)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.erro").value("Muitas tentativas. Tente novamente em 15 minutos."));
+    }
+
+    @Test
+    void login_aposSuccesso_deveResetarContador() throws Exception {
+        criarUsuario("reset@email.com", Role.USER);
+        var senhaErrada = new AuthLoginRequestDTO("reset@email.com", "errada123");
+        var senhaCorreta = new AuthLoginRequestDTO("reset@email.com", "senha1234");
+
+        for (int i = 0; i < LoginAttemptService.MAX_ATTEMPTS - 1; i++) {
+            mvc.perform(post("/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(mapper.writeValueAsString(senhaErrada)));
+        }
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(senhaCorreta)))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(senhaErrada)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -208,6 +259,46 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void usersAtualizar_adminAlterandoProprioRole_deveRetornar422() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        var request = new UserUpdateDTO(null, null, null, Role.USER);
+
+        mvc.perform(put("/users/{id}", admin.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Não é possível alterar o próprio perfil de acesso"));
+    }
+
+    @Test
+    void usersAtualizar_adminAlterandoProprioNomeSemMudarRole_devePermitir() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        var request = new UserUpdateDTO("Novo Nome", null, null, null);
+
+        mvc.perform(put("/users/{id}", admin.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Novo Nome"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void usersAtualizar_nomeVazio_deveRetornar400() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User user = criarUsuario("user@email.com", Role.USER);
+        var request = new UserUpdateDTO("", null, null, null);
+
+        mvc.perform(put("/users/{id}", user.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void usersExcluir_comAdmin_deveRemoverUsuario() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("remover@email.com", Role.USER);
@@ -217,6 +308,16 @@ class SecurityIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(user.getId())).isEmpty();
+    }
+
+    @Test
+    void usersExcluir_adminExcluindoPropraConta_deveRetornar422() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+
+        mvc.perform(delete("/users/{id}", admin.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Não é possível excluir a própria conta"));
     }
 
     @Test

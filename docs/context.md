@@ -40,7 +40,8 @@ com.carlesso.pilatesapi
 ├── exception
 │   ├── ResourceNotFoundException.java — 404 (recurso não encontrado)
 │   ├── ConflictException.java         — 409 (conflito de estado/duplicidade)
-│   └── BusinessException.java         — 422 (violação de regra de negócio)
+│   ├── BusinessException.java         — 422 (violação de regra de negócio)
+│   └── TooManyRequestsException.java  — 429 (muitas tentativas de login)
 ├── controller
 │   ├── PacienteController.java       — endpoints REST de pacientes
 │   ├── ProfissionalController.java   — endpoints REST de profissionais
@@ -57,9 +58,10 @@ com.carlesso.pilatesapi
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
 │   ├── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
-│   ├── AuthService.java                        — registro/login e emissão de token
+│   ├── AuthService.java                        — registro/login, emissão de token e rate limiting
 │   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
-│   ├── JwtService.java                         — geração e validação de JWT
+│   ├── JwtService.java                         — geração (claims role/userId) e validação de JWT
+│   ├── LoginAttemptService.java                — rate limiting in-memory por e-mail (5 tentativas / 15 min)
 │   └── CustomUserDetailsService.java           — carregamento de usuários para Spring Security
 ├── repository
 │   ├── PacienteRepository.java       — acesso ao banco via Spring Data JPA
@@ -254,6 +256,9 @@ CPF não pode ser alterado após o cadastro.
 - Autenticação stateless com Spring Security e JWT
 - Senhas são armazenadas com `BCryptPasswordEncoder`
 - O segredo JWT vem de `JWT_SECRET`; não há segredo fixo no código
+- JWT inclui claims `role` e `userId` — o filtro reconstrói o contexto de segurança sem consulta ao banco por requisição
+- Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`
+- Admin não pode excluir a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 
@@ -399,6 +404,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 21 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

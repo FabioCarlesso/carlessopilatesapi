@@ -78,9 +78,10 @@ src/
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
-│   │   │   ├── AuthService.java                        # Registro/login e emissão de JWT
+│   │   │   ├── AuthService.java                        # Registro/login, emissão de JWT e rate limiting
 │   │   │   ├── UserService.java                        # CRUD administrativo de usuários e perfis
-│   │   │   └── JwtService.java                         # Geração e validação de JWT
+│   │   │   ├── JwtService.java                         # Geração (claims role/userId) e validação de JWT
+│   │   │   └── LoginAttemptService.java                # Rate limiting in-memory por e-mail (5 tentativas / 15 min)
 │   │   ├── repository/
 │   │   │   ├── PacienteRepository.java
 │   │   │   ├── ProfissionalRepository.java
@@ -159,7 +160,9 @@ src/
         ├── ProfissionalControllerTest.java      # 17 casos
         ├── PlanoControllerTest.java             # 11 casos
         ├── PagamentoControllerTest.java         # 11 casos
-        └── AulaControllerTest.java              # 10 casos
+        ├── AulaControllerTest.java              # 10 casos
+        └── security/
+            └── SecurityIntegrationTest.java     # 21 casos
 ```
 
 ---
@@ -175,6 +178,9 @@ src/
 - Senhas são persistidas com BCrypt e nunca retornadas nos DTOs
 - Usuários administrativos podem definir os perfis de acesso disponíveis: `USER` e `ADMIN`
 - O segredo JWT é configurado por `JWT_SECRET`; token ausente, inválido ou expirado retorna `401`
+- JWT inclui claims `role` e `userId` — o filtro reconstrói o contexto de segurança sem consulta ao banco por requisição
+- Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`; login bem-sucedido redefine o contador
+- Admin não pode excluir a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
 ### 4.1 Pacientes

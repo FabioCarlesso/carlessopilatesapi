@@ -7,10 +7,12 @@ import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,15 +24,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @Transactional
@@ -53,10 +58,20 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponseDTO login(AuthLoginRequestDTO dto) {
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(dto.email().toLowerCase(), dto.password()));
-        User user = (User) auth.getPrincipal();
-        String token = jwtService.generateToken(user);
-        return AuthResponseDTO.bearer(token, UserResponseDTO.from(user));
+        String email = dto.email().toLowerCase();
+        if (loginAttemptService.isBlocked(email)) {
+            throw new TooManyRequestsException("Muitas tentativas. Tente novamente em 15 minutos.");
+        }
+        try {
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, dto.password()));
+            loginAttemptService.registerSuccess(email);
+            User user = (User) auth.getPrincipal();
+            String token = jwtService.generateToken(user);
+            return AuthResponseDTO.bearer(token, UserResponseDTO.from(user));
+        } catch (AuthenticationException e) {
+            loginAttemptService.registerFailure(email);
+            throw e;
+        }
     }
 }
