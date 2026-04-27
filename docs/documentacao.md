@@ -24,6 +24,8 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Maven | 3.9 | Build e gerenciamento de dependências |
 | Docker | - | Containerização |
 | Docker Compose | - | Orquestração local |
+| OpenPDF | 1.3.34 | Geração de relatórios em PDF |
+| Apache POI | 5.2.5 | Geração de planilhas XLSX |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) | Testes unitários e de controller |
 | H2 | (in-memory, test scope) | Banco em memória para testes de integração |
 
@@ -65,11 +67,12 @@ src/
 │   │   │   ├── PagamentoController.java     # /pagamentos
 │   │   │   └── AulaController.java          # /aulas
 │   │   ├── service/
-│   │   │   ├── PacienteService.java         # Regras de negócio de pacientes
-│   │   │   ├── ProfissionalService.java     # Regras de negócio de profissionais
-│   │   │   ├── PlanoService.java            # Regras de plano e frequência
-│   │   │   ├── PagamentoService.java        # Cobranças, confirmação, vencimentos
-│   │   │   └── AulaService.java             # Geração e controle de aulas
+│   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
+│   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
+│   │   │   ├── PlanoService.java                       # Regras de plano e frequência
+│   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
+│   │   │   ├── AulaService.java                        # Geração e controle de aulas
+│   │   │   └── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   ├── repository/
 │   │   │   ├── PacienteRepository.java
 │   │   │   ├── ProfissionalRepository.java
@@ -96,6 +99,10 @@ src/
 │   │   │   ├── ProfissionalRequestDTO.java
 │   │   │   ├── ProfissionalUpdateDTO.java
 │   │   │   ├── ProfissionalResponseDTO.java
+│   │   │   ├── ProfissionalResumoDTO.java
+│   │   │   ├── PeriodoDTO.java
+│   │   │   ├── ResumoFinanceiroDTO.java
+│   │   │   ├── PagamentoResumoDTO.java
 │   │   │   ├── ProfissionalPagamentoRelatorioDTO.java
 │   │   │   ├── ProfissionalPagamentoAulaDTO.java
 │   │   │   ├── PlanoRequestDTO.java
@@ -124,18 +131,19 @@ src/
     ├── actuator/
     │   └── ActuatorTest.java                    # 3 casos
     ├── service/
-    │   ├── PacienteServiceTest.java             # 12 casos
-    │   ├── PacienteServiceIntegrationTest.java  # 4 casos
-    │   ├── ProfissionalServiceIntegrationTest.java # 5 casos
-    │   ├── ProfissionalServiceTest.java         # 13 casos
-    │   ├── PlanoServiceTest.java                # 9 casos
-    │   ├── PagamentoServiceTest.java            # 8 casos
-    │   └── AulaServiceTest.java                 # 14 casos
+    │   ├── PacienteServiceTest.java                   # 12 casos
+    │   ├── PacienteServiceIntegrationTest.java        # 4 casos
+    │   ├── ProfissionalServiceIntegrationTest.java    # 5 casos
+    │   ├── ProfissionalServiceTest.java               # 14 casos
+    │   ├── PlanoServiceTest.java                      # 9 casos
+    │   ├── PagamentoServiceTest.java                  # 8 casos
+    │   ├── AulaServiceTest.java                       # 14 casos
+    │   └── RelatorioPagamentoExporterServiceTest.java # 3 casos
     ├── repository/
     │   └── AulaRepositoryTest.java              # 6 casos
     └── controller/
         ├── PacienteControllerTest.java          # 16 casos
-        ├── ProfissionalControllerTest.java      # 13 casos
+        ├── ProfissionalControllerTest.java      # 17 casos
         ├── PlanoControllerTest.java             # 11 casos
         ├── PagamentoControllerTest.java         # 10 casos
         └── AulaControllerTest.java              # 9 casos
@@ -516,16 +524,37 @@ GET /profissionais?ativo=false
 GET /profissionais/{id}/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28
 ```
 
-Retorna aulas realizadas no período e o total devido ao profissional.
+Retorna aulas realizadas no período e o total devido ao profissional. O contrato é estruturado em sub-objetos para facilitar o consumo no Angular sem mapeamentos adicionais.
 
 ```json
 {
-  "profissionalId": 1,
-  "profissionalNome": "Paula Mendes",
-  "periodoInicio": "2025-02-01",
-  "periodoFim": "2025-02-28",
-  "totalAulas": 2,
-  "totalPagamento": 22.50,
+  "profissional": {
+    "id": 1,
+    "nome": "Paula Mendes",
+    "cpf": "12345678900",
+    "tipoContrato": "PJ",
+    "percentualPagamentoAula": 45.00
+  },
+  "periodo": {
+    "inicio": "2025-02-01",
+    "fim": "2025-02-28"
+  },
+  "resumo": {
+    "totalAulas": 2,
+    "quantidadePagamentos": 1,
+    "totalPagamentosBruto": 200.00,
+    "totalProfissional": 22.50
+  },
+  "pagamentos": [
+    {
+      "pagamentoId": 5,
+      "valorPagamento": 200.00,
+      "quantidadeAulasPagamento": 8,
+      "quantidadeAulasNoPeriodo": 2,
+      "valorBaseAula": 25.00,
+      "totalProfissional": 22.50
+    }
+  ],
   "aulas": [
     {
       "aulaId": 10,
@@ -539,9 +568,24 @@ Retorna aulas realizadas no período e o total devido ao profissional.
       "percentualPagamentoAula": 45.00,
       "valorProfissional": 11.25
     }
-  ]
+  ],
+  "geradoEm": "2025-03-01T10:00:00"
 }
 ```
+
+#### Exportação do Relatório (PDF / XLSX)
+
+Os mesmos parâmetros (`inicio`, `fim`) podem ser usados para baixar o relatório como arquivo. Ambos os endpoints retornam `Content-Disposition: attachment` com nome `relatorio-pagamento-profissional-{id}-{inicio}-{fim}.{ext}`.
+
+```http
+GET /profissionais/{id}/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28
+GET /profissionais/{id}/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28
+```
+
+| Endpoint | `Content-Type` | Tecnologia |
+|---|---|---|
+| `/relatorio-pagamento/pdf` | `application/pdf` | OpenPDF |
+| `/relatorio-pagamento/xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Apache POI (abas `Resumo`, `Pagamentos`, `Aulas`) |
 
 ---
 
@@ -751,6 +795,13 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -o /dev/null -w "%{htt
 curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{http_code}"
 ```
 
+### Exportar relatório de pagamento (PDF / XLSX)
+
+```bash
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28"
+```
+
 ---
 
 ## 12. Infraestrutura Docker
@@ -777,23 +828,25 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **132 casos** distribuídos em quinze classes:
+A suíte de testes possui **150 casos** distribuídos em dezessete classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
-| `ProfissionalServiceTest` | Unitário (Mockito) | 13 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 14 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
+| `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
-| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 13 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
-| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 10 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
+| `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 

@@ -200,13 +200,45 @@ class ProfissionalServiceTest {
                 LocalDate.of(2025, 2, 1),
                 LocalDate.of(2025, 2, 28));
 
-        assertThat(relatorio.totalAulas()).isEqualTo(2);
-        assertThat(relatorio.totalPagamento()).isEqualByComparingTo("22.50");
+        assertThat(relatorio.profissional().id()).isEqualTo(1L);
+        assertThat(relatorio.profissional().nome()).isEqualTo("Paula Mendes");
+        assertThat(relatorio.periodo().inicio()).isEqualTo(LocalDate.of(2025, 2, 1));
+        assertThat(relatorio.periodo().fim()).isEqualTo(LocalDate.of(2025, 2, 28));
+        assertThat(relatorio.resumo().totalAulas()).isEqualTo(2);
+        assertThat(relatorio.resumo().totalProfissional()).isEqualByComparingTo("22.50");
         assertThat(relatorio.aulas().getFirst().valorBaseAula()).isEqualByComparingTo("25.00");
         assertThat(relatorio.aulas().getFirst().valorProfissional()).isEqualByComparingTo("11.25");
+        assertThat(relatorio.geradoEm()).isNotNull();
         verify(aulaRepository).findRelatorioPagamentoByProfissionalIdAndPeriodo(
                 1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         verify(aulaRepository, never()).countGroupedByPagamentoId(any());
+    }
+
+    @Test
+    void gerarRelatorioPagamento_deveAgruparPagamentosUnicos() {
+        Profissional profissional = profissional();
+        var aulaPagamentoA1 = aulaRelatorio(10L, LocalDate.of(2025, 2, 3), 5L);
+        var aulaPagamentoA2 = aulaRelatorio(11L, LocalDate.of(2025, 2, 5), 5L);
+        var aulaPagamentoB = aulaRelatorio(12L, LocalDate.of(2025, 2, 7), 6L);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(profissional));
+        when(aulaRepository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                .thenReturn(List.of(aulaPagamentoA1, aulaPagamentoA2, aulaPagamentoB));
+
+        var relatorio = service.gerarRelatorioPagamento(
+                1L,
+                LocalDate.of(2025, 2, 1),
+                LocalDate.of(2025, 2, 28));
+
+        assertThat(relatorio.pagamentos()).hasSize(2);
+        assertThat(relatorio.pagamentos().get(0).pagamentoId()).isEqualTo(5L);
+        assertThat(relatorio.pagamentos().get(0).quantidadeAulasNoPeriodo()).isEqualTo(2);
+        assertThat(relatorio.pagamentos().get(0).totalProfissional()).isEqualByComparingTo("22.50");
+        assertThat(relatorio.pagamentos().get(1).pagamentoId()).isEqualTo(6L);
+        assertThat(relatorio.pagamentos().get(1).quantidadeAulasNoPeriodo()).isEqualTo(1);
+        assertThat(relatorio.resumo().quantidadePagamentos()).isEqualTo(2);
+        assertThat(relatorio.resumo().totalPagamentosBruto()).isEqualByComparingTo("400.00");
     }
 
     @Test
