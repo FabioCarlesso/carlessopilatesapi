@@ -1,13 +1,19 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.PagamentoResumoDTO;
+import com.carlesso.pilatesapi.dto.PeriodoDTO;
+import com.carlesso.pilatesapi.dto.ProfissionalPagamentoAulaDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
+import com.carlesso.pilatesapi.dto.ProfissionalResumoDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
+import com.carlesso.pilatesapi.dto.ResumoFinanceiroDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.ProfissionalService;
+import com.carlesso.pilatesapi.service.RelatorioPagamentoExporterService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -39,6 +46,9 @@ class ProfissionalControllerTest {
 
     @MockitoBean
     private ProfissionalService service;
+
+    @MockitoBean
+    private RelatorioPagamentoExporterService exporter;
 
     @Autowired
     private ObjectMapper mapper;
@@ -189,26 +199,46 @@ class ProfissionalControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    private ProfissionalPagamentoRelatorioDTO relatorio() {
+        var profissional = new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900",
+                TipoContrato.PJ, new BigDecimal("45.00"));
+        var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
+        var resumo = new ResumoFinanceiroDTO(2L, 1L, new BigDecimal("200.00"), new BigDecimal("22.50"));
+        var pagamento = new PagamentoResumoDTO(5L, new BigDecimal("200.00"), 8L, 2L,
+                new BigDecimal("25.00"), new BigDecimal("22.50"));
+        var aula = new ProfissionalPagamentoAulaDTO(10L, LocalDate.of(2025, 2, 3), 2L, "Ana", 5L,
+                new BigDecimal("200.00"), 8L, new BigDecimal("25.00"),
+                new BigDecimal("45.00"), new BigDecimal("11.25"));
+        return new ProfissionalPagamentoRelatorioDTO(
+                profissional,
+                periodo,
+                resumo,
+                List.of(pagamento),
+                List.of(aula),
+                LocalDateTime.of(2025, 3, 1, 10, 0));
+    }
+
     @Test
     void gerarRelatorioPagamento_deveRetornar200() throws Exception {
-        var relatorio = new ProfissionalPagamentoRelatorioDTO(
-                1L,
-                "Paula Mendes",
-                LocalDate.of(2025, 2, 1),
-                LocalDate.of(2025, 2, 28),
-                2,
-                new BigDecimal("22.50"),
-                List.of());
         when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
-                .thenReturn(relatorio);
+                .thenReturn(relatorio());
 
         mvc.perform(get("/profissionais/1/relatorio-pagamento")
                         .param("inicio", "2025-02-01")
                         .param("fim", "2025-02-28"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.profissionalId").value(1))
-                .andExpect(jsonPath("$.totalAulas").value(2))
-                .andExpect(jsonPath("$.totalPagamento").value(22.50));
+                .andExpect(jsonPath("$.profissional.id").value(1))
+                .andExpect(jsonPath("$.profissional.nome").value("Paula Mendes"))
+                .andExpect(jsonPath("$.profissional.tipoContrato").value("PJ"))
+                .andExpect(jsonPath("$.periodo.inicio").value("2025-02-01"))
+                .andExpect(jsonPath("$.periodo.fim").value("2025-02-28"))
+                .andExpect(jsonPath("$.resumo.totalAulas").value(2))
+                .andExpect(jsonPath("$.resumo.quantidadePagamentos").value(1))
+                .andExpect(jsonPath("$.resumo.totalProfissional").value(22.50))
+                .andExpect(jsonPath("$.resumo.totalPagamentosBruto").value(200.00))
+                .andExpect(jsonPath("$.pagamentos[0].pagamentoId").value(5))
+                .andExpect(jsonPath("$.aulas[0].aulaId").value(10))
+                .andExpect(jsonPath("$.geradoEm").exists());
     }
 
     @Test
@@ -221,5 +251,51 @@ class ProfissionalControllerTest {
                         .param("fim", "2025-02-28"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void exportarRelatorioPagamentoPdf_deveRetornar200ComContentDisposition() throws Exception {
+        byte[] pdfBytes = "PDF-FAKE".getBytes();
+        when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                .thenReturn(relatorio());
+        when(exporter.exportarPdf(any())).thenReturn(pdfBytes);
+
+        mvc.perform(get("/profissionais/1/relatorio-pagamento/pdf")
+                        .param("inicio", "2025-02-01")
+                        .param("fim", "2025-02-28"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PDF_VALUE))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"relatorio-pagamento-profissional-1-2025-02-01-2025-02-28.pdf\""))
+                .andExpect(content().bytes(pdfBytes));
+    }
+
+    @Test
+    void exportarRelatorioPagamentoXlsx_deveRetornar200ComContentDisposition() throws Exception {
+        byte[] xlsxBytes = "XLSX-FAKE".getBytes();
+        when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                .thenReturn(relatorio());
+        when(exporter.exportarXlsx(any())).thenReturn(xlsxBytes);
+
+        mvc.perform(get("/profissionais/1/relatorio-pagamento/xlsx")
+                        .param("inicio", "2025-02-01")
+                        .param("fim", "2025-02-28"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"relatorio-pagamento-profissional-1-2025-02-01-2025-02-28.xlsx\""))
+                .andExpect(content().bytes(xlsxBytes));
+    }
+
+    @Test
+    void exportarRelatorioPagamentoPdf_periodoInvalido_deveRetornar400() throws Exception {
+        when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 3, 1), LocalDate.of(2025, 2, 28)))
+                .thenThrow(new IllegalArgumentException("Período inicial não pode ser maior que o período final"));
+
+        mvc.perform(get("/profissionais/1/relatorio-pagamento/pdf")
+                        .param("inicio", "2025-03-01")
+                        .param("fim", "2025-02-28"))
+                .andExpect(status().isBadRequest());
     }
 }

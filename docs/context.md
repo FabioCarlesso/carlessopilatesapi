@@ -21,6 +21,8 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 | Scheduler | Spring Scheduler |
 | Build | Maven 3.9 |
 | Containerização | Docker + Docker Compose |
+| Exportação PDF | OpenPDF 1.3.34 |
+| Exportação XLSX | Apache POI 5.4.1 |
 | Testes | JUnit 5 + Mockito + MockMvc + H2 (test scope) |
 
 ---
@@ -43,11 +45,12 @@ com.carlesso.pilatesapi
 │   ├── PagamentoController.java      — endpoints REST de pagamentos
 │   └── AulaController.java           — endpoints REST de aulas
 ├── service
-│   ├── PacienteService.java          — lógica de negócio de pacientes
-│   ├── ProfissionalService.java      — lógica de negócio de profissionais
-│   ├── PlanoService.java             — regras de plano e frequência
-│   ├── PagamentoService.java         — cobranças, confirmação, vencimentos
-│   └── AulaService.java              — geração e controle de aulas
+│   ├── PacienteService.java                    — lógica de negócio de pacientes
+│   ├── ProfissionalService.java                — lógica de negócio de profissionais
+│   ├── PlanoService.java                       — regras de plano e frequência
+│   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
+│   ├── AulaService.java                        — geração e controle de aulas
+│   └── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
 ├── repository
 │   ├── PacienteRepository.java       — acesso ao banco via Spring Data JPA
 │   ├── ProfissionalRepository.java   — acesso ao banco via Spring Data JPA
@@ -74,7 +77,11 @@ com.carlesso.pilatesapi
 │   ├── ProfissionalRequestDTO.java   — payload de criação de profissional (record)
 │   ├── ProfissionalUpdateDTO.java    — payload de atualização de profissional (record)
 │   ├── ProfissionalResponseDTO.java  — resposta da API de profissional (record)
-│   ├── ProfissionalPagamentoRelatorioDTO.java — relatório de pagamento do profissional
+│   ├── ProfissionalResumoDTO.java             — sub-objeto profissional do relatório
+│   ├── PeriodoDTO.java                        — sub-objeto período do relatório
+│   ├── ResumoFinanceiroDTO.java               — totais consolidados do relatório
+│   ├── PagamentoResumoDTO.java                — resumo agrupado por pagamento
+│   ├── ProfissionalPagamentoRelatorioDTO.java — relatório de pagamento do profissional (contrato Angular-friendly)
 │   ├── ProfissionalPagamentoAulaDTO.java      — detalhe de aula no relatório
 │   ├── PlanoRequestDTO.java
 │   ├── PlanoResponseDTO.java
@@ -185,7 +192,9 @@ Constraint: `UNIQUE (paciente_id, data)`
 | PUT | `/profissionais/{id}` | Atualização parcial | 200 / 404 |
 | PATCH | `/profissionais/{id}/ativar` | Reativar profissional | 204 / 404 |
 | PATCH | `/profissionais/{id}/inativar` | Soft delete (inativar) | 204 / 404 |
-| GET | `/profissionais/{id}/relatorio-pagamento?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Gerar relatório de pagamento do profissional | 200 / 400 / 404 |
+| GET | `/profissionais/{id}/relatorio-pagamento?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Gerar relatório de pagamento do profissional (JSON) | 200 / 400 / 404 |
+| GET | `/profissionais/{id}/relatorio-pagamento/pdf?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Exportar relatório em PDF (`application/pdf`, `Content-Disposition: attachment`) | 200 / 400 / 404 |
+| GET | `/profissionais/{id}/relatorio-pagamento/xlsx?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Exportar relatório em Excel/XLSX (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment`) | 200 / 400 / 404 |
 | POST | `/planos` | Criar plano para paciente | 201 / 400 / 404 / 422 |
 | GET | `/planos/{id}` | Buscar plano por ID | 200 / 404 |
 | GET | `/planos/paciente/{id}` | Listar planos do paciente | 200 |
@@ -222,6 +231,9 @@ CPF não pode ser alterado após o cadastro.
 - A consulta do relatório de pagamento consolida dados da aula, paciente, pagamento e contagem de aulas por pagamento em um único `JOIN` com `GROUP BY`
 - Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
 - Valor devido ao profissional por aula: `valor por aula * percentualPagamentoAula / 100`
+- O relatório retorna um contrato Angular-friendly com sub-objetos `profissional`, `periodo`, `resumo`, `pagamentos`, `aulas` e `geradoEm`. O bloco `pagamentos` agrega aulas pelo `pagamentoId` para facilitar a exibição financeira em UIs.
+- O relatório de pagamento é limitado a períodos de até 366 dias e até 5.000 aulas para evitar exportações excessivas em memória.
+- A exportação em PDF e XLSX reusa o mesmo cálculo do endpoint JSON. PDF usa OpenPDF; XLSX usa Apache POI (abas `Resumo`, `Pagamentos`, `Aulas`). Os endpoints retornam `Content-Disposition: attachment` com nome `relatorio-pagamento-profissional-{id}-{inicio}-{fim}.{ext}`.
 
 ### Planos
 - Tipo determina duração: `MENSAL` (1 mês), `TRIMESTRAL` (3 meses), `ANUAL` (12 meses)
@@ -332,7 +344,8 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
-| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 13 |
+| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 15 |
+| `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
@@ -340,7 +353,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
-| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 14 |
+| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 17 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |

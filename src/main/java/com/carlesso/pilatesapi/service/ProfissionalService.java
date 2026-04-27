@@ -1,10 +1,14 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.dto.PagamentoResumoDTO;
+import com.carlesso.pilatesapi.dto.PeriodoDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalPagamentoAulaDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
+import com.carlesso.pilatesapi.dto.ProfissionalResumoDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
+import com.carlesso.pilatesapi.dto.ResumoFinanceiroDTO;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.exception.BusinessException;
@@ -22,11 +26,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class ProfissionalService {
+
+    private static final long LIMITE_DIAS_RELATORIO_PAGAMENTO = 366;
+    private static final int LIMITE_AULAS_RELATORIO_PAGAMENTO = 5_000;
 
     private final ProfissionalRepository repository;
     private final AulaRepository aulaRepository;
@@ -102,6 +113,11 @@ public class ProfissionalService {
         if (inicio.isAfter(fim)) {
             throw new IllegalArgumentException("Período inicial não pode ser maior que o período final");
         }
+        long diasPeriodo = ChronoUnit.DAYS.between(inicio, fim) + 1;
+        if (diasPeriodo > LIMITE_DIAS_RELATORIO_PAGAMENTO) {
+            throw new IllegalArgumentException("Relatório de pagamento limitado a "
+                    + LIMITE_DIAS_RELATORIO_PAGAMENTO + " dias");
+        }
 
         Profissional profissional = encontrar(id);
         List<ProfissionalPagamentoAulaDTO> aulas = aulaRepository
@@ -109,19 +125,58 @@ public class ProfissionalService {
                 .stream()
                 .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula()))
                 .toList();
+        if (aulas.size() > LIMITE_AULAS_RELATORIO_PAGAMENTO) {
+            throw new IllegalArgumentException("Relatório de pagamento limitado a "
+                    + LIMITE_AULAS_RELATORIO_PAGAMENTO + " aulas");
+        }
 
-        BigDecimal totalPagamento = aulas.stream()
+        List<PagamentoResumoDTO> pagamentos = agruparPorPagamento(aulas);
+
+        BigDecimal totalProfissional = aulas.stream()
                 .map(ProfissionalPagamentoAulaDTO::valorProfissional)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal totalBruto = pagamentos.stream()
+                .map(PagamentoResumoDTO::valorPagamento)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        ResumoFinanceiroDTO resumo = new ResumoFinanceiroDTO(
+                aulas.size(),
+                pagamentos.size(),
+                totalBruto,
+                totalProfissional);
 
         return new ProfissionalPagamentoRelatorioDTO(
-                profissional.getId(),
-                profissional.getNome(),
-                inicio,
-                fim,
-                aulas.size(),
-                totalPagamento.setScale(2, RoundingMode.HALF_UP),
-                aulas);
+                ProfissionalResumoDTO.from(profissional),
+                new PeriodoDTO(inicio, fim),
+                resumo,
+                pagamentos,
+                aulas,
+                LocalDateTime.now());
+    }
+
+    private List<PagamentoResumoDTO> agruparPorPagamento(List<ProfissionalPagamentoAulaDTO> aulas) {
+        Map<Long, PagamentoAcumulador> acumulado = new LinkedHashMap<>();
+        for (ProfissionalPagamentoAulaDTO aula : aulas) {
+            PagamentoAcumulador acumulador = acumulado.computeIfAbsent(
+                    aula.pagamentoId(),
+                    id -> new PagamentoAcumulador(
+                            aula.valorPagamento(),
+                            aula.quantidadeAulasPagamento(),
+                            aula.valorBaseAula()));
+            acumulador.adicionar(aula.valorProfissional());
+        }
+        return acumulado.entrySet().stream()
+                .map(entry -> new PagamentoResumoDTO(
+                        entry.getKey(),
+                        entry.getValue().valorPagamento,
+                        entry.getValue().quantidadeAulasPagamento,
+                        entry.getValue().quantidadeNoPeriodo,
+                        entry.getValue().valorBaseAula,
+                        entry.getValue().totalProfissional.setScale(2, RoundingMode.HALF_UP)))
+                .toList();
     }
 
     private Profissional encontrar(Long id) {
@@ -191,5 +246,26 @@ public class ProfissionalService {
         }
 
         return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get(campo), valor);
+    }
+
+    private static final class PagamentoAcumulador {
+        private final BigDecimal valorPagamento;
+        private final long quantidadeAulasPagamento;
+        private final BigDecimal valorBaseAula;
+        private long quantidadeNoPeriodo;
+        private BigDecimal totalProfissional;
+
+        private PagamentoAcumulador(BigDecimal valorPagamento, long quantidadeAulasPagamento, BigDecimal valorBaseAula) {
+            this.valorPagamento = valorPagamento;
+            this.quantidadeAulasPagamento = quantidadeAulasPagamento;
+            this.valorBaseAula = valorBaseAula;
+            this.quantidadeNoPeriodo = 0;
+            this.totalProfissional = BigDecimal.ZERO;
+        }
+
+        private void adicionar(BigDecimal valorProfissional) {
+            this.quantidadeNoPeriodo++;
+            this.totalProfissional = this.totalProfissional.add(valorProfissional);
+        }
     }
 }

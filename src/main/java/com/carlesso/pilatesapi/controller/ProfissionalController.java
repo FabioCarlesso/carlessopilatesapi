@@ -6,6 +6,7 @@ import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.service.ProfissionalService;
+import com.carlesso.pilatesapi.service.RelatorioPagamentoExporterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +17,8 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -28,10 +31,15 @@ import java.time.LocalDate;
 @RequestMapping("/profissionais")
 public class ProfissionalController {
 
-    private final ProfissionalService service;
+    private static final MediaType APPLICATION_XLSX = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-    public ProfissionalController(ProfissionalService service) {
+    private final ProfissionalService service;
+    private final RelatorioPagamentoExporterService exporter;
+
+    public ProfissionalController(ProfissionalService service, RelatorioPagamentoExporterService exporter) {
         this.service = service;
+        this.exporter = exporter;
     }
 
     @Operation(summary = "Cadastrar profissional", description = "Registra um novo profissional no sistema. Retorna 201 com o header Location apontando para o recurso criado.")
@@ -111,7 +119,8 @@ public class ProfissionalController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Gerar relatório de pagamento do profissional", description = "Retorna aulas realizadas pelo profissional no período e o valor devido com base no percentual de pagamento por aula.")
+    @Operation(summary = "Gerar relatório de pagamento do profissional",
+            description = "Retorna o relatório financeiro estruturado em sub-objetos (profissional, periodo, resumo, pagamentos, aulas), pronto para consumo no Angular.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Relatório gerado com sucesso"),
             @ApiResponse(responseCode = "400", description = "Período inválido"),
@@ -123,5 +132,54 @@ public class ProfissionalController {
             @Parameter(description = "Data inicial do relatório", required = true) @RequestParam LocalDate inicio,
             @Parameter(description = "Data final do relatório", required = true) @RequestParam LocalDate fim) {
         return ResponseEntity.ok(service.gerarRelatorioPagamento(id, inicio, fim));
+    }
+
+    @Operation(summary = "Exportar relatório de pagamento em PDF",
+            description = "Gera o relatório de pagamento do profissional em PDF para download. Usa o mesmo cálculo do endpoint JSON.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "PDF gerado com sucesso", content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/pdf")),
+            @ApiResponse(responseCode = "400", description = "Período inválido"),
+            @ApiResponse(responseCode = "404", description = "Profissional não encontrado")
+    })
+    @GetMapping(value = "/{id}/relatorio-pagamento/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportarRelatorioPagamentoPdf(
+            @Parameter(description = "ID do profissional", required = true) @PathVariable Long id,
+            @Parameter(description = "Data inicial do relatório", required = true) @RequestParam LocalDate inicio,
+            @Parameter(description = "Data final do relatório", required = true) @RequestParam LocalDate fim) {
+        ProfissionalPagamentoRelatorioDTO relatorio = service.gerarRelatorioPagamento(id, inicio, fim);
+        byte[] pdf = exporter.exportarPdf(relatorio);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + nomeArquivo(id, inicio, fim) + ".pdf\"")
+                .contentLength(pdf.length)
+                .body(pdf);
+    }
+
+    @Operation(summary = "Exportar relatório de pagamento em Excel",
+            description = "Gera o relatório de pagamento do profissional em XLSX para download, com abas para resumo, pagamentos e aulas.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "XLSX gerado com sucesso", content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
+            @ApiResponse(responseCode = "400", description = "Período inválido"),
+            @ApiResponse(responseCode = "404", description = "Profissional não encontrado")
+    })
+    @GetMapping(value = "/{id}/relatorio-pagamento/xlsx",
+            produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public ResponseEntity<byte[]> exportarRelatorioPagamentoXlsx(
+            @Parameter(description = "ID do profissional", required = true) @PathVariable Long id,
+            @Parameter(description = "Data inicial do relatório", required = true) @RequestParam LocalDate inicio,
+            @Parameter(description = "Data final do relatório", required = true) @RequestParam LocalDate fim) {
+        ProfissionalPagamentoRelatorioDTO relatorio = service.gerarRelatorioPagamento(id, inicio, fim);
+        byte[] xlsx = exporter.exportarXlsx(relatorio);
+        return ResponseEntity.ok()
+                .contentType(APPLICATION_XLSX)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + nomeArquivo(id, inicio, fim) + ".xlsx\"")
+                .contentLength(xlsx.length)
+                .body(xlsx);
+    }
+
+    private String nomeArquivo(Long id, LocalDate inicio, LocalDate fim) {
+        return "relatorio-pagamento-profissional-" + id + "-" + inicio + "-" + fim;
     }
 }
