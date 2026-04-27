@@ -22,7 +22,7 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 | Build | Maven 3.9 |
 | Containerização | Docker + Docker Compose |
 | Exportação PDF | OpenPDF 1.3.34 |
-| Exportação XLSX | Apache POI 5.2.5 |
+| Exportação XLSX | Apache POI 5.4.1 |
 | Testes | JUnit 5 + Mockito + MockMvc + H2 (test scope) |
 
 ---
@@ -232,6 +232,7 @@ CPF não pode ser alterado após o cadastro.
 - Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
 - Valor devido ao profissional por aula: `valor por aula * percentualPagamentoAula / 100`
 - O relatório retorna um contrato Angular-friendly com sub-objetos `profissional`, `periodo`, `resumo`, `pagamentos`, `aulas` e `geradoEm`. O bloco `pagamentos` agrega aulas pelo `pagamentoId` para facilitar a exibição financeira em UIs.
+- O relatório de pagamento é limitado a períodos de até 366 dias e até 5.000 aulas para evitar exportações excessivas em memória.
 - A exportação em PDF e XLSX reusa o mesmo cálculo do endpoint JSON. PDF usa OpenPDF; XLSX usa Apache POI (abas `Resumo`, `Pagamentos`, `Aulas`). Os endpoints retornam `Content-Disposition: attachment` com nome `relatorio-pagamento-profissional-{id}-{inicio}-{fim}.{ext}`.
 
 ### Planos
@@ -343,7 +344,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
-| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 14 |
+| `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |

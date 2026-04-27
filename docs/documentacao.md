@@ -25,7 +25,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Docker | - | Containerização |
 | Docker Compose | - | Orquestração local |
 | OpenPDF | 1.3.34 | Geração de relatórios em PDF |
-| Apache POI | 5.2.5 | Geração de planilhas XLSX |
+| Apache POI | 5.4.1 | Geração de planilhas XLSX |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) | Testes unitários e de controller |
 | H2 | (in-memory, test scope) | Banco em memória para testes de integração |
 
@@ -134,7 +134,7 @@ src/
     │   ├── PacienteServiceTest.java                   # 12 casos
     │   ├── PacienteServiceIntegrationTest.java        # 4 casos
     │   ├── ProfissionalServiceIntegrationTest.java    # 5 casos
-    │   ├── ProfissionalServiceTest.java               # 14 casos
+    │   ├── ProfissionalServiceTest.java               # 15 casos
     │   ├── PlanoServiceTest.java                      # 9 casos
     │   ├── PagamentoServiceTest.java                  # 8 casos
     │   ├── AulaServiceTest.java                       # 14 casos
@@ -145,8 +145,8 @@ src/
         ├── PacienteControllerTest.java          # 16 casos
         ├── ProfissionalControllerTest.java      # 17 casos
         ├── PlanoControllerTest.java             # 11 casos
-        ├── PagamentoControllerTest.java         # 10 casos
-        └── AulaControllerTest.java              # 9 casos
+        ├── PagamentoControllerTest.java         # 11 casos
+        └── AulaControllerTest.java              # 10 casos
 ```
 
 ---
@@ -576,6 +576,7 @@ Retorna aulas realizadas no período e o total devido ao profissional. O contrat
 #### Exportação do Relatório (PDF / XLSX)
 
 Os mesmos parâmetros (`inicio`, `fim`) podem ser usados para baixar o relatório como arquivo. Ambos os endpoints retornam `Content-Disposition: attachment` com nome `relatorio-pagamento-profissional-{id}-{inicio}-{fim}.{ext}`.
+O relatório é limitado a períodos de até 366 dias e até 5.000 aulas para evitar exportações excessivas em memória.
 
 ```http
 GET /profissionais/{id}/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28
@@ -828,12 +829,12 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **150 casos** distribuídos em dezessete classes:
+A suíte de testes possui **151 casos** distribuídos em dezessete classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
-| `ProfissionalServiceTest` | Unitário (Mockito) | 14 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 14 |

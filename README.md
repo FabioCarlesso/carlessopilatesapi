@@ -18,7 +18,7 @@ API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates,
 | Maven | 3.9 |
 | Docker / Docker Compose | - |
 | OpenPDF | 1.3.34 |
-| Apache POI | 5.2.5 |
+| Apache POI | 5.4.1 |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) |
 | H2 (testes) | (in-memory) |
 
@@ -560,6 +560,7 @@ curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inic
 - O relatório de pagamento considera aulas realizadas vinculadas ao profissional no período informado e ignora aulas de pacientes inativos
 - O relatório de pagamento usa uma consulta consolidada com `JOIN` e `GROUP BY` para buscar os dados das aulas e a quantidade de aulas do pagamento sem round-trips adicionais
 - O valor devido por aula é calculado por `valor do pagamento / quantidade de aulas do pagamento * percentualPagamentoAula / 100`
+- O relatório de pagamento é limitado a períodos de até 366 dias e até 5.000 aulas para evitar exportações excessivas em memória
 - O relatório também é exportável em PDF (OpenPDF) e Excel/XLSX (Apache POI), reaproveitando o mesmo cálculo do endpoint JSON
 
 ### Planos de Pagamento
@@ -619,7 +620,7 @@ Formato da resposta de erro:
 
 ## Testes
 
-O projeto possui **150 testes** organizados em dezessete suítes:
+O projeto possui **151 testes** organizados em dezessete suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -627,7 +628,7 @@ O projeto possui **150 testes** organizados em dezessete suítes:
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
 | `PagamentoServiceTest` | Unitário (Mockito) | 8 |
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
-| `ProfissionalServiceTest` | Unitário (Mockito) | 14 |
+| `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |

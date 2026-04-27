@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +35,9 @@ import java.util.Map;
 
 @Service
 public class ProfissionalService {
+
+    private static final long LIMITE_DIAS_RELATORIO_PAGAMENTO = 366;
+    private static final int LIMITE_AULAS_RELATORIO_PAGAMENTO = 5_000;
 
     private final ProfissionalRepository repository;
     private final AulaRepository aulaRepository;
@@ -109,6 +113,11 @@ public class ProfissionalService {
         if (inicio.isAfter(fim)) {
             throw new IllegalArgumentException("Período inicial não pode ser maior que o período final");
         }
+        long diasPeriodo = ChronoUnit.DAYS.between(inicio, fim) + 1;
+        if (diasPeriodo > LIMITE_DIAS_RELATORIO_PAGAMENTO) {
+            throw new IllegalArgumentException("Relatório de pagamento limitado a "
+                    + LIMITE_DIAS_RELATORIO_PAGAMENTO + " dias");
+        }
 
         Profissional profissional = encontrar(id);
         List<ProfissionalPagamentoAulaDTO> aulas = aulaRepository
@@ -116,6 +125,10 @@ public class ProfissionalService {
                 .stream()
                 .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula()))
                 .toList();
+        if (aulas.size() > LIMITE_AULAS_RELATORIO_PAGAMENTO) {
+            throw new IllegalArgumentException("Relatório de pagamento limitado a "
+                    + LIMITE_AULAS_RELATORIO_PAGAMENTO + " aulas");
+        }
 
         List<PagamentoResumoDTO> pagamentos = agruparPorPagamento(aulas);
 

@@ -251,6 +251,16 @@ class ProfissionalServiceTest {
                 .hasMessageContaining("não pode ser maior");
     }
 
+    @Test
+    void gerarRelatorioPagamento_periodoMaiorQueLimite_deveLancarBadRequest() {
+        assertThatThrownBy(() -> service.gerarRelatorioPagamento(
+                1L,
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2025, 1, 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("366 dias");
+    }
+
     private ProfissionalPagamentoAulaProjection aulaRelatorio(Long aulaId, LocalDate data, Long pagamentoId) {
         return new ProfissionalPagamentoAulaProjection() {
             @Override
