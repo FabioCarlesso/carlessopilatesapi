@@ -60,8 +60,14 @@ src/
 ├── main/
 │   ├── java/com/carlesso/pilatesapi/
 │   │   ├── config/
-│   │   │   ├── GlobalExceptionHandler.java  # Handler 404 para EntityNotFoundException
-│   │   │   └── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   │   ├── GlobalExceptionHandler.java  # Mapeia exceções para HTTP (400/401/404/409/422/429)
+│   │   │   ├── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
+│   │   │   └── SecurityConfig.java          # Spring Security, JWT stateless e CORS
+│   │   ├── exception/
+│   │   │   ├── ResourceNotFoundException.java
+│   │   │   ├── ConflictException.java
+│   │   │   ├── BusinessException.java
+│   │   │   └── TooManyRequestsException.java
 │   │   ├── controller/
 │   │   │   ├── PacienteController.java      # Endpoints REST de pacientes
 │   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
@@ -103,6 +109,8 @@ src/
 │   │   │   ├── FrequenciaSemanal.java       # UMA_VEZ, DUAS_VEZES, TRES_VEZES
 │   │   │   ├── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
 │   │   │   └── Role.java                    # USER, ADMIN
+│   │   ├── security/
+│   │   │   └── JwtAuthenticationFilter.java # Validação do Bearer token por requisição
 │   │   ├── dto/
 │   │   │   ├── PacienteRequestDTO.java
 │   │   │   ├── PacienteUpdateDTO.java
@@ -122,7 +130,13 @@ src/
 │   │   │   ├── PagamentoRequestDTO.java
 │   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
-│   │   │   └── AulaResponseDTO.java
+│   │   │   ├── AulaResponseDTO.java
+│   │   │   ├── AuthRegisterRequestDTO.java
+│   │   │   ├── AuthLoginRequestDTO.java
+│   │   │   ├── AuthResponseDTO.java
+│   │   │   ├── UserRequestDTO.java
+│   │   │   ├── UserUpdateDTO.java
+│   │   │   └── UserResponseDTO.java
 │   │   └── scheduler/
 │   │       └── CobrancaScheduler.java
 │   └── resources/
@@ -144,6 +158,10 @@ src/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
     │   └── ActuatorTest.java                    # 3 casos
+    ├── config/
+    │   └── GlobalExceptionHandlerTest.java      # 6 casos
+    ├── security/
+    │   └── SecurityIntegrationTest.java         # 21 casos
     ├── service/
     │   ├── PacienteServiceTest.java                   # 12 casos
     │   ├── PacienteServiceIntegrationTest.java        # 4 casos
@@ -160,9 +178,7 @@ src/
         ├── ProfissionalControllerTest.java      # 17 casos
         ├── PlanoControllerTest.java             # 11 casos
         ├── PagamentoControllerTest.java         # 11 casos
-        ├── AulaControllerTest.java              # 10 casos
-        └── security/
-            └── SecurityIntegrationTest.java     # 21 casos
+        └── AulaControllerTest.java              # 10 casos
 ```
 
 ---
@@ -743,6 +759,8 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V11 | `V11__create_users_table.sql` | Cria a tabela `users` para autenticação e autorização |
 | V12 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
 
+Os usuários iniciais da migração `V12` usam a senha `senha1234`; `admin@carlessopilates.com` e `operacional@carlessopilates.com` têm perfil `ADMIN`.
+
 ### Comportamento nos testes
 
 Nos testes automatizados o Flyway fica **desabilitado** (`spring.flyway.enabled=false` em `src/test/resources/application.properties`). O banco H2 em memória é gerenciado pelo Hibernate com `ddl-auto=create-drop`, garantindo isolamento e idempotência dos testes.
@@ -757,6 +775,7 @@ Não requer instalação de Java ou PostgreSQL localmente.
 
 ```bash
 # Subir banco e aplicação
+cp .env.example .env
 docker compose up --build -d
 
 # Acompanhar logs
@@ -783,6 +802,9 @@ export DB_PORT=5432
 export DB_NAME=carlesso_pilates
 export DB_USER=postgres
 export DB_PASSWORD=postgres
+export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
+export JWT_EXPIRATION_MS=86400000
+export CORS_ALLOWED_ORIGINS=http://localhost:4200
 
 # 3. Rodar
 JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
@@ -805,8 +827,13 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 ### Cadastrar paciente
 
 ```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@carlessopilates.com","password":"senha1234"}' | jq -r .accessToken)
+
 curl -s -X POST http://localhost:8080/pacientes \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "nome": "Maria Souza",
     "email": "maria@email.com",
@@ -827,7 +854,8 @@ curl -s -X POST http://localhost:8080/pacientes \
 ### Listar pacientes
 
 ```bash
-curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" | jq
+curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ### Cadastrar profissional
@@ -835,6 +863,7 @@ curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=5" | 
 ```bash
 curl -s -X POST http://localhost:8080/profissionais \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "nome": "Paula Mendes",
     "email": "paula@carlessopilates.com",
@@ -848,15 +877,19 @@ curl -s -X POST http://localhost:8080/profissionais \
 ### Ativar / Inativar paciente
 
 ```bash
-curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -o /dev/null -w "%{http_code}"
-curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -o /dev/null -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/ativar \
+  -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/inativar \
+  -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}"
 ```
 
 ### Exportar relatório de pagamento (PDF / XLSX)
 
 ```bash
-curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28"
-curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -885,7 +918,7 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **151 casos** distribuídos em dezessete classes:
+A suíte de testes possui **172 casos** distribuídos em dezoito classes:
 
 | Classe | Tipo | Casos |
 |---|---|---|
@@ -904,6 +937,7 @@ A suíte de testes possui **151 casos** distribuídos em dezessete classes:
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 21 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 

@@ -328,6 +328,9 @@ CPF não pode ser alterado após o cadastro.
 | `DB_NAME` | `carlesso_pilates` |
 | `DB_USER` | `postgres` |
 | `DB_PASSWORD` | `postgres` |
+| `JWT_SECRET` | obrigatório, mínimo recomendado de 32 caracteres |
+| `JWT_EXPIRATION_MS` | `86400000` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` |
 
 ### URLs de desenvolvimento
 
@@ -367,6 +370,7 @@ app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 ### Docker Compose (recomendado)
 
 ```bash
+cp .env.example .env
 docker compose up --build -d
 docker compose logs -f app
 docker compose down
@@ -377,6 +381,7 @@ docker compose down
 ```bash
 # Requer Java 21 e PostgreSQL rodando
 psql -U postgres -c "CREATE DATABASE carlesso_pilates;"
+export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
 JAVA_HOME=~/jdk mvn spring-boot:run
 ```
 

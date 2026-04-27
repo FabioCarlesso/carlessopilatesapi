@@ -104,7 +104,13 @@ src/
 │   │   │   ├── PagamentoRequestDTO.java
 │   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
-│   │   │   └── AulaResponseDTO.java
+│   │   │   ├── AulaResponseDTO.java
+│   │   │   ├── AuthRegisterRequestDTO.java
+│   │   │   ├── AuthLoginRequestDTO.java
+│   │   │   ├── AuthResponseDTO.java
+│   │   │   ├── UserRequestDTO.java
+│   │   │   ├── UserUpdateDTO.java
+│   │   │   └── UserResponseDTO.java
 │   │   └── scheduler/
 │   │       └── CobrancaScheduler.java       # Atualiza vencidos + gera cobranças futuras
 │   └── resources/
@@ -126,6 +132,10 @@ src/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
     │   └── ActuatorTest.java
+    ├── config/
+    │   └── GlobalExceptionHandlerTest.java
+    ├── security/
+    │   └── SecurityIntegrationTest.java
     ├── service/
     │   ├── PacienteServiceTest.java
     │   ├── PacienteServiceIntegrationTest.java
@@ -405,6 +415,7 @@ git clone <url-do-repositorio>
 cd carlessopilatesapi
 
 # Subir todos os serviços
+cp .env.example .env
 docker compose up --build -d
 
 # Acompanhar os logs da aplicação
@@ -443,6 +454,9 @@ export DB_PORT=5432
 export DB_NAME=carlesso_pilates
 export DB_USER=postgres
 export DB_PASSWORD=postgres
+export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
+export JWT_EXPIRATION_MS=86400000
+export CORS_ALLOWED_ORIGINS=http://localhost:4200
 ```
 
 **3. Compilar e rodar:**
@@ -580,51 +594,60 @@ curl -s -X POST http://localhost:8080/pacientes \
 
 ### Listar e filtrar pacientes
 ```bash
-curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=10&sort=nome,asc" | jq
+curl -s "http://localhost:8080/pacientes?nome=maria&ativo=true&page=0&size=10&sort=nome,asc" \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ### Buscar por ID
 ```bash
-curl -s http://localhost:8080/pacientes/1 | jq
+curl -s http://localhost:8080/pacientes/1 \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ### Atualizar paciente
 ```bash
 curl -s -X PUT http://localhost:8080/pacientes/1 \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"telefone": "(11) 99999-0000"}' | jq
 ```
 
 ### Ativar paciente
 ```bash
-curl -s -X PATCH http://localhost:8080/pacientes/1/ativar -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/ativar \
+  -H "Authorization: Bearer $TOKEN" -w "%{http_code}"
 ```
 
 ### Inativar paciente
 ```bash
-curl -s -X PATCH http://localhost:8080/pacientes/1/inativar -w "%{http_code}"
+curl -s -X PATCH http://localhost:8080/pacientes/1/inativar \
+  -H "Authorization: Bearer $TOKEN" -w "%{http_code}"
 ```
 
 ### Confirmar pagamento
 ```bash
 curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"dataPagamento": "2025-02-10"}' | jq
 ```
 
 ### Gerar relatório de pagamento (JSON)
 ```bash
-curl -s "http://localhost:8080/profissionais/1/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28" | jq
+curl -s "http://localhost:8080/profissionais/1/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ### Exportar relatório em PDF
 ```bash
-curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Exportar relatório em Excel (XLSX)
 ```bash
-curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28"
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -702,7 +725,7 @@ Formato da resposta de erro:
 
 ## Testes
 
-O projeto possui **151 testes** organizados em dezessete suítes:
+O projeto possui **172 testes** organizados em dezoito suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -721,6 +744,7 @@ O projeto possui **151 testes** organizados em dezessete suítes:
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 21 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 
