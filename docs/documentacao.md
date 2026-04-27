@@ -4,7 +4,7 @@
 
 A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes e profissionais de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
 
-A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
+A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com autenticação stateless via **Spring Security + JWT**, documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
 
 ---
 
@@ -16,6 +16,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Spring Boot | 3.4.5 | Framework da aplicação |
 | Spring Data JPA | 3.4.5 | Persistência e ORM |
 | Spring Validation | 3.4.5 | Validação de entrada |
+| Spring Security | 6.4.5 | Autenticação e autorização stateless |
 | Spring Boot Actuator | 3.4.5 | Endpoints operacionais de health e info |
 | PostgreSQL | 16 | Banco de dados relacional |
 | Flyway | (via spring-boot-starter-parent) | Versionamento e migração de schema do banco |
@@ -26,6 +27,7 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Docker Compose | - | Orquestração local |
 | OpenPDF | 1.3.34 | Geração de relatórios em PDF |
 | Apache POI | 5.4.1 | Geração de planilhas XLSX |
+| JJWT | 0.12.6 | Geração e validação de tokens JWT |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) | Testes unitários e de controller |
 | H2 | (in-memory, test scope) | Banco em memória para testes de integração |
 
@@ -152,6 +154,15 @@ src/
 ---
 
 ## 4. Regras de Negócio
+
+### 4.0 Segurança
+- `POST /auth/register` e `POST /auth/login` são públicos
+- `GET /users/me` exige usuário autenticado
+- `/admin/**` exige role `ADMIN`
+- As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`
+- Senhas são persistidas com BCrypt e nunca retornadas nos DTOs
+- O segredo JWT é configurado por `JWT_SECRET`; token ausente, inválido ou expirado retorna `401`
+- CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
 ### 4.1 Pacientes
 - Um paciente pode ter **apenas um plano ativo** por vez
@@ -319,6 +330,17 @@ Constraint: `UNIQUE (paciente_id, data)`
 ## 6. Endpoints
 
 **Base URL:** `http://localhost:8080`
+
+### 6.0 Autenticação e Usuários
+
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `POST` | `/auth/register` | Público | Cria usuário com role `USER`, senha BCrypt e retorna JWT |
+| `POST` | `/auth/login` | Público | Autentica e-mail/senha e retorna JWT |
+| `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email` e `role` do usuário logado |
+| `GET` | `/admin/health` | `ADMIN` | Endpoint administrativo inicial |
+
+Fluxo esperado: o frontend faz login ou registro, recebe `accessToken` e envia `Authorization: Bearer <token>` nas chamadas protegidas.
 
 ### 6.1 Pacientes
 
@@ -643,6 +665,9 @@ O projeto utiliza **Spring Boot Actuator** para expor endpoints operacionais. Em
 | `DB_NAME` | `carlesso_pilates` | Nome do banco de dados |
 | `DB_USER` | `postgres` | Usuário do banco |
 | `DB_PASSWORD` | `postgres` | Senha do banco |
+| `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar tokens JWT; use pelo menos 32 caracteres |
+| `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
 
 ### application.properties
 
@@ -664,6 +689,9 @@ management.endpoints.web.exposure.include=health,info
 management.info.env.enabled=true
 info.app.name=${spring.application.name}
 info.app.description=Carlesso Pilates API
+jwt.secret=${JWT_SECRET}
+jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 ```
 
 > O DDL mode é `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
@@ -686,6 +714,9 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V6 | `V6__create_profissionais_table.sql` | Cria a tabela `profissionais` com tipo de contrato e percentual por aula |
 | V7 | `V7__insert_profissionais_teste.sql` | Ajusta tipo de `percentual_pagamento_aula` e insere profissionais de teste |
 | V8 | `V8__alter_pacientes_uf_to_varchar.sql` | Altera coluna `uf` da tabela `pacientes` para `VARCHAR(2)` |
+| V9 | `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula |
+| V10 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
+| V11 | `V11__create_users_table.sql` | Cria a tabela `users` para autenticação e autorização |
 
 ### Comportamento nos testes
 

@@ -13,10 +13,12 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 | Linguagem | Java 21 |
 | Framework | Spring Boot 3.4.5 |
 | Persistência | Spring Data JPA + Hibernate |
+| Segurança | Spring Security + JWT stateless |
 | Banco de dados | PostgreSQL 16 |
 | Migrações | Flyway |
 | Validação | Spring Validation (Bean Validation) |
 | Documentação | springdoc-openapi 2.8.3 (Swagger UI) |
+| JWT | JJWT 0.12.6 |
 | Observabilidade | Spring Boot Actuator |
 | Scheduler | Spring Scheduler |
 | Build | Maven 3.9 |
@@ -33,7 +35,8 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 com.carlesso.pilatesapi
 ├── config
 │   ├── GlobalExceptionHandler.java   — mapeia exceções customizadas para HTTP (404/409/422)
-│   └── OpenApiConfig.java            — configuração do Swagger/OpenAPI
+│   ├── OpenApiConfig.java            — configuração do Swagger/OpenAPI
+│   └── SecurityConfig.java           — regras de acesso, CORS e sessão stateless
 ├── exception
 │   ├── ResourceNotFoundException.java — 404 (recurso não encontrado)
 │   ├── ConflictException.java         — 409 (conflito de estado/duplicidade)
@@ -43,32 +46,43 @@ com.carlesso.pilatesapi
 │   ├── ProfissionalController.java   — endpoints REST de profissionais
 │   ├── PlanoController.java          — endpoints REST de planos
 │   ├── PagamentoController.java      — endpoints REST de pagamentos
-│   └── AulaController.java           — endpoints REST de aulas
+│   ├── AulaController.java           — endpoints REST de aulas
+│   ├── AuthController.java           — registro/login com JWT
+│   ├── UserController.java           — endpoint do usuário autenticado
+│   └── AdminController.java          — endpoints administrativos
 ├── service
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
-│   └── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
+│   ├── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
+│   ├── AuthService.java                        — registro/login e emissão de token
+│   ├── JwtService.java                         — geração e validação de JWT
+│   └── CustomUserDetailsService.java           — carregamento de usuários para Spring Security
 ├── repository
 │   ├── PacienteRepository.java       — acesso ao banco via Spring Data JPA
 │   ├── ProfissionalRepository.java   — acesso ao banco via Spring Data JPA
 │   ├── PlanoRepository.java
 │   ├── PagamentoRepository.java
-│   └── AulaRepository.java
+│   ├── AulaRepository.java
+│   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
 │   ├── Endereco.java                 — @Embeddable, colunas embutidas em `pacientes`
 │   ├── Profissional.java             — entidade JPA, tabela `profissionais`
 │   ├── Plano.java                    — entidade JPA, tabela `planos`
 │   ├── Pagamento.java                — entidade JPA, tabela `pagamentos`
-│   └── Aula.java                     — entidade JPA, tabela `aulas`
+│   ├── Aula.java                     — entidade JPA, tabela `aulas`
+│   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
 │   ├── TipoContrato.java             — CLT, PJ, AUTONOMO
 │   ├── FrequenciaSemanal.java        — UMA_VEZ, DUAS_VEZES, TRES_VEZES
-│   └── StatusPagamento.java          — PENDENTE, PAGO, VENCIDO
+│   ├── StatusPagamento.java          — PENDENTE, PAGO, VENCIDO
+│   └── Role.java                     — USER, ADMIN
+├── security
+│   └── JwtAuthenticationFilter.java  — autentica requisições com Authorization Bearer
 ├── dto
 │   ├── PacienteRequestDTO.java       — payload de criação (record)
 │   ├── PacienteUpdateDTO.java        — payload de atualização parcial (record)
@@ -88,7 +102,11 @@ com.carlesso.pilatesapi
 │   ├── PagamentoRequestDTO.java
 │   ├── PagamentoPagarRequestDTO.java — payload opcional para confirmar pagamento
 │   ├── PagamentoResponseDTO.java
-│   └── AulaResponseDTO.java
+│   ├── AulaResponseDTO.java
+│   ├── AuthRegisterRequestDTO.java
+│   ├── AuthLoginRequestDTO.java
+│   ├── AuthResponseDTO.java
+│   └── UserResponseDTO.java
 └── scheduler
     └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
 ```
@@ -180,6 +198,10 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 | Método | Rota | Ação | Retorno |
 |---|---|---|---|
+| POST | `/auth/register` | Registrar usuário `USER` com senha BCrypt e retornar JWT | 200 / 400 / 409 |
+| POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
+| GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
+| GET | `/admin/health` | Health administrativo | 200 / 401 / 403 |
 | POST | `/pacientes` | Cadastrar paciente | 201 + Location header |
 | GET | `/pacientes` | Listar e filtrar pacientes por nome, e-mail, CPF, telefone e ativo/inativo (paginado) | 200 + Page |
 | GET | `/pacientes/{id}` | Buscar por ID | 200 / 404 |
@@ -211,6 +233,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
+`/auth/**` é público. `/users/me` exige autenticação. `/admin/**` exige role `ADMIN`. As demais rotas de negócio exigem `Authorization: Bearer <token>`.
 CPF não pode ser alterado após o cadastro.  
 `GET /pacientes` retorna pacientes ativos por padrão e aceita `ativo=false` para consultar inativos.
 `GET /profissionais` retorna profissionais ativos por padrão e aceita filtros opcionais por `nome`, `email`, `tipoContrato`, `percentualPagamentoAula` e `ativo=false` para consultar inativos.
@@ -218,6 +241,13 @@ CPF não pode ser alterado após o cadastro.
 ---
 
 ## Regras de negócio
+
+### Segurança
+- Autenticação stateless com Spring Security e JWT
+- Senhas são armazenadas com `BCryptPasswordEncoder`
+- O segredo JWT vem de `JWT_SECRET`; não há segredo fixo no código
+- CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
+- Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 
 ### Pacientes
 - Apenas um plano ativo por paciente por vez
@@ -312,6 +342,9 @@ management.endpoints.web.exposure.include=health,info
 management.info.env.enabled=true
 info.app.name=${spring.application.name}
 info.app.description=Carlesso Pilates API
+jwt.secret=${JWT_SECRET}
+jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 ```
 
 ---
