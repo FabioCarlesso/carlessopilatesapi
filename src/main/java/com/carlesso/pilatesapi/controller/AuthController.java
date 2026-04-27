@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +28,7 @@ public class AuthController {
     @Operation(summary = "Registrar usuário", description = "Cria uma conta com role USER e retorna um JWT.")
     @PostMapping("/register")
     public ResponseEntity<AuthResponseDTO> register(@RequestBody @Valid AuthRegisterRequestDTO dto) {
-        return ResponseEntity.ok(authService.register(dto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(dto));
     }
 
     @Operation(summary = "Login", description = "Valida e-mail e senha e retorna um JWT.")

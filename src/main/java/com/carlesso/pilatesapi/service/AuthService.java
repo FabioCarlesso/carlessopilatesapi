@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,10 +53,9 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponseDTO login(AuthLoginRequestDTO dto) {
-        String email = dto.email().toLowerCase();
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, dto.password()));
-        User user = userRepository.findByEmail(email).orElseThrow();
+        Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(dto.email().toLowerCase(), dto.password()));
+        User user = (User) auth.getPrincipal();
         String token = jwtService.generateToken(user);
         return AuthResponseDTO.bearer(token, UserResponseDTO.from(user));
     }

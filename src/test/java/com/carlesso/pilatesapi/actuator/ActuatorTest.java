@@ -32,8 +32,8 @@ class ActuatorTest {
     }
 
     @Test
-    void unexposedEndpointReturns404() throws Exception {
+    void unexposedEndpointReturns401WithoutAuthentication() throws Exception {
         mvc.perform(get("/actuator/env"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isUnauthorized());
     }
 }
