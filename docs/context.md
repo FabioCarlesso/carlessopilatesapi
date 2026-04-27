@@ -48,7 +48,7 @@ com.carlesso.pilatesapi
 │   ├── PagamentoController.java      — endpoints REST de pagamentos
 │   ├── AulaController.java           — endpoints REST de aulas
 │   ├── AuthController.java           — registro/login com JWT
-│   ├── UserController.java           — endpoint do usuário autenticado
+│   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   └── AdminController.java          — endpoints administrativos
 ├── service
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
@@ -58,6 +58,7 @@ com.carlesso.pilatesapi
 │   ├── AulaService.java                        — geração e controle de aulas
 │   ├── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
 │   ├── AuthService.java                        — registro/login e emissão de token
+│   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
 │   ├── JwtService.java                         — geração e validação de JWT
 │   └── CustomUserDetailsService.java           — carregamento de usuários para Spring Security
 ├── repository
@@ -106,6 +107,8 @@ com.carlesso.pilatesapi
 │   ├── AuthRegisterRequestDTO.java
 │   ├── AuthLoginRequestDTO.java
 │   ├── AuthResponseDTO.java
+│   ├── UserRequestDTO.java
+│   ├── UserUpdateDTO.java
 │   └── UserResponseDTO.java
 └── scheduler
     └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
@@ -201,6 +204,11 @@ Constraint: `UNIQUE (paciente_id, data)`
 | POST | `/auth/register` | Registrar usuário `USER` com senha BCrypt e retornar JWT | 200 / 400 / 409 |
 | POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
 | GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
+| POST | `/users` | Criar usuário com role `USER` ou `ADMIN` | 201 / 400 / 401 / 403 / 409 |
+| GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
+| GET | `/users/{id}` | Buscar usuário por ID | 200 / 401 / 403 / 404 |
+| PUT | `/users/{id}` | Atualizar nome, e-mail, senha e perfil de acesso | 200 / 400 / 401 / 403 / 404 / 409 |
+| DELETE | `/users/{id}` | Excluir usuário | 204 / 401 / 403 / 404 |
 | GET | `/admin/health` | Health administrativo | 200 / 401 / 403 |
 | POST | `/pacientes` | Cadastrar paciente | 201 + Location header |
 | GET | `/pacientes` | Listar e filtrar pacientes por nome, e-mail, CPF, telefone e ativo/inativo (paginado) | 200 + Page |
@@ -233,7 +241,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
-`/auth/**` é público. `/users/me` exige autenticação. `/admin/**` exige role `ADMIN`. As demais rotas de negócio exigem `Authorization: Bearer <token>`.
+`/auth/**` é público. `/users/me` exige autenticação. O CRUD de `/users` e `/admin/**` exigem role `ADMIN`. As demais rotas de negócio exigem `Authorization: Bearer <token>`.
 CPF não pode ser alterado após o cadastro.  
 `GET /pacientes` retorna pacientes ativos por padrão e aceita `ativo=false` para consultar inativos.
 `GET /profissionais` retorna profissionais ativos por padrão e aceita filtros opcionais por `nome`, `email`, `tipoContrato`, `percentualPagamentoAula` e `ativo=false` para consultar inativos.

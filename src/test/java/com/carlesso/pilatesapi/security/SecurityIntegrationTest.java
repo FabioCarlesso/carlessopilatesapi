@@ -2,6 +2,8 @@ package com.carlesso.pilatesapi.security;
 
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthRegisterRequestDTO;
+import com.carlesso.pilatesapi.dto.UserRequestDTO;
+import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
@@ -19,8 +21,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -153,6 +157,66 @@ class SecurityIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void usersListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("user@email.com", Role.USER);
+
+        mvc.perform(get("/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void usersCriar_comAdmin_deveCriarUsuarioComRoleInformada() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        var request = new UserRequestDTO("Financeiro", "FINANCEIRO@EMAIL.COM", "senha1234", Role.USER);
+
+        mvc.perform(post("/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists(HttpHeaders.LOCATION))
+                .andExpect(jsonPath("$.name").value("Financeiro"))
+                .andExpect(jsonPath("$.email").value("financeiro@email.com"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+
+        User saved = userRepository.findByEmail("financeiro@email.com").orElseThrow();
+        assertThat(passwordEncoder.matches("senha1234", saved.getPassword())).isTrue();
+    }
+
+    @Test
+    void usersAtualizar_comAdmin_deveAlterarPerfilESenha() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User user = criarUsuario("perfil@email.com", Role.USER);
+        var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN);
+
+        mvc.perform(put("/users/{id}", user.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Perfil Admin"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(passwordEncoder.matches("novaSenha123", updated.getPassword())).isTrue();
+    }
+
+    @Test
+    void usersExcluir_comAdmin_deveRemoverUsuario() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User user = criarUsuario("remover@email.com", Role.USER);
+
+        mvc.perform(delete("/users/{id}", user.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNoContent());
+
+        assertThat(userRepository.findById(user.getId())).isEmpty();
     }
 
     @Test

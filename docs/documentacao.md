@@ -67,32 +67,41 @@ src/
 │   │   │   ├── ProfissionalController.java  # Endpoints REST de profissionais
 │   │   │   ├── PlanoController.java         # /planos
 │   │   │   ├── PagamentoController.java     # /pagamentos
-│   │   │   └── AulaController.java          # /aulas
+│   │   │   ├── AulaController.java          # /aulas
+│   │   │   ├── AuthController.java          # /auth/register e /auth/login
+│   │   │   ├── UserController.java          # /users/me e CRUD administrativo
+│   │   │   └── AdminController.java         # /admin/health
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
 │   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
 │   │   │   ├── PlanoService.java                       # Regras de plano e frequência
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
-│   │   │   └── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
+│   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
+│   │   │   ├── AuthService.java                        # Registro/login e emissão de JWT
+│   │   │   ├── UserService.java                        # CRUD administrativo de usuários e perfis
+│   │   │   └── JwtService.java                         # Geração e validação de JWT
 │   │   ├── repository/
 │   │   │   ├── PacienteRepository.java
 │   │   │   ├── ProfissionalRepository.java
 │   │   │   ├── PlanoRepository.java
 │   │   │   ├── PagamentoRepository.java
-│   │   │   └── AulaRepository.java
+│   │   │   ├── AulaRepository.java
+│   │   │   └── UserRepository.java
 │   │   ├── entity/
 │   │   │   ├── Paciente.java                # Entidade JPA
 │   │   │   ├── Endereco.java                # @Embeddable de endereço
 │   │   │   ├── Profissional.java            # Entidade JPA
 │   │   │   ├── Plano.java
 │   │   │   ├── Pagamento.java
-│   │   │   └── Aula.java
+│   │   │   ├── Aula.java
+│   │   │   └── User.java
 │   │   ├── entity/enums/
 │   │   │   ├── TipoPagamento.java           # MENSAL, TRIMESTRAL, ANUAL
 │   │   │   ├── TipoContrato.java            # CLT, PJ, AUTONOMO
 │   │   │   ├── FrequenciaSemanal.java       # UMA_VEZ, DUAS_VEZES, TRES_VEZES
-│   │   │   └── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   │   ├── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   │   └── Role.java                    # USER, ADMIN
 │   │   ├── dto/
 │   │   │   ├── PacienteRequestDTO.java
 │   │   │   ├── PacienteUpdateDTO.java
@@ -127,7 +136,9 @@ src/
 │           ├── V7__insert_profissionais_teste.sql
 │           ├── V8__alter_pacientes_uf_to_varchar.sql
 │           ├── V9__alter_profissionais_percentual_precision.sql
-│           └── V10__add_profissional_to_aulas.sql
+│           ├── V10__add_profissional_to_aulas.sql
+│           ├── V11__create_users_table.sql
+│           └── V12__insert_users_perfis_acesso.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -158,9 +169,11 @@ src/
 ### 4.0 Segurança
 - `POST /auth/register` e `POST /auth/login` são públicos
 - `GET /users/me` exige usuário autenticado
+- `POST /users`, `GET /users`, `GET /users/{id}`, `PUT /users/{id}` e `DELETE /users/{id}` exigem role `ADMIN`
 - `/admin/**` exige role `ADMIN`
 - As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`
 - Senhas são persistidas com BCrypt e nunca retornadas nos DTOs
+- Usuários administrativos podem definir os perfis de acesso disponíveis: `USER` e `ADMIN`
 - O segredo JWT é configurado por `JWT_SECRET`; token ausente, inválido ou expirado retorna `401`
 - CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
@@ -338,6 +351,11 @@ Constraint: `UNIQUE (paciente_id, data)`
 | `POST` | `/auth/register` | Público | Cria usuário com role `USER`, senha BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Autentica e-mail/senha e retorna JWT |
 | `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email` e `role` do usuário logado |
+| `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
+| `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
+| `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso |
+| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint administrativo inicial |
 
 Fluxo esperado: o frontend faz login ou registro, recebe `accessToken` e envia `Authorization: Bearer <token>` nas chamadas protegidas.
@@ -717,6 +735,7 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V9 | `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula |
 | V10 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
 | V11 | `V11__create_users_table.sql` | Cria a tabela `users` para autenticação e autorização |
+| V12 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
 
 ### Comportamento nos testes
 

@@ -47,7 +47,7 @@ src/
 │   │   │   ├── PagamentoController.java     # /pagamentos
 │   │   │   ├── AulaController.java          # /aulas
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
-│   │   │   ├── UserController.java          # /users/me
+│   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
 │   │   │   └── AdminController.java         # /admin/health
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
@@ -57,6 +57,7 @@ src/
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   │   ├── AuthService.java                       # Registro/login e emissão de JWT
+│   │   │   ├── UserService.java                       # CRUD administrativo de usuários e perfis
 │   │   │   ├── JwtService.java                        # Geração e validação de token JWT
 │   │   │   └── CustomUserDetailsService.java          # Integra usuários ao Spring Security
 │   │   ├── repository/
@@ -117,7 +118,8 @@ src/
 │           ├── V8__alter_pacientes_uf_to_varchar.sql
 │           ├── V9__alter_profissionais_percentual_precision.sql
 │           ├── V10__add_profissional_to_aulas.sql
-│           └── V11__create_users_table.sql
+│           ├── V11__create_users_table.sql
+│           └── V12__insert_users_perfis_acesso.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -154,9 +156,14 @@ Base URL: `http://localhost:8080`
 | `POST` | `/auth/register` | Público | Registra usuário com role `USER`, salva senha com BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
+| `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
+| `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
+| `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso |
+| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
-As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos ou expirados retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` recebe `403 Forbidden`.
+As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos ou expirados retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.
 
 ### Pacientes
 
@@ -485,6 +492,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula |
 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
 | `V11__create_users_table.sql` | Cria tabela `users` para autenticação e autorização |
+| `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
@@ -519,6 +527,31 @@ TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
 
 curl -s http://localhost:8080/users/me \
   -H "Authorization: Bearer $TOKEN" | jq
+```
+
+Usuários iniciais criados pela migração `V12` usam a senha `senha1234` e representam os perfis disponíveis:
+
+| E-mail | Perfil |
+|---|---|
+| `admin@carlessopilates.com` | `ADMIN` |
+| `operacional@carlessopilates.com` | `ADMIN` |
+| `recepcao@carlessopilates.com` | `USER` |
+| `financeiro@carlessopilates.com` | `USER` |
+| `consulta@carlessopilates.com` | `USER` |
+
+### Gerenciar usuários como ADMIN
+```bash
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@carlessopilates.com","password":"senha1234"}' | jq -r .accessToken)
+
+curl -s -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"name":"Novo Admin","email":"novo.admin@email.com","password":"senha1234","role":"ADMIN"}' | jq
+
+curl -s http://localhost:8080/users \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
 ```
 
 ### Cadastrar paciente
