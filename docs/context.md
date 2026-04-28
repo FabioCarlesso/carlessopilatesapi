@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças, geração automática de aulas e relatório de pagamento de profissionais.
+API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças, geração automática de aulas, relatório de pagamento de profissionais e relatório de emissão de NFSEs.
 
 ---
 
@@ -50,7 +50,8 @@ com.carlesso.pilatesapi
 │   ├── AulaController.java           — endpoints REST de aulas
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
-│   └── AdminController.java          — endpoints administrativos
+│   ├── AdminController.java          — endpoints administrativos
+│   └── RelatorioNfseController.java  — endpoint de relatório de emissão de NFSEs
 ├── service
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
@@ -58,6 +59,8 @@ com.carlesso.pilatesapi
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
 │   ├── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
+│   ├── RelatorioNfseService.java               — monta relatório de NFSEs por competência
+│   ├── RelatorioNfseExporterService.java       — exporta relatório de NFSEs em CSV e XLSX
 │   ├── AuthService.java                        — registro/login, emissão de token e rate limiting
 │   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
 │   ├── JwtService.java                         — geração (claims role/userId) e validação de JWT
@@ -100,6 +103,7 @@ com.carlesso.pilatesapi
 │   ├── PagamentoResumoDTO.java                — resumo agrupado por pagamento
 │   ├── ProfissionalPagamentoRelatorioDTO.java — relatório de pagamento do profissional (contrato Angular-friendly)
 │   ├── ProfissionalPagamentoAulaDTO.java      — detalhe de aula no relatório
+│   ├── RelatorioNfseResponseDTO.java          — item do relatório de emissão de NFSE
 │   ├── PlanoRequestDTO.java
 │   ├── PlanoResponseDTO.java
 │   ├── PagamentoRequestDTO.java
@@ -240,6 +244,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | GET | `/aulas/paciente/{id}` | Listar aulas do paciente | 200 |
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
 | PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 / 409 / 422 |
+| GET | `/api/relatorios/nfse?competencia=MM/AAAA&notaAnteriorEmitida={true|false}&formato={JSON|CSV|XLSX}` | Gerar relatório de emissão de NFSEs por competência | 200 / 400 / 422 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
@@ -289,6 +294,16 @@ CPF não pode ser alterado após o cadastro.
 - Sem duplicidade por período (`UNIQUE plano_id + periodo_inicio`)
 - Ao confirmar (`PAGO`), as aulas são geradas automaticamente
 - A confirmação recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
+
+### NFSE
+- O relatório de emissão de NFSEs considera apenas pagamentos `PAGO`, com `dataPagamento` dentro da competência informada e pacientes ativos
+- `competencia` é obrigatória no formato `MM/AAAA`; mês deve estar entre `01` e `12`
+- O relatório retorna `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento` e `Observacoes`
+- `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
+- Como o modelo atual não possui entidade de nota fiscal, `NotaAnteriorEmitida` é inferida pela existência de pagamento confirmado anterior para o mesmo paciente
+- O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior inferida
+- `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`
+- Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
 
 ### Aulas
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`

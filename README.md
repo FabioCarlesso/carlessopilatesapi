@@ -49,7 +49,8 @@ src/
 │   │   │   ├── AulaController.java          # /aulas
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
-│   │   │   └── AdminController.java         # /admin/health
+│   │   │   ├── AdminController.java         # /admin/health
+│   │   │   └── RelatorioNfseController.java # /api/relatorios/nfse
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
 │   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
@@ -57,6 +58,8 @@ src/
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
+│   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
+│   │   │   ├── RelatorioNfseExporterService.java       # Exportação do relatório de NFSEs em CSV e XLSX
 │   │   │   ├── AuthService.java                       # Registro/login, emissão de JWT e rate limiting
 │   │   │   ├── UserService.java                       # CRUD administrativo de usuários e perfis
 │   │   │   ├── JwtService.java                        # Geração (com claims role/userId) e validação de JWT
@@ -99,6 +102,7 @@ src/
 │   │   │   ├── PagamentoResumoDTO.java
 │   │   │   ├── ProfissionalPagamentoRelatorioDTO.java
 │   │   │   ├── ProfissionalPagamentoAulaDTO.java
+│   │   │   ├── RelatorioNfseResponseDTO.java
 │   │   │   ├── PlanoRequestDTO.java
 │   │   │   ├── PlanoResponseDTO.java
 │   │   │   ├── PagamentoRequestDTO.java
@@ -230,6 +234,12 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` |
 
+### Relatórios
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/api/relatorios/nfse` | Gerar relatório de emissão de NFSEs por competência (JSON, CSV ou XLSX) |
+
 ### Paginação
 
 Os endpoints de listagem suportam os query params padrão do Spring:
@@ -254,6 +264,8 @@ GET /profissionais?ativo=false
 GET /profissionais/1/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28
 GET /profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28
 GET /profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28
+GET /api/relatorios/nfse?competencia=04/2026
+GET /api/relatorios/nfse?competencia=04/2026&notaAnteriorEmitida=false&formato=XLSX
 ```
 
 ### Relatório de pagamento — contrato JSON (Angular-friendly)
@@ -317,6 +329,29 @@ Os endpoints `GET /profissionais/{id}/relatorio-pagamento/pdf` e `GET /profissio
 | `/relatorio-pagamento/xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | `attachment; filename="relatorio-pagamento-profissional-{id}-{inicio}-{fim}.xlsx"` |
 
 O XLSX possui três abas: `Resumo`, `Pagamentos` e `Aulas`. O PDF apresenta as mesmas informações em layout único, com tabelas para pagamentos e aulas.
+
+### Relatório de emissão de NFSEs
+
+O endpoint `GET /api/relatorios/nfse` exige `competencia` no formato `MM/AAAA` e aceita os filtros opcionais `notaAnteriorEmitida` e `formato` (`JSON`, `CSV` ou `XLSX`). Ele retorna apenas pagamentos confirmados (`PAGO`) com `dataPagamento` dentro da competência informada e pacientes ativos.
+
+Contrato JSON:
+
+```json
+[
+  {
+    "nome": "Ana Souza",
+    "cpfCnpj": "11122233344",
+    "valorPago": 250.00,
+    "competencia": "04/2026",
+    "descricaoServico": "Aulas de Pilates - Competência 04/2026",
+    "notaAnteriorEmitida": false,
+    "dataPagamento": "2026-04-10",
+    "observacoes": ""
+  }
+]
+```
+
+Para o modelo atual, `notaAnteriorEmitida` é inferido pela existência de pagamento confirmado anterior para o mesmo paciente. CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
 
 ---
 
@@ -650,6 +685,14 @@ curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inic
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### Gerar relatório de NFSE
+```bash
+curl -s "http://localhost:8080/api/relatorios/nfse?competencia=04/2026" \
+  -H "Authorization: Bearer $TOKEN" | jq
+curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&formato=CSV" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
 ---
 
 ## Regras de Negócio
@@ -686,6 +729,14 @@ curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inic
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período
 - Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
 - A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
+
+### NFSE
+- O relatório de NFSE considera apenas pagamentos `PAGO` com `dataPagamento` dentro da competência `MM/AAAA`
+- Pacientes inativos são ignorados
+- `Nome`, `CPF/CNPJ`, `ValorPago` e `DataPagamento` vêm do paciente e do pagamento confirmado
+- `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
+- `NotaAnteriorEmitida` é inferida por pagamento confirmado anterior do mesmo paciente
+- Registros sem nome, CPF/CNPJ, valor positivo ou data de pagamento retornam erro de regra de negócio (`422`)
 
 ### Geração de Aulas
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento

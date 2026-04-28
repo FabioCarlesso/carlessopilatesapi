@@ -4,7 +4,7 @@
 
 A **Carlesso Pilates API** é uma API REST desenvolvida para gerenciar o cadastro de pacientes e profissionais de um estúdio de pilates. Ela expõe endpoints para criação, consulta, atualização e inativação de pacientes e profissionais, com gestão de planos de pagamento, cobranças e geração automática de aulas.
 
-A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com autenticação stateless via **Spring Security + JWT**, documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler** e possui suíte de testes cobrindo as camadas de serviço e controller.
+A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **PostgreSQL** como banco de dados relacional, gerencia o schema com **Flyway**, conta com autenticação stateless via **Spring Security + JWT**, documentação interativa via **Swagger UI**, observabilidade com **Spring Boot Actuator**, processos automáticos via **Spring Scheduler**, relatórios financeiros/fiscais e possui suíte de testes cobrindo as camadas de service, repository e controller.
 
 ---
 
@@ -76,7 +76,8 @@ src/
 │   │   │   ├── AulaController.java          # /aulas
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo
-│   │   │   └── AdminController.java         # /admin/health
+│   │   │   ├── AdminController.java         # /admin/health
+│   │   │   └── RelatorioNfseController.java # /api/relatorios/nfse
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
 │   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
@@ -84,6 +85,8 @@ src/
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
+│   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
+│   │   │   ├── RelatorioNfseExporterService.java       # Exportação do relatório de NFSEs em CSV e XLSX
 │   │   │   ├── AuthService.java                        # Registro/login, emissão de JWT e rate limiting
 │   │   │   ├── UserService.java                        # CRUD administrativo de usuários e perfis
 │   │   │   ├── JwtService.java                         # Geração (claims role/userId) e validação de JWT
@@ -125,6 +128,7 @@ src/
 │   │   │   ├── PagamentoResumoDTO.java
 │   │   │   ├── ProfissionalPagamentoRelatorioDTO.java
 │   │   │   ├── ProfissionalPagamentoAulaDTO.java
+│   │   │   ├── RelatorioNfseResponseDTO.java
 │   │   │   ├── PlanoRequestDTO.java
 │   │   │   ├── PlanoResponseDTO.java
 │   │   │   ├── PagamentoRequestDTO.java
@@ -248,7 +252,18 @@ src/
 - Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
 - Métodos de leitura nos services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e permitir otimizações de conexão.
 
-### 4.7 Processos Automáticos (Scheduler)
+### 4.7 Relatório de emissão de NFSEs
+
+- O relatório considera apenas pagamentos `PAGO` com `dataPagamento` dentro da competência informada e pacientes ativos
+- `competencia` é obrigatória no formato `MM/AAAA`; mês deve estar entre `01` e `12`
+- Campos retornados: `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento` e `Observacoes`
+- `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
+- Como o modelo atual não possui entidade de nota fiscal, `NotaAnteriorEmitida` é inferida pela existência de pagamento confirmado anterior para o mesmo paciente
+- O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior inferida
+- `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`
+- Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
+
+### 4.8 Processos Automáticos (Scheduler)
 
 | Cron | Ação |
 |---|---|
@@ -670,6 +685,42 @@ GET /profissionais/{id}/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-2
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada; aceita `profissionalId` opcional |
 
+### 6.4 Relatórios fiscais
+
+#### Relatório de emissão de NFSEs
+
+```http
+GET /api/relatorios/nfse?competencia=04/2026
+GET /api/relatorios/nfse?competencia=04/2026&notaAnteriorEmitida=false&formato=XLSX
+```
+
+Parâmetros:
+
+| Nome | Obrigatório | Descrição |
+|---|---|---|
+| `competencia` | Sim | Competência no formato `MM/AAAA` |
+| `notaAnteriorEmitida` | Não | Filtra registros com ou sem nota anterior inferida |
+| `formato` | Não | `JSON`, `CSV` ou `XLSX`; padrão `JSON` |
+
+Contrato JSON:
+
+```json
+[
+  {
+    "nome": "Ana Souza",
+    "cpfCnpj": "11122233344",
+    "valorPago": 250.00,
+    "competencia": "04/2026",
+    "descricaoServico": "Aulas de Pilates - Competência 04/2026",
+    "notaAnteriorEmitida": false,
+    "dataPagamento": "2026-04-10",
+    "observacoes": ""
+  }
+]
+```
+
+CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
+
 ---
 
 ## 7. Documentação Interativa
@@ -889,6 +940,15 @@ curl -s -X PATCH http://localhost:8080/pacientes/1/inativar \
 curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&fim=2025-02-28" \
   -H "Authorization: Bearer $TOKEN"
 curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Gerar relatório de NFSE
+
+```bash
+curl -s "http://localhost:8080/api/relatorios/nfse?competencia=04/2026" \
+  -H "Authorization: Bearer $TOKEN" | jq
+curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&formato=XLSX" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
