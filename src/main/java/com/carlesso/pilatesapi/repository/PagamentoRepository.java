@@ -35,8 +35,15 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long> {
             @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim);
 
-    boolean existsByPacienteIdAndStatusAndDataPagamentoBefore(
-            Long pacienteId,
-            StatusPagamento status,
-            LocalDate dataPagamento);
+    @Query("""
+            select distinct p.paciente.id
+            from Pagamento p
+            where p.status = :status
+              and p.dataPagamento < :dataPagamento
+              and p.paciente.id in :pacienteIds
+            """)
+    List<Long> findPacienteIdsComPagamentoConfirmadoAntes(
+            @Param("pacienteIds") List<Long> pacienteIds,
+            @Param("status") StatusPagamento status,
+            @Param("dataPagamento") LocalDate dataPagamento);
 }

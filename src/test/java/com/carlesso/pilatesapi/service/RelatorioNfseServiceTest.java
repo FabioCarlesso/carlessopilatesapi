@@ -19,6 +19,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,11 +41,11 @@ class RelatorioNfseServiceTest {
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(pagamento));
-        when(pagamentoRepository.existsByPacienteIdAndStatusAndDataPagamentoBefore(
-                1L,
+        when(pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+                List.of(1L),
                 StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1)))
-                .thenReturn(true);
+                .thenReturn(List.of(1L));
 
         var relatorio = service.gerar("04/2026", null);
 
@@ -58,6 +59,10 @@ class RelatorioNfseServiceTest {
             assertThat(item.dataPagamento()).isEqualTo(LocalDate.of(2026, 4, 10));
             assertThat(item.observacoes()).isEmpty();
         });
+        verify(pagamentoRepository).findPacienteIdsComPagamentoConfirmadoAntes(
+                List.of(1L),
+                StatusPagamento.PAGO,
+                LocalDate.of(2026, 4, 1));
     }
 
     @Test
@@ -73,16 +78,11 @@ class RelatorioNfseServiceTest {
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(comNotaAnterior, semNotaAnterior));
-        when(pagamentoRepository.existsByPacienteIdAndStatusAndDataPagamentoBefore(
-                1L,
+        when(pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+                List.of(1L, 2L),
                 StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1)))
-                .thenReturn(true);
-        when(pagamentoRepository.existsByPacienteIdAndStatusAndDataPagamentoBefore(
-                2L,
-                StatusPagamento.PAGO,
-                LocalDate.of(2026, 4, 1)))
-                .thenReturn(false);
+                .thenReturn(List.of(1L));
 
         var relatorio = service.gerar("04/2026", false);
 
@@ -90,6 +90,10 @@ class RelatorioNfseServiceTest {
                 .singleElement()
                 .extracting("nome")
                 .isEqualTo("Bia Lima");
+        verify(pagamentoRepository).findPacienteIdsComPagamentoConfirmadoAntes(
+                List.of(1L, 2L),
+                StatusPagamento.PAGO,
+                LocalDate.of(2026, 4, 1));
     }
 
     @Test
@@ -116,6 +120,11 @@ class RelatorioNfseServiceTest {
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(pagamento));
+        when(pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+                List.of(1L),
+                StatusPagamento.PAGO,
+                LocalDate.of(2026, 4, 1)))
+                .thenReturn(List.of());
 
         assertThatThrownBy(() -> service.gerar("04/2026", null))
                 .isInstanceOf(BusinessException.class)

@@ -26,6 +26,27 @@ class RelatorioNfseExporterServiceTest {
     }
 
     @Test
+    void exportarCsv_deveNeutralizarFormulaInjection() {
+        var itemMalicioso = new RelatorioNfseResponseDTO(
+                "=IMPORTDATA(\"https://example.com\")",
+                "+5511999999999",
+                new BigDecimal("250.00"),
+                "04/2026",
+                "@SUM(1,1)",
+                false,
+                LocalDate.of(2026, 4, 10),
+                "-observacao"
+        );
+
+        String content = new String(service.exportarCsv(List.of(itemMalicioso)));
+
+        assertThat(content).contains("\"'=IMPORTDATA(\"\"https://example.com\"\")\"");
+        assertThat(content).contains("\"'+5511999999999\"");
+        assertThat(content).contains("\"'@SUM(1,1)\"");
+        assertThat(content).contains("\"'-observacao\"");
+    }
+
+    @Test
     void exportarXlsx_deveGerarPlanilhaNfse() throws Exception {
         byte[] xlsx = service.exportarXlsx(List.of(item()));
 

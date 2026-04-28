@@ -14,7 +14,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class RelatorioNfseService {
@@ -32,10 +34,14 @@ public class RelatorioNfseService {
         YearMonth periodo = parseCompetencia(competencia);
         LocalDate inicio = periodo.atDay(1);
         LocalDate fim = periodo.atEndOfMonth();
+        List<Pagamento> pagamentos = pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(
+                StatusPagamento.PAGO,
+                inicio,
+                fim);
+        Set<Long> pacientesComPagamentoAnterior = buscarPacientesComPagamentoAnterior(pagamentos, inicio);
 
-        return pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(StatusPagamento.PAGO, inicio, fim)
-                .stream()
-                .map(pagamento -> montarItem(pagamento, competencia))
+        return pagamentos.stream()
+                .map(pagamento -> montarItem(pagamento, competencia, pacientesComPagamentoAnterior))
                 .filter(item -> notaAnteriorEmitida == null
                         || Objects.equals(item.notaAnteriorEmitida(), notaAnteriorEmitida))
                 .toList();
@@ -54,14 +60,30 @@ public class RelatorioNfseService {
         return YearMonth.of(ano, mes);
     }
 
-    private RelatorioNfseResponseDTO montarItem(Pagamento pagamento, String competencia) {
+    private Set<Long> buscarPacientesComPagamentoAnterior(List<Pagamento> pagamentos, LocalDate inicioCompetencia) {
+        List<Long> pacienteIds = pagamentos.stream()
+                .map(pagamento -> pagamento.getPaciente().getId())
+                .distinct()
+                .toList();
+
+        if (pacienteIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+                        pacienteIds,
+                        StatusPagamento.PAGO,
+                        inicioCompetencia)
+                .stream()
+                .collect(Collectors.toSet());
+    }
+
+    private RelatorioNfseResponseDTO montarItem(
+            Pagamento pagamento,
+            String competencia,
+            Set<Long> pacientesComPagamentoAnterior) {
         Paciente paciente = pagamento.getPaciente();
         validarDadosParaEmissao(pagamento, paciente);
-
-        boolean notaAnteriorEmitida = pagamentoRepository.existsByPacienteIdAndStatusAndDataPagamentoBefore(
-                paciente.getId(),
-                StatusPagamento.PAGO,
-                competenciaInicio(competencia));
 
         return new RelatorioNfseResponseDTO(
                 paciente.getNome(),
@@ -69,16 +91,10 @@ public class RelatorioNfseService {
                 pagamento.getValor(),
                 competencia,
                 "Aulas de Pilates - Competência " + competencia,
-                notaAnteriorEmitida,
+                pacientesComPagamentoAnterior.contains(paciente.getId()),
                 pagamento.getDataPagamento(),
                 ""
         );
-    }
-
-    private LocalDate competenciaInicio(String competencia) {
-        int mes = Integer.parseInt(competencia.substring(0, 2));
-        int ano = Integer.parseInt(competencia.substring(3));
-        return YearMonth.of(ano, mes).atDay(1);
     }
 
     private void validarDadosParaEmissao(Pagamento pagamento, Paciente paciente) {

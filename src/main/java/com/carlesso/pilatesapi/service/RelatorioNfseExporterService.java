@@ -101,7 +101,15 @@ public class RelatorioNfseExporterService {
         if (value == null) {
             return "";
         }
-        String escaped = value.replace("\"", "\"\"");
+        String escaped = neutralizarFormula(value).replace("\"", "\"\"");
         return "\"" + escaped + "\"";
+    }
+
+    private String neutralizarFormula(String value) {
+        String trimmed = value.stripLeading();
+        if (!trimmed.isEmpty() && "=+-@".indexOf(trimmed.charAt(0)) >= 0) {
+            return "'" + value;
+        }
+        return value;
     }
 }
