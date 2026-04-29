@@ -61,7 +61,7 @@ public class PacienteController {
             @Parameter(description = "Filtro parcial por CPF") @RequestParam(required = false) String cpf,
             @Parameter(description = "Filtro parcial por telefone") @RequestParam(required = false) String telefone,
             @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.") @RequestParam(required = false) Boolean ativo,
-            @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
+            @ParameterObject @PageableDefault(sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(service.listar(nome, email, cpf, telefone, ativo, pageable));
     }
 

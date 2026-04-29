@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.config.AppProperties;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
@@ -17,7 +18,7 @@ import com.carlesso.pilatesapi.repository.PlanoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -39,13 +40,20 @@ class PagamentoServiceTest {
     @Mock PacienteRepository pacienteRepository;
     @Mock PlanoRepository planoRepository;
     @Mock AulaService aulaService;
-    @InjectMocks PagamentoService service;
+    PagamentoService service;
 
     private Paciente paciente;
     private Plano plano;
+    private AppProperties appProperties;
 
     @BeforeEach
     void setUp() {
+        appProperties = new AppProperties(
+                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10),
+                new AppProperties.Paginacao(10));
+        service = new PagamentoService(pagamentoRepository, pacienteRepository,
+                planoRepository, aulaService, appProperties);
+
         paciente = new Paciente();
         paciente.setNome("Ana");
         paciente.setEmail("ana@email.com");
@@ -171,6 +179,28 @@ class PagamentoServiceTest {
         assertThatThrownBy(() -> service.pagar(1L, null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("já foi confirmado");
+    }
+
+    @Test
+    void gerarCobrancasFuturas_usaVencimentoDiasConfigurado() {
+        appProperties = new AppProperties(
+                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15),
+                new AppProperties.Paginacao(10));
+        service = new PagamentoService(pagamentoRepository, pacienteRepository,
+                planoRepository, aulaService, appProperties);
+
+        when(planoRepository.findByAtivoTrue()).thenReturn(List.of(plano));
+        when(pagamentoRepository.findTopByPlanoOrderByPeriodoFimDesc(plano)).thenReturn(Optional.empty());
+
+        ArgumentCaptor<Pagamento> captor = ArgumentCaptor.forClass(Pagamento.class);
+        when(pagamentoRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        int total = service.gerarCobrancasFuturas();
+
+        assertThat(total).isEqualTo(1);
+        Pagamento gerado = captor.getValue();
+        assertThat(gerado.getDataVencimento())
+                .isEqualTo(gerado.getPeriodoInicio().plusDays(15));
     }
 
     @Test

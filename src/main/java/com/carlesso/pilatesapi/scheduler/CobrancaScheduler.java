@@ -17,15 +17,13 @@ public class CobrancaScheduler {
         this.pagamentoService = pagamentoService;
     }
 
-    // Executa todo dia às 06:00 — marca como VENCIDO pagamentos pendentes expirados
-    @Scheduled(cron = "0 0 6 * * *")
+    @Scheduled(cron = "${app.cobranca.cron-vencidos}")
     public void atualizarPagamentosVencidos() {
         int total = pagamentoService.atualizarVencidos();
         log.info("Pagamentos marcados como VENCIDO: {}", total);
     }
 
-    // Executa todo dia às 07:00 — gera cobranças futuras para planos ativos
-    @Scheduled(cron = "0 0 7 * * *")
+    @Scheduled(cron = "${app.cobranca.cron-cobrancas-futuras}")
     public void gerarCobrancasFuturas() {
         int total = pagamentoService.gerarCobrancasFuturas();
         log.info("Cobranças futuras geradas: {}", total);

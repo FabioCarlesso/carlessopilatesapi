@@ -67,7 +67,7 @@ public class ProfissionalController {
             @Parameter(description = "Filtro por tipo de contrato") @RequestParam(required = false) TipoContrato tipoContrato,
             @Parameter(description = "Filtro por percentual de pagamento por aula") @RequestParam(required = false) BigDecimal percentualPagamentoAula,
             @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.") @RequestParam(required = false) Boolean ativo,
-            @ParameterObject @PageableDefault(size = 10, sort = "nome") Pageable pageable) {
+            @ParameterObject @PageableDefault(sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(service.listar(nome, email, tipoContrato, percentualPagamentoAula, ativo, pageable));
     }
 

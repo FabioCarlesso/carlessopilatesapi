@@ -34,6 +34,7 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 ```
 com.carlesso.pilatesapi
 ├── config
+│   ├── AppProperties.java            — @ConfigurationProperties (cobranca + paginacao)
 │   ├── GlobalExceptionHandler.java   — mapeia exceções customizadas para HTTP (404/409/422)
 │   ├── OpenApiConfig.java            — configuração do Swagger/OpenAPI
 │   └── SecurityConfig.java           — regras de acesso, CORS e sessão stateless
@@ -327,10 +328,12 @@ CPF não pode ser alterado após o cadastro.
 - Uma aula realizada pode ser vinculada ao profissional que ministrou a aula
 
 ### Scheduler (processos automáticos)
-| Cron | Ação |
-|---|---|
-| 06:00 todo dia | Marca como `VENCIDO` pagamentos `PENDENTE` com `dataVencimento` passada |
-| 07:00 todo dia | Gera cobranças futuras quando faltam ≤ 7 dias para o fim do período atual |
+| Cron (default) | Ação | Propriedade |
+|---|---|---|
+| `0 0 6 * * *` | Marca como `VENCIDO` pagamentos `PENDENTE` com `dataVencimento` passada | `app.cobranca.cron-vencidos` |
+| `0 0 7 * * *` | Gera cobranças futuras quando faltam ≤ 7 dias para o fim do período atual | `app.cobranca.cron-cobrancas-futuras` |
+
+A quantidade de dias até o vencimento das cobranças geradas é controlada por `app.cobranca.vencimento-dias` (default `10`).
 
 ---
 
@@ -360,6 +363,10 @@ CPF não pode ser alterado após o cadastro.
 | `JWT_SECRET` | obrigatório, mínimo recomendado de 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` |
+| `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` |
+| `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` |
+| `APP_COBRANCA_VENCIMENTO_DIAS` | `10` |
+| `APP_PAGINACAO_TAMANHO_PADRAO` | `10` |
 
 ### URLs de desenvolvimento
 
@@ -390,7 +397,14 @@ info.app.description=Carlesso Pilates API
 jwt.secret=${JWT_SECRET}
 jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
 app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+app.cobranca.cron-vencidos=${APP_COBRANCA_CRON_VENCIDOS:0 0 6 * * *}
+app.cobranca.cron-cobrancas-futuras=${APP_COBRANCA_CRON_COBRANCAS_FUTURAS:0 0 7 * * *}
+app.cobranca.vencimento-dias=${APP_COBRANCA_VENCIMENTO_DIAS:10}
+app.paginacao.tamanho-padrao=${APP_PAGINACAO_TAMANHO_PADRAO:10}
+spring.data.web.pageable.default-page-size=${app.paginacao.tamanho-padrao}
 ```
+
+Os valores acima são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código.
 
 ---
 

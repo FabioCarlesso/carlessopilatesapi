@@ -265,10 +265,12 @@ src/
 
 ### 4.8 Processos Automáticos (Scheduler)
 
-| Cron | Ação |
-|---|---|
-| `0 0 6 * * *` (06:00) | Marca como `VENCIDO` todos os pagamentos `PENDENTE` com `dataVencimento` anterior à data atual |
-| `0 0 7 * * *` (07:00) | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual |
+| Cron (default) | Ação | Propriedade |
+|---|---|---|
+| `0 0 6 * * *` (06:00) | Marca como `VENCIDO` todos os pagamentos `PENDENTE` com `dataVencimento` anterior à data atual | `app.cobranca.cron-vencidos` |
+| `0 0 7 * * *` (07:00) | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual | `app.cobranca.cron-cobrancas-futuras` |
+
+Os crons, o número de dias até o vencimento (`app.cobranca.vencimento-dias`, default `10`) e o tamanho padrão de página (`app.paginacao.tamanho-padrao`, default `10`) são vinculados à classe `config/AppProperties` (Spring `@ConfigurationProperties`) e podem ser sobrescritos via variáveis de ambiente sem recompilação.
 
 ---
 
@@ -759,6 +761,10 @@ O projeto utiliza **Spring Boot Actuator** para expor endpoints operacionais. Em
 | `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar tokens JWT; use pelo menos 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
+| `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` | Cron expression do scheduler que marca pagamentos como `VENCIDO` |
+| `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` | Cron expression do scheduler que gera cobranças futuras |
+| `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para calcular o vencimento das cobranças geradas |
+| `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas |
 
 ### application.properties
 
@@ -783,6 +789,11 @@ info.app.description=Carlesso Pilates API
 jwt.secret=${JWT_SECRET}
 jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
 app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+app.cobranca.cron-vencidos=${APP_COBRANCA_CRON_VENCIDOS:0 0 6 * * *}
+app.cobranca.cron-cobrancas-futuras=${APP_COBRANCA_CRON_COBRANCAS_FUTURAS:0 0 7 * * *}
+app.cobranca.vencimento-dias=${APP_COBRANCA_VENCIMENTO_DIAS:10}
+app.paginacao.tamanho-padrao=${APP_PAGINACAO_TAMANHO_PADRAO:10}
+spring.data.web.pageable.default-page-size=${app.paginacao.tamanho-padrao}
 ```
 
 > O DDL mode é `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.
