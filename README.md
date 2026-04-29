@@ -561,6 +561,10 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar JWT; use pelo menos 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
+| `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` | Cron expression do scheduler que marca pagamentos como `VENCIDO` |
+| `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` | Cron expression do scheduler que gera cobranças futuras |
+| `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
+| `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas |
 
 ---
 
@@ -746,10 +750,12 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Ao marcar uma aula como realizada, `profissionalId` pode ser informado para alimentar o relatório de pagamento do profissional
 
 ### Scheduler (processos automáticos)
-| Horário | Ação |
-|---|---|
-| 06:00 todo dia | Marca como `VENCIDO` pagamentos `PENDENTE` com data de vencimento passada |
-| 07:00 todo dia | Gera cobranças futuras para planos ativos a partir de 7 dias antes do fim do período |
+| Horário | Ação | Configuração |
+|---|---|---|
+| 06:00 todo dia (default) | Marca como `VENCIDO` pagamentos `PENDENTE` com data de vencimento passada | `app.cobranca.cron-vencidos` (env `APP_COBRANCA_CRON_VENCIDOS`) |
+| 07:00 todo dia (default) | Gera cobranças futuras para planos ativos a partir de 7 dias antes do fim do período | `app.cobranca.cron-cobrancas-futuras` (env `APP_COBRANCA_CRON_COBRANCAS_FUTURAS`) |
+
+O vencimento das cobranças geradas pelo scheduler é definido por `app.cobranca.vencimento-dias` (env `APP_COBRANCA_VENCIMENTO_DIAS`, default `10`), somado ao início do período. O tamanho padrão de página nas listagens paginadas é controlado por `spring.data.web.pageable.default-page-size`, alimentado pela env `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`).
 
 ### Boas práticas Spring
 - Métodos de leitura em services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e preparar a aplicação para roteamento futuro de leituras.

@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.config.AppProperties;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
@@ -25,15 +26,18 @@ public class PagamentoService {
     private final PacienteRepository pacienteRepository;
     private final PlanoRepository planoRepository;
     private final AulaService aulaService;
+    private final AppProperties appProperties;
 
     public PagamentoService(PagamentoRepository pagamentoRepository,
                             PacienteRepository pacienteRepository,
                             PlanoRepository planoRepository,
-                            AulaService aulaService) {
+                            AulaService aulaService,
+                            AppProperties appProperties) {
         this.pagamentoRepository = pagamentoRepository;
         this.pacienteRepository = pacienteRepository;
         this.planoRepository = planoRepository;
         this.aulaService = aulaService;
+        this.appProperties = appProperties;
     }
 
     @Transactional
@@ -115,6 +119,7 @@ public class PagamentoService {
         List<Plano> planosAtivos = planoRepository.findByAtivoTrue();
         int count = 0;
 
+        int vencimentoDias = appProperties.cobranca().vencimentoDias();
         for (Plano plano : planosAtivos) {
             if (!plano.getPaciente().isAtivo()) continue;
 
@@ -136,7 +141,7 @@ public class PagamentoService {
             novoPagamento.setPaciente(plano.getPaciente());
             novoPagamento.setPlano(plano);
             novoPagamento.setValor(plano.getValor());
-            novoPagamento.setDataVencimento(periodoInicio.plusDays(10));
+            novoPagamento.setDataVencimento(periodoInicio.plusDays(vencimentoDias));
             novoPagamento.setPeriodoInicio(periodoInicio);
             novoPagamento.setPeriodoFim(periodoFim);
 

@@ -67,7 +67,7 @@ public class UserController {
     )
     @GetMapping
     public ResponseEntity<Page<UserResponseDTO>> listar(
-            @ParameterObject @PageableDefault(size = 10, sort = "name") Pageable pageable) {
+            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
     }
 
