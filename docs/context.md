@@ -439,17 +439,23 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PacienteServiceTest` | Unitário (Mockito, sem Spring) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito, sem Spring) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
+| `RelatorioNfseServiceTest` | Unitário (Mockito, sem Spring) | 5 |
+| `RelatorioNfseExporterServiceTest` | Unitário | 3 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
-| `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
+| `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + H2 | 11 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
+| `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 2 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 17 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `RelatorioNfseControllerTest` | `@WebMvcTest` + MockMvc | 6 |
+| `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 21 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
@@ -460,6 +466,8 @@ JAVA_HOME=~/jdk mvn test
 ```
 
 Os testes de integração usam H2 em memória configurado em `src/test/resources/application.properties`.
+
+`CobrancaSchedulerIntegrationTest` usa `@DataJpaTest` + `@Import({PagamentoService.class, AulaService.class, CobrancaScheduler.class})` + `@EnableConfigurationProperties(AppProperties.class)` para testar as duas rotinas agendadas (`atualizarPagamentosVencidos` e `gerarCobrancasFuturas`) com banco H2 real, sem necessidade de subir o contexto completo.
 
 ---
 
