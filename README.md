@@ -137,7 +137,10 @@ src/
     ├── actuator/
     │   └── ActuatorTest.java
     ├── config/
+    │   ├── AppPropertiesTest.java
     │   └── GlobalExceptionHandlerTest.java
+    ├── scheduler/
+    │   └── CobrancaSchedulerIntegrationTest.java
     ├── security/
     │   └── SecurityIntegrationTest.java
     ├── service/
@@ -148,15 +151,19 @@ src/
     │   ├── PlanoServiceTest.java
     │   ├── PagamentoServiceTest.java
     │   ├── AulaServiceTest.java
-    │   └── RelatorioPagamentoExporterServiceTest.java
+    │   ├── RelatorioPagamentoExporterServiceTest.java
+    │   ├── RelatorioNfseServiceTest.java
+    │   └── RelatorioNfseExporterServiceTest.java
     ├── repository/
-    │   └── AulaRepositoryTest.java
+    │   ├── AulaRepositoryTest.java
+    │   └── PagamentoRepositoryTest.java
     └── controller/
         ├── PacienteControllerTest.java
         ├── ProfissionalControllerTest.java
         ├── PlanoControllerTest.java
         ├── PagamentoControllerTest.java
-        └── AulaControllerTest.java
+        ├── AulaControllerTest.java
+        └── RelatorioNfseControllerTest.java
 ```
 
 ---
@@ -782,25 +789,31 @@ Formato da resposta de erro:
 
 ## Testes
 
-O projeto possui **172 testes** organizados em dezoito suítes:
+O projeto possui **203 testes** organizados em vinte e quatro suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
-| `PagamentoServiceTest` | Unitário (Mockito) | 8 |
+| `PagamentoServiceTest` | Unitário (Mockito) | 9 |
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
+| `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
+| `RelatorioNfseExporterServiceTest` | Unitário | 3 |
+| `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
+| `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
+| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
+| `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
-| `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 21 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |

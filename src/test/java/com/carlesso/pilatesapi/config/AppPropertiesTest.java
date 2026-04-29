@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.ConfigurationPropertiesBindException;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -46,7 +47,7 @@ class AppPropertiesTest {
                 .withPropertyValues("app.cobranca.vencimento-dias=0")
                 .run(context -> assertThat(context).hasFailed()
                         .getFailure()
-                        .hasStackTraceContaining("cobranca.vencimentoDias")
-                        .hasStackTraceContaining("must be greater than or equal to 1"));
+                        .isInstanceOf(ConfigurationPropertiesBindException.class)
+                        .hasMessageContaining("Could not bind properties to 'AppProperties'"));
     }
 }
