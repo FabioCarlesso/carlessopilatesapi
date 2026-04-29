@@ -119,6 +119,7 @@ public class PagamentoService {
         List<Plano> planosAtivos = planoRepository.findByAtivoTrue();
         int count = 0;
 
+        int vencimentoDias = appProperties.cobranca().vencimentoDias();
         for (Plano plano : planosAtivos) {
             if (!plano.getPaciente().isAtivo()) continue;
 
@@ -140,7 +141,7 @@ public class PagamentoService {
             novoPagamento.setPaciente(plano.getPaciente());
             novoPagamento.setPlano(plano);
             novoPagamento.setValor(plano.getValor());
-            novoPagamento.setDataVencimento(periodoInicio.plusDays(appProperties.cobranca().vencimentoDias()));
+            novoPagamento.setDataVencimento(periodoInicio.plusDays(vencimentoDias));
             novoPagamento.setPeriodoInicio(periodoInicio);
             novoPagamento.setPeriodoFim(periodoFim);
 

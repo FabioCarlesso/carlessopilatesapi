@@ -49,8 +49,7 @@ class PagamentoServiceTest {
     @BeforeEach
     void setUp() {
         appProperties = new AppProperties(
-                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10),
-                new AppProperties.Paginacao(10));
+                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10));
         service = new PagamentoService(pagamentoRepository, pacienteRepository,
                 planoRepository, aulaService, appProperties);
 
@@ -184,8 +183,7 @@ class PagamentoServiceTest {
     @Test
     void gerarCobrancasFuturas_usaVencimentoDiasConfigurado() {
         appProperties = new AppProperties(
-                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15),
-                new AppProperties.Paginacao(10));
+                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15));
         service = new PagamentoService(pagamentoRepository, pacienteRepository,
                 planoRepository, aulaService, appProperties);
 
