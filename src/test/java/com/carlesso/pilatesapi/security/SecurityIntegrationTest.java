@@ -321,6 +321,26 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void dashboardResumo_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/dashboard/resumo"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void dashboardResumo_comTokenValido_deveRetornar200() throws Exception {
+        User user = criarUsuario("dashboard@email.com", Role.USER);
+
+        mvc.perform(get("/dashboard/resumo")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pacientes").exists())
+                .andExpect(jsonPath("$.profissionais").exists())
+                .andExpect(jsonPath("$.pagamentos").exists())
+                .andExpect(jsonPath("$.aulas").exists())
+                .andExpect(jsonPath("$.geradoEm").exists());
+    }
+
+    @Test
     void cors_devePermitirOrigemDoAngular() throws Exception {
         mvc.perform(options("/pacientes")
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")

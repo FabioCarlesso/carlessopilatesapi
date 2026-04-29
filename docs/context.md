@@ -52,7 +52,8 @@ com.carlesso.pilatesapi
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
-│   └── RelatorioNfseController.java  — endpoint de relatório de emissão de NFSEs
+│   ├── RelatorioNfseController.java  — endpoint de relatório de emissão de NFSEs
+│   └── DashboardController.java      — endpoint de resumo para o painel inicial
 ├── service
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
@@ -62,6 +63,7 @@ com.carlesso.pilatesapi
 │   ├── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
 │   ├── RelatorioNfseService.java               — monta relatório de NFSEs por competência
 │   ├── RelatorioNfseExporterService.java       — exporta relatório de NFSEs em CSV e XLSX
+│   ├── DashboardService.java                   — consolida contadores e totais para o painel inicial
 │   ├── AuthService.java                        — registro/login, emissão de token e rate limiting
 │   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
 │   ├── JwtService.java                         — geração (claims role/userId) e validação de JWT
@@ -105,6 +107,7 @@ com.carlesso.pilatesapi
 │   ├── ProfissionalPagamentoRelatorioDTO.java — relatório de pagamento do profissional (contrato Angular-friendly)
 │   ├── ProfissionalPagamentoAulaDTO.java      — detalhe de aula no relatório
 │   ├── RelatorioNfseResponseDTO.java          — item do relatório de emissão de NFSE
+│   ├── DashboardResumoDTO.java                — resposta do endpoint de resumo do dashboard (record com sub-records)
 │   ├── PlanoRequestDTO.java
 │   ├── PlanoResponseDTO.java
 │   ├── PagamentoRequestDTO.java
@@ -260,6 +263,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
 | PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 / 409 / 422 |
 | GET | `/api/relatorios/nfse?competencia=MM/AAAA&notaAnteriorEmitida={true|false}&formato={JSON|CSV|XLSX}` | Gerar relatório de emissão de NFSEs por competência | 200 / 400 / 422 |
+| GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
@@ -455,9 +459,11 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `RelatorioNfseControllerTest` | `@WebMvcTest` + MockMvc | 6 |
+| `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
+| `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
-| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 21 |
+| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 23 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

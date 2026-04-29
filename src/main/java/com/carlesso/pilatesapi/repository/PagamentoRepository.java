@@ -46,4 +46,17 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long> {
             @Param("pacienteIds") List<Long> pacienteIds,
             @Param("status") StatusPagamento status,
             @Param("dataPagamento") LocalDate dataPagamento);
+
+    long countByStatus(StatusPagamento status);
+
+    @Query("""
+            select coalesce(sum(p.valor), 0)
+            from Pagamento p
+            where p.status = :status
+              and p.dataPagamento between :inicio and :fim
+            """)
+    java.math.BigDecimal sumValorByStatusAndDataPagamentoBetween(
+            @Param("status") StatusPagamento status,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
 }
