@@ -270,7 +270,7 @@ src/
 | `0 0 6 * * *` (06:00) | Marca como `VENCIDO` todos os pagamentos `PENDENTE` com `dataVencimento` anterior à data atual | `app.cobranca.cron-vencidos` |
 | `0 0 7 * * *` (07:00) | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual | `app.cobranca.cron-cobrancas-futuras` |
 
-Os crons, o número de dias até o vencimento (`app.cobranca.vencimento-dias`, default `10`) e o tamanho padrão de página (`app.paginacao.tamanho-padrao`, default `10`) são vinculados à classe `config/AppProperties` (Spring `@ConfigurationProperties`) e podem ser sobrescritos via variáveis de ambiente sem recompilação.
+Os crons e o número de dias até o vencimento (`app.cobranca.vencimento-dias`, default `10`) são vinculados à classe `config/AppProperties` (Spring `@ConfigurationProperties`). O tamanho padrão de página usa a propriedade nativa `spring.data.web.pageable.default-page-size`, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`). Todos esses valores podem ser sobrescritos via variáveis de ambiente sem recompilação.
 
 ---
 
@@ -792,8 +792,7 @@ app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 app.cobranca.cron-vencidos=${APP_COBRANCA_CRON_VENCIDOS:0 0 6 * * *}
 app.cobranca.cron-cobrancas-futuras=${APP_COBRANCA_CRON_COBRANCAS_FUTURAS:0 0 7 * * *}
 app.cobranca.vencimento-dias=${APP_COBRANCA_VENCIMENTO_DIAS:10}
-app.paginacao.tamanho-padrao=${APP_PAGINACAO_TAMANHO_PADRAO:10}
-spring.data.web.pageable.default-page-size=${app.paginacao.tamanho-padrao}
+spring.data.web.pageable.default-page-size=${APP_PAGINACAO_TAMANHO_PADRAO:10}
 ```
 
 > O DDL mode é `validate` — o Flyway é o responsável por criar e evoluir o schema; o Hibernate apenas valida que as entidades estão de acordo com o banco.

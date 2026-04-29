@@ -755,7 +755,7 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 | 06:00 todo dia (default) | Marca como `VENCIDO` pagamentos `PENDENTE` com data de vencimento passada | `app.cobranca.cron-vencidos` (env `APP_COBRANCA_CRON_VENCIDOS`) |
 | 07:00 todo dia (default) | Gera cobranças futuras para planos ativos a partir de 7 dias antes do fim do período | `app.cobranca.cron-cobrancas-futuras` (env `APP_COBRANCA_CRON_COBRANCAS_FUTURAS`) |
 
-O vencimento das cobranças geradas pelo scheduler é definido por `app.cobranca.vencimento-dias` (env `APP_COBRANCA_VENCIMENTO_DIAS`, default `10`), somado ao início do período. O tamanho padrão de página nas listagens paginadas é controlado por `app.paginacao.tamanho-padrao` (env `APP_PAGINACAO_TAMANHO_PADRAO`, default `10`).
+O vencimento das cobranças geradas pelo scheduler é definido por `app.cobranca.vencimento-dias` (env `APP_COBRANCA_VENCIMENTO_DIAS`, default `10`), somado ao início do período. O tamanho padrão de página nas listagens paginadas é controlado por `spring.data.web.pageable.default-page-size`, alimentado pela env `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`).
 
 ### Boas práticas Spring
 - Métodos de leitura em services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e preparar a aplicação para roteamento futuro de leituras.

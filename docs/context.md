@@ -34,7 +34,7 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 ```
 com.carlesso.pilatesapi
 ├── config
-│   ├── AppProperties.java            — @ConfigurationProperties (cobranca + paginacao)
+│   ├── AppProperties.java            — @ConfigurationProperties (cobranca)
 │   ├── GlobalExceptionHandler.java   — mapeia exceções customizadas para HTTP (404/409/422)
 │   ├── OpenApiConfig.java            — configuração do Swagger/OpenAPI
 │   └── SecurityConfig.java           — regras de acesso, CORS e sessão stateless
@@ -400,11 +400,10 @@ app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 app.cobranca.cron-vencidos=${APP_COBRANCA_CRON_VENCIDOS:0 0 6 * * *}
 app.cobranca.cron-cobrancas-futuras=${APP_COBRANCA_CRON_COBRANCAS_FUTURAS:0 0 7 * * *}
 app.cobranca.vencimento-dias=${APP_COBRANCA_VENCIMENTO_DIAS:10}
-app.paginacao.tamanho-padrao=${APP_PAGINACAO_TAMANHO_PADRAO:10}
-spring.data.web.pageable.default-page-size=${app.paginacao.tamanho-padrao}
+spring.data.web.pageable.default-page-size=${APP_PAGINACAO_TAMANHO_PADRAO:10}
 ```
 
-Os valores acima são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código.
+Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código. A paginação usa a propriedade nativa do Spring Data Web, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO`.
 
 ---
 
