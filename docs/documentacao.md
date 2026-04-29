@@ -77,13 +77,15 @@ src/
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo
 │   │   │   ├── AdminController.java         # /admin/health
-│   │   │   └── RelatorioNfseController.java # /api/relatorios/nfse
+│   │   │   ├── RelatorioNfseController.java # /api/relatorios/nfse
+│   │   │   └── DashboardController.java     # /dashboard/resumo
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
 │   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
 │   │   │   ├── PlanoService.java                       # Regras de plano e frequência
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
+│   │   │   ├── DashboardService.java                   # Contadores e totais para o painel inicial
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
 │   │   │   ├── RelatorioNfseExporterService.java       # Exportação do relatório de NFSEs em CSV e XLSX
@@ -263,7 +265,19 @@ src/
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`
 - Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
 
-### 4.8 Processos Automáticos (Scheduler)
+### 4.8 Dashboard — Resumo do Painel Inicial
+
+O endpoint `GET /dashboard/resumo` agrega contadores e totais do banco em um único objeto para consumo direto pelo painel inicial do frontend:
+
+- **pacientes**: `totalAtivos` e `totalInativos`
+- **profissionais**: `totalAtivos` e `totalInativos`
+- **pagamentos**: `totalPendentes`, `totalPagos`, `totalVencidos` e `receitaMesAtual` (soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente)
+- **aulas**: `totalRealizadasMesAtual` (aulas `realizada = true` de pacientes ativos no mês corrente) e `totalAgendadasMesAtual` (aulas `realizada = false` de pacientes ativos no mês corrente)
+- **geradoEm**: timestamp da geração da resposta
+
+Exige `Authorization: Bearer <token>`.
+
+### 4.9 Processos Automáticos (Scheduler)
 
 | Cron (default) | Ação | Propriedade |
 |---|---|---|

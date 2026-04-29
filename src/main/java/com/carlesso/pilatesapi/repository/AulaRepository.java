@@ -76,6 +76,18 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim);
 
+    @Query("""
+            select count(a)
+            from Aula a
+            where a.realizada = :realizada
+              and a.data between :inicio and :fim
+              and a.paciente.ativo = true
+            """)
+    long countByRealizadaAndDataBetweenAndPacienteAtivoTrue(
+            @Param("realizada") boolean realizada,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
+
     interface ProfissionalPagamentoAulaProjection {
         Long getAulaId();
         LocalDate getData();

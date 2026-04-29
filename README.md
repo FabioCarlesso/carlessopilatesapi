@@ -50,13 +50,15 @@ src/
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
 │   │   │   ├── AdminController.java         # /admin/health
-│   │   │   └── RelatorioNfseController.java # /api/relatorios/nfse
+│   │   │   ├── RelatorioNfseController.java # /api/relatorios/nfse
+│   │   │   └── DashboardController.java     # /dashboard/resumo
 │   │   ├── service/
 │   │   │   ├── PacienteService.java                    # Regras de negócio de pacientes
 │   │   │   ├── ProfissionalService.java                # Regras de negócio de profissionais
 │   │   │   ├── PlanoService.java                       # Regras de plano e frequência
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
+│   │   │   ├── DashboardService.java                   # Contadores e totais para o painel inicial
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
 │   │   │   ├── RelatorioNfseExporterService.java       # Exportação do relatório de NFSEs em CSV e XLSX
@@ -247,6 +249,12 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 |---|---|---|
 | `GET` | `/api/relatorios/nfse` | Gerar relatório de emissão de NFSEs por competência (JSON, CSV ou XLSX) |
 
+### Dashboard
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos e aulas do mês) |
+
 ### Paginação
 
 Os endpoints de listagem suportam os query params padrão do Spring:
@@ -336,6 +344,38 @@ Os endpoints `GET /profissionais/{id}/relatorio-pagamento/pdf` e `GET /profissio
 | `/relatorio-pagamento/xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | `attachment; filename="relatorio-pagamento-profissional-{id}-{inicio}-{fim}.xlsx"` |
 
 O XLSX possui três abas: `Resumo`, `Pagamentos` e `Aulas`. O PDF apresenta as mesmas informações em layout único, com tabelas para pagamentos e aulas.
+
+### Resumo do dashboard — contrato JSON
+
+A resposta de `GET /dashboard/resumo` consolida contadores do banco em um único objeto para consumo direto pelo painel inicial:
+
+```json
+{
+  "pacientes": {
+    "totalAtivos": 10,
+    "totalInativos": 2
+  },
+  "profissionais": {
+    "totalAtivos": 3,
+    "totalInativos": 1
+  },
+  "pagamentos": {
+    "totalPendentes": 5,
+    "totalPagos": 8,
+    "totalVencidos": 2,
+    "receitaMesAtual": 1600.00
+  },
+  "aulas": {
+    "totalRealizadasMesAtual": 40,
+    "totalAgendadasMesAtual": 20
+  },
+  "geradoEm": "2026-04-29T10:00:00"
+}
+```
+
+- `receitaMesAtual` — soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente.
+- `totalAgendadasMesAtual` — aulas com `realizada = false` e `data` dentro do mês corrente vinculadas a pacientes ativos.
+- `totalRealizadasMesAtual` — aulas com `realizada = true` e `data` dentro do mês corrente vinculadas a pacientes ativos.
 
 ### Relatório de emissão de NFSEs
 
@@ -789,7 +829,7 @@ Formato da resposta de erro:
 
 ## Testes
 
-O projeto possui **203 testes** organizados em vinte e quatro suítes:
+O projeto possui **210 testes** organizados em vinte e seis suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -814,7 +854,9 @@ O projeto possui **203 testes** organizados em vinte e quatro suítes:
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 21 |
+| `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
+| `DashboardServiceTest` | Unitário (Mockito) | 3 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 23 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 
