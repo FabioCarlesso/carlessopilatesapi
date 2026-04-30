@@ -308,4 +308,15 @@ class ProfissionalControllerTest {
                         .param("fim", "2025-02-28"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void exportarRelatorioPagamentoXlsx_periodoInvalido_deveRetornar400() throws Exception {
+        when(service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 3, 1), LocalDate.of(2025, 2, 28)))
+                .thenThrow(new IllegalArgumentException("Período inicial não pode ser maior que o período final"));
+
+        mvc.perform(get("/profissionais/1/relatorio-pagamento/xlsx")
+                        .param("inicio", "2025-03-01")
+                        .param("fim", "2025-02-28"))
+                .andExpect(status().isBadRequest());
+    }
 }

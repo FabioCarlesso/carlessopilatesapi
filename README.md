@@ -829,7 +829,7 @@ Formato da resposta de erro:
 
 ## Testes
 
-O projeto possui **210 testes** organizados em vinte e seis suítes:
+O projeto possui **214 testes** organizados em vinte e seis suítes:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
@@ -844,7 +844,7 @@ O projeto possui **210 testes** organizados em vinte e seis suítes:
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
-| `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
+| `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 8 |
 | `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
@@ -852,7 +852,7 @@ O projeto possui **210 testes** organizados em vinte e seis suítes:
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
-| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
+| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 18 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `DashboardServiceTest` | Unitário (Mockito) | 3 |

@@ -449,12 +449,12 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
-| `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
+| `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 8 |
 | `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + H2 | 11 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
 | `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 2 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
-| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 17 |
+| `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 18 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
