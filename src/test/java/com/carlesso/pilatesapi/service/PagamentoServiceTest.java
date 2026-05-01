@@ -202,6 +202,19 @@ class PagamentoServiceTest {
     }
 
     @Test
+    void gerarCobrancasFuturas_excecaoAoSalvarPropagaGarantindoRollback() {
+        when(planoRepository.findByAtivoTrue()).thenReturn(List.of(plano));
+        when(pagamentoRepository.findTopByPlanoOrderByPeriodoFimDesc(plano)).thenReturn(Optional.empty());
+        when(pagamentoRepository.save(any(Pagamento.class))).thenThrow(new RuntimeException("simulated DB failure"));
+
+        assertThatThrownBy(() -> service.gerarCobrancasFuturas())
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("simulated DB failure");
+
+        verify(pagamentoRepository).save(any(Pagamento.class));
+    }
+
+    @Test
     void atualizarVencidos_marcaPagamentosExpirados() {
         Pagamento p1 = new Pagamento();
         p1.setPaciente(paciente);
