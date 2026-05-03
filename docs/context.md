@@ -49,6 +49,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoController.java          — endpoints REST de planos
 │   ├── PagamentoController.java      — endpoints REST de pagamentos
 │   ├── AulaController.java           — endpoints REST de aulas
+│   ├── AnamneseController.java       — endpoints REST de anamneses
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
@@ -57,6 +58,7 @@ com.carlesso.pilatesapi
 ├── service
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
+│   ├── AnamneseService.java                    — lógica de negócio de anamneses
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
@@ -75,6 +77,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoRepository.java
 │   ├── PagamentoRepository.java
 │   ├── AulaRepository.java
+│   ├── AnamneseRepository.java
 │   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
@@ -83,6 +86,7 @@ com.carlesso.pilatesapi
 │   ├── Plano.java                    — entidade JPA, tabela `planos`
 │   ├── Pagamento.java                — entidade JPA, tabela `pagamentos`
 │   ├── Aula.java                     — entidade JPA, tabela `aulas`
+│   ├── Anamnese.java                 — entidade JPA, tabela `anamneses`
 │   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
@@ -114,6 +118,9 @@ com.carlesso.pilatesapi
 │   ├── PagamentoPagarRequestDTO.java — payload opcional para confirmar pagamento
 │   ├── PagamentoResponseDTO.java
 │   ├── AulaResponseDTO.java
+│   ├── AnamneseRequestDTO.java       — payload de criação de anamnese (record)
+│   ├── AnamneseUpdateDTO.java        — payload de atualização de anamnese (record)
+│   ├── AnamneseResponseDTO.java      — resposta da API de anamnese (record com factory method `from`)
 │   ├── AuthRegisterRequestDTO.java
 │   ├── AuthLoginRequestDTO.java
 │   ├── AuthResponseDTO.java
@@ -205,6 +212,27 @@ Constraint: `UNIQUE (plano_id, periodo_inicio)`
 
 Constraint: `UNIQUE (paciente_id, data)`
 
+### Tabela `anamneses`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, UNIQUE, FK → pacientes |
+| `queixa_principal` | TEXT | NOT NULL |
+| `historico_doencas` | TEXT | — |
+| `historico_cirurgias` | TEXT | — |
+| `historico_lesoes` | TEXT | — |
+| `medicamentos_uso` | TEXT | — |
+| `alergias` | TEXT | — |
+| `nivel_atividade_fisica` | VARCHAR(50) | — |
+| `restricoes_medicas` | TEXT | — |
+| `objetivos` | TEXT | NOT NULL |
+| `observacoes` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma anamnese principal (constraint `UNIQUE paciente_id`).
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -216,8 +244,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | `idx_pagamentos_status` | `pagamentos(status)` | Scheduler diário e relatório NFSE filtram por `PENDENTE`/`VENCIDO`/`PAGO` |
 | `idx_pagamentos_data_vencimento` | `pagamentos(data_vencimento)` | Scheduler das 06:00 faz range scan diário nessa coluna |
 | `idx_aulas_realizada` | `aulas(realizada)` | Relatório de pagamento de profissional filtra `realizada = true` |
-
-> **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)` e `aulas(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes (PK e UNIQUE criados em V3, V4 e V5), que o PostgreSQL pode usar para buscas na coluna isolada.
+> **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
 
@@ -263,6 +290,10 @@ Constraint: `UNIQUE (paciente_id, data)`
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
 | PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 / 409 / 422 |
 | GET | `/api/relatorios/nfse?competencia=MM/AAAA&notaAnteriorEmitida={true|false}&formato={JSON|CSV|XLSX}` | Gerar relatório de emissão de NFSEs por competência | 200 / 400 / 422 |
+| POST | `/anamneses` | Criar anamnese para um paciente | 201 / 400 / 404 / 409 |
+| GET | `/anamneses/{id}` | Buscar anamnese por ID | 200 / 404 |
+| GET | `/anamneses/paciente/{pacienteId}` | Buscar anamnese por paciente | 200 / 404 |
+| PUT | `/anamneses/{id}` | Atualizar anamnese (atualização parcial) | 200 / 400 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
@@ -330,6 +361,15 @@ CPF não pode ser alterado após o cadastro.
 - Requer: paciente ativo + pagamento `PAGO`
 - Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
 - Uma aula realizada pode ser vinculada ao profissional que ministrou a aula
+
+### Anamnese
+- Cada paciente possui no máximo uma anamnese principal (regra de unicidade por `paciente_id`)
+- Criar anamnese para paciente inexistente ou inativo retorna `404`
+- Tentar criar segunda anamnese para o mesmo paciente retorna `409`
+- Campos obrigatórios: `queixaPrincipal` e `objetivos`
+- Consultas e atualizações de anamnese filtram `paciente.ativo = true`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `queixaPrincipal` e `objetivos` não aceitam strings em branco quando enviados
+- `dataAtualizacao` é registrada automaticamente em cada atualização
 
 ### Scheduler (processos automáticos)
 | Cron (default) | Ação | Propriedade |
@@ -459,6 +499,8 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `RelatorioNfseControllerTest` | `@WebMvcTest` + MockMvc | 6 |
+| `AnamneseServiceTest` | Unitário (Mockito, sem Spring) | 9 |
+| `AnamneseControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
