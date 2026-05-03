@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +28,7 @@ public class AnamneseService {
 
     @Transactional
     public AnamneseResponseDTO criar(AnamneseRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findById(dto.pacienteId())
+        Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         if (anamneseRepository.existsByPacienteId(dto.pacienteId())) {
@@ -48,7 +49,11 @@ public class AnamneseService {
         anamnese.setObservacoes(dto.observacoes());
         anamnese.setDataCriacao(LocalDateTime.now());
 
-        return AnamneseResponseDTO.from(anamneseRepository.save(anamnese));
+        try {
+            return AnamneseResponseDTO.from(anamneseRepository.saveAndFlush(anamnese));
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("Paciente já possui anamnese cadastrada: " + dto.pacienteId());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -58,10 +63,10 @@ public class AnamneseService {
 
     @Transactional(readOnly = true)
     public AnamneseResponseDTO buscarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsById(pacienteId)) {
+        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        Anamnese anamnese = anamneseRepository.findByPacienteId(pacienteId)
+        Anamnese anamnese = anamneseRepository.findByPacienteIdAndPacienteAtivoTrue(pacienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Anamnese não encontrada para o paciente: " + pacienteId));
         return AnamneseResponseDTO.from(anamnese);
     }
@@ -69,6 +74,9 @@ public class AnamneseService {
     @Transactional
     public AnamneseResponseDTO atualizar(Long id, AnamneseUpdateDTO dto) {
         Anamnese anamnese = encontrar(id);
+
+        validarCampoObrigatorio("queixaPrincipal", dto.queixaPrincipal());
+        validarCampoObrigatorio("objetivos", dto.objetivos());
 
         if (dto.queixaPrincipal() != null) anamnese.setQueixaPrincipal(dto.queixaPrincipal());
         if (dto.historicoDoencas() != null) anamnese.setHistoricoDoencas(dto.historicoDoencas());
@@ -86,7 +94,13 @@ public class AnamneseService {
     }
 
     private Anamnese encontrar(Long id) {
-        return anamneseRepository.findById(id)
+        return anamneseRepository.findByIdAndPacienteAtivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Anamnese não encontrada: " + id));
+    }
+
+    private void validarCampoObrigatorio(String campo, String valor) {
+        if (valor != null && valor.isBlank()) {
+            throw new IllegalArgumentException(campo + " não pode ser vazio");
+        }
     }
 }

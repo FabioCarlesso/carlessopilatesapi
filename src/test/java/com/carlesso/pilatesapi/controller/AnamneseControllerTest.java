@@ -220,4 +220,24 @@ class AnamneseControllerTest {
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void atualizar_comQueixaPrincipalEmBranco_deveRetornar400() throws Exception {
+        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null);
+
+        mvc.perform(put("/anamneses/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void atualizar_comObjetivosEmBranco_deveRetornar400() throws Exception {
+        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null);
+
+        mvc.perform(put("/anamneses/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
 }

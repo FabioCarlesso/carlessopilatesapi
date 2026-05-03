@@ -244,9 +244,7 @@ Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma a
 | `idx_pagamentos_status` | `pagamentos(status)` | Scheduler diário e relatório NFSE filtram por `PENDENTE`/`VENCIDO`/`PAGO` |
 | `idx_pagamentos_data_vencimento` | `pagamentos(data_vencimento)` | Scheduler das 06:00 faz range scan diário nessa coluna |
 | `idx_aulas_realizada` | `aulas(realizada)` | Relatório de pagamento de profissional filtra `realizada = true` |
-| `idx_anamneses_paciente_id` | `anamneses(paciente_id)` | FK com constraint UNIQUE; permite busca rápida por paciente |
-
-> **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)` e `aulas(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes (PK e UNIQUE criados em V3, V4 e V5), que o PostgreSQL pode usar para buscas na coluna isolada.
+> **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
 
@@ -366,10 +364,11 @@ CPF não pode ser alterado após o cadastro.
 
 ### Anamnese
 - Cada paciente possui no máximo uma anamnese principal (regra de unicidade por `paciente_id`)
-- Criar anamnese para paciente inexistente retorna `404`
+- Criar anamnese para paciente inexistente ou inativo retorna `404`
 - Tentar criar segunda anamnese para o mesmo paciente retorna `409`
 - Campos obrigatórios: `queixaPrincipal` e `objetivos`
-- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+- Consultas e atualizações de anamnese filtram `paciente.ativo = true`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `queixaPrincipal` e `objetivos` não aceitam strings em branco quando enviados
 - `dataAtualizacao` é registrada automaticamente em cada atualização
 
 ### Scheduler (processos automáticos)

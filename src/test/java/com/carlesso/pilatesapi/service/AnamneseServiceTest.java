@@ -11,6 +11,7 @@ import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -46,6 +47,12 @@ class AnamneseServiceTest {
         p.setEmail("maria@email.com");
         p.setCpf("12345678900");
         setId(p, 1L);
+        return p;
+    }
+
+    private Paciente pacienteInativo() {
+        Paciente p = paciente();
+        p.setAtivo(false);
         return p;
     }
 
@@ -110,9 +117,9 @@ class AnamneseServiceTest {
     @Test
     void criar_comPacienteValido_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
         when(anamneseRepository.existsByPacienteId(1L)).thenReturn(false);
-        when(anamneseRepository.save(any(Anamnese.class))).thenReturn(anamnese(p));
+        when(anamneseRepository.saveAndFlush(any(Anamnese.class))).thenReturn(anamnese(p));
 
         AnamneseResponseDTO response = service.criar(requestDTO());
 
@@ -121,12 +128,12 @@ class AnamneseServiceTest {
         assertThat(response.nomePaciente()).isEqualTo("Maria Souza");
         assertThat(response.queixaPrincipal()).isEqualTo("Dor lombar");
         assertThat(response.objetivos()).isEqualTo("Melhorar postura e reduzir dores");
-        verify(anamneseRepository).save(any(Anamnese.class));
+        verify(anamneseRepository).saveAndFlush(any(Anamnese.class));
     }
 
     @Test
     void criar_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
 
         var dto = new AnamneseRequestDTO(99L, "Dor", null, null, null, null, null, null, null, "Objetivo", null);
 
@@ -136,9 +143,30 @@ class AnamneseServiceTest {
     }
 
     @Test
+    void criar_comPacienteInativo_deveLancarResourceNotFoundException() {
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.criar(requestDTO()))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("1");
+    }
+
+    @Test
     void criar_quandoPacienteJaPossuiAnamnese_deveLancarConflictException() {
-        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
         when(anamneseRepository.existsByPacienteId(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.criar(requestDTO()))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("1");
+    }
+
+    @Test
+    void criar_quandoConstraintUnicaFalha_deveLancarConflictException() {
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+        when(anamneseRepository.existsByPacienteId(1L)).thenReturn(false);
+        when(anamneseRepository.saveAndFlush(any(Anamnese.class)))
+                .thenThrow(new DataIntegrityViolationException("violação unique"));
 
         assertThatThrownBy(() -> service.criar(requestDTO()))
                 .isInstanceOf(ConflictException.class)
@@ -152,7 +180,7 @@ class AnamneseServiceTest {
     @Test
     void buscarPorId_quandoExistente_deveRetornarResponseDTO() {
         Anamnese a = anamnese(paciente());
-        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
 
         AnamneseResponseDTO response = service.buscarPorId(1L);
 
@@ -162,11 +190,22 @@ class AnamneseServiceTest {
 
     @Test
     void buscarPorId_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(anamneseRepository.findById(99L)).thenReturn(Optional.empty());
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    @Test
+    void buscarPorId_quandoPacienteInativo_deveLancarResourceNotFoundException() {
+        Anamnese a = anamnese(pacienteInativo());
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThat(a.getPaciente().isAtivo()).isFalse();
+        assertThatThrownBy(() -> service.buscarPorId(1L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("1");
     }
 
     // -------------------------------------------------------------------------
@@ -176,8 +215,8 @@ class AnamneseServiceTest {
     @Test
     void buscarPorPaciente_quandoExistente_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.existsById(1L)).thenReturn(true);
-        when(anamneseRepository.findByPacienteId(1L)).thenReturn(Optional.of(anamnese(p)));
+        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(anamneseRepository.findByPacienteIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(anamnese(p)));
 
         AnamneseResponseDTO response = service.buscarPorPaciente(1L);
 
@@ -187,7 +226,7 @@ class AnamneseServiceTest {
 
     @Test
     void buscarPorPaciente_quandoPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsById(99L)).thenReturn(false);
+        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.buscarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -195,9 +234,18 @@ class AnamneseServiceTest {
     }
 
     @Test
+    void buscarPorPaciente_quandoPacienteInativo_deveLancarResourceNotFoundException() {
+        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.buscarPorPaciente(1L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("1");
+    }
+
+    @Test
     void buscarPorPaciente_quandoAnamneseNaoEncontrada_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsById(1L)).thenReturn(true);
-        when(anamneseRepository.findByPacienteId(1L)).thenReturn(Optional.empty());
+        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(anamneseRepository.findByPacienteIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorPaciente(1L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -211,7 +259,7 @@ class AnamneseServiceTest {
     @Test
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         Anamnese a = anamnese(paciente());
-        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
 
         var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null);
         AnamneseResponseDTO response = service.atualizar(1L, dto);
@@ -224,7 +272,7 @@ class AnamneseServiceTest {
 
     @Test
     void atualizar_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(anamneseRepository.findById(99L)).thenReturn(Optional.empty());
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
 
         var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null);
 
@@ -234,9 +282,31 @@ class AnamneseServiceTest {
     }
 
     @Test
+    void atualizar_comQueixaPrincipalEmBranco_deveLancarIllegalArgumentException() {
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(anamnese(paciente())));
+
+        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.atualizar(1L, dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("queixaPrincipal");
+    }
+
+    @Test
+    void atualizar_comObjetivosEmBranco_deveLancarIllegalArgumentException() {
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(anamnese(paciente())));
+
+        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null);
+
+        assertThatThrownBy(() -> service.atualizar(1L, dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("objetivos");
+    }
+
+    @Test
     void atualizar_comTodosOsCampos_deveAtualizarTudo() {
         Anamnese a = anamnese(paciente());
-        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
 
         var dto = new AnamneseUpdateDTO(
                 "Dor cervical", "Diabetes", "Apendicectomia",

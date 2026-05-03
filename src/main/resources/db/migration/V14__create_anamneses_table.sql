@@ -14,5 +14,3 @@ CREATE TABLE anamneses (
     data_criacao          TIMESTAMP       NOT NULL,
     data_atualizacao      TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_anamneses_paciente_id ON anamneses(paciente_id);

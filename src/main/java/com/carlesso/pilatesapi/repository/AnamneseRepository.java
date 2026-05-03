@@ -7,7 +7,9 @@ import java.util.Optional;
 
 public interface AnamneseRepository extends JpaRepository<Anamnese, Long> {
 
-    Optional<Anamnese> findByPacienteId(Long pacienteId);
+    Optional<Anamnese> findByIdAndPacienteAtivoTrue(Long id);
+
+    Optional<Anamnese> findByPacienteIdAndPacienteAtivoTrue(Long pacienteId);
 
     boolean existsByPacienteId(Long pacienteId);
 }
