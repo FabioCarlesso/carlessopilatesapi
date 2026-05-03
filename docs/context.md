@@ -50,6 +50,7 @@ com.carlesso.pilatesapi
 │   ├── PagamentoController.java      — endpoints REST de pagamentos
 │   ├── AulaController.java           — endpoints REST de aulas
 │   ├── AnamneseController.java       — endpoints REST de anamneses
+│   ├── AvaliacaoFisioterapeuticaController.java — endpoints REST de avaliações fisioterapêuticas
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
@@ -59,6 +60,7 @@ com.carlesso.pilatesapi
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
 │   ├── AnamneseService.java                    — lógica de negócio de anamneses
+│   ├── AvaliacaoFisioterapeuticaService.java   — lógica de negócio de avaliações fisioterapêuticas
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
@@ -78,6 +80,7 @@ com.carlesso.pilatesapi
 │   ├── PagamentoRepository.java
 │   ├── AulaRepository.java
 │   ├── AnamneseRepository.java
+│   ├── AvaliacaoFisioterapeuticaRepository.java
 │   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
@@ -87,6 +90,7 @@ com.carlesso.pilatesapi
 │   ├── Pagamento.java                — entidade JPA, tabela `pagamentos`
 │   ├── Aula.java                     — entidade JPA, tabela `aulas`
 │   ├── Anamnese.java                 — entidade JPA, tabela `anamneses`
+│   ├── AvaliacaoFisioterapeutica.java — entidade JPA, tabela `avaliacoes_fisioterapeuticas`
 │   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
@@ -121,6 +125,9 @@ com.carlesso.pilatesapi
 │   ├── AnamneseRequestDTO.java       — payload de criação de anamnese (record)
 │   ├── AnamneseUpdateDTO.java        — payload de atualização de anamnese (record)
 │   ├── AnamneseResponseDTO.java      — resposta da API de anamnese (record com factory method `from`)
+│   ├── AvaliacaoFisioterapeuticaRequestDTO.java — payload de criação de avaliação fisioterapêutica
+│   ├── AvaliacaoFisioterapeuticaUpdateDTO.java  — payload de atualização de avaliação fisioterapêutica
+│   ├── AvaliacaoFisioterapeuticaResponseDTO.java — resposta da API de avaliação fisioterapêutica
 │   ├── AuthRegisterRequestDTO.java
 │   ├── AuthLoginRequestDTO.java
 │   ├── AuthResponseDTO.java
@@ -233,6 +240,30 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma anamnese principal (constraint `UNIQUE paciente_id`).
 
+### Tabela `avaliacoes_fisioterapeuticas`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → pacientes |
+| `data_avaliacao` | DATE | NOT NULL |
+| `queixa_funcional` | TEXT | NOT NULL |
+| `avaliacao_postural` | TEXT | — |
+| `mobilidade_articular` | TEXT | — |
+| `forca_muscular` | TEXT | — |
+| `flexibilidade` | TEXT | — |
+| `equilibrio` | TEXT | — |
+| `coordenacao_motora` | TEXT | — |
+| `padrao_respiratorio` | TEXT | — |
+| `escala_dor` | INTEGER | NOT NULL, CHECK 0..10 |
+| `testes_funcionais_realizados` | TEXT | — |
+| `diagnostico_fisioterapeutico` | TEXT | NOT NULL |
+| `observacoes_gerais` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplas avaliações para manter histórico clínico.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -244,6 +275,7 @@ Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma a
 | `idx_pagamentos_status` | `pagamentos(status)` | Scheduler diário e relatório NFSE filtram por `PENDENTE`/`VENCIDO`/`PAGO` |
 | `idx_pagamentos_data_vencimento` | `pagamentos(data_vencimento)` | Scheduler das 06:00 faz range scan diário nessa coluna |
 | `idx_aulas_realizada` | `aulas(realizada)` | Relatório de pagamento de profissional filtra `realizada = true` |
+| `idx_avaliacoes_fisioterapeuticas_paciente_id` | `avaliacoes_fisioterapeuticas(paciente_id)` | Listagem de avaliações por paciente |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
@@ -294,6 +326,10 @@ Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma a
 | GET | `/anamneses/{id}` | Buscar anamnese por ID | 200 / 404 |
 | GET | `/anamneses/paciente/{pacienteId}` | Buscar anamnese por paciente | 200 / 404 |
 | PUT | `/anamneses/{id}` | Atualizar anamnese (atualização parcial) | 200 / 400 / 404 |
+| POST | `/avaliacoes-fisioterapeuticas` | Criar avaliação fisioterapêutica para um paciente | 201 / 400 / 404 |
+| GET | `/avaliacoes-fisioterapeuticas/{id}` | Buscar avaliação fisioterapêutica por ID | 200 / 404 |
+| GET | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente | 200 / 404 |
+| PUT | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar avaliação fisioterapêutica (atualização parcial) | 200 / 400 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
@@ -370,6 +406,15 @@ CPF não pode ser alterado após o cadastro.
 - Consultas e atualizações de anamnese filtram `paciente.ativo = true`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `queixaPrincipal` e `objetivos` não aceitam strings em branco quando enviados
 - `dataAtualizacao` é registrada automaticamente em cada atualização
+
+### Avaliação Fisioterapêutica
+- Um paciente pode possuir múltiplas avaliações fisioterapêuticas para manter histórico clínico
+- Criar avaliação para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`
+- `escalaDor` aceita apenas valores inteiros de 0 a 10
+- Consultas por ID e por paciente filtram `paciente.ativo = true`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; campos textuais obrigatórios não aceitam strings em branco quando enviados
+- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
 | Cron (default) | Ação | Propriedade |
@@ -486,7 +531,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `RelatorioNfseServiceTest` | Unitário (Mockito, sem Spring) | 5 |
 | `RelatorioNfseExporterServiceTest` | Unitário | 3 |
 | `PlanoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
-| `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 9 |
+| `PagamentoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
@@ -499,8 +544,10 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `RelatorioNfseControllerTest` | `@WebMvcTest` + MockMvc | 6 |
-| `AnamneseServiceTest` | Unitário (Mockito, sem Spring) | 9 |
-| `AnamneseControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `AnamneseServiceTest` | Unitário (Mockito, sem Spring) | 17 |
+| `AnamneseControllerTest` | `@WebMvcTest` + MockMvc | 14 |
+| `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `AvaliacaoFisioterapeuticaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |

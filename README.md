@@ -47,6 +47,8 @@ src/
 │   │   │   ├── PlanoController.java         # /planos
 │   │   │   ├── PagamentoController.java     # /pagamentos
 │   │   │   ├── AulaController.java          # /aulas
+│   │   │   ├── AnamneseController.java      # /anamneses
+│   │   │   ├── AvaliacaoFisioterapeuticaController.java # /avaliacoes-fisioterapeuticas
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
 │   │   │   ├── AdminController.java         # /admin/health
@@ -58,6 +60,8 @@ src/
 │   │   │   ├── PlanoService.java                       # Regras de plano e frequência
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
+│   │   │   ├── AnamneseService.java                    # Anamnese clínica do paciente
+│   │   │   ├── AvaliacaoFisioterapeuticaService.java   # Avaliação fisioterapêutica do paciente
 │   │   │   ├── DashboardService.java                   # Contadores e totais para o painel inicial
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
@@ -73,6 +77,8 @@ src/
 │   │   │   ├── PlanoRepository.java
 │   │   │   ├── PagamentoRepository.java
 │   │   │   ├── AulaRepository.java
+│   │   │   ├── AnamneseRepository.java
+│   │   │   ├── AvaliacaoFisioterapeuticaRepository.java
 │   │   │   └── UserRepository.java
 │   │   ├── entity/
 │   │   │   ├── Paciente.java                # Entidade JPA
@@ -81,6 +87,8 @@ src/
 │   │   │   ├── Plano.java                   # Plano de pagamento do paciente
 │   │   │   ├── Pagamento.java               # Cobrança por período
 │   │   │   ├── Aula.java                    # Aula agendada (com presença)
+│   │   │   ├── Anamnese.java                # Anamnese clínica do paciente
+│   │   │   ├── AvaliacaoFisioterapeutica.java # Avaliação técnica do paciente
 │   │   │   └── User.java                    # Usuário autenticável da API
 │   │   ├── security/
 │   │   │   └── JwtAuthenticationFilter.java # Validação do Bearer token por requisição
@@ -111,6 +119,12 @@ src/
 │   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
 │   │   │   ├── AulaResponseDTO.java
+│   │   │   ├── AnamneseRequestDTO.java
+│   │   │   ├── AnamneseUpdateDTO.java
+│   │   │   ├── AnamneseResponseDTO.java
+│   │   │   ├── AvaliacaoFisioterapeuticaRequestDTO.java
+│   │   │   ├── AvaliacaoFisioterapeuticaUpdateDTO.java
+│   │   │   ├── AvaliacaoFisioterapeuticaResponseDTO.java
 │   │   │   ├── AuthRegisterRequestDTO.java
 │   │   │   ├── AuthLoginRequestDTO.java
 │   │   │   ├── AuthResponseDTO.java
@@ -133,7 +147,10 @@ src/
 │           ├── V9__alter_profissionais_percentual_precision.sql
 │           ├── V10__add_profissional_to_aulas.sql
 │           ├── V11__create_users_table.sql
-│           └── V12__insert_users_perfis_acesso.sql
+│           ├── V12__insert_users_perfis_acesso.sql
+│           ├── V13__add_indexes_on_foreign_keys.sql
+│           ├── V14__create_anamneses_table.sql
+│           └── V15__create_avaliacoes_fisioterapeuticas_table.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -146,6 +163,7 @@ src/
     ├── security/
     │   └── SecurityIntegrationTest.java
     ├── service/
+    │   ├── AvaliacaoFisioterapeuticaServiceTest.java
     │   ├── PacienteServiceTest.java
     │   ├── PacienteServiceIntegrationTest.java
     │   ├── ProfissionalServiceIntegrationTest.java
@@ -160,6 +178,7 @@ src/
     │   ├── AulaRepositoryTest.java
     │   └── PagamentoRepositoryTest.java
     └── controller/
+        ├── AvaliacaoFisioterapeuticaControllerTest.java
         ├── PacienteControllerTest.java
         ├── ProfissionalControllerTest.java
         ├── PlanoControllerTest.java
@@ -242,6 +261,15 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` |
+
+### Avaliações Fisioterapêuticas
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/avaliacoes-fisioterapeuticas` | Criar avaliação fisioterapêutica para um paciente |
+| `GET` | `/avaliacoes-fisioterapeuticas/{id}` | Buscar avaliação fisioterapêutica por ID |
+| `GET` | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente |
+| `PUT` | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar dados da avaliação fisioterapêutica |
 
 ### Relatórios
 
@@ -483,6 +511,29 @@ Todos os campos são opcionais. Apenas os campos enviados serão atualizados.
 }
 ```
 
+### POST /avaliacoes-fisioterapeuticas — corpo da requisição
+
+```json
+{
+  "pacienteId": 1,
+  "dataAvaliacao": "2026-04-20",
+  "queixaFuncional": "Dor ao agachar",
+  "avaliacaoPostural": "Anteriorização de cabeça",
+  "mobilidadeArticular": "Restrição em quadril direito",
+  "forcaMuscular": "Glúteo médio grau 4",
+  "flexibilidade": "Encurtamento de cadeia posterior",
+  "equilibrio": "Instável em apoio unipodal",
+  "coordenacaoMotora": "Boa coordenação",
+  "padraoRespiratorio": "Respiração apical",
+  "escalaDor": 6,
+  "testesFuncionaisRealizados": "Agachamento, ponte, apoio unipodal",
+  "diagnosticoFisioterapeutico": "Disfunção lombopélvica",
+  "observacoesGerais": "Reavaliar em 30 dias"
+}
+```
+
+> Campos obrigatórios: `pacienteId`, `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`. `escalaDor` deve estar entre 0 e 10.
+
 ---
 
 ## Como rodar
@@ -591,6 +642,9 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
 | `V11__create_users_table.sql` | Cria tabela `users` para autenticação e autorização |
 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
+| `V13__add_indexes_on_foreign_keys.sql` | Adiciona índices para FKs e filtros recorrentes |
+| `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
+| `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria histórico de avaliações fisioterapêuticas do paciente |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
@@ -718,6 +772,24 @@ curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
   -d '{"dataPagamento": "2025-02-10"}' | jq
 ```
 
+### Criar avaliação fisioterapêutica
+```bash
+curl -s -X POST http://localhost:8080/avaliacoes-fisioterapeuticas \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "pacienteId": 1,
+    "dataAvaliacao": "2026-04-20",
+    "queixaFuncional": "Dor ao agachar",
+    "escalaDor": 6,
+    "diagnosticoFisioterapeutico": "Disfunção lombopélvica",
+    "observacoesGerais": "Reavaliar em 30 dias"
+  }' | jq
+
+curl -s http://localhost:8080/avaliacoes-fisioterapeuticas/paciente/1 \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
 ### Gerar relatório de pagamento (JSON)
 ```bash
 curl -s "http://localhost:8080/profissionais/1/relatorio-pagamento?inicio=2025-02-01&fim=2025-02-28" \
@@ -796,6 +868,14 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Consultas de aulas por ID, paciente, pagamento e relatório retornam apenas aulas associadas a pacientes ativos
 - Ao marcar uma aula como realizada, `profissionalId` pode ser informado para alimentar o relatório de pagamento do profissional
 
+### Avaliações Fisioterapêuticas
+- Um paciente pode ter múltiplas avaliações fisioterapêuticas para manter histórico clínico
+- Criar avaliação para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`
+- `escalaDor` aceita valores inteiros de 0 a 10
+- Consultas e atualizações filtram avaliações vinculadas a pacientes ativos
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+
 ### Scheduler (processos automáticos)
 | Horário | Ação | Configuração |
 |---|---|---|
@@ -829,14 +909,16 @@ Formato da resposta de erro:
 
 ## Testes
 
-O projeto possui **210 testes** organizados em vinte e seis suítes:
+O projeto possui testes unitários, de controller e de integração organizados por camada:
 
 | Suíte | Tipo | Testes |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
-| `PagamentoServiceTest` | Unitário (Mockito) | 9 |
+| `PagamentoServiceTest` | Unitário (Mockito) | 10 |
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
+| `AnamneseServiceTest` | Unitário (Mockito) | 17 |
+| `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito) | 8 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
@@ -845,6 +927,7 @@ O projeto possui **210 testes** organizados em vinte e seis suítes:
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
+| `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
 | `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
@@ -852,6 +935,8 @@ O projeto possui **210 testes** organizados em vinte e seis suítes:
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `AnamneseControllerTest` | Controller (`@WebMvcTest`) | 14 |
+| `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
