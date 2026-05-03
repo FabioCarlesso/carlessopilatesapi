@@ -210,4 +210,32 @@ class AvaliacaoFisioterapeuticaControllerTest {
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void atualizar_comQueixaFuncionalEmBranco_deveRetornar400() throws Exception {
+        var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
+                null, "   ", null, null, null, null, null, null, null, null, null, null, null
+        );
+
+        mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void atualizar_comAvaliacaoInexistente_deveRetornar404() throws Exception {
+        when(service.atualizar(eq(99L), any()))
+                .thenThrow(new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: 99"));
+
+        var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
+                LocalDate.of(2026, 5, 5), null, null, null, null, null, null, null, null, null, null, null, null
+        );
+
+        mvc.perform(put("/avaliacoes-fisioterapeuticas/99")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Avaliação fisioterapêutica não encontrada: 99"));
+    }
 }

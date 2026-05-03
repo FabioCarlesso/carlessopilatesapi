@@ -46,7 +46,7 @@ public class AvaliacaoFisioterapeuticaService {
         avaliacao.setTestesFuncionaisRealizados(dto.testesFuncionaisRealizados());
         avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         avaliacao.setObservacoesGerais(dto.observacoesGerais());
-        avaliacao.setDataCriacao(LocalDateTime.now());
+        // dataCriacao definida por @PrePersist na entidade
 
         return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.save(avaliacao));
     }
@@ -61,7 +61,7 @@ public class AvaliacaoFisioterapeuticaService {
         if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return avaliacaoRepository.findByPacienteIdAndPacienteAtivoTrueOrderByDataAvaliacaoDescIdDesc(pacienteId)
+        return avaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId)
                 .stream()
                 .map(AvaliacaoFisioterapeuticaResponseDTO::from)
                 .toList();
@@ -70,9 +70,6 @@ public class AvaliacaoFisioterapeuticaService {
     @Transactional
     public AvaliacaoFisioterapeuticaResponseDTO atualizar(Long id, AvaliacaoFisioterapeuticaUpdateDTO dto) {
         AvaliacaoFisioterapeutica avaliacao = encontrar(id);
-
-        validarCampoObrigatorio("queixaFuncional", dto.queixaFuncional());
-        validarCampoObrigatorio("diagnosticoFisioterapeutico", dto.diagnosticoFisioterapeutico());
 
         if (dto.dataAvaliacao() != null) avaliacao.setDataAvaliacao(dto.dataAvaliacao());
         if (dto.queixaFuncional() != null) avaliacao.setQueixaFuncional(dto.queixaFuncional());
@@ -89,17 +86,11 @@ public class AvaliacaoFisioterapeuticaService {
         if (dto.observacoesGerais() != null) avaliacao.setObservacoesGerais(dto.observacoesGerais());
         avaliacao.setDataAtualizacao(LocalDateTime.now());
 
-        return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacao);
+        return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.save(avaliacao));
     }
 
     private AvaliacaoFisioterapeutica encontrar(Long id) {
-        return avaliacaoRepository.findByIdAndPacienteAtivoTrue(id)
+        return avaliacaoRepository.findAtivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: " + id));
-    }
-
-    private void validarCampoObrigatorio(String campo, String valor) {
-        if (valor != null && valor.isBlank()) {
-            throw new IllegalArgumentException(campo + " não pode ser vazio");
-        }
     }
 }

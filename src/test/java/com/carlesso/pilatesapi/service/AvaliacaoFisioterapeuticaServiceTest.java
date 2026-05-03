@@ -138,7 +138,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void buscarPorId_quandoExistente_deveRetornarResponseDTO() {
-        when(avaliacaoRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(avaliacao(paciente())));
+        when(avaliacaoRepository.findAtivaById(1L)).thenReturn(Optional.of(avaliacao(paciente())));
 
         AvaliacaoFisioterapeuticaResponseDTO response = service.buscarPorId(1L);
 
@@ -148,7 +148,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void buscarPorId_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(avaliacaoRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -159,14 +159,23 @@ class AvaliacaoFisioterapeuticaServiceTest {
     void listarPorPaciente_deveRetornarAvaliacoesDoPaciente() {
         Paciente p = paciente();
         when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(avaliacaoRepository.findByPacienteIdAndPacienteAtivoTrueOrderByDataAvaliacaoDescIdDesc(1L))
-                .thenReturn(List.of(avaliacao(p)));
+        when(avaliacaoRepository.findAtivasByPacienteOrdenadas(1L)).thenReturn(List.of(avaliacao(p)));
 
         List<AvaliacaoFisioterapeuticaResponseDTO> response = service.listarPorPaciente(1L);
 
         assertThat(response).hasSize(1);
         assertThat(response.getFirst().pacienteId()).isEqualTo(1L);
         assertThat(response.getFirst().dataAvaliacao()).isEqualTo(LocalDate.of(2026, 4, 20));
+    }
+
+    @Test
+    void listarPorPaciente_comPacienteAtivoSemAvaliacoes_deveRetornarListaVazia() {
+        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(avaliacaoRepository.findAtivasByPacienteOrdenadas(1L)).thenReturn(List.of());
+
+        List<AvaliacaoFisioterapeuticaResponseDTO> response = service.listarPorPaciente(1L);
+
+        assertThat(response).isEmpty();
     }
 
     @Test
@@ -181,7 +190,8 @@ class AvaliacaoFisioterapeuticaServiceTest {
     @Test
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         AvaliacaoFisioterapeutica a = avaliacao(paciente());
-        when(avaliacaoRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
+        when(avaliacaoRepository.findAtivaById(1L)).thenReturn(Optional.of(a));
+        when(avaliacaoRepository.save(a)).thenReturn(a);
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
                 LocalDate.of(2026, 5, 5),
@@ -203,15 +213,15 @@ class AvaliacaoFisioterapeuticaServiceTest {
     }
 
     @Test
-    void atualizar_comQueixaFuncionalEmBranco_deveLancarIllegalArgumentException() {
-        when(avaliacaoRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(avaliacao(paciente())));
+    void atualizar_comAvaliacaoInexistente_deveLancarResourceNotFoundException() {
+        when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, " ", null, null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, null, null, null
         );
 
-        assertThatThrownBy(() -> service.atualizar(1L, dto))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("queixaFuncional");
+        assertThatThrownBy(() -> service.atualizar(99L, dto))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
     }
 }

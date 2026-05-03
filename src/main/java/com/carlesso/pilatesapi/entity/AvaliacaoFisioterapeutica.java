@@ -62,6 +62,11 @@ public class AvaliacaoFisioterapeutica {
 
     public AvaliacaoFisioterapeutica() {}
 
+    @PrePersist
+    void prePersist() {
+        this.dataCriacao = LocalDateTime.now();
+    }
+
     public Long getId() { return id; }
 
     public Paciente getPaciente() { return paciente; }
