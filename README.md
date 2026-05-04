@@ -980,3 +980,9 @@ JAVA_HOME=/caminho/para/jdk21 mvn test
 ```
 
 Os testes de serviço e controller não necessitam de banco de dados. O `@SpringBootTest` usa H2 em memória automaticamente via `src/test/resources/application.properties`.
+
+---
+
+## Licença
+
+Este projeto está licenciado sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
