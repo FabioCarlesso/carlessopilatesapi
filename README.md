@@ -49,6 +49,7 @@ src/
 │   │   │   ├── AulaController.java          # /aulas
 │   │   │   ├── AnamneseController.java      # /anamneses
 │   │   │   ├── AvaliacaoFisioterapeuticaController.java # /avaliacoes-fisioterapeuticas
+│   │   │   ├── PlanoTratamentoController.java          # /planos-tratamento
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
 │   │   │   ├── AdminController.java         # /admin/health
@@ -62,6 +63,7 @@ src/
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
 │   │   │   ├── AnamneseService.java                    # Anamnese clínica do paciente
 │   │   │   ├── AvaliacaoFisioterapeuticaService.java   # Avaliação fisioterapêutica do paciente
+│   │   │   ├── PlanoTratamentoService.java             # Plano de tratamento do paciente
 │   │   │   ├── DashboardService.java                   # Contadores e totais para o painel inicial
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
@@ -79,6 +81,7 @@ src/
 │   │   │   ├── AulaRepository.java
 │   │   │   ├── AnamneseRepository.java
 │   │   │   ├── AvaliacaoFisioterapeuticaRepository.java
+│   │   │   ├── PlanoTratamentoRepository.java
 │   │   │   └── UserRepository.java
 │   │   ├── entity/
 │   │   │   ├── Paciente.java                # Entidade JPA
@@ -89,6 +92,7 @@ src/
 │   │   │   ├── Aula.java                    # Aula agendada (com presença)
 │   │   │   ├── Anamnese.java                # Anamnese clínica do paciente
 │   │   │   ├── AvaliacaoFisioterapeutica.java # Avaliação técnica do paciente
+│   │   │   ├── PlanoTratamento.java           # Plano de tratamento clínico do paciente
 │   │   │   └── User.java                    # Usuário autenticável da API
 │   │   ├── security/
 │   │   │   └── JwtAuthenticationFilter.java # Validação do Bearer token por requisição
@@ -150,7 +154,8 @@ src/
 │           ├── V12__insert_users_perfis_acesso.sql
 │           ├── V13__add_indexes_on_foreign_keys.sql
 │           ├── V14__create_anamneses_table.sql
-│           └── V15__create_avaliacoes_fisioterapeuticas_table.sql
+│           ├── V15__create_avaliacoes_fisioterapeuticas_table.sql
+│           └── V16__create_planos_tratamento_table.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -270,6 +275,15 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/avaliacoes-fisioterapeuticas/{id}` | Buscar avaliação fisioterapêutica por ID |
 | `GET` | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente |
 | `PUT` | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar dados da avaliação fisioterapêutica |
+
+### Planos de Tratamento
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/planos-tratamento` | Criar plano de tratamento para um paciente |
+| `GET` | `/planos-tratamento/{id}` | Buscar plano de tratamento por ID |
+| `GET` | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente |
+| `PUT` | `/planos-tratamento/{id}` | Atualizar dados do plano de tratamento |
 
 ### Relatórios
 
@@ -645,6 +659,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V13__add_indexes_on_foreign_keys.sql` | Adiciona índices para FKs e filtros recorrentes |
 | `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
 | `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria histórico de avaliações fisioterapêuticas do paciente |
+| `V16__create_planos_tratamento_table.sql` | Cria tabela de planos de tratamento do paciente |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
@@ -876,6 +891,14 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Consultas e atualizações filtram avaliações vinculadas a pacientes ativos
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 
+### Planos de Tratamento
+- Um paciente pode ter múltiplos planos de tratamento para manter histórico clínico
+- Criar plano para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
+- `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
+- Consultas e atualizações filtram planos vinculados a pacientes ativos
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
+
 ### Scheduler (processos automáticos)
 | Horário | Ação | Configuração |
 |---|---|---|
@@ -919,6 +942,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
 | `AnamneseServiceTest` | Unitário (Mockito) | 17 |
 | `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito) | 8 |
+| `PlanoTratamentoServiceTest` | Unitário (Mockito) | 8 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
@@ -937,6 +961,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `AnamneseControllerTest` | Controller (`@WebMvcTest`) | 14 |
 | `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `PlanoTratamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |

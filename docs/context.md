@@ -51,6 +51,7 @@ com.carlesso.pilatesapi
 │   ├── AulaController.java           — endpoints REST de aulas
 │   ├── AnamneseController.java       — endpoints REST de anamneses
 │   ├── AvaliacaoFisioterapeuticaController.java — endpoints REST de avaliações fisioterapêuticas
+│   ├── PlanoTratamentoController.java — endpoints REST de planos de tratamento
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
@@ -61,6 +62,7 @@ com.carlesso.pilatesapi
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
 │   ├── AnamneseService.java                    — lógica de negócio de anamneses
 │   ├── AvaliacaoFisioterapeuticaService.java   — lógica de negócio de avaliações fisioterapêuticas
+│   ├── PlanoTratamentoService.java             — lógica de negócio de planos de tratamento
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
@@ -81,6 +83,7 @@ com.carlesso.pilatesapi
 │   ├── AulaRepository.java
 │   ├── AnamneseRepository.java
 │   ├── AvaliacaoFisioterapeuticaRepository.java
+│   ├── PlanoTratamentoRepository.java
 │   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
@@ -91,6 +94,7 @@ com.carlesso.pilatesapi
 │   ├── Aula.java                     — entidade JPA, tabela `aulas`
 │   ├── Anamnese.java                 — entidade JPA, tabela `anamneses`
 │   ├── AvaliacaoFisioterapeutica.java — entidade JPA, tabela `avaliacoes_fisioterapeuticas`
+│   ├── PlanoTratamento.java          — entidade JPA, tabela `planos_tratamento`
 │   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
@@ -128,6 +132,9 @@ com.carlesso.pilatesapi
 │   ├── AvaliacaoFisioterapeuticaRequestDTO.java — payload de criação de avaliação fisioterapêutica
 │   ├── AvaliacaoFisioterapeuticaUpdateDTO.java  — payload de atualização de avaliação fisioterapêutica
 │   ├── AvaliacaoFisioterapeuticaResponseDTO.java — resposta da API de avaliação fisioterapêutica
+│   ├── PlanoTratamentoRequestDTO.java — payload de criação de plano de tratamento (record)
+│   ├── PlanoTratamentoUpdateDTO.java  — payload de atualização de plano de tratamento (record)
+│   ├── PlanoTratamentoResponseDTO.java — resposta da API de plano de tratamento (record com factory method `from`)
 │   ├── AuthRegisterRequestDTO.java
 │   ├── AuthLoginRequestDTO.java
 │   ├── AuthResponseDTO.java
@@ -264,6 +271,25 @@ Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma a
 
 Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplas avaliações para manter histórico clínico.
 
+### Tabela `planos_tratamento`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → pacientes |
+| `data_inicio` | DATE | NOT NULL |
+| `data_fim_prevista` | DATE | — |
+| `objetivos_tratamento` | TEXT | NOT NULL |
+| `intervencoes_planejadas` | TEXT | — |
+| `numero_sessoes_previstas` | INTEGER | — |
+| `frequencia_sessoes` | VARCHAR(100) | — |
+| `responsavel_tratamento` | VARCHAR(255) | — |
+| `observacoes` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos planos de tratamento para manter histórico clínico.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -276,6 +302,7 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplas 
 | `idx_pagamentos_data_vencimento` | `pagamentos(data_vencimento)` | Scheduler das 06:00 faz range scan diário nessa coluna |
 | `idx_aulas_realizada` | `aulas(realizada)` | Relatório de pagamento de profissional filtra `realizada = true` |
 | `idx_avaliacoes_fisioterapeuticas_paciente_id` | `avaliacoes_fisioterapeuticas(paciente_id)` | Listagem de avaliações por paciente |
+| `idx_planos_tratamento_paciente_id` | `planos_tratamento(paciente_id)` | Listagem de planos de tratamento por paciente |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
@@ -330,6 +357,10 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplas 
 | GET | `/avaliacoes-fisioterapeuticas/{id}` | Buscar avaliação fisioterapêutica por ID | 200 / 404 |
 | GET | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente | 200 / 404 |
 | PUT | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar avaliação fisioterapêutica (atualização parcial) | 200 / 400 / 404 |
+| POST | `/planos-tratamento` | Criar plano de tratamento para um paciente | 201 / 400 / 404 |
+| GET | `/planos-tratamento/{id}` | Buscar plano de tratamento por ID | 200 / 404 |
+| GET | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente | 200 / 404 |
+| PUT | `/planos-tratamento/{id}` | Atualizar plano de tratamento (atualização parcial) | 200 / 400 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
@@ -414,6 +445,15 @@ CPF não pode ser alterado após o cadastro.
 - `escalaDor` aceita apenas valores inteiros de 0 a 10
 - Consultas por ID e por paciente filtram `paciente.ativo = true`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; campos textuais obrigatórios não aceitam strings em branco quando enviados
+- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+
+### Plano de Tratamento
+- Um paciente pode possuir múltiplos planos de tratamento para manter histórico clínico
+- Criar plano de tratamento para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
+- `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
+- Consultas por ID e por paciente filtram `paciente.ativo = true`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
