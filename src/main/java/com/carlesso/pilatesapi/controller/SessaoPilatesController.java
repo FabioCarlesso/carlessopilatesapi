@@ -34,7 +34,8 @@ public class SessaoPilatesController {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Sessão registrada com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-            @ApiResponse(responseCode = "404", description = "Paciente, profissional ou plano de tratamento não encontrado")
+            @ApiResponse(responseCode = "404", description = "Paciente, profissional ou plano de tratamento não encontrado"),
+            @ApiResponse(responseCode = "422", description = "Profissional inativo ou plano de tratamento incompatível com o paciente")
     })
     @PostMapping
     public ResponseEntity<SessaoPilatesResponseDTO> criar(

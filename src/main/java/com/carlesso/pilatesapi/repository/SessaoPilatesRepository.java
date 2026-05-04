@@ -13,6 +13,13 @@ public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Lo
     @Query("SELECT s FROM SessaoPilates s JOIN FETCH s.paciente pac WHERE s.id = :id AND pac.ativo = true")
     Optional<SessaoPilates> findByIdComPaciente(@Param("id") Long id);
 
-    @Query("SELECT s FROM SessaoPilates s JOIN FETCH s.paciente pac WHERE pac.id = :pacienteId AND pac.ativo = true ORDER BY s.data DESC, s.id DESC")
+    @Query("""
+            SELECT s FROM SessaoPilates s
+            JOIN FETCH s.paciente pac
+            LEFT JOIN FETCH s.profissional
+            LEFT JOIN FETCH s.planoTratamento
+            WHERE pac.id = :pacienteId AND pac.ativo = true
+            ORDER BY s.data DESC, s.id DESC
+            """)
     List<SessaoPilates> findByPacienteOrdenadas(@Param("pacienteId") Long pacienteId);
 }

@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
@@ -53,12 +54,18 @@ public class SessaoPilatesService {
         if (dto.profissionalId() != null) {
             Profissional profissional = profissionalRepository.findById(dto.profissionalId())
                     .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + dto.profissionalId()));
+            if (!profissional.isAtivo()) {
+                throw new BusinessException("Profissional inativo não pode ser vinculado à sessão");
+            }
             sessao.setProfissional(profissional);
         }
 
         if (dto.planoTratamentoId() != null) {
             PlanoTratamento plano = planoTratamentoRepository.findAtivoById(dto.planoTratamentoId())
                     .orElseThrow(() -> new ResourceNotFoundException("Plano de tratamento não encontrado: " + dto.planoTratamentoId()));
+            if (!plano.getPaciente().getId().equals(paciente.getId())) {
+                throw new BusinessException("Plano de tratamento não pertence ao paciente informado");
+            }
             sessao.setPlanoTratamento(plano);
         }
 

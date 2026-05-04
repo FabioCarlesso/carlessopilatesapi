@@ -395,7 +395,7 @@ Relacionamento `@ManyToOne` com `Paciente`, `Profissional` (nullable) e `PlanoTr
 | GET | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente | 200 / 404 |
 | PUT | `/planos-tratamento/{id}` | Atualizar plano de tratamento (atualização parcial) | 200 / 400 / 404 |
 | DELETE | `/planos-tratamento/{id}` | Inativar plano de tratamento | 204 / 404 |
-| POST | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia | 201 / 400 / 404 |
+| POST | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia | 201 / 400 / 404 / 422 |
 | GET | `/sessoes/{id}` | Buscar sessão por ID | 200 / 404 |
 | GET | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente | 200 / 404 |
 | PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial) | 200 / 400 / 404 |
@@ -503,7 +503,7 @@ CPF não pode ser alterado após o cadastro.
 - Campos obrigatórios: `pacienteId`, `tipo` e `data`
 - `tipo` aceita `PILATES` ou `FISIOTERAPIA`
 - `status` padrão é `AGENDADA`; pode ser atualizado para `REALIZADA` ou `CANCELADA`
-- `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo
+- `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo, e o plano de tratamento deve pertencer ao mesmo `pacienteId` da sessão
 - `duracaoMinutos` aceita apenas valores positivos quando informado
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas)

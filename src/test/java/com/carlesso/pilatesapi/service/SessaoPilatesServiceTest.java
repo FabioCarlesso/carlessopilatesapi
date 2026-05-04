@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
@@ -72,6 +73,15 @@ class SessaoPilatesServiceTest {
         s.setDataCriacao(LocalDateTime.of(2026, 5, 4, 10, 0));
         setId(s, SessaoPilates.class, 1L);
         return s;
+    }
+
+    private PlanoTratamento planoTratamento(Paciente paciente) {
+        PlanoTratamento plano = new PlanoTratamento();
+        plano.setPaciente(paciente);
+        plano.setDataInicio(LocalDate.of(2026, 5, 1));
+        plano.setObjetivosTratamento("Fortalecimento");
+        setId(plano, PlanoTratamento.class, 10L);
+        return plano;
     }
 
     private SessaoPilatesRequestDTO requestDTO() {
@@ -144,6 +154,26 @@ class SessaoPilatesServiceTest {
     }
 
     @Test
+    void criar_comProfissionalInativo_deveLancarBusinessException() {
+        Paciente p = paciente();
+        Profissional prof = new Profissional();
+        prof.setAtivo(false);
+        setId(prof, Profissional.class, 2L);
+
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(profissionalRepository.findById(2L)).thenReturn(Optional.of(prof));
+
+        var dto = new SessaoPilatesRequestDTO(
+                1L, 2L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10),
+                null, null, null, null
+        );
+
+        assertThatThrownBy(() -> service.criar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Profissional inativo");
+    }
+
+    @Test
     void criar_comPlanoTratamentoInexistente_deveLancarResourceNotFoundException() {
         Paciente p = paciente();
         when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
@@ -157,6 +187,28 @@ class SessaoPilatesServiceTest {
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    @Test
+    void criar_comPlanoTratamentoDeOutroPaciente_deveLancarBusinessException() {
+        Paciente pacienteSessao = paciente();
+        Paciente outroPaciente = paciente();
+        outroPaciente.setNome("Bruna Souza");
+        setId(outroPaciente, Paciente.class, 2L);
+
+        PlanoTratamento plano = planoTratamento(outroPaciente);
+
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(pacienteSessao));
+        when(planoTratamentoRepository.findAtivoById(10L)).thenReturn(Optional.of(plano));
+
+        var dto = new SessaoPilatesRequestDTO(
+                1L, null, 10L, TipoSessao.FISIOTERAPIA, LocalDate.of(2026, 5, 10),
+                null, null, null, null
+        );
+
+        assertThatThrownBy(() -> service.criar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não pertence ao paciente");
     }
 
     @Test
