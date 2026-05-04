@@ -74,6 +74,9 @@ src/
 │   │   │   ├── PlanoController.java         # /planos
 │   │   │   ├── PagamentoController.java     # /pagamentos
 │   │   │   ├── AulaController.java          # /aulas
+│   │   │   ├── AnamneseController.java      # /anamneses
+│   │   │   ├── AvaliacaoFisioterapeuticaController.java # /avaliacoes-fisioterapeuticas
+│   │   │   ├── PlanoTratamentoController.java # /planos-tratamento
 │   │   │   ├── AuthController.java          # /auth/register e /auth/login
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo
 │   │   │   ├── AdminController.java         # /admin/health
@@ -85,6 +88,9 @@ src/
 │   │   │   ├── PlanoService.java                       # Regras de plano e frequência
 │   │   │   ├── PagamentoService.java                   # Cobranças, confirmação, vencimentos
 │   │   │   ├── AulaService.java                        # Geração e controle de aulas
+│   │   │   ├── AnamneseService.java                    # Anamnese clínica do paciente
+│   │   │   ├── AvaliacaoFisioterapeuticaService.java   # Avaliação fisioterapêutica do paciente
+│   │   │   ├── PlanoTratamentoService.java             # Plano de tratamento clínico do paciente
 │   │   │   ├── DashboardService.java                   # Contadores e totais para o painel inicial
 │   │   │   ├── RelatorioPagamentoExporterService.java  # Exportação do relatório em PDF e XLSX
 │   │   │   ├── RelatorioNfseService.java               # Relatório de emissão de NFSEs por competência
@@ -99,6 +105,9 @@ src/
 │   │   │   ├── PlanoRepository.java
 │   │   │   ├── PagamentoRepository.java
 │   │   │   ├── AulaRepository.java
+│   │   │   ├── AnamneseRepository.java
+│   │   │   ├── AvaliacaoFisioterapeuticaRepository.java
+│   │   │   ├── PlanoTratamentoRepository.java
 │   │   │   └── UserRepository.java
 │   │   ├── entity/
 │   │   │   ├── Paciente.java                # Entidade JPA
@@ -107,6 +116,9 @@ src/
 │   │   │   ├── Plano.java
 │   │   │   ├── Pagamento.java
 │   │   │   ├── Aula.java
+│   │   │   ├── Anamnese.java
+│   │   │   ├── AvaliacaoFisioterapeutica.java
+│   │   │   ├── PlanoTratamento.java
 │   │   │   └── User.java
 │   │   ├── entity/enums/
 │   │   │   ├── TipoPagamento.java           # MENSAL, TRIMESTRAL, ANUAL
@@ -137,6 +149,15 @@ src/
 │   │   │   ├── PagamentoPagarRequestDTO.java
 │   │   │   ├── PagamentoResponseDTO.java
 │   │   │   ├── AulaResponseDTO.java
+│   │   │   ├── AnamneseRequestDTO.java
+│   │   │   ├── AnamneseUpdateDTO.java
+│   │   │   ├── AnamneseResponseDTO.java
+│   │   │   ├── AvaliacaoFisioterapeuticaRequestDTO.java
+│   │   │   ├── AvaliacaoFisioterapeuticaUpdateDTO.java
+│   │   │   ├── AvaliacaoFisioterapeuticaResponseDTO.java
+│   │   │   ├── PlanoTratamentoRequestDTO.java
+│   │   │   ├── PlanoTratamentoUpdateDTO.java
+│   │   │   ├── PlanoTratamentoResponseDTO.java
 │   │   │   ├── AuthRegisterRequestDTO.java
 │   │   │   ├── AuthLoginRequestDTO.java
 │   │   │   ├── AuthResponseDTO.java
@@ -159,7 +180,11 @@ src/
 │           ├── V9__alter_profissionais_percentual_precision.sql
 │           ├── V10__add_profissional_to_aulas.sql
 │           ├── V11__create_users_table.sql
-│           └── V12__insert_users_perfis_acesso.sql
+│           ├── V12__insert_users_perfis_acesso.sql
+│           ├── V13__add_indexes_on_foreign_keys.sql
+│           ├── V14__create_anamneses_table.sql
+│           ├── V15__create_avaliacoes_fisioterapeuticas_table.sql
+│           └── V16__create_planos_tratamento_table.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -167,15 +192,18 @@ src/
     ├── config/
     │   └── GlobalExceptionHandlerTest.java      # 6 casos
     ├── security/
-    │   └── SecurityIntegrationTest.java         # 21 casos
+    │   └── SecurityIntegrationTest.java         # 23 casos
     ├── service/
     │   ├── PacienteServiceTest.java                   # 12 casos
     │   ├── PacienteServiceIntegrationTest.java        # 4 casos
     │   ├── ProfissionalServiceIntegrationTest.java    # 5 casos
     │   ├── ProfissionalServiceTest.java               # 15 casos
     │   ├── PlanoServiceTest.java                      # 9 casos
-    │   ├── PagamentoServiceTest.java                  # 8 casos
+    │   ├── PagamentoServiceTest.java                  # 10 casos
     │   ├── AulaServiceTest.java                       # 14 casos
+    │   ├── AnamneseServiceTest.java                   # 17 casos
+    │   ├── AvaliacaoFisioterapeuticaServiceTest.java  # 8 casos
+    │   ├── PlanoTratamentoServiceTest.java            # 13 casos
     │   └── RelatorioPagamentoExporterServiceTest.java # 3 casos
     ├── repository/
     │   └── AulaRepositoryTest.java              # 6 casos
@@ -184,7 +212,10 @@ src/
         ├── ProfissionalControllerTest.java      # 17 casos
         ├── PlanoControllerTest.java             # 11 casos
         ├── PagamentoControllerTest.java         # 11 casos
-        └── AulaControllerTest.java              # 10 casos
+        ├── AulaControllerTest.java              # 10 casos
+        ├── AnamneseControllerTest.java          # 14 casos
+        ├── AvaliacaoFisioterapeuticaControllerTest.java # 12 casos
+        └── PlanoTratamentoControllerTest.java   # 18 casos
 ```
 
 ---
@@ -254,7 +285,18 @@ src/
 - Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
 - Métodos de leitura nos services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e permitir otimizações de conexão.
 
-### 4.7 Relatório de emissão de NFSEs
+### 4.7 Plano de Tratamento
+
+- Um paciente pode possuir múltiplos planos de tratamento para preservar histórico clínico
+- Criar plano para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
+- `dataFimPrevista`, quando informada, não pode ser anterior a `dataInicio`
+- `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
+- Consultas por ID e por paciente filtram `planos_tratamento.ativo = true` e `paciente.ativo = true`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
+- Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca `ativo = false` e preserva o histórico no banco
+
+### 4.8 Relatório de emissão de NFSEs
 
 - O relatório considera apenas pagamentos `PAGO` com `dataPagamento` dentro da competência informada e pacientes ativos
 - `competencia` é obrigatória no formato `MM/AAAA`; mês deve estar entre `01` e `12`
@@ -265,7 +307,7 @@ src/
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`
 - Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
 
-### 4.8 Dashboard — Resumo do Painel Inicial
+### 4.9 Dashboard — Resumo do Painel Inicial
 
 O endpoint `GET /dashboard/resumo` agrega contadores e totais do banco em um único objeto para consumo direto pelo painel inicial do frontend:
 
@@ -277,7 +319,7 @@ O endpoint `GET /dashboard/resumo` agrega contadores e totais do banco em um ún
 
 Exige `Authorization: Bearer <token>`.
 
-### 4.9 Processos Automáticos (Scheduler)
+### 4.10 Processos Automáticos (Scheduler)
 
 | Cron (default) | Ação | Propriedade |
 |---|---|---|
@@ -390,6 +432,30 @@ Tabela: `aulas`
 | `realizada` | `BOOLEAN` | NOT NULL, default `false` | Presença confirmada |
 
 Constraint: `UNIQUE (paciente_id, data)`
+
+---
+
+### Entidade: PlanoTratamento
+
+Tabela: `planos_tratamento`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, auto-increment | Identificador único |
+| `paciente_id` | `BIGINT` | NOT NULL, FK | Paciente vinculado |
+| `data_inicio` | `DATE` | NOT NULL | Data de início do tratamento |
+| `data_fim_prevista` | `DATE` | — | Data prevista de encerramento |
+| `objetivos_tratamento` | `TEXT` | NOT NULL | Objetivos terapêuticos |
+| `intervencoes_planejadas` | `TEXT` | — | Intervenções planejadas |
+| `numero_sessoes_previstas` | `INTEGER` | — | Quantidade prevista de sessões |
+| `frequencia_sessoes` | `VARCHAR(100)` | — | Frequência planejada |
+| `responsavel_tratamento` | `VARCHAR(255)` | — | Profissional responsável |
+| `observacoes` | `TEXT` | — | Observações clínicas |
+| `data_criacao` | `TIMESTAMP` | NOT NULL | Registro de criação |
+| `data_atualizacao` | `TIMESTAMP` | — | Última atualização |
+| `ativo` | `BOOLEAN` | NOT NULL, default `true` | Controle de exclusão lógica |
+
+Índice: `idx_planos_tratamento_paciente_id` para listagem por paciente.
 
 ---
 
@@ -701,7 +767,19 @@ GET /profissionais/{id}/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-2
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada; aceita `profissionalId` opcional |
 
-### 6.4 Relatórios fiscais
+### 6.4 Planos de Tratamento
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/planos-tratamento` | Criar plano de tratamento para paciente |
+| `GET` | `/planos-tratamento/{id}` | Buscar plano de tratamento por ID |
+| `GET` | `/planos-tratamento/paciente/{pacienteId}` | Listar planos ativos do paciente |
+| `PUT` | `/planos-tratamento/{id}` | Atualizar parcialmente um plano de tratamento |
+| `DELETE` | `/planos-tratamento/{id}` | Inativar plano de tratamento |
+
+Todas as rotas exigem `Authorization: Bearer <accessToken>`.
+
+### 6.5 Relatórios fiscais
 
 #### Relatório de emissão de NFSEs
 
@@ -833,6 +911,10 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V10 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
 | V11 | `V11__create_users_table.sql` | Cria a tabela `users` para autenticação e autorização |
 | V12 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
+| V13 | `V13__add_indexes_on_foreign_keys.sql` | Adiciona índices para chaves estrangeiras e filtros recorrentes |
+| V14 | `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
+| V15 | `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria tabela de avaliações fisioterapêuticas do paciente |
+| V16 | `V16__create_planos_tratamento_table.sql` | Cria tabela de planos de tratamento do paciente |
 
 Os usuários iniciais da migração `V12` usam a senha `senha1234`; `admin@carlessopilates.com` e `operacional@carlessopilates.com` têm perfil `ADMIN`.
 
@@ -1002,26 +1084,41 @@ O serviço `app` aguarda o `db` estar saudável (healthcheck via `pg_isready`) a
 
 ### Visão geral
 
-A suíte de testes possui **172 casos** distribuídos em dezoito classes:
+A suíte de testes possui **295 casos** distribuídos nas classes abaixo:
 
 | Classe | Tipo | Casos |
 |---|---|---|
 | `PacienteServiceTest` | Unitário (Mockito) | 12 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `PlanoServiceTest` | Unitário (Mockito) | 9 |
-| `PagamentoServiceTest` | Unitário (Mockito) | 8 |
+| `PagamentoServiceTest` | Unitário (Mockito) | 10 |
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
+| `AnamneseServiceTest` | Unitário (Mockito) | 17 |
+| `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito) | 8 |
+| `PlanoTratamentoServiceTest` | Unitário (Mockito) | 13 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
+| `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
+| `RelatorioNfseExporterServiceTest` | Unitário | 3 |
+| `DashboardServiceTest` | Unitário (Mockito) | 3 |
+| `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
+| `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
+| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
+| `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
+| `AnamneseControllerTest` | Controller (`@WebMvcTest`) | 14 |
+| `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 12 |
+| `PlanoTratamentoControllerTest` | Controller (`@WebMvcTest`) | 18 |
+| `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
+| `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 21 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 23 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 
