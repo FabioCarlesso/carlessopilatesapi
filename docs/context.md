@@ -52,6 +52,7 @@ com.carlesso.pilatesapi
 │   ├── AnamneseController.java       — endpoints REST de anamneses
 │   ├── AvaliacaoFisioterapeuticaController.java — endpoints REST de avaliações fisioterapêuticas
 │   ├── PlanoTratamentoController.java — endpoints REST de planos de tratamento
+│   ├── SessaoPilatesController.java  — endpoints REST de sessões de Pilates/Fisioterapia
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
@@ -63,6 +64,7 @@ com.carlesso.pilatesapi
 │   ├── AnamneseService.java                    — lógica de negócio de anamneses
 │   ├── AvaliacaoFisioterapeuticaService.java   — lógica de negócio de avaliações fisioterapêuticas
 │   ├── PlanoTratamentoService.java             — lógica de negócio de planos de tratamento
+│   ├── SessaoPilatesService.java               — lógica de negócio de sessões de Pilates/Fisioterapia
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
@@ -84,6 +86,7 @@ com.carlesso.pilatesapi
 │   ├── AnamneseRepository.java
 │   ├── AvaliacaoFisioterapeuticaRepository.java
 │   ├── PlanoTratamentoRepository.java
+│   ├── SessaoPilatesRepository.java
 │   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
@@ -95,12 +98,15 @@ com.carlesso.pilatesapi
 │   ├── Anamnese.java                 — entidade JPA, tabela `anamneses`
 │   ├── AvaliacaoFisioterapeutica.java — entidade JPA, tabela `avaliacoes_fisioterapeuticas`
 │   ├── PlanoTratamento.java          — entidade JPA, tabela `planos_tratamento`
+│   ├── SessaoPilates.java            — entidade JPA, tabela `sessoes_pilates`
 │   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
 │   ├── TipoContrato.java             — CLT, PJ, AUTONOMO
 │   ├── FrequenciaSemanal.java        — UMA_VEZ, DUAS_VEZES, TRES_VEZES
 │   ├── StatusPagamento.java          — PENDENTE, PAGO, VENCIDO
+│   ├── TipoSessao.java               — PILATES, FISIOTERAPIA
+│   ├── StatusSessao.java             — AGENDADA, REALIZADA, CANCELADA
 │   └── Role.java                     — USER, ADMIN
 ├── security
 │   └── JwtAuthenticationFilter.java  — autentica requisições com Authorization Bearer
@@ -135,6 +141,9 @@ com.carlesso.pilatesapi
 │   ├── PlanoTratamentoRequestDTO.java — payload de criação de plano de tratamento (record)
 │   ├── PlanoTratamentoUpdateDTO.java  — payload de atualização de plano de tratamento (record)
 │   ├── PlanoTratamentoResponseDTO.java — resposta da API de plano de tratamento (record com factory method `from`)
+│   ├── SessaoPilatesRequestDTO.java  — payload de criação de sessão (record)
+│   ├── SessaoPilatesUpdateDTO.java   — payload de atualização de sessão (record)
+│   ├── SessaoPilatesResponseDTO.java — resposta da API de sessão (record com factory method `from`)
 │   ├── AuthRegisterRequestDTO.java
 │   ├── AuthLoginRequestDTO.java
 │   ├── AuthResponseDTO.java
@@ -291,6 +300,27 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplas 
 
 Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos planos de tratamento para manter histórico clínico.
 
+### Tabela `sessoes_pilates`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → pacientes |
+| `profissional_id` | BIGINT | nullable, FK → profissionais |
+| `plano_tratamento_id` | BIGINT | nullable, FK → planos_tratamento |
+| `tipo` | VARCHAR(20) | NOT NULL (`PILATES`, `FISIOTERAPIA`) |
+| `status` | VARCHAR(20) | NOT NULL, default `AGENDADA` (`AGENDADA`, `REALIZADA`, `CANCELADA`) |
+| `data` | DATE | NOT NULL |
+| `horario` | TIME | — |
+| `local` | VARCHAR(100) | — |
+| `duracao_minutos` | INTEGER | — |
+| `observacoes` | TEXT | — |
+| `evolucao` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@ManyToOne` com `Paciente`, `Profissional` (nullable) e `PlanoTratamento` (nullable). Um paciente pode possuir múltiplas sessões para manter histórico clínico.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -304,6 +334,8 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos 
 | `idx_aulas_realizada` | `aulas(realizada)` | Relatório de pagamento de profissional filtra `realizada = true` |
 | `idx_avaliacoes_fisioterapeuticas_paciente_id` | `avaliacoes_fisioterapeuticas(paciente_id)` | Listagem de avaliações por paciente |
 | `idx_planos_tratamento_paciente_id` | `planos_tratamento(paciente_id)` | Listagem de planos de tratamento por paciente |
+| `idx_sessoes_pilates_paciente_id` | `sessoes_pilates(paciente_id)` | Listagem de sessões por paciente |
+| `idx_sessoes_pilates_data` | `sessoes_pilates(data)` | Busca e ordenação de sessões por data |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
@@ -363,6 +395,11 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos 
 | GET | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente | 200 / 404 |
 | PUT | `/planos-tratamento/{id}` | Atualizar plano de tratamento (atualização parcial) | 200 / 400 / 404 |
 | DELETE | `/planos-tratamento/{id}` | Inativar plano de tratamento | 204 / 404 |
+| POST | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia | 201 / 400 / 404 |
+| GET | `/sessoes/{id}` | Buscar sessão por ID | 200 / 404 |
+| GET | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente | 200 / 404 |
+| PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial) | 200 / 400 / 404 |
+| DELETE | `/sessoes/{id}` | Excluir sessão permanentemente | 204 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
@@ -458,6 +495,18 @@ CPF não pode ser alterado após o cadastro.
 - Consultas por ID e por paciente filtram `plano.ativo = true` e `paciente.ativo = true`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca `ativo = false` e preserva o histórico clínico
+- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+
+### Sessões de Pilates/Fisioterapia
+- Um paciente pode possuir múltiplas sessões para manter histórico clínico
+- Criar sessão para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `pacienteId`, `tipo` e `data`
+- `tipo` aceita `PILATES` ou `FISIOTERAPIA`
+- `status` padrão é `AGENDADA`; pode ser atualizado para `REALIZADA` ou `CANCELADA`
+- `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo
+- `duracaoMinutos` aceita apenas valores positivos quando informado
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+- Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas)
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
