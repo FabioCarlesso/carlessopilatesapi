@@ -10,7 +10,8 @@ CREATE TABLE planos_tratamento (
     responsavel_tratamento    VARCHAR(255),
     observacoes               TEXT,
     data_criacao              TIMESTAMP    NOT NULL,
-    data_atualizacao          TIMESTAMP
+    data_atualizacao          TIMESTAMP,
+    ativo                     BOOLEAN      NOT NULL DEFAULT TRUE
 );
 
 CREATE INDEX idx_planos_tratamento_paciente_id

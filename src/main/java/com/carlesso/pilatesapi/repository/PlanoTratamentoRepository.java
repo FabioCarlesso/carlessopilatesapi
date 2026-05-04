@@ -10,9 +10,9 @@ import java.util.Optional;
 
 public interface PlanoTratamentoRepository extends JpaRepository<PlanoTratamento, Long> {
 
-    @Query("SELECT p FROM PlanoTratamento p JOIN FETCH p.paciente pac WHERE p.id = :id AND pac.ativo = true")
+    @Query("SELECT p FROM PlanoTratamento p JOIN FETCH p.paciente pac WHERE p.id = :id AND p.ativo = true AND pac.ativo = true")
     Optional<PlanoTratamento> findAtivoById(@Param("id") Long id);
 
-    @Query("SELECT p FROM PlanoTratamento p JOIN FETCH p.paciente pac WHERE pac.id = :pacienteId AND pac.ativo = true ORDER BY p.dataInicio DESC, p.id DESC")
+    @Query("SELECT p FROM PlanoTratamento p JOIN FETCH p.paciente pac WHERE pac.id = :pacienteId AND p.ativo = true AND pac.ativo = true ORDER BY p.dataInicio DESC, p.id DESC")
     List<PlanoTratamento> findAtivosByPacienteOrdenados(@Param("pacienteId") Long pacienteId);
 }

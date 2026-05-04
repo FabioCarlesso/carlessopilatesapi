@@ -82,4 +82,19 @@ public class PlanoTratamentoController {
             @RequestBody @Valid PlanoTratamentoUpdateDTO dto) {
         return ResponseEntity.ok(service.atualizar(id, dto));
     }
+
+    @Operation(
+            summary = "Inativar plano de tratamento",
+            description = "Inativa um plano de tratamento sem remover o histórico clínico do banco."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Plano de tratamento inativado com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> inativar(
+            @Parameter(description = "ID do plano de tratamento", required = true) @PathVariable Long id) {
+        service.inativar(id);
+        return ResponseEntity.noContent().build();
+    }
 }

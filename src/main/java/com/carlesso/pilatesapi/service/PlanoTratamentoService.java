@@ -11,6 +11,7 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,6 +29,8 @@ public class PlanoTratamentoService {
 
     @Transactional
     public PlanoTratamentoResponseDTO criar(PlanoTratamentoRequestDTO dto) {
+        validarPeriodo(dto.dataInicio(), dto.dataFimPrevista());
+
         Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
@@ -64,6 +67,9 @@ public class PlanoTratamentoService {
     @Transactional
     public PlanoTratamentoResponseDTO atualizar(Long id, PlanoTratamentoUpdateDTO dto) {
         PlanoTratamento plano = encontrar(id);
+        var dataInicio = dto.dataInicio() != null ? dto.dataInicio() : plano.getDataInicio();
+        var dataFimPrevista = dto.dataFimPrevista() != null ? dto.dataFimPrevista() : plano.getDataFimPrevista();
+        validarPeriodo(dataInicio, dataFimPrevista);
 
         if (dto.dataInicio() != null) plano.setDataInicio(dto.dataInicio());
         if (dto.dataFimPrevista() != null) plano.setDataFimPrevista(dto.dataFimPrevista());
@@ -78,8 +84,21 @@ public class PlanoTratamentoService {
         return PlanoTratamentoResponseDTO.from(planoTratamentoRepository.save(plano));
     }
 
+    @Transactional
+    public void inativar(Long id) {
+        PlanoTratamento plano = encontrar(id);
+        plano.setAtivo(false);
+        plano.setDataAtualizacao(LocalDateTime.now());
+    }
+
     private PlanoTratamento encontrar(Long id) {
         return planoTratamentoRepository.findAtivoById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Plano de tratamento não encontrado: " + id));
+    }
+
+    private void validarPeriodo(LocalDate dataInicio, LocalDate dataFimPrevista) {
+        if (dataInicio != null && dataFimPrevista != null && dataFimPrevista.isBefore(dataInicio)) {
+            throw new IllegalArgumentException("dataFimPrevista não pode ser anterior a dataInicio");
+        }
     }
 }

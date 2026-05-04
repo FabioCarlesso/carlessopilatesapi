@@ -144,6 +144,23 @@ class PlanoTratamentoControllerTest {
     }
 
     @Test
+    void criar_comDataFimAnteriorADataInicio_deveRetornar400() throws Exception {
+        when(service.criar(any()))
+                .thenThrow(new IllegalArgumentException("dataFimPrevista não pode ser anterior a dataInicio"));
+
+        var dto = new PlanoTratamentoRequestDTO(
+                1L, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1),
+                "Objetivos", null, null, null, null, null
+        );
+
+        mvc.perform(post("/planos-tratamento")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("dataFimPrevista não pode ser anterior a dataInicio"));
+    }
+
+    @Test
     void criar_comPacienteInexistente_deveRetornar404() throws Exception {
         when(service.criar(any())).thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
 
@@ -252,6 +269,23 @@ class PlanoTratamentoControllerTest {
     }
 
     @Test
+    void atualizar_comDataFimAnteriorADataInicio_deveRetornar400() throws Exception {
+        when(service.atualizar(eq(1L), any()))
+                .thenThrow(new IllegalArgumentException("dataFimPrevista não pode ser anterior a dataInicio"));
+
+        var dto = new PlanoTratamentoUpdateDTO(
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1),
+                null, null, null, null, null, null
+        );
+
+        mvc.perform(put("/planos-tratamento/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("dataFimPrevista não pode ser anterior a dataInicio"));
+    }
+
+    @Test
     void atualizar_comPlanoInexistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any()))
                 .thenThrow(new ResourceNotFoundException("Plano de tratamento não encontrado: 99"));
@@ -263,6 +297,22 @@ class PlanoTratamentoControllerTest {
         mvc.perform(put("/planos-tratamento/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Plano de tratamento não encontrado: 99"));
+    }
+
+    @Test
+    void inativar_comPlanoExistente_deveRetornar204() throws Exception {
+        mvc.perform(delete("/planos-tratamento/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void inativar_comPlanoInexistente_deveRetornar404() throws Exception {
+        org.mockito.Mockito.doThrow(new ResourceNotFoundException("Plano de tratamento não encontrado: 99"))
+                .when(service).inativar(99L);
+
+        mvc.perform(delete("/planos-tratamento/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.erro").value("Plano de tratamento não encontrado: 99"));
     }

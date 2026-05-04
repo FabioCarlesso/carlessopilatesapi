@@ -284,6 +284,7 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/planos-tratamento/{id}` | Buscar plano de tratamento por ID |
 | `GET` | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente |
 | `PUT` | `/planos-tratamento/{id}` | Atualizar dados do plano de tratamento |
+| `DELETE` | `/planos-tratamento/{id}` | Inativar plano de tratamento |
 
 ### Relatórios
 
@@ -895,9 +896,11 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Um paciente pode ter múltiplos planos de tratamento para manter histórico clínico
 - Criar plano para paciente inexistente ou inativo retorna `404`
 - Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
+- `dataFimPrevista`, quando informada, não pode ser anterior a `dataInicio`
 - `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
-- Consultas e atualizações filtram planos vinculados a pacientes ativos
+- Consultas e atualizações filtram planos ativos vinculados a pacientes ativos
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
+- Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca o plano como inativo e preserva o histórico no banco
 
 ### Scheduler (processos automáticos)
 | Horário | Ação | Configuração |
@@ -942,7 +945,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `AulaServiceTest` | Unitário (Mockito) | 14 |
 | `AnamneseServiceTest` | Unitário (Mockito) | 17 |
 | `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito) | 8 |
-| `PlanoTratamentoServiceTest` | Unitário (Mockito) | 8 |
+| `PlanoTratamentoServiceTest` | Unitário (Mockito) | 13 |
 | `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
@@ -960,8 +963,8 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
 | `AnamneseControllerTest` | Controller (`@WebMvcTest`) | 14 |
-| `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 10 |
-| `PlanoTratamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
+| `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 12 |
+| `PlanoTratamentoControllerTest` | Controller (`@WebMvcTest`) | 18 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |

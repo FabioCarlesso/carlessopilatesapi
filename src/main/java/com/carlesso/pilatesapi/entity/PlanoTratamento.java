@@ -43,6 +43,9 @@ public class PlanoTratamento {
 
     private LocalDateTime dataAtualizacao;
 
+    @Column(nullable = false)
+    private boolean ativo = true;
+
     public PlanoTratamento() {}
 
     @PrePersist
@@ -84,4 +87,7 @@ public class PlanoTratamento {
 
     public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
     public void setDataAtualizacao(LocalDateTime dataAtualizacao) { this.dataAtualizacao = dataAtualizacao; }
+
+    public boolean isAtivo() { return ativo; }
+    public void setAtivo(boolean ativo) { this.ativo = ativo; }
 }

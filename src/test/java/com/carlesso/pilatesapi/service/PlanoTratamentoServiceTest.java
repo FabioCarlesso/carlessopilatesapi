@@ -127,6 +127,18 @@ class PlanoTratamentoServiceTest {
     }
 
     @Test
+    void criar_comDataFimAnteriorADataInicio_deveLancarIllegalArgumentException() {
+        var dto = new PlanoTratamentoRequestDTO(
+                1L, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1),
+                "Objetivos", null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> service.criar(dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dataFimPrevista");
+    }
+
+    @Test
     void buscarPorId_quandoExistente_deveRetornarResponseDTO() {
         when(planoTratamentoRepository.findAtivoById(1L)).thenReturn(Optional.of(plano(paciente())));
 
@@ -205,12 +217,48 @@ class PlanoTratamentoServiceTest {
     }
 
     @Test
+    void atualizar_comDataFimAnteriorADataInicio_deveLancarIllegalArgumentException() {
+        PlanoTratamento p = plano(paciente());
+        when(planoTratamentoRepository.findAtivoById(1L)).thenReturn(Optional.of(p));
+
+        var dto = new PlanoTratamentoUpdateDTO(
+                LocalDate.of(2026, 8, 1),
+                LocalDate.of(2026, 5, 1),
+                null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> service.atualizar(1L, dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dataFimPrevista");
+    }
+
+    @Test
     void atualizar_comPlanoInexistente_deveLancarResourceNotFoundException() {
         when(planoTratamentoRepository.findAtivoById(99L)).thenReturn(Optional.empty());
 
         var dto = new PlanoTratamentoUpdateDTO(null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void inativar_comPlanoExistente_deveMarcarComoInativo() {
+        PlanoTratamento p = plano(paciente());
+        when(planoTratamentoRepository.findAtivoById(1L)).thenReturn(Optional.of(p));
+
+        service.inativar(1L);
+
+        assertThat(p.isAtivo()).isFalse();
+        assertThat(p.getDataAtualizacao()).isNotNull();
+    }
+
+    @Test
+    void inativar_comPlanoInexistente_deveLancarResourceNotFoundException() {
+        when(planoTratamentoRepository.findAtivoById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.inativar(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }

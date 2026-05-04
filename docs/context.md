@@ -244,6 +244,7 @@ Constraint: `UNIQUE (paciente_id, data)`
 | `observacoes` | TEXT | — |
 | `data_criacao` | TIMESTAMP | NOT NULL |
 | `data_atualizacao` | TIMESTAMP | — |
+| `ativo` | BOOLEAN | NOT NULL, default `true` |
 
 Relacionamento `@OneToOne` com `Paciente`. Cada paciente possui no máximo uma anamnese principal (constraint `UNIQUE paciente_id`).
 
@@ -361,6 +362,7 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos 
 | GET | `/planos-tratamento/{id}` | Buscar plano de tratamento por ID | 200 / 404 |
 | GET | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente | 200 / 404 |
 | PUT | `/planos-tratamento/{id}` | Atualizar plano de tratamento (atualização parcial) | 200 / 400 / 404 |
+| DELETE | `/planos-tratamento/{id}` | Inativar plano de tratamento | 204 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
@@ -451,9 +453,11 @@ CPF não pode ser alterado após o cadastro.
 - Um paciente pode possuir múltiplos planos de tratamento para manter histórico clínico
 - Criar plano de tratamento para paciente inexistente ou inativo retorna `404`
 - Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
+- `dataFimPrevista`, quando informada, não pode ser anterior a `dataInicio`
 - `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
-- Consultas por ID e por paciente filtram `paciente.ativo = true`
+- Consultas por ID e por paciente filtram `plano.ativo = true` e `paciente.ativo = true`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
+- Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca `ativo = false` e preserva o histórico clínico
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
@@ -587,7 +591,9 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `AnamneseServiceTest` | Unitário (Mockito, sem Spring) | 17 |
 | `AnamneseControllerTest` | `@WebMvcTest` + MockMvc | 14 |
 | `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `AvaliacaoFisioterapeuticaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
+| `AvaliacaoFisioterapeuticaControllerTest` | `@WebMvcTest` + MockMvc | 12 |
+| `PlanoTratamentoServiceTest` | Unitário (Mockito, sem Spring) | 13 |
+| `PlanoTratamentoControllerTest` | `@WebMvcTest` + MockMvc | 18 |
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
