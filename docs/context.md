@@ -53,6 +53,7 @@ com.carlesso.pilatesapi
 │   ├── AvaliacaoFisioterapeuticaController.java — endpoints REST de avaliações fisioterapêuticas
 │   ├── PlanoTratamentoController.java — endpoints REST de planos de tratamento
 │   ├── SessaoPilatesController.java  — endpoints REST de sessões de Pilates/Fisioterapia
+│   ├── EvolucaoSessaoController.java — endpoints REST de evoluções de sessão
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
@@ -65,6 +66,7 @@ com.carlesso.pilatesapi
 │   ├── AvaliacaoFisioterapeuticaService.java   — lógica de negócio de avaliações fisioterapêuticas
 │   ├── PlanoTratamentoService.java             — lógica de negócio de planos de tratamento
 │   ├── SessaoPilatesService.java               — lógica de negócio de sessões de Pilates/Fisioterapia
+│   ├── EvolucaoSessaoService.java              — lógica de negócio de evoluções de sessão
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
@@ -87,6 +89,7 @@ com.carlesso.pilatesapi
 │   ├── AvaliacaoFisioterapeuticaRepository.java
 │   ├── PlanoTratamentoRepository.java
 │   ├── SessaoPilatesRepository.java
+│   ├── EvolucaoSessaoRepository.java
 │   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
@@ -99,6 +102,7 @@ com.carlesso.pilatesapi
 │   ├── AvaliacaoFisioterapeutica.java — entidade JPA, tabela `avaliacoes_fisioterapeuticas`
 │   ├── PlanoTratamento.java          — entidade JPA, tabela `planos_tratamento`
 │   ├── SessaoPilates.java            — entidade JPA, tabela `sessoes_pilates`
+│   ├── EvolucaoSessao.java           — entidade JPA, tabela `evolucoes_sessao`
 │   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
@@ -315,11 +319,32 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos 
 | `local` | VARCHAR(100) | — |
 | `duracao_minutos` | INTEGER | — |
 | `observacoes` | TEXT | — |
-| `evolucao` | TEXT | — |
+| `evolucao` | TEXT | legado, não exposto no contrato REST |
 | `data_criacao` | TIMESTAMP | NOT NULL |
 | `data_atualizacao` | TIMESTAMP | — |
 
 Relacionamento `@ManyToOne` com `Paciente`, `Profissional` (nullable) e `PlanoTratamento` (nullable). Um paciente pode possuir múltiplas sessões para manter histórico clínico.
+
+### Tabela `evolucoes_sessao`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `sessao_id` | BIGINT | NOT NULL, UNIQUE, FK → sessoes_pilates |
+| `data_hora_registro` | TIMESTAMP | NOT NULL |
+| `exercicios_realizados` | TEXT | — |
+| `equipamentos_utilizados` | TEXT | — |
+| `cargas_molas` | TEXT | — |
+| `dor_antes` | INTEGER | nullable, CHECK 0..10 |
+| `dor_depois` | INTEGER | nullable, CHECK 0..10 |
+| `resposta_paciente` | TEXT | — |
+| `intercorrencias` | TEXT | — |
+| `orientacoes` | TEXT | — |
+| `observacoes_fisioterapeuta` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@OneToOne` com `SessaoPilates`. Cada sessão possui no máximo uma evolução (constraint `UNIQUE sessao_id`).
 
 ### Índices
 
@@ -401,6 +426,10 @@ Relacionamento `@ManyToOne` com `Paciente`, `Profissional` (nullable) e `PlanoTr
 | PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial) | 200 / 400 / 404 |
 | DELETE | `/sessoes/{id}` | Excluir sessão permanentemente | 204 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
+| POST | `/evolucoes-sessao` | Criar evolução para uma sessão | 201 / 400 / 404 / 409 |
+| GET | `/evolucoes-sessao/{id}` | Buscar evolução por ID | 200 / 404 |
+| GET | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução por sessão | 200 / 404 |
+| PUT | `/evolucoes-sessao/{id}` | Atualizar evolução (atualização parcial) | 200 / 400 / 404 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
@@ -506,7 +535,19 @@ CPF não pode ser alterado após o cadastro.
 - `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo, e o plano de tratamento deve pertencer ao mesmo `pacienteId` da sessão
 - `duracaoMinutos` aceita apenas valores positivos quando informado
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
-- Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas)
+- A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`; o campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST
+- Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas) e remove a evolução vinculada quando existir
+- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+
+### Evolução de Sessão
+- Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)
+- Criar evolução para sessão inexistente retorna `404`
+- Tentar criar segunda evolução para a mesma sessão retorna `409`
+- Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
+- `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
+- Consultas e atualizações de evolução filtram `sessao.paciente.ativo = true`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+- Ao excluir uma sessão, a evolução vinculada é removida junto
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
@@ -647,6 +688,8 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
+| `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 23 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

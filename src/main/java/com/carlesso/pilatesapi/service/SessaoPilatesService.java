@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
@@ -26,15 +27,18 @@ public class SessaoPilatesService {
     private final PacienteRepository pacienteRepository;
     private final ProfissionalRepository profissionalRepository;
     private final PlanoTratamentoRepository planoTratamentoRepository;
+    private final EvolucaoSessaoRepository evolucaoSessaoRepository;
 
     public SessaoPilatesService(SessaoPilatesRepository sessaoRepository,
                                 PacienteRepository pacienteRepository,
                                 ProfissionalRepository profissionalRepository,
-                                PlanoTratamentoRepository planoTratamentoRepository) {
+                                PlanoTratamentoRepository planoTratamentoRepository,
+                                EvolucaoSessaoRepository evolucaoSessaoRepository) {
         this.sessaoRepository = sessaoRepository;
         this.pacienteRepository = pacienteRepository;
         this.profissionalRepository = profissionalRepository;
         this.planoTratamentoRepository = planoTratamentoRepository;
+        this.evolucaoSessaoRepository = evolucaoSessaoRepository;
     }
 
     @Transactional
@@ -98,7 +102,6 @@ public class SessaoPilatesService {
         if (dto.duracaoMinutos() != null) sessao.setDuracaoMinutos(dto.duracaoMinutos());
         if (dto.status() != null) sessao.setStatus(dto.status());
         if (dto.observacoes() != null) sessao.setObservacoes(dto.observacoes());
-        if (dto.evolucao() != null) sessao.setEvolucao(dto.evolucao());
         sessao.setDataAtualizacao(LocalDateTime.now());
 
         return SessaoPilatesResponseDTO.from(sessaoRepository.save(sessao));
@@ -107,6 +110,7 @@ public class SessaoPilatesService {
     @Transactional
     public void excluir(Long id) {
         SessaoPilates sessao = encontrar(id);
+        evolucaoSessaoRepository.deleteBySessaoId(id);
         sessaoRepository.delete(sessao);
     }
 
