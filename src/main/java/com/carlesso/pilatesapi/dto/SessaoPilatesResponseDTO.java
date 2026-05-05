@@ -21,7 +21,6 @@ public record SessaoPilatesResponseDTO(
         String local,
         Integer duracaoMinutos,
         String observacoes,
-        String evolucao,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualizacao
 ) {
@@ -40,7 +39,6 @@ public record SessaoPilatesResponseDTO(
                 s.getLocal(),
                 s.getDuracaoMinutos(),
                 s.getObservacoes(),
-                s.getEvolucao(),
                 s.getDataCriacao(),
                 s.getDataAtualizacao()
         );

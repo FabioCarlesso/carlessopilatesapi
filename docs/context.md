@@ -319,7 +319,7 @@ Relacionamento `@ManyToOne` com `Paciente`. Um paciente pode possuir múltiplos 
 | `local` | VARCHAR(100) | — |
 | `duracao_minutos` | INTEGER | — |
 | `observacoes` | TEXT | — |
-| `evolucao` | TEXT | — |
+| `evolucao` | TEXT | legado, não exposto no contrato REST |
 | `data_criacao` | TIMESTAMP | NOT NULL |
 | `data_atualizacao` | TIMESTAMP | — |
 
@@ -535,7 +535,8 @@ CPF não pode ser alterado após o cadastro.
 - `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo, e o plano de tratamento deve pertencer ao mesmo `pacienteId` da sessão
 - `duracaoMinutos` aceita apenas valores positivos quando informado
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
-- Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas)
+- A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`; o campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST
+- Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas) e remove a evolução vinculada quando existir
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Evolução de Sessão
@@ -544,7 +545,9 @@ CPF não pode ser alterado após o cadastro.
 - Tentar criar segunda evolução para a mesma sessão retorna `409`
 - Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
 - `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
+- Consultas e atualizações de evolução filtram `sessao.paciente.ativo = true`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+- Ao excluir uma sessão, a evolução vinculada é removida junto
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
@@ -685,8 +688,8 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
-| `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 8 |
-| `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
+| `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
+| `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 23 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

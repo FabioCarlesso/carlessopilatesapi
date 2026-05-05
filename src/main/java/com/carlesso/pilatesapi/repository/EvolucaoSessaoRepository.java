@@ -11,9 +11,21 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
 
     boolean existsBySessaoId(Long sessaoId);
 
-    @Query("SELECT e FROM EvolucaoSessao e JOIN FETCH e.sessao WHERE e.id = :id")
+    void deleteBySessaoId(Long sessaoId);
+
+    @Query("""
+            SELECT e FROM EvolucaoSessao e
+            JOIN FETCH e.sessao s
+            JOIN s.paciente pac
+            WHERE e.id = :id AND pac.ativo = true
+            """)
     Optional<EvolucaoSessao> findByIdComSessao(@Param("id") Long id);
 
-    @Query("SELECT e FROM EvolucaoSessao e JOIN FETCH e.sessao WHERE e.sessao.id = :sessaoId")
+    @Query("""
+            SELECT e FROM EvolucaoSessao e
+            JOIN FETCH e.sessao s
+            JOIN s.paciente pac
+            WHERE s.id = :sessaoId AND pac.ativo = true
+            """)
     Optional<EvolucaoSessao> findBySessaoId(@Param("sessaoId") Long sessaoId);
 }

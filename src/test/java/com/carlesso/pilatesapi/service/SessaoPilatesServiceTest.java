@@ -11,6 +11,7 @@ import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
@@ -47,6 +48,9 @@ class SessaoPilatesServiceTest {
 
     @Mock
     private PlanoTratamentoRepository planoTratamentoRepository;
+
+    @Mock
+    private EvolucaoSessaoRepository evolucaoSessaoRepository;
 
     @InjectMocks
     private SessaoPilatesService service;
@@ -300,8 +304,7 @@ class SessaoPilatesServiceTest {
                 null,
                 60,
                 StatusSessao.REALIZADA,
-                null,
-                "Paciente evoluiu bem"
+                null
         );
 
         SessaoPilatesResponseDTO response = service.atualizar(1L, dto);
@@ -311,7 +314,6 @@ class SessaoPilatesServiceTest {
         assertThat(response.local()).isEqualTo("Sala 1");
         assertThat(response.duracaoMinutos()).isEqualTo(60);
         assertThat(response.status()).isEqualTo(StatusSessao.REALIZADA);
-        assertThat(response.evolucao()).isEqualTo("Paciente evoluiu bem");
         assertThat(response.dataAtualizacao()).isNotNull();
     }
 
@@ -319,7 +321,7 @@ class SessaoPilatesServiceTest {
     void atualizar_comSessaoInexistente_deveLancarResourceNotFoundException() {
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        var dto = new SessaoPilatesUpdateDTO(null, null, null, null, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -333,6 +335,7 @@ class SessaoPilatesServiceTest {
 
         service.excluir(1L);
 
+        verify(evolucaoSessaoRepository).deleteBySessaoId(1L);
         verify(sessaoRepository).delete(s);
     }
 

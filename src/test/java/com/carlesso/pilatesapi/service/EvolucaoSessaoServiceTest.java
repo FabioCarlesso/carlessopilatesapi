@@ -164,7 +164,7 @@ class EvolucaoSessaoServiceTest {
     @Test
     void buscarPorSessao_quandoExistente_deveRetornarResponseDTO() {
         SessaoPilates s = sessao(paciente());
-        when(sessaoRepository.existsById(1L)).thenReturn(true);
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(evolucaoRepository.findBySessaoId(1L)).thenReturn(Optional.of(evolucao(s)));
 
         EvolucaoSessaoResponseDTO response = service.buscarPorSessao(1L);
@@ -175,7 +175,7 @@ class EvolucaoSessaoServiceTest {
 
     @Test
     void buscarPorSessao_comSessaoInexistente_deveLancarResourceNotFoundException() {
-        when(sessaoRepository.existsById(99L)).thenReturn(false);
+        when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorSessao(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -184,7 +184,7 @@ class EvolucaoSessaoServiceTest {
 
     @Test
     void buscarPorSessao_semEvolucao_deveLancarResourceNotFoundException() {
-        when(sessaoRepository.existsById(1L)).thenReturn(true);
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(sessao(paciente())));
         when(evolucaoRepository.findBySessaoId(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorSessao(1L))

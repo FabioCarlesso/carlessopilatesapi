@@ -11,6 +11,5 @@ public record SessaoPilatesUpdateDTO(
         String local,
         @Positive Integer duracaoMinutos,
         StatusSessao status,
-        String observacoes,
-        String evolucao
+        String observacoes
 ) {}

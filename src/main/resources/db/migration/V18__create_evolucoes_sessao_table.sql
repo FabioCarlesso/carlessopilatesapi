@@ -1,6 +1,6 @@
 CREATE TABLE evolucoes_sessao (
     id                          BIGSERIAL   PRIMARY KEY,
-    sessao_id                   BIGINT      NOT NULL UNIQUE REFERENCES sessoes_pilates(id),
+    sessao_id                   BIGINT      NOT NULL UNIQUE REFERENCES sessoes_pilates(id) ON DELETE CASCADE,
     data_hora_registro          TIMESTAMP   NOT NULL,
     exercicios_realizados       TEXT,
     equipamentos_utilizados     TEXT,
@@ -14,6 +14,3 @@ CREATE TABLE evolucoes_sessao (
     data_criacao                TIMESTAMP   NOT NULL,
     data_atualizacao            TIMESTAMP
 );
-
-CREATE INDEX idx_evolucoes_sessao_sessao_id
-    ON evolucoes_sessao(sessao_id);

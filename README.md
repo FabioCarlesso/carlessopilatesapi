@@ -915,12 +915,18 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca o plano como inativo e preserva o histórico no banco
 
+### Sessões de Pilates/Fisioterapia
+- A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`
+- O campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST de sessões
+- Excluir uma sessão remove também a evolução vinculada, quando existir
+
 ### Evoluções de Sessão
 - Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)
 - Criar evolução para sessão inexistente retorna `404`
 - Tentar criar segunda evolução para a mesma sessão retorna `409`
 - Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
 - `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
+- Consultas e atualizações filtram sessões de pacientes ativos
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 
 ### Scheduler (processos automáticos)
@@ -990,8 +996,8 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `DashboardServiceTest` | Unitário (Mockito) | 3 |
-| `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 8 |
-| `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 11 |
+| `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 10 |
+| `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 23 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |

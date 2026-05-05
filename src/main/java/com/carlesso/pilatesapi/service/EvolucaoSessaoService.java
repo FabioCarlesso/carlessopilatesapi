@@ -58,9 +58,8 @@ public class EvolucaoSessaoService {
 
     @Transactional(readOnly = true)
     public EvolucaoSessaoResponseDTO buscarPorSessao(Long sessaoId) {
-        if (!sessaoRepository.existsById(sessaoId)) {
-            throw new ResourceNotFoundException("Sessão não encontrada: " + sessaoId);
-        }
+        sessaoRepository.findByIdComPaciente(sessaoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sessão não encontrada: " + sessaoId));
         return evolucaoRepository.findBySessaoId(sessaoId)
                 .map(EvolucaoSessaoResponseDTO::from)
                 .orElseThrow(() -> new ResourceNotFoundException("Evolução não encontrada para a sessão: " + sessaoId));

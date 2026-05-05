@@ -59,7 +59,6 @@ class SessaoPilatesControllerTest {
                 "Sala 1",
                 50,
                 "Observação teste",
-                null,
                 LocalDateTime.of(2026, 5, 4, 10, 0),
                 null
         );
@@ -210,7 +209,6 @@ class SessaoPilatesControllerTest {
                 "Sala 1",
                 60,
                 "Observação teste",
-                "Paciente evoluiu bem",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
                 LocalDateTime.of(2026, 5, 15, 10, 0)
         );
@@ -221,8 +219,7 @@ class SessaoPilatesControllerTest {
                 LocalTime.of(10, 0),
                 null, 60,
                 StatusSessao.REALIZADA,
-                null,
-                "Paciente evoluiu bem"
+                null
         );
 
         mvc.perform(put("/sessoes/1")
@@ -231,13 +228,12 @@ class SessaoPilatesControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value("2026-05-15"))
                 .andExpect(jsonPath("$.status").value("REALIZADA"))
-                .andExpect(jsonPath("$.evolucao").value("Paciente evoluiu bem"))
                 .andExpect(jsonPath("$.dataAtualizacao").isNotEmpty());
     }
 
     @Test
     void atualizar_comDuracaoNegativa_deveRetornar400() throws Exception {
-        var dto = new SessaoPilatesUpdateDTO(null, null, null, -5, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(null, null, null, -5, null, null);
 
         mvc.perform(put("/sessoes/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -250,7 +246,7 @@ class SessaoPilatesControllerTest {
         when(service.atualizar(eq(99L), any()))
                 .thenThrow(new ResourceNotFoundException("Sessão não encontrada: 99"));
 
-        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 20), null, null, null, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 20), null, null, null, null, null);
 
         mvc.perform(put("/sessoes/99")
                         .contentType(MediaType.APPLICATION_JSON)
