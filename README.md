@@ -155,7 +155,9 @@ src/
 │           ├── V13__add_indexes_on_foreign_keys.sql
 │           ├── V14__create_anamneses_table.sql
 │           ├── V15__create_avaliacoes_fisioterapeuticas_table.sql
-│           └── V16__create_planos_tratamento_table.sql
+│           ├── V16__create_planos_tratamento_table.sql
+│           ├── V17__create_sessoes_pilates_table.sql
+│           └── V18__create_evolucoes_sessao_table.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -285,6 +287,15 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente |
 | `PUT` | `/planos-tratamento/{id}` | Atualizar dados do plano de tratamento |
 | `DELETE` | `/planos-tratamento/{id}` | Inativar plano de tratamento |
+
+### Evoluções de Sessão
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/evolucoes-sessao` | Registrar evolução clínica de uma sessão |
+| `GET` | `/evolucoes-sessao/{id}` | Buscar evolução por ID |
+| `GET` | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução pela sessão vinculada |
+| `PUT` | `/evolucoes-sessao/{id}` | Atualizar dados da evolução |
 
 ### Relatórios
 
@@ -661,6 +672,8 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
 | `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria histórico de avaliações fisioterapêuticas do paciente |
 | `V16__create_planos_tratamento_table.sql` | Cria tabela de planos de tratamento do paciente |
+| `V17__create_sessoes_pilates_table.sql` | Cria tabela de sessões de Pilates/Fisioterapia |
+| `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
@@ -902,6 +915,14 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca o plano como inativo e preserva o histórico no banco
 
+### Evoluções de Sessão
+- Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)
+- Criar evolução para sessão inexistente retorna `404`
+- Tentar criar segunda evolução para a mesma sessão retorna `409`
+- Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
+- `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+
 ### Scheduler (processos automáticos)
 | Horário | Ação | Configuração |
 |---|---|---|
@@ -969,6 +990,8 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `DashboardServiceTest` | Unitário (Mockito) | 3 |
+| `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 8 |
+| `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 23 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
