@@ -94,14 +94,14 @@ public class UserController {
     }
 
     @Operation(
-            summary = "Excluir usuário",
-            description = "Requer role ADMIN. Remove um usuário cadastrado. Admin não pode excluir a própria conta."
+            summary = "Inativar usuário",
+            description = "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado. Admin não pode inativar a própria conta."
     )
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> excluir(
+    public ResponseEntity<Void> inativar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
             Authentication authentication) {
-        service.excluir(id, authentication.getName());
+        service.inativar(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

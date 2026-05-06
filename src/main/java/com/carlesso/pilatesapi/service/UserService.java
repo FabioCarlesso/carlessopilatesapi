@@ -84,12 +84,13 @@ public class UserService {
     }
 
     @Transactional
-    public void excluir(Long id, String currentEmail) {
+    public void inativar(Long id, String currentEmail) {
         User user = encontrar(id);
         if (user.getEmail().equals(currentEmail)) {
-            throw new BusinessException("Não é possível excluir a própria conta");
+            throw new BusinessException("Não é possível inativar a própria conta");
         }
-        repository.delete(user);
+        user.setAtivo(false);
+        repository.save(user);
     }
 
     private User encontrar(Long id) {

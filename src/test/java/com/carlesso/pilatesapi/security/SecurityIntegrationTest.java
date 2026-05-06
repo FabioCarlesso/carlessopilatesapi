@@ -120,6 +120,17 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void login_comUsuarioInativo_deveRetornar401() throws Exception {
+        criarUsuario("inativo@email.com", Role.USER, false);
+        var request = new AuthLoginRequestDTO("inativo@email.com", "senha1234");
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void login_aposLimiteDefalhas_deveRetornar429() throws Exception {
         criarUsuario("brute@email.com", Role.USER);
         var senhaErrada = new AuthLoginRequestDTO("brute@email.com", "errada123");
@@ -299,25 +310,41 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void usersExcluir_comAdmin_deveRemoverUsuario() throws Exception {
+    void usersInativar_comAdmin_deveInativarUsuario() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        User user = criarUsuario("remover@email.com", Role.USER);
+        User user = criarUsuario("inativar@email.com", Role.USER);
 
         mvc.perform(delete("/users/{id}", user.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isNoContent());
 
-        assertThat(userRepository.findById(user.getId())).isEmpty();
+        User inativado = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(inativado.isAtivo()).isFalse();
     }
 
     @Test
-    void usersExcluir_adminExcluindoPropraConta_deveRetornar422() throws Exception {
+    void usersInativar_deveInvalidarTokenEmitidoAntesDaInativacao() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User user = criarUsuario("token-inativo@email.com", Role.USER);
+        String tokenEmitidoAntesDaInativacao = bearer(user);
+
+        mvc.perform(delete("/users/{id}", user.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/dashboard/resumo")
+                        .header(HttpHeaders.AUTHORIZATION, tokenEmitidoAntesDaInativacao))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void usersInativar_adminInativandoPropraConta_deveRetornar422() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
         mvc.perform(delete("/users/{id}", admin.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível excluir a própria conta"));
+                .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
     }
 
     @Test
@@ -350,11 +377,16 @@ class SecurityIntegrationTest {
     }
 
     private User criarUsuario(String email, Role role) {
+        return criarUsuario(email, role, true);
+    }
+
+    private User criarUsuario(String email, Role role, boolean ativo) {
         User user = new User();
         user.setName("Usuário Teste");
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode("senha1234"));
         user.setRole(role);
+        user.setAtivo(ativo);
         return userRepository.save(user);
     }
 

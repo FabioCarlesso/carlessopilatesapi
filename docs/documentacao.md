@@ -231,9 +231,10 @@ src/
 - Senhas são persistidas com BCrypt e nunca retornadas nos DTOs
 - Usuários administrativos podem definir os perfis de acesso disponíveis: `USER` e `ADMIN`
 - O segredo JWT é configurado por `JWT_SECRET`; token ausente, inválido ou expirado retorna `401`
-- JWT inclui claims `role` e `userId` — o filtro reconstrói o contexto de segurança sem consulta ao banco por requisição
+- JWT inclui claims `role` e `userId`; a cada requisição o filtro valida se o usuário ainda existe e está ativo antes de reconstruir o contexto de segurança
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`; login bem-sucedido redefine o contador
-- Admin não pode excluir a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
 - CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
 ### 4.1 Pacientes
@@ -435,6 +436,23 @@ Constraint: `UNIQUE (paciente_id, data)`
 
 ---
 
+### Entidade: User
+
+Tabela: `users`
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, auto-increment | Identificador único |
+| `name` | `VARCHAR(255)` | NOT NULL | Nome completo |
+| `email` | `VARCHAR(255)` | NOT NULL, UNIQUE | E-mail usado no login |
+| `password` | `VARCHAR(255)` | NOT NULL | Senha criptografada com BCrypt |
+| `role` | `VARCHAR(30)` | NOT NULL | Perfil de acesso (`USER` / `ADMIN`) |
+| `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o usuário pode autenticar e usar JWTs |
+
+Usuários inativados são mantidos no banco para preservar histórico. `DELETE /users/{id}` marca `ativo = false`.
+
+---
+
 ### Entidade: PlanoTratamento
 
 Tabela: `planos_tratamento`
@@ -469,12 +487,12 @@ Tabela: `planos_tratamento`
 |---|---|---|---|
 | `POST` | `/auth/register` | Público | Cria usuário com role `USER`, senha BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Autentica e-mail/senha e retorna JWT |
-| `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email` e `role` do usuário logado |
+| `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email`, `role` e `ativo` do usuário logado |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
 | `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso |
-| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário |
+| `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete) |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint administrativo inicial |
 
 Fluxo esperado: o frontend faz login ou registro, recebe `accessToken` e envia `Authorization: Bearer <token>` nas chamadas protegidas.
@@ -918,6 +936,7 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V17 | `V17__create_sessoes_pilates_table.sql` | Cria tabela de sessões de Pilates/Fisioterapia |
 | V18 | `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
 | V19 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
+| V20 | `V20__add_ativo_to_users.sql` | Adiciona controle de inativação lógica à tabela `users` |
 
 Os usuários iniciais da migração `V12` usam a senha `senha1234`; `admin@carlessopilates.com` e `operacional@carlessopilates.com` têm perfil `ADMIN`.
 
