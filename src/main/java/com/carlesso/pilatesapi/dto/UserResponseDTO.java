@@ -7,9 +7,10 @@ public record UserResponseDTO(
         Long id,
         String name,
         String email,
-        Role role
+        Role role,
+        boolean ativo
 ) {
     public static UserResponseDTO from(User user) {
-        return new UserResponseDTO(user.getId(), user.getName(), user.getEmail(), user.getRole());
+        return new UserResponseDTO(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.isAtivo());
     }
 }

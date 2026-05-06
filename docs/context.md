@@ -406,7 +406,7 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
 | GET | `/users/{id}` | Buscar usuário por ID | 200 / 401 / 403 / 404 |
 | PUT | `/users/{id}` | Atualizar nome, e-mail, senha e perfil de acesso | 200 / 400 / 401 / 403 / 404 / 409 |
-| DELETE | `/users/{id}` | Excluir usuário | 204 / 401 / 403 / 404 |
+| DELETE | `/users/{id}` | Inativar usuário (soft delete) | 204 / 401 / 403 / 404 / 422 |
 | GET | `/admin/health` | Health administrativo | 200 / 401 / 403 |
 | POST | `/pacientes` | Cadastrar paciente | 201 + Location header |
 | GET | `/pacientes` | Listar e filtrar pacientes por nome, e-mail, CPF, telefone e ativo/inativo (paginado) | 200 + Page |
@@ -482,7 +482,7 @@ CPF não pode ser alterado após o cadastro.
 - O segredo JWT vem de `JWT_SECRET`; não há segredo fixo no código
 - JWT inclui claims `role` e `userId` — o filtro reconstrói o contexto de segurança sem consulta ao banco por requisição
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`
-- Admin não pode excluir a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 
@@ -736,6 +736,8 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
+| `UserServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `UserControllerTest` | `@WebMvcTest` + MockMvc | 8 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 23 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

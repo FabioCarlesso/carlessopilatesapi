@@ -299,25 +299,26 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void usersExcluir_comAdmin_deveRemoverUsuario() throws Exception {
+    void usersInativar_comAdmin_deveInativarUsuario() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        User user = criarUsuario("remover@email.com", Role.USER);
+        User user = criarUsuario("inativar@email.com", Role.USER);
 
         mvc.perform(delete("/users/{id}", user.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isNoContent());
 
-        assertThat(userRepository.findById(user.getId())).isEmpty();
+        User inativado = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(inativado.isAtivo()).isFalse();
     }
 
     @Test
-    void usersExcluir_adminExcluindoPropraConta_deveRetornar422() throws Exception {
+    void usersInativar_adminInativandoPropraConta_deveRetornar422() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
         mvc.perform(delete("/users/{id}", admin.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível excluir a própria conta"));
+                .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
     }
 
     @Test
