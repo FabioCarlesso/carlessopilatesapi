@@ -217,6 +217,19 @@ O endereço é um `@Embeddable` (`Endereco`), suas colunas ficam diretamente na 
 
 Join table `plano_dias_semana`: `plano_id` + `dia_semana` (MONDAY, TUESDAY…)
 
+### Tabela `users`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `name` | VARCHAR | NOT NULL |
+| `email` | VARCHAR | NOT NULL, UNIQUE |
+| `password` | VARCHAR | NOT NULL, BCrypt |
+| `role` | VARCHAR(30) | NOT NULL |
+| `ativo` | BOOLEAN | NOT NULL, default `true` |
+
+Usuários inativos são preservados no banco, mas não podem autenticar nem usar tokens JWT emitidos antes da inativação.
+
 ### Tabela `pagamentos`
 
 | Campo | Tipo | Restrição |
@@ -480,9 +493,10 @@ CPF não pode ser alterado após o cadastro.
 - Autenticação stateless com Spring Security e JWT
 - Senhas são armazenadas com `BCryptPasswordEncoder`
 - O segredo JWT vem de `JWT_SECRET`; não há segredo fixo no código
-- JWT inclui claims `role` e `userId` — o filtro reconstrói o contexto de segurança sem consulta ao banco por requisição
+- JWT inclui claims `role` e `userId`; a cada requisição o filtro valida se o usuário ainda existe e está ativo antes de reconstruir o contexto de segurança
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 
