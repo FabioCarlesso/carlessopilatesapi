@@ -70,10 +70,8 @@ public class UserService {
             throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
         }
 
-        if (dto.role() != null && !dto.role().equals(user.getRole())
-                && user.getRole() == Role.ADMIN && dto.role() != Role.ADMIN
-                && repository.countByRoleAndAtivoTrue(Role.ADMIN) <= 1) {
-            throw new BusinessException("Não é possível rebaixar o último administrador ativo");
+        if (dto.role() != null && !dto.role().equals(user.getRole()) && dto.role() != Role.ADMIN) {
+            validarRemocaoDeAdminAtivo(user, "Não é possível rebaixar o último administrador ativo");
         }
 
         if (dto.email() != null) {
@@ -96,11 +94,16 @@ public class UserService {
         if (user.getEmail().equals(currentEmail)) {
             throw new BusinessException("Não é possível inativar a própria conta");
         }
-        if (user.getRole() == Role.ADMIN && repository.countByRoleAndAtivoTrue(Role.ADMIN) <= 1) {
-            throw new BusinessException("Não é possível inativar o último administrador ativo");
-        }
+        validarRemocaoDeAdminAtivo(user, "Não é possível inativar o último administrador ativo");
         user.setAtivo(false);
         repository.save(user);
+    }
+
+    private void validarRemocaoDeAdminAtivo(User user, String mensagem) {
+        if (user.isAtivo() && user.getRole() == Role.ADMIN
+                && repository.findActiveByRoleForUpdate(Role.ADMIN).size() <= 1) {
+            throw new BusinessException(mensagem);
+        }
     }
 
     private User encontrar(Long id) {

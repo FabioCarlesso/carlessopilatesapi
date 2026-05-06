@@ -211,8 +211,8 @@ Base URL: `http://localhost:8080`
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
-| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil. Admin não pode alterar o próprio role |
-| `DELETE` | `/users/{id}` | `ADMIN` | Remove usuário. Admin não pode excluir a própria conta |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil. Admin não pode alterar o próprio role nem rebaixar o último ADMIN ativo |
+| `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
 As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos ou expirados retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.

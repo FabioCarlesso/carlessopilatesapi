@@ -83,7 +83,7 @@ public class UserController {
 
     @Operation(
             summary = "Atualizar usuário",
-            description = "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN. Admin não pode alterar o próprio role."
+            description = "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN. Admin não pode alterar o próprio role nem rebaixar o último administrador ativo."
     )
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDTO> atualizar(
@@ -95,7 +95,7 @@ public class UserController {
 
     @Operation(
             summary = "Inativar usuário",
-            description = "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado. Admin não pode inativar a própria conta."
+            description = "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado. Admin não pode inativar a própria conta nem o último administrador ativo."
     )
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(
