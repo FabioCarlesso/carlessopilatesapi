@@ -915,6 +915,9 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V14 | `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
 | V15 | `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria tabela de avaliações fisioterapêuticas do paciente |
 | V16 | `V16__create_planos_tratamento_table.sql` | Cria tabela de planos de tratamento do paciente |
+| V17 | `V17__create_sessoes_pilates_table.sql` | Cria tabela de sessões de Pilates/Fisioterapia |
+| V18 | `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
+| V19 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
 
 Os usuários iniciais da migração `V12` usam a senha `senha1234`; `admin@carlessopilates.com` e `operacional@carlessopilates.com` têm perfil `ADMIN`.
 

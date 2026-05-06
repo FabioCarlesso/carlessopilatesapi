@@ -157,7 +157,8 @@ src/
 │           ├── V15__create_avaliacoes_fisioterapeuticas_table.sql
 │           ├── V16__create_planos_tratamento_table.sql
 │           ├── V17__create_sessoes_pilates_table.sql
-│           └── V18__create_evolucoes_sessao_table.sql
+│           ├── V18__create_evolucoes_sessao_table.sql
+│           └── V19__create_reavaliacoes_table.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -674,6 +675,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V16__create_planos_tratamento_table.sql` | Cria tabela de planos de tratamento do paciente |
 | `V17__create_sessoes_pilates_table.sql` | Cria tabela de sessões de Pilates/Fisioterapia |
 | `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
+| `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
