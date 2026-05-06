@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Reavaliacao;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
@@ -53,6 +54,15 @@ class ReavaliacaoServiceTest {
         p.setEmail("carlos@email.com");
         p.setCpf("98765432100");
         setFieldId(p, Paciente.class, 1L);
+        return p;
+    }
+
+    private Paciente outroPaciente() {
+        Paciente p = new Paciente();
+        p.setNome("Bruna Souza");
+        p.setEmail("bruna@email.com");
+        p.setCpf("12345678900");
+        setFieldId(p, Paciente.class, 2L);
         return p;
     }
 
@@ -135,6 +145,7 @@ class ReavaliacaoServiceTest {
     void criar_comAvaliacaoFisioterapeuticaVinculada_deveAssociarCorretamente() {
         Paciente p = paciente();
         AvaliacaoFisioterapeutica avaliacao = new AvaliacaoFisioterapeutica();
+        avaliacao.setPaciente(p);
         setFieldId(avaliacao, AvaliacaoFisioterapeutica.class, 2L);
 
         Reavaliacao reavaliacaoComVinculo = reavaliacao(p);
@@ -158,6 +169,7 @@ class ReavaliacaoServiceTest {
     void criar_comPlanoTratamentoVinculado_deveAssociarCorretamente() {
         Paciente p = paciente();
         PlanoTratamento plano = new PlanoTratamento();
+        plano.setPaciente(p);
         setFieldId(plano, PlanoTratamento.class, 3L);
 
         Reavaliacao reavaliacaoComPlano = reavaliacao(p);
@@ -191,6 +203,46 @@ class ReavaliacaoServiceTest {
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    @Test
+    void criar_comAvaliacaoFisioterapeuticaDeOutroPaciente_deveLancarBusinessException() {
+        Paciente p = paciente();
+        AvaliacaoFisioterapeutica avaliacao = new AvaliacaoFisioterapeutica();
+        avaliacao.setPaciente(outroPaciente());
+        setFieldId(avaliacao, AvaliacaoFisioterapeutica.class, 2L);
+
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(avaliacaoRepository.findAtivaById(2L)).thenReturn(Optional.of(avaliacao));
+
+        var dto = new ReavaliacaoRequestDTO(
+                1L, 2L, null, LocalDate.of(2026, 5, 1),
+                null, null, null, null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> service.criar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não pertence ao paciente");
+    }
+
+    @Test
+    void criar_comPlanoTratamentoDeOutroPaciente_deveLancarBusinessException() {
+        Paciente p = paciente();
+        PlanoTratamento plano = new PlanoTratamento();
+        plano.setPaciente(outroPaciente());
+        setFieldId(plano, PlanoTratamento.class, 3L);
+
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
+
+        var dto = new ReavaliacaoRequestDTO(
+                1L, null, 3L, LocalDate.of(2026, 5, 1),
+                null, null, null, null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> service.criar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não pertence ao paciente");
     }
 
     @Test

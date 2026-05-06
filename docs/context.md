@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças, geração automática de aulas, relatório de pagamento de profissionais e relatório de emissão de NFSEs.
+API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Permite cadastro, consulta, atualização parcial e inativação (soft delete) de pacientes e profissionais, com gestão de planos de pagamento, cobranças, geração automática de aulas, prontuário clínico com anamnese, avaliação, plano de tratamento, sessões, evoluções e reavaliações periódicas, relatório de pagamento de profissionais e relatório de emissão de NFSEs.
 
 ---
 
@@ -54,6 +54,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoTratamentoController.java — endpoints REST de planos de tratamento
 │   ├── SessaoPilatesController.java  — endpoints REST de sessões de Pilates/Fisioterapia
 │   ├── EvolucaoSessaoController.java — endpoints REST de evoluções de sessão
+│   ├── ReavaliacaoController.java     — endpoints REST de reavaliações periódicas
 │   ├── AuthController.java           — registro/login com JWT
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
@@ -67,6 +68,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoTratamentoService.java             — lógica de negócio de planos de tratamento
 │   ├── SessaoPilatesService.java               — lógica de negócio de sessões de Pilates/Fisioterapia
 │   ├── EvolucaoSessaoService.java              — lógica de negócio de evoluções de sessão
+│   ├── ReavaliacaoService.java                  — lógica de negócio de reavaliações periódicas
 │   ├── PlanoService.java                       — regras de plano e frequência
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
@@ -90,6 +92,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoTratamentoRepository.java
 │   ├── SessaoPilatesRepository.java
 │   ├── EvolucaoSessaoRepository.java
+│   ├── ReavaliacaoRepository.java
 │   └── UserRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
@@ -103,6 +106,7 @@ com.carlesso.pilatesapi
 │   ├── PlanoTratamento.java          — entidade JPA, tabela `planos_tratamento`
 │   ├── SessaoPilates.java            — entidade JPA, tabela `sessoes_pilates`
 │   ├── EvolucaoSessao.java           — entidade JPA, tabela `evolucoes_sessao`
+│   ├── Reavaliacao.java              — entidade JPA, tabela `reavaliacoes`
 │   └── User.java                     — entidade JPA, tabela `users`
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
@@ -148,6 +152,9 @@ com.carlesso.pilatesapi
 │   ├── SessaoPilatesRequestDTO.java  — payload de criação de sessão (record)
 │   ├── SessaoPilatesUpdateDTO.java   — payload de atualização de sessão (record)
 │   ├── SessaoPilatesResponseDTO.java — resposta da API de sessão (record com factory method `from`)
+│   ├── ReavaliacaoRequestDTO.java    — payload de criação de reavaliação periódica
+│   ├── ReavaliacaoUpdateDTO.java     — payload de atualização de reavaliação periódica
+│   ├── ReavaliacaoResponseDTO.java   — resposta da API de reavaliação periódica
 │   ├── AuthRegisterRequestDTO.java
 │   ├── AuthLoginRequestDTO.java
 │   ├── AuthResponseDTO.java
@@ -346,6 +353,29 @@ Relacionamento `@ManyToOne` com `Paciente`, `Profissional` (nullable) e `PlanoTr
 
 Relacionamento `@OneToOne` com `SessaoPilates`. Cada sessão possui no máximo uma evolução (constraint `UNIQUE sessao_id`).
 
+### Tabela `reavaliacoes`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → pacientes |
+| `avaliacao_fisioterapeutica_id` | BIGINT | nullable, FK → avaliacoes_fisioterapeuticas |
+| `plano_tratamento_id` | BIGINT | nullable, FK → planos_tratamento |
+| `data_reavaliacao` | DATE | NOT NULL |
+| `comparativo_avaliacao_anterior` | TEXT | — |
+| `evolucao_dor` | TEXT | — |
+| `evolucao_forca` | TEXT | — |
+| `evolucao_mobilidade` | TEXT | — |
+| `evolucao_funcional` | TEXT | — |
+| `objetivos_alcancados` | TEXT | — |
+| `pontos_atencao` | TEXT | — |
+| `ajustes_recomendados` | TEXT | — |
+| `observacoes_gerais` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcionais com `AvaliacaoFisioterapeutica` e `PlanoTratamento`. Um paciente pode possuir múltiplas reavaliações periódicas para comparação longitudinal da evolução clínica.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -430,6 +460,10 @@ Relacionamento `@OneToOne` com `SessaoPilates`. Cada sessão possui no máximo u
 | GET | `/evolucoes-sessao/{id}` | Buscar evolução por ID | 200 / 404 |
 | GET | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução por sessão | 200 / 404 |
 | PUT | `/evolucoes-sessao/{id}` | Atualizar evolução (atualização parcial) | 200 / 400 / 404 |
+| POST | `/reavaliacoes` | Criar reavaliação periódica para um paciente | 201 / 400 / 404 / 422 |
+| GET | `/reavaliacoes/{id}` | Buscar reavaliação por ID | 200 / 404 |
+| GET | `/reavaliacoes/paciente/{pacienteId}` | Listar reavaliações do paciente | 200 / 404 |
+| PUT | `/reavaliacoes/{id}` | Atualizar reavaliação (atualização parcial) | 200 / 400 / 404 |
 
 Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
@@ -548,6 +582,16 @@ CPF não pode ser alterado após o cadastro.
 - Consultas e atualizações de evolução filtram `sessao.paciente.ativo = true`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
+- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+
+### Reavaliações
+- Um paciente pode possuir múltiplas reavaliações periódicas para comparação com avaliações anteriores e acompanhamento da evolução clínica
+- Criar reavaliação para paciente inexistente ou inativo retorna `404`
+- Campos obrigatórios: `pacienteId` e `dataReavaliacao`
+- `avaliacaoFisioterapeuticaId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir, estar ativo quando aplicável e pertencer ao mesmo `pacienteId` da reavaliação
+- Consultas por ID e por paciente filtram `paciente.ativo = true`
+- Listagem por paciente retorna reavaliações ordenadas por `dataReavaliacao DESC, id DESC`
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Scheduler (processos automáticos)
@@ -690,6 +734,8 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
+| `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |
+| `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 23 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

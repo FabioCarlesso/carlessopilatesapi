@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Reavaliacao;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
@@ -57,12 +58,18 @@ public class ReavaliacaoService {
         if (dto.avaliacaoFisioterapeuticaId() != null) {
             AvaliacaoFisioterapeutica avaliacao = avaliacaoRepository.findAtivaById(dto.avaliacaoFisioterapeuticaId())
                     .orElseThrow(() -> new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: " + dto.avaliacaoFisioterapeuticaId()));
+            if (!avaliacao.getPaciente().getId().equals(paciente.getId())) {
+                throw new BusinessException("Avaliação fisioterapêutica não pertence ao paciente informado");
+            }
             reavaliacao.setAvaliacaoFisioterapeutica(avaliacao);
         }
 
         if (dto.planoTratamentoId() != null) {
             PlanoTratamento plano = planoTratamentoRepository.findAtivoById(dto.planoTratamentoId())
                     .orElseThrow(() -> new ResourceNotFoundException("Plano de tratamento não encontrado: " + dto.planoTratamentoId()));
+            if (!plano.getPaciente().getId().equals(paciente.getId())) {
+                throw new BusinessException("Plano de tratamento não pertence ao paciente informado");
+            }
             reavaliacao.setPlanoTratamento(plano);
         }
 
