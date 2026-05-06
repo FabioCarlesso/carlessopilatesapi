@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
+import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
@@ -69,6 +70,12 @@ public class UserService {
             throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
         }
 
+        if (dto.role() != null && !dto.role().equals(user.getRole())
+                && user.getRole() == Role.ADMIN && dto.role() != Role.ADMIN
+                && repository.countByRoleAndAtivoTrue(Role.ADMIN) <= 1) {
+            throw new BusinessException("Não é possível rebaixar o último administrador ativo");
+        }
+
         if (dto.email() != null) {
             String email = normalizarEmail(dto.email());
             if (repository.existsByEmailAndIdNot(email, id)) {
@@ -88,6 +95,9 @@ public class UserService {
         User user = encontrar(id);
         if (user.getEmail().equals(currentEmail)) {
             throw new BusinessException("Não é possível inativar a própria conta");
+        }
+        if (user.getRole() == Role.ADMIN && repository.countByRoleAndAtivoTrue(Role.ADMIN) <= 1) {
+            throw new BusinessException("Não é possível inativar o último administrador ativo");
         }
         user.setAtivo(false);
         repository.save(user);

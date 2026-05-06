@@ -189,4 +189,29 @@ class UserControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.erro").value("Usuário não encontrado: 99"));
     }
+
+    @Test
+    void inativar_ultimoAdmin_deveRetornar422() throws Exception {
+        doThrow(new BusinessException("Não é possível inativar o último administrador ativo"))
+                .when(service).inativar(eq(2L), anyString());
+
+        mvc.perform(delete("/users/2")
+                        .principal(adminAuth()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Não é possível inativar o último administrador ativo"));
+    }
+
+    @Test
+    void atualizar_rebaixandoUltimoAdmin_deveRetornar422() throws Exception {
+        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        when(service.atualizar(eq(2L), any(), anyString()))
+                .thenThrow(new BusinessException("Não é possível rebaixar o último administrador ativo"));
+
+        mvc.perform(put("/users/2")
+                        .principal(adminAuth())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Não é possível rebaixar o último administrador ativo"));
+    }
 }
