@@ -222,6 +222,33 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void usersRoles_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/users/roles"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void usersRoles_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("user@email.com", Role.USER);
+
+        mvc.perform(get("/users/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void usersRoles_comAdmin_deveRetornarRolesDisponiveis() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+
+        mvc.perform(get("/users/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(Role.values().length))
+                .andExpect(jsonPath("$[?(@.value == 'ADMIN')].label").value("Administrador"))
+                .andExpect(jsonPath("$[?(@.value == 'USER')].label").value("Usuário"));
+    }
+
+    @Test
     void usersListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
         User user = criarUsuario("user@email.com", Role.USER);
 

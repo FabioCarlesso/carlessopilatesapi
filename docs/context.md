@@ -417,6 +417,7 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
 | POST | `/users` | Criar usuário com role `USER` ou `ADMIN` | 201 / 400 / 401 / 403 / 409 |
 | GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
+| GET | `/users/roles` | Listar roles disponíveis (`value` e `label`) para formulários administrativos | 200 / 401 / 403 |
 | GET | `/users/{id}` | Buscar usuário por ID | 200 / 401 / 403 / 404 |
 | PUT | `/users/{id}` | Atualizar nome, e-mail, senha e perfil de acesso | 200 / 400 / 401 / 403 / 404 / 409 / 422 |
 | DELETE | `/users/{id}` | Inativar usuário (soft delete) | 204 / 401 / 403 / 404 / 422 |

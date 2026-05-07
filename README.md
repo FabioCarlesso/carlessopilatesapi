@@ -210,6 +210,7 @@ Base URL: `http://localhost:8080`
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
+| `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
 | `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil. Admin não pode alterar o próprio role nem rebaixar o último ADMIN ativo |
 | `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
