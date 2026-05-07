@@ -491,6 +491,7 @@ Tabela: `planos_tratamento`
 | `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email`, `role` e `ativo` do usuário logado |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
+| `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis no formato `{ value, label }` para uso em formulários administrativos |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
 | `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso; retorna `422` ao tentar rebaixar o último `ADMIN` ativo |
 | `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete); retorna `422` ao tentar inativar a própria conta ou o último `ADMIN` ativo |

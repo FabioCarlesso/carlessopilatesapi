@@ -1,8 +1,10 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.RoleResponseDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
+import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +26,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Tag(
         name = "Usuários",
@@ -69,6 +74,17 @@ public class UserController {
     public ResponseEntity<Page<UserResponseDTO>> listar(
             @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
+    }
+
+    @Operation(
+            summary = "Listar roles disponíveis",
+            description = "Requer role ADMIN. Retorna todas as roles disponíveis no sistema com value e label, para uso em formulários administrativos."
+    )
+    @GetMapping("/roles")
+    public ResponseEntity<List<RoleResponseDTO>> listarRoles() {
+        return ResponseEntity.ok(Arrays.stream(Role.values())
+                .map(RoleResponseDTO::from)
+                .toList());
     }
 
     @Operation(

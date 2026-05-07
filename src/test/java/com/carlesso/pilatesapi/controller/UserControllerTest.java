@@ -100,6 +100,15 @@ class UserControllerTest {
     }
 
     @Test
+    void listarRoles_deveRetornar200ComTodasAsRoles() throws Exception {
+        mvc.perform(get("/users/roles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(Role.values().length))
+                .andExpect(jsonPath("$[?(@.value == 'ADMIN')].label").value("Administrador"))
+                .andExpect(jsonPath("$[?(@.value == 'USER')].label").value("Usuário"));
+    }
+
+    @Test
     void listar_deveRetornar200ComPagina() throws Exception {
         var page = new PageImpl<>(List.of(response()), PageRequest.of(0, 10), 1);
         when(service.listar(any())).thenReturn(page);
