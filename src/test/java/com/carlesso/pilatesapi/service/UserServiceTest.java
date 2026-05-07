@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
+import static java.util.List.of;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -184,5 +185,90 @@ class UserServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().isAtivo()).isFalse();
+    }
+
+    @Test
+    void inativar_ultimoAdmin_deveLancarBusinessException() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin));
+
+        assertThatThrownBy(() -> service.inativar(2L, "admin@email.com"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível inativar o último administrador ativo");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void inativar_adminComOutroAdminAtivo_deveInativar() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        User outroAdmin = usuario(3L, "admin3@email.com", Role.ADMIN);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin, outroAdmin));
+        when(repository.save(any())).thenReturn(admin);
+
+        service.inativar(2L, "admin@email.com");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().isAtivo()).isFalse();
+    }
+
+    @Test
+    void inativar_adminJaInativo_naoDeveValidarUltimoAdminAtivo() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        admin.setAtivo(false);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.save(any())).thenReturn(admin);
+
+        service.inativar(2L, "admin@email.com");
+
+        verify(repository, never()).findActiveByRoleForUpdate(Role.ADMIN);
+        verify(repository).save(any());
+    }
+
+    @Test
+    void atualizar_rebaixandoUltimoAdmin_deveLancarBusinessException() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin));
+
+        assertThatThrownBy(() -> service.atualizar(2L, dto, "admin@email.com"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível rebaixar o último administrador ativo");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void atualizar_rebaixandoAdminComOutroAdminAtivo_deveAtualizar() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        User outroAdmin = usuario(3L, "admin3@email.com", Role.ADMIN);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin, outroAdmin));
+        when(repository.save(any())).thenReturn(admin);
+
+        UserResponseDTO response = service.atualizar(2L, dto, "admin@email.com");
+
+        assertThat(response).isNotNull();
+        verify(repository).save(any());
+    }
+
+    @Test
+    void atualizar_rebaixandoAdminInativo_deveAtualizarSemValidarUltimoAdminAtivo() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        admin.setAtivo(false);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.save(any())).thenReturn(admin);
+
+        UserResponseDTO response = service.atualizar(2L, dto, "admin@email.com");
+
+        assertThat(response).isNotNull();
+        verify(repository, never()).findActiveByRoleForUpdate(Role.ADMIN);
+        verify(repository).save(any());
     }
 }

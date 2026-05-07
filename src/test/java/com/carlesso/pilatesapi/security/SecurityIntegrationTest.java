@@ -297,6 +297,21 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void usersAtualizar_rebaixandoAdminInativo_devePermitir() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User adminInativo = criarUsuario("admin-inativo@email.com", Role.ADMIN, false);
+        var request = new UserUpdateDTO(null, null, null, Role.USER);
+
+        mvc.perform(put("/users/{id}", adminInativo.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.ativo").value(false));
+    }
+
+    @Test
     void usersAtualizar_nomeVazio_deveRetornar400() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("user@email.com", Role.USER);

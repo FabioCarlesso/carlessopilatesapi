@@ -418,7 +418,7 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | POST | `/users` | Criar usuário com role `USER` ou `ADMIN` | 201 / 400 / 401 / 403 / 409 |
 | GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
 | GET | `/users/{id}` | Buscar usuário por ID | 200 / 401 / 403 / 404 |
-| PUT | `/users/{id}` | Atualizar nome, e-mail, senha e perfil de acesso | 200 / 400 / 401 / 403 / 404 / 409 |
+| PUT | `/users/{id}` | Atualizar nome, e-mail, senha e perfil de acesso | 200 / 400 / 401 / 403 / 404 / 409 / 422 |
 | DELETE | `/users/{id}` | Inativar usuário (soft delete) | 204 / 401 / 403 / 404 / 422 |
 | GET | `/admin/health` | Health administrativo | 200 / 401 / 403 |
 | POST | `/pacientes` | Cadastrar paciente | 201 + Location header |
@@ -496,6 +496,7 @@ CPF não pode ser alterado após o cadastro.
 - JWT inclui claims `role` e `userId`; a cada requisição o filtro valida se o usuário ainda existe e está ativo antes de reconstruir o contexto de segurança
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`

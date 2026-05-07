@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
+import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
@@ -69,6 +70,10 @@ public class UserService {
             throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
         }
 
+        if (dto.role() != null && !dto.role().equals(user.getRole()) && dto.role() != Role.ADMIN) {
+            validarRemocaoDeAdminAtivo(user, "Não é possível rebaixar o último administrador ativo");
+        }
+
         if (dto.email() != null) {
             String email = normalizarEmail(dto.email());
             if (repository.existsByEmailAndIdNot(email, id)) {
@@ -89,8 +94,16 @@ public class UserService {
         if (user.getEmail().equals(currentEmail)) {
             throw new BusinessException("Não é possível inativar a própria conta");
         }
+        validarRemocaoDeAdminAtivo(user, "Não é possível inativar o último administrador ativo");
         user.setAtivo(false);
         repository.save(user);
+    }
+
+    private void validarRemocaoDeAdminAtivo(User user, String mensagem) {
+        if (user.isAtivo() && user.getRole() == Role.ADMIN
+                && repository.findActiveByRoleForUpdate(Role.ADMIN).size() <= 1) {
+            throw new BusinessException(mensagem);
+        }
     }
 
     private User encontrar(Long id) {

@@ -234,6 +234,7 @@ src/
 - JWT inclui claims `role` e `userId`; a cada requisição o filtro valida se o usuário ainda existe e está ativo antes de reconstruir o contexto de segurança
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`; login bem-sucedido redefine o contador
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
+- O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
 - CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
@@ -491,8 +492,8 @@ Tabela: `planos_tratamento`
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
-| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso |
-| `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete) |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil de acesso; retorna `422` ao tentar rebaixar o último `ADMIN` ativo |
+| `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete); retorna `422` ao tentar inativar a própria conta ou o último `ADMIN` ativo |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint administrativo inicial |
 
 Fluxo esperado: o frontend faz login ou registro, recebe `accessToken` e envia `Authorization: Bearer <token>` nas chamadas protegidas.
