@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.RoleResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -100,10 +101,17 @@ class UserControllerTest {
     }
 
     @Test
+    // Security filters are disabled via @AutoConfigureMockMvc(addFilters = false); auth is covered by SecurityIntegrationTest
     void listarRoles_deveRetornar200ComTodasAsRoles() throws Exception {
+        var roles = List.of(
+                new RoleResponseDTO("ADMIN", "Administrador"),
+                new RoleResponseDTO("USER", "Usuário")
+        );
+        when(service.listarRoles()).thenReturn(roles);
+
         mvc.perform(get("/users/roles"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(Role.values().length))
+                .andExpect(jsonPath("$.length()").value(roles.size()))
                 .andExpect(jsonPath("$[?(@.value == 'ADMIN')].label").value("Administrador"))
                 .andExpect(jsonPath("$[?(@.value == 'USER')].label").value("Usuário"));
     }

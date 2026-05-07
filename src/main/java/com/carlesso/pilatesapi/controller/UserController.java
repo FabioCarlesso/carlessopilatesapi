@@ -4,10 +4,11 @@ import com.carlesso.pilatesapi.dto.RoleResponseDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
-import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
@@ -27,7 +28,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Tag(
@@ -80,11 +80,14 @@ public class UserController {
             summary = "Listar roles disponíveis",
             description = "Requer role ADMIN. Retorna todas as roles disponíveis no sistema com value e label, para uso em formulários administrativos."
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista de roles retornada com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
+            @ApiResponse(responseCode = "403", description = "Usuário sem role ADMIN")
+    })
     @GetMapping("/roles")
     public ResponseEntity<List<RoleResponseDTO>> listarRoles() {
-        return ResponseEntity.ok(Arrays.stream(Role.values())
-                .map(RoleResponseDTO::from)
-                .toList());
+        return ResponseEntity.ok(service.listarRoles());
     }
 
     @Operation(

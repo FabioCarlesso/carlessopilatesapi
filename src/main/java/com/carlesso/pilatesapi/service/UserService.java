@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.dto.RoleResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -15,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -47,6 +50,13 @@ public class UserService {
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> listar(Pageable pageable) {
         return repository.findAll(pageable).map(UserResponseDTO::from);
+    }
+
+    public List<RoleResponseDTO> listarRoles() {
+        return Arrays.stream(Role.values())
+                .filter(Role::isVisivel)
+                .map(RoleResponseDTO::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
