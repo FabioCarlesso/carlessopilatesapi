@@ -329,6 +329,82 @@ class SessaoPilatesServiceTest {
     }
 
     @Test
+    void realizar_comSessaoAgendada_deveTransicionarParaRealizada() {
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.save(s)).thenReturn(s);
+
+        SessaoPilatesResponseDTO response = service.realizar(1L);
+
+        assertThat(response.status()).isEqualTo(StatusSessao.REALIZADA);
+        assertThat(response.dataAtualizacao()).isNotNull();
+        verify(sessaoRepository).save(s);
+    }
+
+    @Test
+    void realizar_comSessaoRealizada_deveLancarBusinessException() {
+        SessaoPilates s = sessao(paciente());
+        s.setStatus(StatusSessao.REALIZADA);
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+
+        assertThatThrownBy(() -> service.realizar(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Transição inválida");
+    }
+
+    @Test
+    void realizar_comSessaoCancelada_deveLancarBusinessException() {
+        SessaoPilates s = sessao(paciente());
+        s.setStatus(StatusSessao.CANCELADA);
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+
+        assertThatThrownBy(() -> service.realizar(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Transição inválida");
+    }
+
+    @Test
+    void realizar_comSessaoInexistente_deveLancarResourceNotFoundException() {
+        when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.realizar(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void cancelar_comSessaoAgendada_deveTransicionarParaCancelada() {
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.save(s)).thenReturn(s);
+
+        SessaoPilatesResponseDTO response = service.cancelar(1L);
+
+        assertThat(response.status()).isEqualTo(StatusSessao.CANCELADA);
+        assertThat(response.dataAtualizacao()).isNotNull();
+    }
+
+    @Test
+    void cancelar_comSessaoRealizada_deveLancarBusinessException() {
+        SessaoPilates s = sessao(paciente());
+        s.setStatus(StatusSessao.REALIZADA);
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+
+        assertThatThrownBy(() -> service.cancelar(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Transição inválida");
+    }
+
+    @Test
+    void cancelar_comSessaoInexistente_deveLancarResourceNotFoundException() {
+        when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancelar(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
     void excluir_comSessaoExistente_deveRemoverSessao() {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));

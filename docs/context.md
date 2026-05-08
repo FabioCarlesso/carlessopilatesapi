@@ -468,6 +468,8 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | GET | `/sessoes/{id}` | Buscar sessão por ID | 200 / 404 |
 | GET | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente | 200 / 404 |
 | PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial) | 200 / 400 / 404 |
+| PATCH | `/sessoes/{id}/realizar` | Marcar sessão como REALIZADA (apenas a partir de AGENDADA) | 200 / 404 / 422 |
+| PATCH | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de AGENDADA) | 200 / 404 / 422 |
 | DELETE | `/sessoes/{id}` | Excluir sessão permanentemente | 204 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 | POST | `/evolucoes-sessao` | Criar evolução para uma sessão | 201 / 400 / 404 / 409 |

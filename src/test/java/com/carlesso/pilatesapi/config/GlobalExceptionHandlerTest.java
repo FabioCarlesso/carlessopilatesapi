@@ -6,6 +6,8 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.Map;
 
@@ -53,6 +55,14 @@ class GlobalExceptionHandlerTest {
                 new IllegalArgumentException("Período inicial é obrigatório"));
 
         assertThat(response).containsEntry("erro", "Período inicial é obrigatório");
+    }
+
+    @Test
+    void handleNoHandlerFound_retornaMensagemRotaNaoEncontrada() {
+        Map<String, String> response = handler.handleNoHandlerFound(
+                new NoHandlerFoundException("GET", "/inexistente", new HttpHeaders()));
+
+        assertThat(response).containsEntry("erro", "Rota não encontrada");
     }
 
     @Test

@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -407,6 +408,24 @@ class SecurityIntegrationTest {
                 .andExpect(jsonPath("$.pagamentos").exists())
                 .andExpect(jsonPath("$.aulas").exists())
                 .andExpect(jsonPath("$.geradoEm").exists());
+    }
+
+    @Test
+    void rotaInexistente_comTokenValido_deveRetornar404() throws Exception {
+        User user = criarUsuario("rota@email.com", Role.USER);
+
+        mvc.perform(get("/rota-que-nao-existe")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rotaInexistenteEmRecursoExistente_comTokenValido_deveRetornar404() throws Exception {
+        User user = criarUsuario("rota2@email.com", Role.USER);
+
+        mvc.perform(patch("/sessoes/1/inexistente")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isNotFound());
     }
 
     @Test

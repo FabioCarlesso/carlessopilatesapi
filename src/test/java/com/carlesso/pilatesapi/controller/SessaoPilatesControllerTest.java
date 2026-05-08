@@ -5,6 +5,7 @@ import com.carlesso.pilatesapi.dto.SessaoPilatesResponseDTO;
 import com.carlesso.pilatesapi.dto.SessaoPilatesUpdateDTO;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
@@ -253,6 +254,92 @@ class SessaoPilatesControllerTest {
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+    }
+
+    @Test
+    void realizar_comSessaoAgendada_deveRetornar200ComStatusRealizada() throws Exception {
+        var realizada = new SessaoPilatesResponseDTO(
+                1L, 1L, "Ana Oliveira",
+                null, null, null,
+                TipoSessao.PILATES,
+                StatusSessao.REALIZADA,
+                LocalDate.of(2026, 5, 10),
+                LocalTime.of(9, 0),
+                "Sala 1",
+                50,
+                "Observação teste",
+                LocalDateTime.of(2026, 5, 4, 10, 0),
+                LocalDateTime.of(2026, 5, 8, 12, 0)
+        );
+        when(service.realizar(1L)).thenReturn(realizada);
+
+        mvc.perform(patch("/sessoes/1/realizar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("REALIZADA"));
+    }
+
+    @Test
+    void realizar_comSessaoInexistente_deveRetornar404() throws Exception {
+        when(service.realizar(99L))
+                .thenThrow(new ResourceNotFoundException("Sessão não encontrada: 99"));
+
+        mvc.perform(patch("/sessoes/99/realizar"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+    }
+
+    @Test
+    void realizar_comTransicaoInvalida_deveRetornar422() throws Exception {
+        when(service.realizar(1L))
+                .thenThrow(new BusinessException("Transição inválida: sessão CANCELADA não pode ser alterada para REALIZADA"));
+
+        mvc.perform(patch("/sessoes/1/realizar"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Transição inválida: sessão CANCELADA não pode ser alterada para REALIZADA"));
+    }
+
+    @Test
+    void cancelar_comSessaoAgendada_deveRetornar200ComStatusCancelada() throws Exception {
+        var cancelada = new SessaoPilatesResponseDTO(
+                1L, 1L, "Ana Oliveira",
+                null, null, null,
+                TipoSessao.PILATES,
+                StatusSessao.CANCELADA,
+                LocalDate.of(2026, 5, 10),
+                LocalTime.of(9, 0),
+                "Sala 1",
+                50,
+                "Observação teste",
+                LocalDateTime.of(2026, 5, 4, 10, 0),
+                LocalDateTime.of(2026, 5, 8, 12, 0)
+        );
+        when(service.cancelar(1L)).thenReturn(cancelada);
+
+        mvc.perform(patch("/sessoes/1/cancelar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("CANCELADA"));
+    }
+
+    @Test
+    void cancelar_comSessaoInexistente_deveRetornar404() throws Exception {
+        when(service.cancelar(99L))
+                .thenThrow(new ResourceNotFoundException("Sessão não encontrada: 99"));
+
+        mvc.perform(patch("/sessoes/99/cancelar"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+    }
+
+    @Test
+    void cancelar_comTransicaoInvalida_deveRetornar422() throws Exception {
+        when(service.cancelar(1L))
+                .thenThrow(new BusinessException("Transição inválida: sessão REALIZADA não pode ser alterada para CANCELADA"));
+
+        mvc.perform(patch("/sessoes/1/cancelar"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Transição inválida: sessão REALIZADA não pode ser alterada para CANCELADA"));
     }
 
     @Test
