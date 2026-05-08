@@ -467,7 +467,9 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | POST | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia | 201 / 400 / 404 / 422 |
 | GET | `/sessoes/{id}` | Buscar sessão por ID | 200 / 404 |
 | GET | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente | 200 / 404 |
-| PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial) | 200 / 400 / 404 |
+| PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial, exceto status) | 200 / 400 / 404 |
+| PATCH | `/sessoes/{id}/realizar` | Marcar sessão como REALIZADA (apenas a partir de AGENDADA) | 200 / 404 / 422 |
+| PATCH | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de AGENDADA) | 200 / 404 / 422 |
 | DELETE | `/sessoes/{id}` | Excluir sessão permanentemente | 204 / 404 |
 | GET | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos, aulas) | 200 / 401 |
 | POST | `/evolucoes-sessao` | Criar evolução para uma sessão | 201 / 400 / 404 / 409 |
@@ -581,10 +583,11 @@ CPF não pode ser alterado após o cadastro.
 - Criar sessão para paciente inexistente ou inativo retorna `404`
 - Campos obrigatórios: `pacienteId`, `tipo` e `data`
 - `tipo` aceita `PILATES` ou `FISIOTERAPIA`
-- `status` padrão é `AGENDADA`; pode ser atualizado para `REALIZADA` ou `CANCELADA`
+- `status` padrão é `AGENDADA`; mudanças de status devem usar `PATCH /sessoes/{id}/realizar` ou `PATCH /sessoes/{id}/cancelar`
+- Transições de status permitidas: apenas `AGENDADA -> REALIZADA` e `AGENDADA -> CANCELADA`; sessões `REALIZADA` ou `CANCELADA` não podem mudar de status novamente
 - `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo, e o plano de tratamento deve pertencer ao mesmo `pacienteId` da sessão
 - `duracaoMinutos` aceita apenas valores positivos quando informado
-- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+- Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `status` não faz parte do payload de `PUT /sessoes/{id}`
 - A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`; o campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST
 - Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas) e remove a evolução vinculada quando existir
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
@@ -744,17 +747,20 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `AvaliacaoFisioterapeuticaControllerTest` | `@WebMvcTest` + MockMvc | 12 |
 | `PlanoTratamentoServiceTest` | Unitário (Mockito, sem Spring) | 13 |
 | `PlanoTratamentoControllerTest` | `@WebMvcTest` + MockMvc | 18 |
+| `SessaoPilatesServiceTest` | Unitário (Mockito, sem Spring) | 25 |
+| `SessaoPilatesControllerTest` | `@WebMvcTest` + MockMvc | 21 |
+| `SessaoPilatesRepositoryTest` | `@DataJpaTest` + H2 | 4 |
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
-| `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `GlobalExceptionHandlerTest` | Unitário | 7 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `UserServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `UserControllerTest` | `@WebMvcTest` + MockMvc | 8 |
-| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 23 |
+| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 32 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

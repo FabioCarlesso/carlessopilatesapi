@@ -85,6 +85,36 @@ public class SessaoPilatesController {
     }
 
     @Operation(
+            summary = "Marcar sessão como realizada",
+            description = "Transiciona o status da sessão de AGENDADA para REALIZADA."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sessão marcada como realizada"),
+            @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
+            @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
+    })
+    @PatchMapping("/{id}/realizar")
+    public ResponseEntity<SessaoPilatesResponseDTO> realizar(
+            @Parameter(description = "ID da sessão", required = true) @PathVariable Long id) {
+        return ResponseEntity.ok(service.realizar(id));
+    }
+
+    @Operation(
+            summary = "Cancelar sessão",
+            description = "Transiciona o status da sessão de AGENDADA para CANCELADA."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sessão cancelada"),
+            @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
+            @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
+    })
+    @PatchMapping("/{id}/cancelar")
+    public ResponseEntity<SessaoPilatesResponseDTO> cancelar(
+            @Parameter(description = "ID da sessão", required = true) @PathVariable Long id) {
+        return ResponseEntity.ok(service.cancelar(id));
+    }
+
+    @Operation(
             summary = "Excluir sessão",
             description = "Remove permanentemente uma sessão. Use apenas para cancelamentos/erros de registro."
     )

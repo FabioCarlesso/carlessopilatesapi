@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
+import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
@@ -100,11 +101,40 @@ public class SessaoPilatesService {
         if (dto.horario() != null) sessao.setHorario(dto.horario());
         if (dto.local() != null) sessao.setLocal(dto.local());
         if (dto.duracaoMinutos() != null) sessao.setDuracaoMinutos(dto.duracaoMinutos());
-        if (dto.status() != null) sessao.setStatus(dto.status());
         if (dto.observacoes() != null) sessao.setObservacoes(dto.observacoes());
         sessao.setDataAtualizacao(LocalDateTime.now());
 
         return SessaoPilatesResponseDTO.from(sessaoRepository.save(sessao));
+    }
+
+    @Transactional
+    public SessaoPilatesResponseDTO realizar(Long id) {
+        return aplicarTransicaoStatus(id, StatusSessao.REALIZADA);
+    }
+
+    @Transactional
+    public SessaoPilatesResponseDTO cancelar(Long id) {
+        return aplicarTransicaoStatus(id, StatusSessao.CANCELADA);
+    }
+
+    private SessaoPilatesResponseDTO aplicarTransicaoStatus(Long id, StatusSessao novoStatus) {
+        SessaoPilates sessao = encontrar(id);
+
+        if (sessao.getStatus() != StatusSessao.AGENDADA) {
+            throw new BusinessException("Transição inválida: sessão " + sessao.getStatus()
+                    + " não pode ser alterada para " + novoStatus);
+        }
+
+        LocalDateTime agora = LocalDateTime.now();
+        int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, agora);
+        if (atualizadas == 0) {
+            throw new BusinessException(
+                    "Sessão foi modificada concorrentemente; recarregue e tente novamente");
+        }
+
+        sessao.setStatus(novoStatus);
+        sessao.setDataAtualizacao(agora);
+        return SessaoPilatesResponseDTO.from(sessao);
     }
 
     @Transactional
