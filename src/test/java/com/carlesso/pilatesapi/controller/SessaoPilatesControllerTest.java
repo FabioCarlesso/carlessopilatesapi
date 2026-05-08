@@ -204,7 +204,7 @@ class SessaoPilatesControllerTest {
                 1L, 1L, "Ana Oliveira",
                 null, null, null,
                 TipoSessao.PILATES,
-                StatusSessao.REALIZADA,
+                StatusSessao.AGENDADA,
                 LocalDate.of(2026, 5, 15),
                 LocalTime.of(10, 0),
                 "Sala 1",
@@ -219,7 +219,6 @@ class SessaoPilatesControllerTest {
                 LocalDate.of(2026, 5, 15),
                 LocalTime.of(10, 0),
                 null, 60,
-                StatusSessao.REALIZADA,
                 null
         );
 
@@ -228,13 +227,13 @@ class SessaoPilatesControllerTest {
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value("2026-05-15"))
-                .andExpect(jsonPath("$.status").value("REALIZADA"))
+                .andExpect(jsonPath("$.status").value("AGENDADA"))
                 .andExpect(jsonPath("$.dataAtualizacao").isNotEmpty());
     }
 
     @Test
     void atualizar_comDuracaoNegativa_deveRetornar400() throws Exception {
-        var dto = new SessaoPilatesUpdateDTO(null, null, null, -5, null, null);
+        var dto = new SessaoPilatesUpdateDTO(null, null, null, -5, null);
 
         mvc.perform(put("/sessoes/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -247,7 +246,7 @@ class SessaoPilatesControllerTest {
         when(service.atualizar(eq(99L), any()))
                 .thenThrow(new ResourceNotFoundException("Sessão não encontrada: 99"));
 
-        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 20), null, null, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 20), null, null, null, null);
 
         mvc.perform(put("/sessoes/99")
                         .contentType(MediaType.APPLICATION_JSON)

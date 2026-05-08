@@ -919,6 +919,9 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca o plano como inativo e preserva o histórico no banco
 
 ### Sessões de Pilates/Fisioterapia
+- O `status` padrão é `AGENDADA`; mudanças de status usam `PATCH /sessoes/{id}/realizar` ou `PATCH /sessoes/{id}/cancelar`
+- Transições permitidas: apenas `AGENDADA -> REALIZADA` e `AGENDADA -> CANCELADA`
+- `PUT /sessoes/{id}` faz atualização parcial dos dados da sessão, mas não altera `status`
 - A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`
 - O campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST de sessões
 - Excluir uma sessão remove também a evolução vinculada, quando existir
@@ -981,13 +984,14 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
 | `RelatorioNfseExporterServiceTest` | Unitário | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
-| `GlobalExceptionHandlerTest` | Unitário | 6 |
+| `GlobalExceptionHandlerTest` | Unitário | 7 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
 | `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
+| `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
@@ -995,13 +999,15 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `AnamneseControllerTest` | Controller (`@WebMvcTest`) | 14 |
 | `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 12 |
 | `PlanoTratamentoControllerTest` | Controller (`@WebMvcTest`) | 18 |
+| `SessaoPilatesControllerTest` | Controller (`@WebMvcTest`) | 21 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `DashboardServiceTest` | Unitário (Mockito) | 3 |
+| `SessaoPilatesServiceTest` | Unitário (Mockito) | 23 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 10 |
 | `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 13 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 23 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 31 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 

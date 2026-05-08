@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -303,7 +304,6 @@ class SessaoPilatesServiceTest {
                 LocalTime.of(10, 0),
                 null,
                 60,
-                StatusSessao.REALIZADA,
                 null
         );
 
@@ -313,7 +313,7 @@ class SessaoPilatesServiceTest {
         assertThat(response.horario()).isEqualTo(LocalTime.of(10, 0));
         assertThat(response.local()).isEqualTo("Sala 1");
         assertThat(response.duracaoMinutos()).isEqualTo(60);
-        assertThat(response.status()).isEqualTo(StatusSessao.REALIZADA);
+        assertThat(response.status()).isEqualTo(StatusSessao.AGENDADA);
         assertThat(response.dataAtualizacao()).isNotNull();
     }
 
@@ -321,7 +321,7 @@ class SessaoPilatesServiceTest {
     void atualizar_comSessaoInexistente_deveLancarResourceNotFoundException() {
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        var dto = new SessaoPilatesUpdateDTO(null, null, null, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -331,20 +331,25 @@ class SessaoPilatesServiceTest {
     @Test
     void realizar_comSessaoAgendada_deveTransicionarParaRealizada() {
         SessaoPilates s = sessao(paciente());
+        s.setStatus(StatusSessao.REALIZADA);
+        s.setDataAtualizacao(LocalDateTime.of(2026, 5, 8, 12, 0));
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                .thenReturn(1);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
-        when(sessaoRepository.save(s)).thenReturn(s);
 
         SessaoPilatesResponseDTO response = service.realizar(1L);
 
         assertThat(response.status()).isEqualTo(StatusSessao.REALIZADA);
         assertThat(response.dataAtualizacao()).isNotNull();
-        verify(sessaoRepository).save(s);
+        verify(sessaoRepository).transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class));
     }
 
     @Test
     void realizar_comSessaoRealizada_deveLancarBusinessException() {
         SessaoPilates s = sessao(paciente());
         s.setStatus(StatusSessao.REALIZADA);
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         assertThatThrownBy(() -> service.realizar(1L))
@@ -356,6 +361,8 @@ class SessaoPilatesServiceTest {
     void realizar_comSessaoCancelada_deveLancarBusinessException() {
         SessaoPilates s = sessao(paciente());
         s.setStatus(StatusSessao.CANCELADA);
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         assertThatThrownBy(() -> service.realizar(1L))
@@ -365,6 +372,8 @@ class SessaoPilatesServiceTest {
 
     @Test
     void realizar_comSessaoInexistente_deveLancarResourceNotFoundException() {
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(99L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.realizar(99L))
@@ -375,8 +384,11 @@ class SessaoPilatesServiceTest {
     @Test
     void cancelar_comSessaoAgendada_deveTransicionarParaCancelada() {
         SessaoPilates s = sessao(paciente());
+        s.setStatus(StatusSessao.CANCELADA);
+        s.setDataAtualizacao(LocalDateTime.of(2026, 5, 8, 12, 0));
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
+                .thenReturn(1);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
-        when(sessaoRepository.save(s)).thenReturn(s);
 
         SessaoPilatesResponseDTO response = service.cancelar(1L);
 
@@ -388,6 +400,8 @@ class SessaoPilatesServiceTest {
     void cancelar_comSessaoRealizada_deveLancarBusinessException() {
         SessaoPilates s = sessao(paciente());
         s.setStatus(StatusSessao.REALIZADA);
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
+                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         assertThatThrownBy(() -> service.cancelar(1L))
@@ -397,6 +411,8 @@ class SessaoPilatesServiceTest {
 
     @Test
     void cancelar_comSessaoInexistente_deveLancarResourceNotFoundException() {
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(99L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
+                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.cancelar(99L))
