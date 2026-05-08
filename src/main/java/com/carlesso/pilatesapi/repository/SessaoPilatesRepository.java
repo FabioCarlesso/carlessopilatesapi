@@ -13,9 +13,18 @@ import java.util.Optional;
 
 public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Long> {
 
-    @Query("SELECT s FROM SessaoPilates s JOIN FETCH s.paciente pac WHERE s.id = :id AND pac.ativo = true")
+    @Query("""
+            SELECT s FROM SessaoPilates s
+            JOIN FETCH s.paciente pac
+            LEFT JOIN FETCH s.profissional
+            LEFT JOIN FETCH s.planoTratamento
+            WHERE s.id = :id AND pac.ativo = true
+            """)
     Optional<SessaoPilates> findByIdComPaciente(@Param("id") Long id);
 
+    // UPDATE em massa: garante atomicidade da transição de status contra concorrência,
+    // mas bypassa @PreUpdate/lifecycle callbacks da entidade. Por isso `dataAtualizacao`
+    // precisa ser passado explicitamente.
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE SessaoPilates s

@@ -118,17 +118,23 @@ public class SessaoPilatesService {
     }
 
     private SessaoPilatesResponseDTO aplicarTransicaoStatus(Long id, StatusSessao novoStatus) {
-        int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, LocalDateTime.now());
-        if (atualizadas == 1) {
-            return SessaoPilatesResponseDTO.from(encontrar(id));
-        }
-
         SessaoPilates sessao = encontrar(id);
+
         if (sessao.getStatus() != StatusSessao.AGENDADA) {
             throw new BusinessException("Transição inválida: sessão " + sessao.getStatus()
                     + " não pode ser alterada para " + novoStatus);
         }
-        throw new BusinessException("Transição inválida: sessão não pode ser alterada para " + novoStatus);
+
+        LocalDateTime agora = LocalDateTime.now();
+        int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, agora);
+        if (atualizadas == 0) {
+            throw new BusinessException(
+                    "Sessão foi modificada concorrentemente; recarregue e tente novamente");
+        }
+
+        sessao.setStatus(novoStatus);
+        sessao.setDataAtualizacao(agora);
+        return SessaoPilatesResponseDTO.from(sessao);
     }
 
     @Transactional

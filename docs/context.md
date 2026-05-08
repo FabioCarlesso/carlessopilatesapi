@@ -747,9 +747,9 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `AvaliacaoFisioterapeuticaControllerTest` | `@WebMvcTest` + MockMvc | 12 |
 | `PlanoTratamentoServiceTest` | Unitário (Mockito, sem Spring) | 13 |
 | `PlanoTratamentoControllerTest` | `@WebMvcTest` + MockMvc | 18 |
-| `SessaoPilatesServiceTest` | Unitário (Mockito, sem Spring) | 23 |
+| `SessaoPilatesServiceTest` | Unitário (Mockito, sem Spring) | 25 |
 | `SessaoPilatesControllerTest` | `@WebMvcTest` + MockMvc | 21 |
-| `SessaoPilatesRepositoryTest` | `@DataJpaTest` + H2 | 1 |
+| `SessaoPilatesRepositoryTest` | `@DataJpaTest` + H2 | 4 |
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
@@ -760,7 +760,7 @@ JAVA_HOME=~/jdk mvn spring-boot:run
 | `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `UserServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `UserControllerTest` | `@WebMvcTest` + MockMvc | 8 |
-| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 31 |
+| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 32 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

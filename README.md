@@ -991,7 +991,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
-| `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
+| `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 4 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
@@ -1004,10 +1004,10 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `DashboardServiceTest` | Unitário (Mockito) | 3 |
-| `SessaoPilatesServiceTest` | Unitário (Mockito) | 23 |
+| `SessaoPilatesServiceTest` | Unitário (Mockito) | 25 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 10 |
 | `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 13 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 31 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 32 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 

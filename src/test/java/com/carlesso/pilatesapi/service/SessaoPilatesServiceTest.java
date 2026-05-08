@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -331,11 +332,9 @@ class SessaoPilatesServiceTest {
     @Test
     void realizar_comSessaoAgendada_deveTransicionarParaRealizada() {
         SessaoPilates s = sessao(paciente());
-        s.setStatus(StatusSessao.REALIZADA);
-        s.setDataAtualizacao(LocalDateTime.of(2026, 5, 8, 12, 0));
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
                 .thenReturn(1);
-        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         SessaoPilatesResponseDTO response = service.realizar(1L);
 
@@ -348,47 +347,73 @@ class SessaoPilatesServiceTest {
     void realizar_comSessaoRealizada_deveLancarBusinessException() {
         SessaoPilates s = sessao(paciente());
         s.setStatus(StatusSessao.REALIZADA);
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
-                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         assertThatThrownBy(() -> service.realizar(1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Transição inválida");
+                .hasMessageContaining("Transição inválida")
+                .hasMessageContaining("REALIZADA");
+        verify(sessaoRepository, never())
+                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
     void realizar_comSessaoCancelada_deveLancarBusinessException() {
         SessaoPilates s = sessao(paciente());
         s.setStatus(StatusSessao.CANCELADA);
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
-                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         assertThatThrownBy(() -> service.realizar(1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Transição inválida");
+                .hasMessageContaining("Transição inválida")
+                .hasMessageContaining("CANCELADA");
+        verify(sessaoRepository, never())
+                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
     void realizar_comSessaoInexistente_deveLancarResourceNotFoundException() {
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(99L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
-                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.realizar(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+        verify(sessaoRepository, never())
+                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+    }
+
+    @Test
+    void realizar_comPacienteInativo_deveLancarResourceNotFoundExceptionSemAtualizar() {
+        // findByIdComPaciente filtra por paciente.ativo=true; quando paciente está inativo,
+        // a query retorna empty mesmo se a sessão existir no banco. UPDATE não deve rodar.
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.realizar(1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(sessaoRepository, never())
+                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+    }
+
+    @Test
+    void realizar_comRaceCondition_deveLancarBusinessException() {
+        // Sessão estava AGENDADA quando carregada, mas alguém transicionou entre o SELECT
+        // e o UPDATE → atualizadas == 0 e mensagem deve indicar concorrência.
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> service.realizar(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("concorrentemente");
     }
 
     @Test
     void cancelar_comSessaoAgendada_deveTransicionarParaCancelada() {
         SessaoPilates s = sessao(paciente());
-        s.setStatus(StatusSessao.CANCELADA);
-        s.setDataAtualizacao(LocalDateTime.of(2026, 5, 8, 12, 0));
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
                 .thenReturn(1);
-        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         SessaoPilatesResponseDTO response = service.cancelar(1L);
 
@@ -400,19 +425,17 @@ class SessaoPilatesServiceTest {
     void cancelar_comSessaoRealizada_deveLancarBusinessException() {
         SessaoPilates s = sessao(paciente());
         s.setStatus(StatusSessao.REALIZADA);
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
-                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
 
         assertThatThrownBy(() -> service.cancelar(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida");
+        verify(sessaoRepository, never())
+                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
     void cancelar_comSessaoInexistente_deveLancarResourceNotFoundException() {
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(99L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
-                .thenReturn(0);
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.cancelar(99L))

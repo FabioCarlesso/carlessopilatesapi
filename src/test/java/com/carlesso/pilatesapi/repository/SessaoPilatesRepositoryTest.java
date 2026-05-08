@@ -25,7 +25,7 @@ class SessaoPilatesRepositoryTest {
 
     @Test
     void transicionarStatusSeAgendada_deveAtualizarSomenteUmaVez() {
-        SessaoPilates sessao = entityManager.persist(sessao(paciente()));
+        SessaoPilates sessao = entityManager.persist(sessao(persistirPaciente("ana.repository@email.com", true)));
         entityManager.flush();
         entityManager.clear();
 
@@ -42,11 +42,49 @@ class SessaoPilatesRepositoryTest {
                 .isEqualTo(StatusSessao.REALIZADA);
     }
 
-    private Paciente paciente() {
+    @Test
+    void transicionarStatusSeAgendada_paraCancelada_devePersistirDataAtualizacao() {
+        SessaoPilates sessao = entityManager.persist(sessao(persistirPaciente("cancel.repository@email.com", true)));
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDateTime quando = LocalDateTime.of(2026, 5, 8, 12, 30);
+        int atualizadas = repository.transicionarStatusSeAgendada(
+                sessao.getId(), StatusSessao.CANCELADA, quando);
+
+        assertThat(atualizadas).isEqualTo(1);
+        assertThat(repository.findByIdComPaciente(sessao.getId()))
+                .get()
+                .satisfies(s -> {
+                    assertThat(s.getStatus()).isEqualTo(StatusSessao.CANCELADA);
+                    assertThat(s.getDataAtualizacao()).isEqualTo(quando);
+                });
+    }
+
+    @Test
+    void transicionarStatusSeAgendada_comIdInexistente_deveRetornarZero() {
+        int atualizadas = repository.transicionarStatusSeAgendada(
+                999_999L, StatusSessao.REALIZADA, LocalDateTime.of(2026, 5, 8, 12, 0));
+
+        assertThat(atualizadas).isZero();
+    }
+
+    @Test
+    void findByIdComPaciente_quandoPacienteInativo_deveRetornarVazio() {
+        SessaoPilates sessao = entityManager.persist(
+                sessao(persistirPaciente("inativo.repository@email.com", false)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findByIdComPaciente(sessao.getId())).isEmpty();
+    }
+
+    private Paciente persistirPaciente(String email, boolean ativo) {
         Paciente paciente = new Paciente();
         paciente.setNome("Ana Oliveira");
-        paciente.setEmail("ana.repository@email.com");
-        paciente.setCpf("12345678900");
+        paciente.setEmail(email);
+        paciente.setCpf("cpf-" + email);
+        paciente.setAtivo(ativo);
         return entityManager.persist(paciente);
     }
 
