@@ -1,0 +1,15 @@
+# Ambiente de produção — banco limpo, sem dados de seed.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  db:
+    container_name: carlesso_pilates_db_prod
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+
+  app:
+    container_name: carlesso_pilates_app_prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+volumes:
+  postgres_prod_data:

@@ -1,0 +1,15 @@
+# Carregado automaticamente por `docker compose up` — ambiente de desenvolvimento.
+# Aplica perfil dev (seed + show-sql) e usa volume isolado postgres_dev_data.
+services:
+  db:
+    container_name: carlesso_pilates_db_dev
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+
+  app:
+    container_name: carlesso_pilates_app_dev
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+
+volumes:
+  postgres_dev_data:
