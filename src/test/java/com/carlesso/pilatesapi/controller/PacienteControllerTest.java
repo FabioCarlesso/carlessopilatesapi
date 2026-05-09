@@ -101,13 +101,14 @@ class PacienteControllerTest {
     }
 
     @Test
-    void cadastrar_semCpf_deveRetornar400() throws Exception {
-        var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null);
+    void cadastrar_semCpfEsemEmail_deveCadastrar() throws Exception {
+        when(service.cadastrar(any())).thenReturn(responseDTO());
+        var dto = new PacienteRequestDTO("Maria", null, null, null, null, null);
 
         mvc.perform(post("/pacientes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isCreated());
     }
 
     @Test

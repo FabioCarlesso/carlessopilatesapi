@@ -33,3 +33,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Import scripts — dados sensíveis nunca devem ser versionados ###
+scripts/.cache/
+scripts/*.json
+scripts/*.csv
+scripts/.env
+scripts/__pycache__/

@@ -472,7 +472,7 @@ Para o modelo atual, `notaAnteriorEmitida` é inferido pela existência de pagam
 }
 ```
 
-> Campos obrigatórios: `nome`, `email`, `cpf`
+> Campos obrigatórios: `nome`. `email` e `cpf` são opcionais (alguns sistemas externos não fornecem esses dados na importação inicial). Quando informado, `email` precisa ter formato válido.
 
 ### POST /profissionais — corpo da requisição
 
@@ -700,16 +700,53 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
 | `V20__add_ativo_to_users.sql` | Adiciona coluna `ativo` à tabela `users` |
 | `V21__insert_admin_inicial.sql` | Mantém a versão Flyway reservada; o admin inicial de produção é criado pela aplicação com `APP_INITIAL_ADMIN_PASSWORD` |
+| `V22__alter_pacientes_email_cpf_nullable.sql` | Torna `email` e `cpf` opcionais e remove a restrição de unicidade para suportar importação de pacientes de sistemas externos sem esses dados |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
 | Arquivo | Descrição |
 |---|---|
-| `V2__insert_pacientes_teste.sql` | Carga inicial com 10 pacientes de teste de diferentes estados do Brasil |
 | `V7__insert_profissionais_teste.sql` | Carga inicial com 3 profissionais de teste |
 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários de teste com perfis `ADMIN` e `USER` (senha: `senha1234`) |
 
+> A seed antiga de pacientes (`V2__insert_pacientes_teste.sql`) foi removida em favor da importação a partir de sistemas externos via `scripts/import_seufisio.py`. Para zerar um ambiente dev existente que ainda tenha esses pacientes, derrube o volume com `docker compose down -v` e suba novamente.
+
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
+
+---
+
+## Importação de pacientes a partir do seufisio
+
+Para popular o ambiente com a base real de clientes vinda do `seufisio.com.br`, use `scripts/import_seufisio.py`. O script:
+
+1. Consulta `GET /api/cliente?per_page=500` no seufisio com o Bearer token capturado do navegador (DevTools → aba Network → header `authorization` da requisição da listagem).
+2. Para cada cliente, busca o detalhe em `GET /api/cliente/{id}`, mapeando para o contrato de `POST /pacientes`.
+3. Faz login na API local (`/auth/login`) e cria os pacientes em lote. Pacientes com `situacao != 2` no seufisio são marcados como inativos via `PATCH /pacientes/{id}/inativar` após o cadastro.
+
+**Pré-requisitos:**
+
+- Banco dev limpo: `docker compose down -v && docker compose --env-file .env.dev up --build -d`.
+- API local rodando e usuário `ADMIN` válido (em dev, qualquer um da seed `V12`).
+- Python 3.8+ (apenas biblioteca padrão; nenhuma dependência externa).
+
+**Execução:**
+
+```bash
+export SEUFISIO_TOKEN="eyJ0eXAi..."
+export LOCAL_API_URL="http://localhost:8080"
+export LOCAL_EMAIL="admin@carlessopilates.com"
+export LOCAL_PASSWORD="senha1234"
+
+# Validar mapeamento sem gravar (recomendado antes da carga real)
+python3 scripts/import_seufisio.py --dry-run
+
+# Importação de fato
+python3 scripts/import_seufisio.py
+```
+
+> O token JWT do seufisio expira (~2 dias). Se demorar para rodar, capture um novo no DevTools.
+>
+> **Segurança**: o `.gitignore` está configurado para nunca versionar dumps (`scripts/*.json`, `scripts/*.csv`) nem variáveis locais (`scripts/.env`). Não commitar tokens nem dados de pacientes em hipótese alguma.
 
 ---
 

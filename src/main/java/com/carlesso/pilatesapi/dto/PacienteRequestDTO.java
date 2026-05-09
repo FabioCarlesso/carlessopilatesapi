@@ -7,8 +7,8 @@ import java.time.LocalDate;
 
 public record PacienteRequestDTO(
         @NotBlank String nome,
-        @NotBlank @Email String email,
-        @NotBlank String cpf,
+        @Email String email,
+        String cpf,
         String telefone,
         LocalDate dataNascimento,
         @Valid EnderecoDTO endereco

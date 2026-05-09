@@ -1,0 +1,4 @@
+ALTER TABLE pacientes ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE pacientes ALTER COLUMN cpf DROP NOT NULL;
+ALTER TABLE pacientes DROP CONSTRAINT IF EXISTS pacientes_email_key;
+ALTER TABLE pacientes DROP CONSTRAINT IF EXISTS pacientes_cpf_key;

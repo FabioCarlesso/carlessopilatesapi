@@ -59,6 +59,16 @@ class PacienteServiceIntegrationTest {
     }
 
     @Test
+    void deve_persistirPacienteSemEmailEsemCpf() {
+        Paciente importado = paciente("Cliente Importado", null, null, null, true);
+        Paciente salvo = repository.save(importado);
+
+        Paciente recarregado = repository.findById(salvo.getId()).orElseThrow();
+        assertThat(recarregado.getEmail()).isNull();
+        assertThat(recarregado.getCpf()).isNull();
+    }
+
+    @Test
     void listar_semAtivoNaoRetornaTodosPacientes() {
         var ativos = service.listar(null, null, null, null, null, PageRequest.of(0, 10));
         var inativos = service.listar(null, null, null, null, false, PageRequest.of(0, 10));

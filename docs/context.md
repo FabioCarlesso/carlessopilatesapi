@@ -175,8 +175,8 @@ com.carlesso.pilatesapi
 |---|---|---|
 | `id` | BIGINT | PK, auto-increment |
 | `nome` | VARCHAR | NOT NULL |
-| `email` | VARCHAR | NOT NULL, UNIQUE |
-| `cpf` | VARCHAR | NOT NULL, UNIQUE |
+| `email` | VARCHAR | — |
+| `cpf` | VARCHAR | — |
 | `telefone` | VARCHAR | — |
 | `data_nascimento` | DATE | — |
 | `ativo` | BOOLEAN | NOT NULL, default `true` |
@@ -481,7 +481,7 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | GET | `/reavaliacoes/paciente/{pacienteId}` | Listar reavaliações do paciente | 200 / 404 |
 | PUT | `/reavaliacoes/{id}` | Atualizar reavaliação (atualização parcial) | 200 / 400 / 404 |
 
-Campos obrigatórios no cadastro de pacientes: `nome`, `email`, `cpf`.  
+Campos obrigatórios no cadastro de pacientes: `nome`. `email` e `cpf` são opcionais para suportar importação de bases externas (ex.: `scripts/import_seufisio.py`); quando informado, `email` precisa ter formato válido.  
 Campos obrigatórios no cadastro de profissionais: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`.  
 `/auth/**` é público. `/users/me` exige autenticação. O CRUD de `/users` e `/admin/**` exigem role `ADMIN`. As demais rotas de negócio exigem `Authorization: Bearer <token>`.
 CPF não pode ser alterado após o cadastro.  
