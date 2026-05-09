@@ -139,26 +139,18 @@ src/
 │   │       └── CobrancaScheduler.java       # Atualiza vencidos + gera cobranças futuras
 │   └── resources/
 │       ├── application.properties
-│       └── db/migration/
-│           ├── V1__create_pacientes_table.sql
-│           ├── V2__insert_pacientes_teste.sql
-│           ├── V3__create_planos_table.sql
-│           ├── V4__create_pagamentos_table.sql
-│           ├── V5__create_aulas_table.sql
-│           ├── V6__create_profissionais_table.sql
-│           ├── V7__insert_profissionais_teste.sql
-│           ├── V8__alter_pacientes_uf_to_varchar.sql
-│           ├── V9__alter_profissionais_percentual_precision.sql
-│           ├── V10__add_profissional_to_aulas.sql
-│           ├── V11__create_users_table.sql
-│           ├── V12__insert_users_perfis_acesso.sql
-│           ├── V13__add_indexes_on_foreign_keys.sql
-│           ├── V14__create_anamneses_table.sql
-│           ├── V15__create_avaliacoes_fisioterapeuticas_table.sql
-│           ├── V16__create_planos_tratamento_table.sql
-│           ├── V17__create_sessoes_pilates_table.sql
-│           ├── V18__create_evolucoes_sessao_table.sql
-│           └── V19__create_reavaliacoes_table.sql
+│       ├── application-dev.properties
+│       ├── application-prod.properties
+│       └── db/
+│           ├── migration/          # DDL estrutural — todos os ambientes
+│           │   ├── V1__create_pacientes_table.sql
+│           │   ├── V3__create_planos_table.sql
+│           │   ├── ...
+│           │   └── V21__insert_admin_inicial.sql
+│           └── seed/               # Dados de teste — apenas perfil dev
+│               ├── V2__insert_pacientes_teste.sql
+│               ├── V7__insert_profissionais_teste.sql
+│               └── V12__insert_users_perfis_acesso.sql
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
@@ -570,14 +562,25 @@ Todos os campos são opcionais. Apenas os campos enviados serão atualizados.
 
 Sobe o banco PostgreSQL e a aplicação juntos, sem instalar nada localmente além do Docker.
 
+O projeto usa o padrão de **override do Docker Compose** para isolar os ambientes:
+
+| Ambiente | Comando | Volume PostgreSQL | Dados de seed |
+|---|---|---|---|
+| **Desenvolvimento** | `docker compose up` (auto-carrega `docker-compose.override.yml`) | `postgres_dev_data` | Sim (10 pacientes, 3 profissionais, 5 usuários) |
+| **Produção** | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up` | `postgres_prod_data` | Não (apenas admin inicial) |
+
+#### Desenvolvimento
+
 ```bash
 # Clonar o repositório
 git clone <url-do-repositorio>
 cd carlessopilatesapi
 
-# Subir todos os serviços
-cp .env.example .env
-docker compose up --build -d
+# Configurar variáveis de ambiente de desenvolvimento
+cp .env.example .env.dev
+
+# Subir todos os serviços (perfil dev com seed automático)
+docker compose --env-file .env.dev up --build -d
 
 # Acompanhar os logs da aplicação
 docker compose logs -f app
@@ -585,9 +588,25 @@ docker compose logs -f app
 # Derrubar os serviços
 docker compose down
 
-# Derrubar e remover os dados do banco
+# Derrubar e remover os dados do banco de desenvolvimento
 docker compose down -v
 ```
+
+#### Produção
+
+```bash
+# Configurar variáveis de ambiente de produção (nunca versionar este arquivo)
+cp .env.example .env.prod
+# Edite .env.prod com credenciais seguras e APP_INITIAL_ADMIN_PASSWORD antes de subir
+
+# Subir com perfil prod (banco limpo, sem seed)
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
+# Derrubar e remover os dados do banco de produção
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+```
+
+> **Admin inicial de produção:** no perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o usuário `admin@carlessopilates.com` (ou `APP_INITIAL_ADMIN_EMAIL`) usando a senha definida em `APP_INITIAL_ADMIN_PASSWORD`. A aplicação falha ao iniciar em produção se essa senha não estiver configurada.
 
 > Se o Docker exigir permissão negada, adicione seu usuário ao grupo docker:
 > ```bash
@@ -654,22 +673,24 @@ Somente `health` e `info` ficam expostos via HTTP.
 
 ## Migrações de banco (Flyway)
 
-O projeto utiliza **Flyway** para versionamento e execução automática das migrações de banco de dados. As migrações ficam em `src/main/resources/db/migration/` e são aplicadas na ordem de versão ao subir a aplicação.
+O projeto utiliza **Flyway** para versionamento e execução automática das migrações. As migrações são divididas em dois diretórios:
+
+- `src/main/resources/db/migration/` — DDL estrutural, aplicado em **todos** os ambientes
+- `src/main/resources/db/seed/` — dados de teste, aplicados **apenas** no perfil `dev`
+
+### Migrations estruturais (`db/migration/`)
 
 | Arquivo | Descrição |
 |---|---|
 | `V1__create_pacientes_table.sql` | Criação da tabela `pacientes` com todos os campos e constraints |
-| `V2__insert_pacientes_teste.sql` | Carga inicial com 10 pacientes de teste de diferentes estados do Brasil |
 | `V3__create_planos_table.sql` | Criação da tabela `planos` com join table `plano_dias_semana` |
 | `V4__create_pagamentos_table.sql` | Criação da tabela `pagamentos` com constraint de unicidade `(plano_id, periodo_inicio)` |
 | `V5__create_aulas_table.sql` | Criação da tabela `aulas` com constraint de unicidade `(paciente_id, data)` |
 | `V6__create_profissionais_table.sql` | Criação da tabela `profissionais` com tipo de contrato e percentual por aula |
-| `V7__insert_profissionais_teste.sql` | Carga inicial com profissionais de teste e ajuste da coluna `percentual_pagamento_aula` |
 | `V8__alter_pacientes_uf_to_varchar.sql` | Altera coluna `uf` da tabela `pacientes` para `VARCHAR(2)` |
-| `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula |
+| `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula para `NUMERIC(5,2)` |
 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
 | `V11__create_users_table.sql` | Cria tabela `users` para autenticação e autorização |
-| `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
 | `V13__add_indexes_on_foreign_keys.sql` | Adiciona índices para FKs e filtros recorrentes |
 | `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
 | `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria histórico de avaliações fisioterapêuticas do paciente |
@@ -677,6 +698,16 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V17__create_sessoes_pilates_table.sql` | Cria tabela de sessões de Pilates/Fisioterapia |
 | `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
+| `V20__add_ativo_to_users.sql` | Adiciona coluna `ativo` à tabela `users` |
+| `V21__insert_admin_inicial.sql` | Mantém a versão Flyway reservada; o admin inicial de produção é criado pela aplicação com `APP_INITIAL_ADMIN_PASSWORD` |
+
+### Migrations de seed (`db/seed/`) — apenas perfil `dev`
+
+| Arquivo | Descrição |
+|---|---|
+| `V2__insert_pacientes_teste.sql` | Carga inicial com 10 pacientes de teste de diferentes estados do Brasil |
+| `V7__insert_profissionais_teste.sql` | Carga inicial com 3 profissionais de teste |
+| `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários de teste com perfis `ADMIN` e `USER` (senha: `senha1234`) |
 
 > Nos testes automatizados o Flyway fica desabilitado (`spring.flyway.enabled=false`), pois o banco H2 é gerenciado pelo Hibernate com `ddl-auto=create-drop`.
 
@@ -687,13 +718,16 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `DB_HOST` | `localhost` | Host do banco PostgreSQL |
-| `DB_PORT` | `5432` | Porta do banco |
+| `DB_PORT` | `5432` | Porta usada pela aplicação para conectar ao banco |
+| `DB_HOST_PORT` | `5432` | Porta publicada no host pelo Docker Compose |
 | `DB_NAME` | `carlesso_pilates` | Nome do banco de dados |
 | `DB_USER` | `postgres` | Usuário do banco |
 | `DB_PASSWORD` | `postgres` | Senha do banco |
 | `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar JWT; use pelo menos 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
+| `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` | E-mail do admin inicial criado no perfil `prod` quando não há `ADMIN` ativo |
+| `APP_INITIAL_ADMIN_PASSWORD` | - | Senha obrigatória para bootstrap do admin inicial no perfil `prod` |
 | `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` | Cron expression do scheduler que marca pagamentos como `VENCIDO` |
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` | Cron expression do scheduler que gera cobranças futuras |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
@@ -717,7 +751,7 @@ curl -s http://localhost:8080/users/me \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
-Usuários iniciais criados pela migração `V12` usam a senha `senha1234` e representam os perfis disponíveis:
+Usuários iniciais criados pela migration de seed `V12` no perfil `dev` usam a senha `senha1234` e representam os perfis disponíveis:
 
 | E-mail | Perfil |
 |---|---|

@@ -643,12 +643,15 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 |---|---|
 | `DB_HOST` | `localhost` |
 | `DB_PORT` | `5432` |
+| `DB_HOST_PORT` | `5432` |
 | `DB_NAME` | `carlesso_pilates` |
 | `DB_USER` | `postgres` |
 | `DB_PASSWORD` | `postgres` |
 | `JWT_SECRET` | obrigatório, mínimo recomendado de 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` |
+| `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` |
+| `APP_INITIAL_ADMIN_PASSWORD` | obrigatório em `prod` quando não há `ADMIN` ativo |
 | `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` |
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` |
@@ -697,11 +700,19 @@ Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (
 
 ### Docker Compose (recomendado)
 
+**Desenvolvimento** (carrega `docker-compose.override.yml` automaticamente):
 ```bash
-cp .env.example .env
-docker compose up --build -d
+cp .env.example .env.dev
+docker compose --env-file .env.dev up --build -d
 docker compose logs -f app
 docker compose down
+```
+
+**Produção** (banco limpo, sem seed):
+```bash
+cp .env.example .env.prod
+# Edite .env.prod com credenciais seguras e APP_INITIAL_ADMIN_PASSWORD
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
 ### Local com Maven
@@ -710,7 +721,8 @@ docker compose down
 # Requer Java 21 e PostgreSQL rodando
 psql -U postgres -c "CREATE DATABASE carlesso_pilates;"
 export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
-JAVA_HOME=~/jdk mvn spring-boot:run
+export SPRING_PROFILES_ACTIVE=dev
+mvn spring-boot:run
 ```
 
 > No ambiente de desenvolvimento, Java 21 (Temurin) está instalado em `~/jdk`.  
@@ -782,7 +794,15 @@ Build multi-stage:
 - Estágio `build`: `maven:3.9-eclipse-temurin-21` — compila e gera o JAR
 - Estágio `runtime`: `eclipse-temurin:21-jre-alpine` — executa o JAR
 
-### docker-compose.yml
+### Docker Compose — padrão override
+
+O projeto usa três arquivos Docker Compose para isolamento de ambientes:
+
+| Arquivo | Função |
+|---|---|
+| `docker-compose.yml` | Base comum: serviços `db` e `app` com configurações compartilhadas |
+| `docker-compose.override.yml` | Override de **desenvolvimento** — carregado automaticamente por `docker compose up` |
+| `docker-compose.prod.yml` | Override de **produção** — carregado explicitamente com `-f docker-compose.prod.yml` |
 
 | Serviço | Imagem | Porta |
 |---|---|---|
@@ -790,3 +810,21 @@ Build multi-stage:
 | `app` | build local | 8080 |
 
 O serviço `app` aguarda o `db` estar saudável via healthcheck (`pg_isready`) antes de iniciar.
+
+| Ambiente | Volume PostgreSQL | Perfil Spring | Seed |
+|---|---|---|---|
+| dev | `postgres_dev_data` | `dev` | `db/migration` + `db/seed` |
+| prod | `postgres_prod_data` | `prod` | `db/migration` apenas |
+
+### Migrações Flyway — separação por ambiente
+
+```
+src/main/resources/db/
+├── migration/   ← DDL estrutural — aplicado em todos os ambientes
+└── seed/        ← dados de teste — aplicado apenas no perfil dev
+```
+
+Perfil `dev` (`application-dev.properties`): `spring.flyway.locations=classpath:db/migration,classpath:db/seed`
+Perfil `prod` (`application-prod.properties`): `spring.flyway.locations=classpath:db/migration`
+
+No perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o admin inicial usando `APP_INITIAL_ADMIN_EMAIL` e `APP_INITIAL_ADMIN_PASSWORD`; sem senha configurada, o startup falha. Em dev, o seed `V12` cobre os usuários de teste.
