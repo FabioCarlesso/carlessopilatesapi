@@ -9,10 +9,12 @@ Pré-requisitos:
 - Token JWT válido do seufisio (header `authorization` capturado no DevTools).
 
 Uso:
-    export SEUFISIO_TOKEN="eyJ..."
+    export SEUFISIO_TOKEN="eyJ..."           # JWT capturado no DevTools
+    export SEUFISIO_CLINICA_ID="..."         # header `setfisio` (DevTools)
+    export SEUFISIO_VERSION_APP="..."        # header `x-version-app` (DevTools)
     export LOCAL_API_URL="http://localhost:8080"
-    export LOCAL_EMAIL="admin@carlessopilates.com"
-    export LOCAL_PASSWORD="senha1234"
+    export LOCAL_EMAIL="..."
+    export LOCAL_PASSWORD="..."
     python3 scripts/import_seufisio.py [--dry-run]
 
 --dry-run: imprime os payloads que seriam enviados, sem POSTar.
@@ -34,12 +36,17 @@ import urllib.request
 SEUFISIO_BASE = "https://api.seufisio.com.br/api"
 SITUACAO_ATIVO = 2
 RATE_LIMIT_SECONDS = 0.15
+BROWSER_UA = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+)
 
 
 def http_json(method, url, headers=None, body=None):
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", BROWSER_UA)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     for k, v in (headers or {}).items():
@@ -53,6 +60,18 @@ def http_json(method, url, headers=None, body=None):
         return e.code, raw
 
 
+def seufisio_headers(token, clinica_id, version_app):
+    return {
+        "Authorization": f"Bearer {token}",
+        "acesso": "web-mobile",
+        "x-version-app": version_app,
+        "setfisio": clinica_id,
+        "Origin": "https://app.seufisio.com.br",
+        "Referer": "https://app.seufisio.com.br/",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
+
 def login_local(base_url, email, password):
     status, body = http_json(
         "POST", f"{base_url}/auth/login",
@@ -63,20 +82,20 @@ def login_local(base_url, email, password):
     return body["accessToken"]
 
 
-def list_seufisio(token):
+def list_seufisio(headers):
     status, body = http_json(
         "GET", f"{SEUFISIO_BASE}/cliente?per_page=500",
-        headers={"Authorization": f"Bearer {token}", "acesso": "web-mobile"},
+        headers=headers,
     )
     if status != 200 or not isinstance(body, dict):
         raise SystemExit(f"Listagem seufisio falhou ({status}): {body}")
     return body.get("data", [])
 
 
-def fetch_seufisio(token, cid):
+def fetch_seufisio(headers, cid):
     status, body = http_json(
         "GET", f"{SEUFISIO_BASE}/cliente/{cid}",
-        headers={"Authorization": f"Bearer {token}", "acesso": "web-mobile"},
+        headers=headers,
     )
     if status != 200:
         return None, f"GET cliente/{cid} -> {status}"
@@ -138,24 +157,31 @@ def main():
     args = parser.parse_args()
 
     seufisio_token = os.environ.get("SEUFISIO_TOKEN")
+    clinica_id = os.environ.get("SEUFISIO_CLINICA_ID")
+    version_app = os.environ.get("SEUFISIO_VERSION_APP")
     base_url = os.environ.get("LOCAL_API_URL", "http://localhost:8080").rstrip("/")
     local_email = os.environ.get("LOCAL_EMAIL")
     local_password = os.environ.get("LOCAL_PASSWORD")
 
     if not seufisio_token:
         sys.exit("Variável SEUFISIO_TOKEN obrigatória")
+    if not clinica_id or not version_app:
+        sys.exit("SEUFISIO_CLINICA_ID e SEUFISIO_VERSION_APP obrigatórias "
+                 "(headers `setfisio` e `x-version-app` capturados no DevTools)")
     if not args.dry_run and (not local_email or not local_password):
         sys.exit("LOCAL_EMAIL e LOCAL_PASSWORD obrigatórias (use --dry-run para testar mapeamento)")
 
+    sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
+
     print(f"[1/3] Listando clientes em {SEUFISIO_BASE}/cliente ...")
-    clientes = list_seufisio(seufisio_token)
+    clientes = list_seufisio(sf_headers)
     print(f"      {len(clientes)} clientes encontrados")
 
     print("[2/3] Buscando detalhes ...")
     detalhes = []
     for c in clientes:
         cid = c["id"]
-        full, err = fetch_seufisio(seufisio_token, cid)
+        full, err = fetch_seufisio(sf_headers, cid)
         if err:
             print(f"      [skip {cid}] {err}")
             continue
