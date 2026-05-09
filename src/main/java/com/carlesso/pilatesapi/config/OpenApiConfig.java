@@ -31,7 +31,7 @@ public class OpenApiConfig {
                                 2. Copie o campo accessToken retornado.
                                 3. Clique em Authorize e cole somente o token, sem o prefixo Bearer.
 
-                                Usuários iniciais para teste:
+                                Usuários iniciais para teste no perfil dev:
                                 - admin@carlessopilates.com / senha1234 / ADMIN
                                 - operacional@carlessopilates.com / senha1234 / ADMIN
                                 - recepcao@carlessopilates.com / senha1234 / USER

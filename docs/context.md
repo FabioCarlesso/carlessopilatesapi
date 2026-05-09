@@ -643,12 +643,15 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 |---|---|
 | `DB_HOST` | `localhost` |
 | `DB_PORT` | `5432` |
+| `DB_HOST_PORT` | `5432` |
 | `DB_NAME` | `carlesso_pilates` |
 | `DB_USER` | `postgres` |
 | `DB_PASSWORD` | `postgres` |
 | `JWT_SECRET` | obrigatório, mínimo recomendado de 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` |
+| `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` |
+| `APP_INITIAL_ADMIN_PASSWORD` | obrigatório em `prod` quando não há `ADMIN` ativo |
 | `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` |
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` |
@@ -708,7 +711,7 @@ docker compose down
 **Produção** (banco limpo, sem seed):
 ```bash
 cp .env.example .env.prod
-# Edite .env.prod com credenciais seguras
+# Edite .env.prod com credenciais seguras e APP_INITIAL_ADMIN_PASSWORD
 docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
@@ -824,4 +827,4 @@ src/main/resources/db/
 Perfil `dev` (`application-dev.properties`): `spring.flyway.locations=classpath:db/migration,classpath:db/seed`
 Perfil `prod` (`application-prod.properties`): `spring.flyway.locations=classpath:db/migration`
 
-A migration `V21__insert_admin_inicial.sql` (em `db/migration/`) garante que produção sempre tenha um admin inicial. Em dev, o seed `V12` cobre os demais usuários de teste.
+No perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o admin inicial usando `APP_INITIAL_ADMIN_EMAIL` e `APP_INITIAL_ADMIN_PASSWORD`; sem senha configurada, o startup falha. Em dev, o seed `V12` cobre os usuários de teste.

@@ -597,7 +597,7 @@ docker compose down -v
 ```bash
 # Configurar variáveis de ambiente de produção (nunca versionar este arquivo)
 cp .env.example .env.prod
-# Edite .env.prod com credenciais seguras antes de subir
+# Edite .env.prod com credenciais seguras e APP_INITIAL_ADMIN_PASSWORD antes de subir
 
 # Subir com perfil prod (banco limpo, sem seed)
 docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
@@ -606,7 +606,7 @@ docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod
 docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
 ```
 
-> **Admin inicial de produção:** a migration `V21` insere o usuário `admin@carlessopilates.com` com a senha `senha1234`. **Altere a senha no primeiro acesso.**
+> **Admin inicial de produção:** no perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o usuário `admin@carlessopilates.com` (ou `APP_INITIAL_ADMIN_EMAIL`) usando a senha definida em `APP_INITIAL_ADMIN_PASSWORD`. A aplicação falha ao iniciar em produção se essa senha não estiver configurada.
 
 > Se o Docker exigir permissão negada, adicione seu usuário ao grupo docker:
 > ```bash
@@ -699,7 +699,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
 | `V20__add_ativo_to_users.sql` | Adiciona coluna `ativo` à tabela `users` |
-| `V21__insert_admin_inicial.sql` | Insere o admin inicial de produção (`admin@carlessopilates.com` / `senha1234`) |
+| `V21__insert_admin_inicial.sql` | Mantém a versão Flyway reservada; o admin inicial de produção é criado pela aplicação com `APP_INITIAL_ADMIN_PASSWORD` |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -718,13 +718,16 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `DB_HOST` | `localhost` | Host do banco PostgreSQL |
-| `DB_PORT` | `5432` | Porta do banco |
+| `DB_PORT` | `5432` | Porta usada pela aplicação para conectar ao banco |
+| `DB_HOST_PORT` | `5432` | Porta publicada no host pelo Docker Compose |
 | `DB_NAME` | `carlesso_pilates` | Nome do banco de dados |
 | `DB_USER` | `postgres` | Usuário do banco |
 | `DB_PASSWORD` | `postgres` | Senha do banco |
 | `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar JWT; use pelo menos 32 caracteres |
 | `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
+| `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` | E-mail do admin inicial criado no perfil `prod` quando não há `ADMIN` ativo |
+| `APP_INITIAL_ADMIN_PASSWORD` | - | Senha obrigatória para bootstrap do admin inicial no perfil `prod` |
 | `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` | Cron expression do scheduler que marca pagamentos como `VENCIDO` |
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` | Cron expression do scheduler que gera cobranças futuras |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
@@ -748,7 +751,7 @@ curl -s http://localhost:8080/users/me \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
-Usuários iniciais criados pela migração `V12` usam a senha `senha1234` e representam os perfis disponíveis:
+Usuários iniciais criados pela migration de seed `V12` no perfil `dev` usam a senha `senha1234` e representam os perfis disponíveis:
 
 | E-mail | Perfil |
 |---|---|

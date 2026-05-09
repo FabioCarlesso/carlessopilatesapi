@@ -1,5 +1,3 @@
--- Admin inicial obrigatório para operação do sistema em produção.
--- Senha padrão: senha1234 — DEVE ser alterada no primeiro acesso.
-INSERT INTO users (name, email, password, role, ativo)
-VALUES ('Administrador', 'admin@carlessopilates.com', '$2a$10$c8n/Hy4BhKnuMQZoTY3IYOxdJikcivZdKytebSrQX4UqQMrAklgc6', 'ADMIN', TRUE)
-ON CONFLICT (email) DO NOTHING;
+-- Admin inicial de produção é criado pela aplicação no perfil prod usando
+-- APP_INITIAL_ADMIN_PASSWORD, sem senha fixa versionada em migration.
+SELECT 1;
