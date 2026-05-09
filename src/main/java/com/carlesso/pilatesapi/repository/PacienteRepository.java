@@ -15,4 +15,8 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long>, JpaSp
     long countByAtivoTrue();
 
     long countByAtivoFalse();
+
+    boolean existsByEmail(String email);
+
+    boolean existsByCpf(String cpf);
 }

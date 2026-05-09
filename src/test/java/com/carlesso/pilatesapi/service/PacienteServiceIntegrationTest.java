@@ -1,6 +1,8 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest(showSql = false)
 @Import(PacienteService.class)
@@ -59,13 +62,51 @@ class PacienteServiceIntegrationTest {
     }
 
     @Test
-    void deve_persistirPacienteSemEmailEsemCpf() {
-        Paciente importado = paciente("Cliente Importado", null, null, null, true);
-        Paciente salvo = repository.save(importado);
+    void cadastrar_semEmailEsemCpf_devePersistirViaService() {
+        var dto = new PacienteRequestDTO("Cliente Importado", null, null, null, null, null);
 
-        Paciente recarregado = repository.findById(salvo.getId()).orElseThrow();
+        var response = service.cadastrar(dto);
+
+        assertThat(response.email()).isNull();
+        assertThat(response.cpf()).isNull();
+        Paciente recarregado = repository.findById(response.id()).orElseThrow();
         assertThat(recarregado.getEmail()).isNull();
         assertThat(recarregado.getCpf()).isNull();
+    }
+
+    @Test
+    void cadastrar_comCpfDuplicado_deveLancarConflict() {
+        var primeiro = new PacienteRequestDTO("Primeiro", null, "55566677788", null, null, null);
+        var duplicado = new PacienteRequestDTO("Outro", null, "55566677788", null, null, null);
+
+        service.cadastrar(primeiro);
+
+        assertThatThrownBy(() -> service.cadastrar(duplicado))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("CPF");
+    }
+
+    @Test
+    void cadastrar_comEmailDuplicado_deveLancarConflict() {
+        var primeiro = new PacienteRequestDTO("Primeiro", "duplicado@email.com", null, null, null, null);
+        var duplicado = new PacienteRequestDTO("Outro", "duplicado@email.com", null, null, null, null);
+
+        service.cadastrar(primeiro);
+
+        assertThatThrownBy(() -> service.cadastrar(duplicado))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("E-mail");
+    }
+
+    @Test
+    void cadastrar_multiplosSemEmailEsemCpf_devePermitir() {
+        var primeiro = new PacienteRequestDTO("Importado A", null, null, null, null, null);
+        var segundo = new PacienteRequestDTO("Importado B", null, null, null, null, null);
+
+        var r1 = service.cadastrar(primeiro);
+        var r2 = service.cadastrar(segundo);
+
+        assertThat(r1.id()).isNotEqualTo(r2.id());
     }
 
     @Test

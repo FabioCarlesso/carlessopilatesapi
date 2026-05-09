@@ -700,7 +700,8 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
 | `V20__add_ativo_to_users.sql` | Adiciona coluna `ativo` à tabela `users` |
 | `V21__insert_admin_inicial.sql` | Mantém a versão Flyway reservada; o admin inicial de produção é criado pela aplicação com `APP_INITIAL_ADMIN_PASSWORD` |
-| `V22__alter_pacientes_email_cpf_nullable.sql` | Torna `email` e `cpf` opcionais e remove a restrição de unicidade para suportar importação de pacientes de sistemas externos sem esses dados |
+| `V22__alter_pacientes_email_cpf_nullable.sql` | Torna `email` e `cpf` opcionais (drop NOT NULL e drop das constraints únicas totais) para suportar importação de pacientes de sistemas externos sem esses dados |
+| `V23__add_pacientes_email_cpf_partial_unique.sql` | Recria a unicidade como índice **parcial** (`WHERE col IS NOT NULL`) — múltiplos pacientes podem ter `email`/`cpf` nulos, mas valores preenchidos seguem únicos. `PacienteService.cadastrar` também valida e retorna 409 antes de chegar no banco |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -721,7 +722,7 @@ Para popular o ambiente com a base real de clientes vinda do `seufisio.com.br`, 
 
 1. Consulta `GET /api/cliente?per_page=500` no seufisio com o Bearer token capturado do navegador (DevTools → aba Network → header `authorization` da requisição da listagem).
 2. Para cada cliente, busca o detalhe em `GET /api/cliente/{id}`, mapeando para o contrato de `POST /pacientes`.
-3. Faz login na API local (`/auth/login`) e cria os pacientes em lote. Pacientes com `situacao != 2` no seufisio são marcados como inativos via `PATCH /pacientes/{id}/inativar` após o cadastro.
+3. Faz login na API local (`/auth/login`), carrega todos os CPFs já cadastrados (idempotência: re-rodar não duplica) e cria apenas os pacientes novos em lote. Pacientes com `situacao != 2` no seufisio são marcados como inativos via `PATCH /pacientes/{id}/inativar` após o cadastro.
 
 **Pré-requisitos:**
 
@@ -731,22 +732,37 @@ Para popular o ambiente com a base real de clientes vinda do `seufisio.com.br`, 
 
 **Execução:**
 
+Recomendado: criar `scripts/.env` (já ignorado pelo git) com as credenciais e carregá-lo com `set -a; source ...; set +a` para evitar deixar token/senha em `~/.bash_history`:
+
 ```bash
-export SEUFISIO_TOKEN="eyJ0eXAi..."
-export LOCAL_API_URL="http://localhost:8080"
-export LOCAL_EMAIL="admin@carlessopilates.com"
-export LOCAL_PASSWORD="senha1234"
+# scripts/.env (NUNCA commitar)
+SEUFISIO_TOKEN="eyJ0eXAi..."
+SEUFISIO_CLINICA_ID="..."
+SEUFISIO_VERSION_APP="..."
+LOCAL_API_URL="http://localhost:8080"
+LOCAL_EMAIL="admin@carlessopilates.com"
+LOCAL_PASSWORD="senha1234"
+```
+
+```bash
+set -a; source scripts/.env; set +a
 
 # Validar mapeamento sem gravar (recomendado antes da carga real)
 python3 scripts/import_seufisio.py --dry-run
 
-# Importação de fato
+# Importação de fato (idempotente: pula CPFs já cadastrados)
 python3 scripts/import_seufisio.py
+```
+
+**Testes do script:**
+
+```bash
+cd scripts && python3 -m unittest test_import_seufisio -v
 ```
 
 > O token JWT do seufisio expira (~2 dias). Se demorar para rodar, capture um novo no DevTools.
 >
-> **Segurança**: o `.gitignore` está configurado para nunca versionar dumps (`scripts/*.json`, `scripts/*.csv`) nem variáveis locais (`scripts/.env`). Não commitar tokens nem dados de pacientes em hipótese alguma.
+> **Segurança**: o `.gitignore` está configurado para nunca versionar dumps (`scripts/*.json`, `scripts/*.csv`) nem variáveis locais (`scripts/.env`). Não commitar tokens nem dados de pacientes em hipótese alguma. Logs e `--dry-run` mascaram CPF/e-mail/nome para não vazar PII via stdout/CI.
 
 ---
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""
-Importa pacientes do seufisio.com.br para a API local carlessopilatesapi.
+"""Importa pacientes do seufisio.com.br para a API local carlessopilatesapi.
 
 Pré-requisitos:
 - API local rodando em LOCAL_API_URL (default http://localhost:8080).
-- Banco dev limpo (seed V2 já foi removida; rodar `docker compose down -v`
-  antes de subir o ambiente caso já existisse a carga anterior).
 - Token JWT válido do seufisio (header `authorization` capturado no DevTools).
 
 Uso:
+    # Recomendado: criar scripts/.env (ignorado pelo git) e carregar com
+    #   set -a; source scripts/.env; set +a
+    # para evitar deixar token/senha no histórico do shell.
     export SEUFISIO_TOKEN="eyJ..."           # JWT capturado no DevTools
     export SEUFISIO_CLINICA_ID="..."         # header `setfisio` (DevTools)
     export SEUFISIO_VERSION_APP="..."        # header `x-version-app` (DevTools)
@@ -17,11 +17,14 @@ Uso:
     export LOCAL_PASSWORD="..."
     python3 scripts/import_seufisio.py [--dry-run]
 
---dry-run: imprime os payloads que seriam enviados, sem POSTar.
+--dry-run: imprime payloads mascarados (CPF/e-mail ofuscados) sem POSTar.
+
+Idempotência: antes de criar, busca todos os CPFs já cadastrados na API local
+e pula os duplicados. Re-rodar não cria duplicatas.
 
 Segurança:
-- Tokens são lidos apenas de variáveis de ambiente; nunca commitar credenciais.
-- O script não persiste em disco nenhum dado vindo do seufisio.
+- Tokens lidos apenas de variáveis de ambiente; nunca commitar credenciais.
+- Logs e dry-run mascaram PII (nome reduzido, CPF/e-mail ofuscados).
 """
 
 import argparse
@@ -32,14 +35,18 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 
+DESCRIPTION = "Importa pacientes do seufisio.com.br para a API local."
 SEUFISIO_BASE = "https://api.seufisio.com.br/api"
 SITUACAO_ATIVO = 2
 RATE_LIMIT_SECONDS = 0.15
+LOCAL_PAGE_SIZE = 200
 BROWSER_UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
 )
+DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
 
 
 def http_json(method, url, headers=None, body=None):
@@ -58,6 +65,46 @@ def http_json(method, url, headers=None, body=None):
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         return e.code, raw
+
+
+def mask_cpf(cpf):
+    if not cpf:
+        return None
+    return f"***.***.***-{cpf[-2:]}" if len(cpf) >= 2 else "***"
+
+
+def mask_email(email):
+    if not email:
+        return None
+    if "@" not in email:
+        return "***"
+    local, domain = email.split("@", 1)
+    return f"{local[:1]}***@{domain}"
+
+
+def short_name(nome):
+    if not nome:
+        return "***"
+    parts = nome.split()
+    if len(parts) == 1:
+        return parts[0][:1] + "***"
+    return f"{parts[0]} {parts[-1][:1]}***"
+
+
+def parse_data_nascimento(value):
+    if value is None:
+        return None, None
+    if not isinstance(value, str):
+        return None, f"data_nascimento tipo inesperado: {type(value).__name__}"
+    txt = value.strip()
+    if not txt:
+        return None, None
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(txt[:len(fmt) + 4], fmt).date().isoformat(), None
+        except ValueError:
+            continue
+    return None, f"data_nascimento em formato não reconhecido: {txt!r}"
 
 
 def seufisio_headers(token, clinica_id, version_app):
@@ -79,7 +126,10 @@ def login_local(base_url, email, password):
     )
     if status != 200 or not isinstance(body, dict):
         raise SystemExit(f"Login local falhou ({status}): {body}")
-    return body["accessToken"]
+    token = body.get("accessToken")
+    if not token:
+        raise SystemExit("Login local não retornou accessToken na resposta")
+    return token
 
 
 def list_seufisio(headers):
@@ -89,7 +139,7 @@ def list_seufisio(headers):
     )
     if status != 200 or not isinstance(body, dict):
         raise SystemExit(f"Listagem seufisio falhou ({status}): {body}")
-    return body.get("data", [])
+    return body.get("data") or []
 
 
 def fetch_seufisio(headers, cid):
@@ -102,6 +152,27 @@ def fetch_seufisio(headers, cid):
     return body, None
 
 
+def fetch_existing_cpfs(base_url, token):
+    cpfs = set()
+    page = 0
+    while True:
+        url = f"{base_url}/pacientes?ativo=true&page={page}&size={LOCAL_PAGE_SIZE}"
+        status, body = http_json(
+            "GET", url,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        if status != 200 or not isinstance(body, dict):
+            raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
+        for p in body.get("content") or []:
+            cpf = p.get("cpf")
+            if cpf:
+                cpfs.add(cpf)
+        if body.get("last", True) or not body.get("content"):
+            break
+        page += 1
+    return cpfs
+
+
 def map_to_paciente(c):
     nome = (c.get("nome") or "").strip() or None
     if not nome:
@@ -110,11 +181,16 @@ def map_to_paciente(c):
     email = (c.get("email") or "").strip() or None
     cpf_raw = c.get("cpf")
     cpf = re.sub(r"\D", "", cpf_raw) if cpf_raw else None
+    cpf = cpf or None
     telefone = (c.get("telefone") or "").strip() or None
-    data_nascimento = c.get("data_nascimento") or None
+
+    data_nascimento, data_err = parse_data_nascimento(c.get("data_nascimento"))
+    if data_err:
+        return None, data_err
 
     cep_raw = c.get("cep")
     cep = re.sub(r"\D", "", cep_raw) if cep_raw else None
+    cep = cep or None
     endereco_campos = {
         "logradouro": c.get("endereco"),
         "numero": c.get("endereco_numero"),
@@ -135,6 +211,17 @@ def map_to_paciente(c):
     }, None
 
 
+def masked_payload(payload):
+    return {
+        "nome": short_name(payload.get("nome")),
+        "email": mask_email(payload.get("email")),
+        "cpf": mask_cpf(payload.get("cpf")),
+        "telefone": "***" if payload.get("telefone") else None,
+        "dataNascimento": payload.get("dataNascimento"),
+        "endereco": "(presente)" if payload.get("endereco") else None,
+    }
+
+
 def post_paciente(base_url, token, payload):
     return http_json(
         "POST", f"{base_url}/pacientes",
@@ -151,9 +238,9 @@ def patch_inativar(base_url, token, paciente_id):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--dry-run", action="store_true",
-                        help="Imprime payloads sem chamar a API local.")
+                        help="Imprime payloads mascarados sem chamar a API local.")
     args = parser.parse_args()
 
     seufisio_token = os.environ.get("SEUFISIO_TOKEN")
@@ -173,14 +260,17 @@ def main():
 
     sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
 
-    print(f"[1/3] Listando clientes em {SEUFISIO_BASE}/cliente ...")
+    print(f"[1/4] Listando clientes em {SEUFISIO_BASE}/cliente ...")
     clientes = list_seufisio(sf_headers)
     print(f"      {len(clientes)} clientes encontrados")
 
-    print("[2/3] Buscando detalhes ...")
+    print("[2/4] Buscando detalhes ...")
     detalhes = []
     for c in clientes:
-        cid = c["id"]
+        cid = c.get("id") if isinstance(c, dict) else None
+        if cid is None:
+            print("      [skip] item sem id na listagem")
+            continue
         full, err = fetch_seufisio(sf_headers, cid)
         if err:
             print(f"      [skip {cid}] {err}")
@@ -188,34 +278,56 @@ def main():
         detalhes.append(full)
         time.sleep(RATE_LIMIT_SECONDS)
 
-    local_token = None if args.dry_run else login_local(base_url, local_email, local_password)
+    local_token = None
+    cpfs_existentes = set()
+    if not args.dry_run:
+        local_token = login_local(base_url, local_email, local_password)
+        print("[3/4] Carregando CPFs já cadastrados (idempotência) ...")
+        cpfs_existentes = fetch_existing_cpfs(base_url, local_token)
+        print(f"      {len(cpfs_existentes)} CPFs já presentes — serão pulados")
+    else:
+        print("[3/4] Dry-run: pulando login e checagem de duplicatas")
 
-    print(f"[3/3] {'Simulando' if args.dry_run else 'Enviando'} POST /pacientes ...")
-    ok = fail = 0
+    print(f"[4/4] {'Simulando' if args.dry_run else 'Enviando'} POST /pacientes ...")
+    ok = fail = skip_dup = 0
     for c in detalhes:
+        seufisio_id = c.get("id") if isinstance(c, dict) else None
         payload, skip = map_to_paciente(c)
         if skip:
-            print(f"      [skip id={c.get('id')}] {skip}")
+            print(f"      [skip seufisio_id={seufisio_id}] {skip}")
             continue
+        if payload["cpf"] and payload["cpf"] in cpfs_existentes:
+            skip_dup += 1
+            continue
+
         if args.dry_run:
-            print(json.dumps(payload, ensure_ascii=False))
+            print(json.dumps(masked_payload(payload), ensure_ascii=False))
             ok += 1
             continue
 
         status, body = post_paciente(base_url, local_token, payload)
+        if status == 409:
+            skip_dup += 1
+            continue
         if status != 201 or not isinstance(body, dict):
             fail += 1
-            print(f"      [fail id={c.get('id')} nome={payload['nome']!r}] {status}: {body}")
+            print(f"      [fail seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])}] {status}")
             continue
-        novo_id = body["id"]
+        novo_id = body.get("id")
+        if novo_id is None:
+            fail += 1
+            print(f"      [fail seufisio_id={seufisio_id}] resposta sem id")
+            continue
         ok += 1
+        if payload["cpf"]:
+            cpfs_existentes.add(payload["cpf"])
 
         if c.get("situacao") != SITUACAO_ATIVO:
-            inat_status, inat_body = patch_inativar(base_url, local_token, novo_id)
+            inat_status, _ = patch_inativar(base_url, local_token, novo_id)
             if inat_status != 204:
-                print(f"      [warn inativar id={novo_id}] {inat_status}: {inat_body}")
+                print(f"      [warn inativar id={novo_id}] {inat_status}")
 
-    print(f"Concluído: ok={ok} fail={fail}")
+    print(f"Concluído: ok={ok} fail={fail} skip_duplicado={skip_dup}")
     if fail:
         sys.exit(1)
 
