@@ -5,6 +5,7 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,12 @@ public class PacienteService {
 
     @Transactional
     public PacienteResponseDTO cadastrar(PacienteRequestDTO dto) {
+        if (dto.email() != null && repository.existsByEmail(dto.email())) {
+            throw new ConflictException("E-mail já cadastrado");
+        }
+        if (dto.cpf() != null && repository.existsByCpf(dto.cpf())) {
+            throw new ConflictException("CPF já cadastrado");
+        }
         Paciente paciente = new Paciente();
         paciente.setNome(dto.nome());
         paciente.setEmail(dto.email());
