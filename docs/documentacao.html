@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carlesso Pilates API — Documentação</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-panel: #ffffff;
+      --bg-soft: #f1f5f9;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --accent: #14b8a6;
+      --text: #0f172a;
+      --text-soft: #475569;
+      --border: #e2e8f0;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --get: #16a34a;
+      --post: #2563eb;
+      --put: #d97706;
+      --patch: #9333ea;
+      --delete: #dc2626;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-soft);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace; }
+    code {
+      background: #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #0f172a;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 16px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85em;
+      line-height: 1.5;
+    }
+    pre code { background: transparent; color: inherit; padding: 0; }
+
+    /* Layout */
+    .layout { display: flex; min-height: 100vh; }
+    aside {
+      width: 280px;
+      background: var(--bg);
+      color: #cbd5e1;
+      padding: 28px 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    aside h1 {
+      color: #fff;
+      font-size: 1.2rem;
+      margin: 0 0 4px;
+      letter-spacing: -0.5px;
+    }
+    aside .subtitle {
+      color: #94a3b8;
+      font-size: 0.8rem;
+      margin-bottom: 24px;
+      display: block;
+    }
+    aside nav ul { list-style: none; padding: 0; margin: 0; }
+    aside nav li { margin: 2px 0; }
+    aside nav a {
+      display: block;
+      padding: 8px 12px;
+      color: #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: background 0.15s;
+    }
+    aside nav a:hover {
+      background: rgba(255,255,255,0.07);
+      color: #fff;
+      text-decoration: none;
+    }
+    aside nav .section-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: #64748b;
+      margin: 18px 12px 6px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    main {
+      flex: 1;
+      padding: 48px 56px;
+      max-width: 1100px;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #2563eb 0%, #14b8a6 100%);
+      color: #fff;
+      padding: 40px 36px;
+      border-radius: 14px;
+      margin-bottom: 36px;
+      box-shadow: 0 10px 30px rgba(37, 99, 235, 0.18);
+    }
+    .hero h1 { margin: 0 0 8px; font-size: 2rem; letter-spacing: -0.5px; }
+    .hero p { margin: 0; opacity: 0.92; font-size: 1.05rem; max-width: 700px; }
+    .hero .badges { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .badge {
+      background: rgba(255,255,255,0.15);
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    section {
+      background: var(--bg-panel);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    section h2 {
+      margin-top: 0;
+      margin-bottom: 6px;
+      font-size: 1.5rem;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+    section h2 .icon {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      vertical-align: middle;
+      margin-right: 10px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 6px;
+      text-align: center;
+      line-height: 28px;
+      font-size: 1rem;
+    }
+    section .lead {
+      color: var(--text-soft);
+      margin-top: 0;
+      margin-bottom: 24px;
+      font-size: 0.98rem;
+    }
+    h3 {
+      font-size: 1.1rem;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    h4 {
+      font-size: 0.95rem;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    /* Cards grid */
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .card {
+      background: var(--bg-soft);
+      padding: 16px 18px;
+      border-radius: 10px;
+      border-left: 4px solid var(--primary);
+    }
+    .card .card-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+    }
+    .card .card-meta { color: var(--text-soft); font-size: 0.85rem; }
+    .card.teal { border-left-color: var(--accent); }
+    .card.amber { border-left-color: var(--warning); }
+    .card.rose { border-left-color: var(--danger); }
+    .card.purple { border-left-color: #9333ea; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 0.92rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      background: var(--bg-soft);
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tr:hover td { background: #f8fafc; }
+
+    /* HTTP method badges */
+    .method {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.03em;
+      min-width: 60px;
+      text-align: center;
+    }
+    .method.get { background: var(--get); }
+    .method.post { background: var(--post); }
+    .method.put { background: var(--put); }
+    .method.patch { background: var(--patch); }
+    .method.delete { background: var(--delete); }
+
+    /* Callouts */
+    .callout {
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      border-left: 4px solid var(--primary);
+      background: #eff6ff;
+      font-size: 0.92rem;
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+    .callout.warning { background: #fef3c7; border-left-color: var(--warning); }
+    .callout.danger { background: #fee2e2; border-left-color: var(--danger); }
+    .callout.success { background: #d1fae5; border-left-color: var(--success); }
+
+    /* Architecture diagram */
+    .arch {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 18px 0;
+    }
+    .arch .layer {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .arch .layer-label {
+      font-weight: 700;
+      color: var(--text);
+      min-width: 130px;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .arch .layer-desc { color: var(--text-soft); font-size: 0.9rem; flex: 1; }
+    .arch .arrow {
+      text-align: center;
+      color: #cbd5e1;
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+    .arch .l1 { border-left: 4px solid #2563eb; }
+    .arch .l2 { border-left: 4px solid #6366f1; }
+    .arch .l3 { border-left: 4px solid #9333ea; }
+    .arch .l4 { border-left: 4px solid #ec4899; }
+    .arch .l5 { border-left: 4px solid #14b8a6; }
+    .arch .l6 { border-left: 4px solid #f59e0b; }
+
+    .tag {
+      display: inline-block;
+      background: var(--bg-soft);
+      color: var(--text-soft);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      margin-right: 4px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .toc-grid a {
+      background: var(--bg-soft);
+      padding: 12px 14px;
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.92rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .toc-grid a:hover {
+      background: #e0f2fe;
+      border-color: var(--primary);
+      text-decoration: none;
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-soft);
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      aside { width: 100%; height: auto; position: static; }
+      main { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>Carlesso Pilates API</h1>
+    <span class="subtitle">Documentação técnica</span>
+    <nav>
+      <div class="section-title">Visão geral</div>
+      <ul>
+        <li><a href="#objetivo">Objetivo</a></li>
+        <li><a href="#stack">Stack tecnológica</a></li>
+        <li><a href="#arquitetura">Arquitetura</a></li>
+        <li><a href="#estrutura">Estrutura de pacotes</a></li>
+      </ul>
+      <div class="section-title">API</div>
+      <ul>
+        <li><a href="#auth">Autenticação &amp; usuários</a></li>
+        <li><a href="#endpoints">Endpoints</a></li>
+        <li><a href="#modelos">Modelos de dados</a></li>
+        <li><a href="#erros">Tratamento de erros</a></li>
+      </ul>
+      <div class="section-title">Domínio</div>
+      <ul>
+        <li><a href="#regras">Regras de negócio</a></li>
+        <li><a href="#scheduler">Scheduler</a></li>
+      </ul>
+      <div class="section-title">Infraestrutura</div>
+      <ul>
+        <li><a href="#setup">Setup &amp; execução</a></li>
+        <li><a href="#env">Variáveis de ambiente</a></li>
+        <li><a href="#flyway">Banco &amp; migrações</a></li>
+        <li><a href="#importacao">Importação seufisio</a></li>
+        <li><a href="#testes">Testes</a></li>
+        <li><a href="#observabilidade">Observabilidade</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <h1>Carlesso Pilates API</h1>
+      <p>API REST para gestão de pacientes, profissionais, planos de pagamento, aulas e prontuário clínico do estúdio Carlesso Pilates. Construída com Spring Boot 3 e Java 21, persistência em PostgreSQL, autenticação JWT stateless e exportação de relatórios em PDF/XLSX.</p>
+      <div class="badges">
+        <span class="badge">Java 21</span>
+        <span class="badge">Spring Boot 3.4.5</span>
+        <span class="badge">PostgreSQL 16</span>
+        <span class="badge">JWT</span>
+        <span class="badge">Flyway</span>
+        <span class="badge">Docker</span>
+      </div>
+    </div>
+
+    <section id="indice">
+      <h2><span class="icon">i</span> Índice rápido</h2>
+      <p class="lead">Navegue pelas principais áreas da documentação.</p>
+      <div class="toc-grid">
+        <a href="#objetivo">Objetivo</a>
+        <a href="#stack">Stack tecnológica</a>
+        <a href="#arquitetura">Arquitetura</a>
+        <a href="#estrutura">Estrutura</a>
+        <a href="#auth">Autenticação</a>
+        <a href="#endpoints">Endpoints</a>
+        <a href="#modelos">Modelos</a>
+        <a href="#erros">Erros</a>
+        <a href="#regras">Regras de negócio</a>
+        <a href="#scheduler">Scheduler</a>
+        <a href="#setup">Setup</a>
+        <a href="#env">Variáveis</a>
+        <a href="#flyway">Migrações</a>
+        <a href="#importacao">Importação</a>
+        <a href="#testes">Testes</a>
+        <a href="#observabilidade">Observabilidade</a>
+      </div>
+    </section>
+
+    <section id="objetivo">
+      <h2><span class="icon">1</span> Objetivo</h2>
+      <p>API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Oferece:</p>
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">Pacientes &amp; Profissionais</div>
+          <div class="card-meta">Cadastro, consulta paginada e filtrada, atualização parcial e soft delete.</div>
+        </div>
+        <div class="card teal">
+          <div class="card-title">Planos &amp; Cobranças</div>
+          <div class="card-meta">Planos de pagamento (mensal/trimestral/anual), cobranças automáticas e controle de vencimentos.</div>
+        </div>
+        <div class="card amber">
+          <div class="card-title">Aulas</div>
+          <div class="card-meta">Geração automática conforme frequência semanal e marcação de presença vinculada ao profissional.</div>
+        </div>
+        <div class="card purple">
+          <div class="card-title">Prontuário Clínico</div>
+          <div class="card-meta">Anamnese, avaliações fisioterapêuticas, planos de tratamento, sessões, evoluções e reavaliações.</div>
+        </div>
+        <div class="card rose">
+          <div class="card-title">Relatórios</div>
+          <div class="card-meta">Relatório de pagamento por profissional (JSON/PDF/XLSX) e relatório de NFSEs por competência (JSON/CSV/XLSX).</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Dashboard</div>
+          <div class="card-meta">Resumo consolidado com contadores e indicadores financeiros do mês corrente.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stack">
+      <h2><span class="icon">2</span> Stack tecnológica</h2>
+      <table>
+        <thead><tr><th>Camada</th><th>Tecnologia</th><th>Versão</th></tr></thead>
+        <tbody>
+          <tr><td>Linguagem</td><td>Java</td><td>21</td></tr>
+          <tr><td>Framework</td><td>Spring Boot</td><td>3.4.5</td></tr>
+          <tr><td>Persistência</td><td>Spring Data JPA + Hibernate</td><td>3.4.5</td></tr>
+          <tr><td>Validação</td><td>Spring Validation (Bean Validation)</td><td>3.4.5</td></tr>
+          <tr><td>Segurança</td><td>Spring Security + JWT stateless</td><td>6.4.5 / JJWT 0.12.6</td></tr>
+          <tr><td>Banco</td><td>PostgreSQL</td><td>16</td></tr>
+          <tr><td>Migrações</td><td>Flyway</td><td>via starter</td></tr>
+          <tr><td>Documentação</td><td>springdoc-openapi (Swagger UI)</td><td>2.8.3</td></tr>
+          <tr><td>Observabilidade</td><td>Spring Boot Actuator</td><td>3.4.5</td></tr>
+          <tr><td>Scheduler</td><td>Spring Scheduler</td><td>via starter</td></tr>
+          <tr><td>Exportação PDF</td><td>OpenPDF</td><td>1.3.34</td></tr>
+          <tr><td>Exportação XLSX</td><td>Apache POI</td><td>5.4.1</td></tr>
+          <tr><td>Build</td><td>Maven</td><td>3.9</td></tr>
+          <tr><td>Containers</td><td>Docker + Docker Compose</td><td>—</td></tr>
+          <tr><td>Testes</td><td>JUnit 5 + Mockito + MockMvc + H2</td><td>via starter</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="arquitetura">
+      <h2><span class="icon">3</span> Arquitetura em camadas</h2>
+      <p class="lead">A aplicação segue o padrão clássico Controller → Service → Repository, com DTOs como contrato externo e exceções customizadas mapeadas para status HTTP.</p>
+      <div class="arch">
+        <div class="layer l1">
+          <span class="layer-label">Cliente</span>
+          <span class="layer-desc">Frontend Angular ou consumidores externos (curl, scripts, Postman).</span>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l2">
+          <span class="layer-label">Security Filter</span>
+          <span class="layer-desc"><code>JwtAuthenticationFilter</code> valida o Bearer token a cada requisição; <code>SecurityConfig</code> define regras de acesso e CORS.</span>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l3">
+          <span class="layer-label">Controller</span>
+          <span class="layer-desc">Camada REST com <code>@RestController</code>, validação (<code>@Valid</code>) e mapeamento HTTP. Trabalha apenas com DTOs.</span>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l4">
+          <span class="layer-label">Service</span>
+          <span class="layer-desc">Regras de negócio e transações (<code>@Transactional</code>). Lança exceções de domínio (<code>ResourceNotFound</code>, <code>Conflict</code>, <code>Business</code>).</span>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l5">
+          <span class="layer-label">Repository</span>
+          <span class="layer-desc">Spring Data JPA com queries derivadas e <code>@Query</code> consolidadas para evitar N+1.</span>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l6">
+          <span class="layer-label">PostgreSQL</span>
+          <span class="layer-desc">Migrações estruturais por Flyway (<code>db/migration</code>) e seeds apenas em <code>dev</code> (<code>db/seed</code>).</span>
+        </div>
+      </div>
+
+      <h3>Componentes transversais</h3>
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">GlobalExceptionHandler</div>
+          <div class="card-meta">Mapeia exceções para HTTP 400/404/409/422/429. Resposta padronizada <code>{"erro":"..."}</code>.</div>
+        </div>
+        <div class="card teal">
+          <div class="card-title">OpenApiConfig</div>
+          <div class="card-meta">Configura Swagger UI em <code>/swagger-ui.html</code> e OpenAPI JSON em <code>/api-docs</code>.</div>
+        </div>
+        <div class="card amber">
+          <div class="card-title">CobrancaScheduler</div>
+          <div class="card-meta">Job diário que vence pagamentos e gera cobranças futuras (cron parametrizável).</div>
+        </div>
+        <div class="card purple">
+          <div class="card-title">LoginAttemptService</div>
+          <div class="card-meta">Rate limiting in-memory por e-mail: 5 tentativas falhas / 15 minutos → 429.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="estrutura">
+      <h2><span class="icon">4</span> Estrutura de pacotes</h2>
+      <p class="lead">Pacote raiz: <code>com.carlesso.pilatesapi</code>.</p>
+<pre><code>com.carlesso.pilatesapi
+├── config/         configurações (Security, OpenAPI, GlobalExceptionHandler, AppProperties)
+├── controller/     16 controllers REST (Paciente, Profissional, Plano, Pagamento,
+│                   Aula, Anamnese, AvaliacaoFisioterapeutica, PlanoTratamento,
+│                   SessaoPilates, EvolucaoSessao, Reavaliacao, Auth, User,
+│                   Admin, RelatorioNfse, Dashboard)
+├── service/        regras de negócio + serviços de autenticação, JWT e exportação
+├── repository/     interfaces Spring Data JPA
+├── entity/         entidades JPA + Endereco (@Embeddable)
+│   └── enums/      TipoPagamento, TipoContrato, FrequenciaSemanal,
+│                   StatusPagamento, StatusSessao, Role
+├── dto/            Request/Update/Response DTOs (contrato externo)
+├── exception/      ResourceNotFound (404), Conflict (409), Business (422),
+│                   TooManyRequests (429)
+├── security/       JwtAuthenticationFilter
+└── scheduler/      CobrancaScheduler
+</code></pre>
+
+      <h3>Recursos de runtime</h3>
+<pre><code>src/main/resources
+├── application.properties            base
+├── application-dev.properties        perfil dev (com seed)
+├── application-prod.properties       perfil prod (sem seed)
+└── db/
+    ├── migration/    DDL estrutural — TODOS os ambientes
+    └── seed/         dados de teste — APENAS perfil dev
+</code></pre>
+    </section>
+
+    <section id="auth">
+      <h2><span class="icon">5</span> Autenticação &amp; Usuários</h2>
+      <p class="lead">Autenticação stateless via JWT. Senhas armazenadas com BCrypt. Roles: <code>USER</code> e <code>ADMIN</code>.</p>
+
+      <h3>Fluxo</h3>
+      <ol>
+        <li><code>POST /auth/register</code> cria usuário <code>USER</code> e retorna access token.</li>
+        <li><code>POST /auth/login</code> valida credenciais e retorna access token. Após 5 falhas em 15 min retorna <code>429</code>.</li>
+        <li>Requisições autenticadas devem enviar <code>Authorization: Bearer &lt;accessToken&gt;</code>.</li>
+        <li>Endpoints <code>/admin/**</code> e o CRUD de <code>/users</code> exigem role <code>ADMIN</code> → caso contrário, <code>403</code>.</li>
+      </ol>
+
+      <h3>Endpoints de autenticação</h3>
+      <table>
+        <thead><tr><th>Método</th><th>Endpoint</th><th>Acesso</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><span class="method post">POST</span></td><td><code>/auth/register</code></td><td>Público</td><td>Registra usuário com role <code>USER</code> e retorna JWT.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/auth/login</code></td><td>Público</td><td>Valida e-mail/senha e retorna JWT (rate limit 5/15min).</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/users/me</code></td><td>Autenticado</td><td>Dados do usuário autenticado.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/users</code></td><td>ADMIN</td><td>Cria usuário com role <code>USER</code> ou <code>ADMIN</code>.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/users</code></td><td>ADMIN</td><td>Lista usuários (sem expor senha).</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/users/roles</code></td><td>ADMIN</td><td>Roles disponíveis para formulários.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/users/{id}</code></td><td>ADMIN</td><td>Busca por ID.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/users/{id}</code></td><td>ADMIN</td><td>Atualiza dados/perfil. Admin não pode alterar o próprio role nem rebaixar o último ADMIN ativo.</td></tr>
+          <tr><td><span class="method delete">DELETE</span></td><td><code>/users/{id}</code></td><td>ADMIN</td><td>Soft delete. Admin não pode inativar a si mesmo nem o último ADMIN ativo.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/admin/health</code></td><td>ADMIN</td><td>Health administrativo.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warning">
+        <strong>Admin inicial em produção</strong>
+        No perfil <code>prod</code>, se não existir <code>ADMIN</code> ativo, a aplicação cria <code>admin@carlessopilates.com</code> (ou <code>APP_INITIAL_ADMIN_EMAIL</code>) usando <code>APP_INITIAL_ADMIN_PASSWORD</code>. A aplicação falha ao iniciar se essa senha não estiver configurada.
+      </div>
+
+      <h3>Usuários de seed (perfil <code>dev</code>)</h3>
+      <p>Senha: <code>senha1234</code>.</p>
+      <table>
+        <thead><tr><th>E-mail</th><th>Perfil</th></tr></thead>
+        <tbody>
+          <tr><td><code>admin@carlessopilates.com</code></td><td>ADMIN</td></tr>
+          <tr><td><code>operacional@carlessopilates.com</code></td><td>ADMIN</td></tr>
+          <tr><td><code>recepcao@carlessopilates.com</code></td><td>USER</td></tr>
+          <tr><td><code>financeiro@carlessopilates.com</code></td><td>USER</td></tr>
+          <tr><td><code>consulta@carlessopilates.com</code></td><td>USER</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="endpoints">
+      <h2><span class="icon">6</span> Endpoints</h2>
+      <p class="lead">Base URL: <code>http://localhost:8080</code>. Salvo indicação, todas as rotas exigem <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+
+      <h3>Pacientes</h3>
+      <table>
+        <tbody>
+          <tr><td><span class="method post">POST</span></td><td><code>/pacientes</code></td><td>Cadastrar paciente.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/pacientes</code></td><td>Listar/filtrar (paginado). Filtros: <code>nome</code>, <code>email</code>, <code>cpf</code>, <code>telefone</code>, <code>ativo</code>.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/pacientes/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/pacientes/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/pacientes/{id}/ativar</code></td><td>Reativar paciente.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/pacientes/{id}/inativar</code></td><td>Soft delete.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Profissionais</h3>
+      <table>
+        <tbody>
+          <tr><td><span class="method post">POST</span></td><td><code>/profissionais</code></td><td>Cadastrar profissional.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/profissionais</code></td><td>Listar/filtrar (paginado). Filtros: <code>nome</code>, <code>email</code>, <code>tipoContrato</code>, <code>percentualPagamentoAula</code>, <code>ativo</code>.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/profissionais/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/profissionais/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/profissionais/{id}/ativar</code></td><td>Reativar.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/profissionais/{id}/inativar</code></td><td>Soft delete.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/profissionais/{id}/relatorio-pagamento</code></td><td>Relatório por período (JSON).</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/profissionais/{id}/relatorio-pagamento/pdf</code></td><td>Relatório em PDF (OpenPDF).</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/profissionais/{id}/relatorio-pagamento/xlsx</code></td><td>Relatório em XLSX (Apache POI, 3 abas).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Planos &amp; Pagamentos</h3>
+      <table>
+        <tbody>
+          <tr><td><span class="method post">POST</span></td><td><code>/planos</code></td><td>Criar plano para paciente (inativa o anterior).</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/planos/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/planos/paciente/{id}</code></td><td>Listar planos do paciente.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/planos/paciente/{id}/ativo</code></td><td>Buscar plano ativo.</td></tr>
+          <tr><td><span class="method delete">DELETE</span></td><td><code>/planos/{id}</code></td><td>Inativar plano.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/pagamentos</code></td><td>Criar pagamento <code>PENDENTE</code>.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/pagamentos/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/pagamentos/paciente/{id}</code></td><td>Listar pagamentos do paciente.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/pagamentos/{id}/pagar</code></td><td>Confirmar e gerar aulas (<code>dataPagamento</code> opcional).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Aulas</h3>
+      <table>
+        <tbody>
+          <tr><td><span class="method get">GET</span></td><td><code>/aulas/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/aulas/paciente/{id}</code></td><td>Aulas do paciente.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/aulas/pagamento/{id}</code></td><td>Aulas de um pagamento.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/aulas/{id}/realizar</code></td><td>Marcar como realizada (com <code>profissionalId</code> opcional).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Prontuário clínico</h3>
+      <table>
+        <tbody>
+          <tr><td><span class="method post">POST</span></td><td><code>/anamneses</code></td><td>Criar anamnese.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/anamneses/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/anamneses/paciente/{id}</code></td><td>Anamneses do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/anamneses/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/avaliacoes-fisioterapeuticas</code></td><td>Criar avaliação fisioterapêutica.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/avaliacoes-fisioterapeuticas/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/avaliacoes-fisioterapeuticas/paciente/{pacienteId}</code></td><td>Avaliações do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/avaliacoes-fisioterapeuticas/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/planos-tratamento</code></td><td>Criar plano de tratamento.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/planos-tratamento/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/planos-tratamento/paciente/{pacienteId}</code></td><td>Planos de tratamento do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/planos-tratamento/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method delete">DELETE</span></td><td><code>/planos-tratamento/{id}</code></td><td>Soft delete.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/sessoes</code></td><td>Registrar sessão de Pilates/Fisioterapia.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/sessoes/{id}</code></td><td>Buscar sessão por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/sessoes/paciente/{pacienteId}</code></td><td>Sessões do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/sessoes/{id}</code></td><td>Atualização parcial, exceto status.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/sessoes/{id}/realizar</code></td><td>Marcar sessão como realizada.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/sessoes/{id}/cancelar</code></td><td>Cancelar sessão agendada.</td></tr>
+          <tr><td><span class="method delete">DELETE</span></td><td><code>/sessoes/{id}</code></td><td>Excluir sessão permanentemente.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/evolucoes-sessao</code></td><td>Registrar evolução clínica de sessão.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/evolucoes-sessao/{id}</code></td><td>Buscar por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/evolucoes-sessao/sessao/{sessaoId}</code></td><td>Buscar evolução pela sessão.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/evolucoes-sessao/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/reavaliacoes</code></td><td>Criar reavaliação periódica.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/reavaliacoes/{id}</code></td><td>Buscar reavaliação por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/reavaliacoes/paciente/{pacienteId}</code></td><td>Reavaliações do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/reavaliacoes/{id}</code></td><td>Atualização parcial.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Relatórios &amp; Dashboard</h3>
+      <table>
+        <tbody>
+          <tr><td><span class="method get">GET</span></td><td><code>/api/relatorios/nfse</code></td><td>Relatório de NFSEs por competência (<code>competencia=MM/AAAA</code>, <code>formato=JSON|CSV|XLSX</code>).</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/dashboard/resumo</code></td><td>Resumo do painel inicial (pacientes, profissionais, pagamentos, aulas do mês).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Paginação</h3>
+      <p>Endpoints de listagem suportam os query params padrão do Spring:</p>
+<pre><code>GET /pacientes?page=0&amp;size=10&amp;sort=nome,asc
+GET /pacientes?nome=maria&amp;ativo=true&amp;page=0&amp;size=10&amp;sort=nome,asc
+GET /profissionais?nome=paula&amp;tipoContrato=PJ&amp;ativo=true</code></pre>
+      <p>Tamanho padrão é controlado por <code>APP_PAGINACAO_TAMANHO_PADRAO</code> (default <code>10</code>). Quando <code>ativo</code> é omitido, retorna apenas registros ativos.</p>
+
+      <h3>Documentação interativa</h3>
+      <table>
+        <tbody>
+          <tr><td>Swagger UI</td><td><a href="http://localhost:8080/swagger-ui.html">http://localhost:8080/swagger-ui.html</a></td></tr>
+          <tr><td>OpenAPI JSON</td><td><a href="http://localhost:8080/api-docs">http://localhost:8080/api-docs</a></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="modelos">
+      <h2><span class="icon">7</span> Modelos de dados</h2>
+
+      <h3><code>POST /pacientes</code> — Request</h3>
+<pre><code>{
+  "nome": "Maria Souza",
+  "email": "maria@email.com",
+  "cpf": "123.456.789-00",
+  "telefone": "(11) 91234-5678",
+  "dataNascimento": "1990-05-20",
+  "endereco": {
+    "logradouro": "Rua das Flores",
+    "numero": "42",
+    "bairro": "Centro",
+    "cidade": "São Paulo",
+    "uf": "SP",
+    "cep": "01001-000"
+  }
+}</code></pre>
+      <p>Campos obrigatórios: <code>nome</code>. <code>email</code> e <code>cpf</code> são opcionais (importação inicial de sistemas externos); quando informado, <code>email</code> deve ter formato válido.</p>
+
+      <h3><code>POST /profissionais</code> — Request</h3>
+<pre><code>{
+  "nome": "Paula Mendes",
+  "email": "paula.mendes@carlessopilates.com",
+  "cpf": "123.456.111-00",
+  "telefone": "(11) 98888-1111",
+  "tipoContrato": "PJ",
+  "percentualPagamentoAula": 45.00,
+  "dataInicio": "2024-01-15"
+}</code></pre>
+      <p>Obrigatórios: <code>nome</code>, <code>email</code>, <code>cpf</code>, <code>tipoContrato</code>, <code>percentualPagamentoAula</code>, <code>dataInicio</code>.</p>
+
+      <h3>Relatório de pagamento — Response</h3>
+<pre><code>{
+  "profissional": { "id": 1, "nome": "Paula Mendes", "cpf": "12345678900",
+    "tipoContrato": "PJ", "percentualPagamentoAula": 45.00 },
+  "periodo": { "inicio": "2025-02-01", "fim": "2025-02-28" },
+  "resumo": {
+    "totalAulas": 8, "quantidadePagamentos": 2,
+    "totalPagamentosBruto": 400.00, "totalProfissional": 90.00
+  },
+  "pagamentos": [ { "pagamentoId": 5, "valorPagamento": 200.00,
+    "quantidadeAulasPagamento": 8, "quantidadeAulasNoPeriodo": 4,
+    "valorBaseAula": 25.00, "totalProfissional": 45.00 } ],
+  "aulas": [ { "aulaId": 10, "data": "2025-02-03", "pacienteId": 2,
+    "pacienteNome": "Ana", "pagamentoId": 5, "valorPagamento": 200.00,
+    "quantidadeAulasPagamento": 8, "valorBaseAula": 25.00,
+    "percentualPagamentoAula": 45.00, "valorProfissional": 11.25 } ],
+  "geradoEm": "2025-03-01T10:00:00"
+}</code></pre>
+
+      <h3>Dashboard — Response</h3>
+<pre><code>{
+  "pacientes": { "totalAtivos": 10, "totalInativos": 2 },
+  "profissionais": { "totalAtivos": 3, "totalInativos": 1 },
+  "pagamentos": {
+    "totalPendentes": 5, "totalPagos": 8, "totalVencidos": 2,
+    "receitaMesAtual": 1600.00
+  },
+  "aulas": {
+    "totalRealizadasMesAtual": 40,
+    "totalAgendadasMesAtual": 20
+  },
+  "geradoEm": "2026-04-29T10:00:00"
+}</code></pre>
+
+      <h3>Exportação PDF/XLSX</h3>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Content-Type</th><th>Filename</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>/relatorio-pagamento/pdf</code></td>
+            <td><code>application/pdf</code></td>
+            <td><code>relatorio-pagamento-profissional-{id}-{inicio}-{fim}.pdf</code></td>
+          </tr>
+          <tr>
+            <td><code>/relatorio-pagamento/xlsx</code></td>
+            <td><code>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</code></td>
+            <td><code>relatorio-pagamento-profissional-{id}-{inicio}-{fim}.xlsx</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>O XLSX possui três abas: <code>Resumo</code>, <code>Pagamentos</code> e <code>Aulas</code>. O PDF apresenta as mesmas informações em layout único.</p>
+    </section>
+
+    <section id="erros">
+      <h2><span class="icon">8</span> Tratamento de erros</h2>
+      <p>O <code>GlobalExceptionHandler</code> traduz exceções em respostas HTTP com payload uniforme:</p>
+<pre><code>{ "erro": "Mensagem descritiva do problema" }</code></pre>
+      <table>
+        <thead><tr><th>Exceção</th><th>HTTP</th><th>Quando ocorre</th></tr></thead>
+        <tbody>
+          <tr><td><code>ResourceNotFoundException</code></td><td>404</td><td>Recurso não existe (paciente, plano, pagamento, aula).</td></tr>
+          <tr><td><code>ConflictException</code></td><td>409</td><td>Duplicidade/estado inválido (e-mail/CPF já existe, pagamento já confirmado).</td></tr>
+          <tr><td><code>BusinessException</code></td><td>422</td><td>Regra de negócio violada (paciente inativo, profissional inativo).</td></tr>
+          <tr><td><code>TooManyRequestsException</code></td><td>429</td><td>Mais de 5 tentativas falhas de login em 15 minutos.</td></tr>
+          <tr><td><code>IllegalArgumentException</code></td><td>400</td><td>Parâmetros inválidos (período inválido, valor menor que plano).</td></tr>
+          <tr><td><code>DataIntegrityViolationException</code></td><td>409</td><td>Violação de constraint no banco.</td></tr>
+          <tr><td>Autenticação ausente/inválida</td><td>401</td><td>Token ausente, inválido ou expirado.</td></tr>
+          <tr><td>Falta de role</td><td>403</td><td>Usuário sem role <code>ADMIN</code> em <code>/admin/**</code> ou no CRUD de <code>/users</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="regras">
+      <h2><span class="icon">9</span> Regras de negócio</h2>
+
+      <h3>Pacientes</h3>
+      <ul>
+        <li>Apenas <strong>um plano ativo</strong> por vez por paciente.</li>
+        <li>Pacientes <strong>inativos</strong> não recebem cobranças nem têm aulas geradas.</li>
+        <li>Soft delete preserva histórico clínico/financeiro.</li>
+        <li>Unicidade parcial: <code>email</code> e <code>cpf</code> únicos quando preenchidos (índices parciais <code>WHERE col IS NOT NULL</code>).</li>
+      </ul>
+
+      <h3>Profissionais</h3>
+      <ul>
+        <li>Tipos de contrato: <code>CLT</code>, <code>PJ</code>, <code>AUTONOMO</code>.</li>
+        <li><code>percentualPagamentoAula</code> = percentual do valor da aula que o profissional recebe.</li>
+        <li>Relatório de pagamento considera aulas realizadas no período e ignora aulas de pacientes inativos.</li>
+        <li>Consulta consolidada com <code>JOIN</code> + <code>GROUP BY</code> para evitar round-trips.</li>
+        <li>Cálculo: <code>valor pagamento / qtde aulas pagamento × percentualPagamentoAula / 100</code>.</li>
+        <li>Limites de proteção: até 366 dias e até 5.000 aulas por relatório.</li>
+      </ul>
+
+      <h3>Planos de pagamento</h3>
+      <ul>
+        <li>Tipos: <code>MENSAL</code>, <code>TRIMESTRAL</code>, <code>ANUAL</code>.</li>
+        <li>Quantidade de dias da semana selecionados deve corresponder exatamente à frequência (1x, 2x ou 3x).</li>
+        <li>Criar novo plano <strong>inativa automaticamente</strong> o anterior.</li>
+      </ul>
+
+      <h3>Frequência de aulas</h3>
+      <table>
+        <thead><tr><th>Frequência</th><th>Vezes/semana</th><th>Aulas/mês (referência)</th></tr></thead>
+        <tbody>
+          <tr><td><code>UMA_VEZ</code></td><td>1</td><td>4</td></tr>
+          <tr><td><code>DUAS_VEZES</code></td><td>2</td><td>8</td></tr>
+          <tr><td><code>TRES_VEZES</code></td><td>3</td><td>12</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Pagamentos</h3>
+      <ul>
+        <li>Status: <code>PENDENTE</code> → <code>PAGO</code> ou <code>VENCIDO</code>.</li>
+        <li>Valor não pode ser menor que o do plano.</li>
+        <li>Não pode haver dois pagamentos para o mesmo plano no mesmo período.</li>
+        <li>Ao confirmar, as aulas do período são geradas automaticamente.</li>
+        <li><code>dataPagamento</code> é opcional no corpo da confirmação (default = hoje).</li>
+      </ul>
+
+      <h3>Geração de aulas</h3>
+      <ul>
+        <li>Baseada nos dias da semana do plano e no período do pagamento.</li>
+        <li>Idempotente: aula do paciente já existente naquela data é ignorada.</li>
+        <li>Requer paciente ativo e pagamento confirmado.</li>
+        <li>Consultas filtram apenas aulas de pacientes ativos.</li>
+        <li>Ao realizar, <code>profissionalId</code> pode ser informado para alimentar o relatório de pagamento.</li>
+      </ul>
+
+      <h3>NFSE</h3>
+      <ul>
+        <li>Considera apenas pagamentos <code>PAGO</code> com <code>dataPagamento</code> dentro da competência <code>MM/AAAA</code>.</li>
+        <li>Pacientes inativos são ignorados.</li>
+        <li><code>DescricaoServico</code> gerada como <code>Aulas de Pilates - Competência MM/AAAA</code>.</li>
+        <li><code>NotaAnteriorEmitida</code> inferida pela existência de pagamento confirmado anterior do mesmo paciente.</li>
+        <li>Registros incompletos retornam <code>422</code>.</li>
+      </ul>
+
+      <h3>Avaliações fisioterapêuticas</h3>
+      <ul>
+        <li>Múltiplas avaliações por paciente (histórico clínico).</li>
+        <li>Criar para paciente inexistente/inativo → <code>404</code>.</li>
+        <li>Obrigatórios: <code>dataAvaliacao</code>, <code>queixaFuncional</code>, <code>escalaDor</code>, <code>diagnosticoFisioterapeutico</code>.</li>
+        <li><code>escalaDor</code>: inteiro 0–10.</li>
+        <li>Atualização parcial: apenas campos não-nulos do DTO são aplicados.</li>
+      </ul>
+
+      <h3>Planos de tratamento</h3>
+      <ul>
+        <li>Múltiplos planos por paciente (histórico).</li>
+        <li>Obrigatórios: <code>pacienteId</code>, <code>dataInicio</code>, <code>objetivosTratamento</code>.</li>
+        <li><code>dataFimPrevista</code>, se informada, não pode ser anterior a <code>dataInicio</code>.</li>
+        <li><code>numeroSessoesPrevistas</code>: somente positivo quando informado.</li>
+        <li><code>DELETE</code> é lógico (preserva histórico).</li>
+      </ul>
+
+      <h3>Sessões de Pilates/Fisioterapia</h3>
+      <ul>
+        <li>Status default: <code>AGENDADA</code>.</li>
+        <li>Transições permitidas: <code>AGENDADA → REALIZADA</code> e <code>AGENDADA → CANCELADA</code> (via <code>PATCH</code>).</li>
+        <li><code>PUT</code> faz atualização parcial mas não altera <code>status</code>.</li>
+        <li>Evolução clínica estruturada deve ser registrada em <code>/evolucoes-sessao</code>.</li>
+        <li>Excluir uma sessão remove também a evolução vinculada.</li>
+      </ul>
+
+      <h3>Evoluções de sessão</h3>
+      <ul>
+        <li>No máximo <strong>uma evolução por sessão</strong> (unicidade por <code>sessao_id</code>).</li>
+        <li>Segunda evolução para a mesma sessão → <code>409</code>.</li>
+        <li>Obrigatórios: <code>sessaoId</code>, <code>dataHoraRegistro</code>.</li>
+        <li><code>dorAntes</code>/<code>dorDepois</code>: inteiros 0–10 (quando informados).</li>
+      </ul>
+
+      <h3>Boas práticas Spring</h3>
+      <ul>
+        <li>Métodos de leitura nos services usam <code>@Transactional(readOnly = true)</code>.</li>
+        <li>DTOs como contrato externo — entidades JPA nunca são expostas diretamente.</li>
+        <li>Repositórios usam <code>@Query</code> consolidada quando há risco de N+1.</li>
+      </ul>
+    </section>
+
+    <section id="scheduler">
+      <h2><span class="icon">10</span> Scheduler (processos automáticos)</h2>
+      <p class="lead">O <code>CobrancaScheduler</code> executa dois jobs diários parametrizáveis via env.</p>
+      <table>
+        <thead><tr><th>Horário (default)</th><th>Ação</th><th>Configuração</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>06:00</td>
+            <td>Marca como <code>VENCIDO</code> pagamentos <code>PENDENTE</code> com vencimento passado.</td>
+            <td><code>app.cobranca.cron-vencidos</code> · <code>APP_COBRANCA_CRON_VENCIDOS</code></td>
+          </tr>
+          <tr>
+            <td>07:00</td>
+            <td>Gera cobranças futuras para planos ativos, a partir de 7 dias antes do fim do período.</td>
+            <td><code>app.cobranca.cron-cobrancas-futuras</code> · <code>APP_COBRANCA_CRON_COBRANCAS_FUTURAS</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>O vencimento de cobranças geradas é definido por <code>app.cobranca.vencimento-dias</code> (env <code>APP_COBRANCA_VENCIMENTO_DIAS</code>, default <code>10</code>), somado ao início do período.</p>
+    </section>
+
+    <section id="setup">
+      <h2><span class="icon">11</span> Setup &amp; execução</h2>
+
+      <h3>Opção 1 — Docker Compose (recomendado)</h3>
+      <p>Sobe o banco PostgreSQL e a aplicação juntos. Override isola os ambientes.</p>
+      <table>
+        <thead><tr><th>Ambiente</th><th>Comando</th><th>Volume</th><th>Seed</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Dev</strong></td>
+            <td><code>docker compose --env-file .env.dev up --build -d</code></td>
+            <td><code>postgres_dev_data</code></td>
+            <td>Sim (3 profissionais, 5 usuários)</td>
+          </tr>
+          <tr>
+            <td><strong>Prod</strong></td>
+            <td><code>docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d</code></td>
+            <td><code>postgres_prod_data</code></td>
+            <td>Não (apenas admin inicial)</td>
+          </tr>
+        </tbody>
+      </table>
+<pre><code># Desenvolvimento
+cp .env.example .env.dev
+docker compose --env-file .env.dev up --build -d
+docker compose logs -f app
+docker compose down            # parar
+docker compose down -v         # parar e remover volume
+
+# Produção
+cp .env.example .env.prod
+# Edite .env.prod com credenciais seguras e APP_INITIAL_ADMIN_PASSWORD
+docker compose --env-file .env.prod \
+  -f docker-compose.yml -f docker-compose.prod.yml up --build -d</code></pre>
+
+      <h3>Opção 2 — Maven local</h3>
+      <p>Pré-requisitos: Java 21 + PostgreSQL local.</p>
+<pre><code>CREATE DATABASE carlesso_pilates;
+
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_NAME=carlesso_pilates
+export DB_USER=postgres
+export DB_PASSWORD=postgres
+export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
+export JWT_EXPIRATION_MS=86400000
+export CORS_ALLOWED_ORIGINS=http://localhost:4200
+
+JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run</code></pre>
+
+      <h3>Exemplos de uso (curl)</h3>
+<pre><code># Login (dev)
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@carlessopilates.com","password":"senha1234"}' | jq -r .accessToken)
+
+# Listar pacientes ativos
+curl -s "http://localhost:8080/pacientes?ativo=true&amp;sort=nome,asc" \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Confirmar pagamento
+curl -s -X PATCH http://localhost:8080/pagamentos/1/pagar \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"dataPagamento": "2025-02-10"}' | jq
+
+# Exportar relatório de pagamento (PDF)
+curl -s -OJ "http://localhost:8080/profissionais/1/relatorio-pagamento/pdf?inicio=2025-02-01&amp;fim=2025-02-28" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Relatório de NFSE em XLSX
+curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&amp;formato=XLSX" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+    </section>
+
+    <section id="env">
+      <h2><span class="icon">12</span> Variáveis de ambiente</h2>
+      <table>
+        <thead><tr><th>Variável</th><th>Padrão</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>DB_HOST</code></td><td><code>localhost</code></td><td>Host do PostgreSQL.</td></tr>
+          <tr><td><code>DB_PORT</code></td><td><code>5432</code></td><td>Porta usada pela aplicação para conectar ao banco.</td></tr>
+          <tr><td><code>DB_HOST_PORT</code></td><td><code>5432</code></td><td>Porta publicada no host pelo Docker Compose.</td></tr>
+          <tr><td><code>DB_NAME</code></td><td><code>carlesso_pilates</code></td><td>Nome do banco.</td></tr>
+          <tr><td><code>DB_USER</code></td><td><code>postgres</code></td><td>Usuário do banco.</td></tr>
+          <tr><td><code>DB_PASSWORD</code></td><td><code>postgres</code></td><td>Senha do banco.</td></tr>
+          <tr><td><code>JWT_SECRET</code></td><td>—</td><td>Segredo HMAC obrigatório (≥ 32 caracteres).</td></tr>
+          <tr><td><code>JWT_EXPIRATION_MS</code></td><td><code>86400000</code></td><td>Expiração do access token (ms).</td></tr>
+          <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td><code>http://localhost:4200</code></td><td>Origens permitidas (frontend).</td></tr>
+          <tr><td><code>APP_INITIAL_ADMIN_EMAIL</code></td><td><code>admin@carlessopilates.com</code></td><td>E-mail do admin inicial (perfil prod).</td></tr>
+          <tr><td><code>APP_INITIAL_ADMIN_PASSWORD</code></td><td>—</td><td>Senha do admin inicial (obrigatória em prod).</td></tr>
+          <tr><td><code>APP_COBRANCA_CRON_VENCIDOS</code></td><td><code>0 0 6 * * *</code></td><td>Cron do job de pagamentos vencidos.</td></tr>
+          <tr><td><code>APP_COBRANCA_CRON_COBRANCAS_FUTURAS</code></td><td><code>0 0 7 * * *</code></td><td>Cron do job de cobranças futuras.</td></tr>
+          <tr><td><code>APP_COBRANCA_VENCIMENTO_DIAS</code></td><td><code>10</code></td><td>Dias somados ao início do período (vencimento).</td></tr>
+          <tr><td><code>APP_PAGINACAO_TAMANHO_PADRAO</code></td><td><code>10</code></td><td>Tamanho padrão de página.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="flyway">
+      <h2><span class="icon">13</span> Banco &amp; migrações (Flyway)</h2>
+      <p class="lead">Versionamento de schema com Flyway, dividido em duas pastas:</p>
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">db/migration</div>
+          <div class="card-meta">DDL estrutural — aplicado em <strong>todos</strong> os ambientes.</div>
+        </div>
+        <div class="card teal">
+          <div class="card-title">db/seed</div>
+          <div class="card-meta">Dados de teste — aplicado <strong>apenas</strong> no perfil <code>dev</code>.</div>
+        </div>
+      </div>
+
+      <h3>Migrações estruturais selecionadas</h3>
+      <table>
+        <thead><tr><th>Arquivo</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>V1__create_pacientes_table.sql</code></td><td>Tabela <code>pacientes</code>.</td></tr>
+          <tr><td><code>V3__create_planos_table.sql</code></td><td>Tabela <code>planos</code> + join <code>plano_dias_semana</code>.</td></tr>
+          <tr><td><code>V4__create_pagamentos_table.sql</code></td><td>Unicidade <code>(plano_id, periodo_inicio)</code>.</td></tr>
+          <tr><td><code>V5__create_aulas_table.sql</code></td><td>Unicidade <code>(paciente_id, data)</code>.</td></tr>
+          <tr><td><code>V6__create_profissionais_table.sql</code></td><td>Tabela <code>profissionais</code>.</td></tr>
+          <tr><td><code>V10__add_profissional_to_aulas.sql</code></td><td>Vincula profissional às aulas realizadas.</td></tr>
+          <tr><td><code>V11__create_users_table.sql</code></td><td>Tabela <code>users</code>.</td></tr>
+          <tr><td><code>V13__add_indexes_on_foreign_keys.sql</code></td><td>Índices para FKs e filtros recorrentes.</td></tr>
+          <tr><td><code>V14–V19</code></td><td>Anamneses, avaliações, planos de tratamento, sessões, evoluções, reavaliações.</td></tr>
+          <tr><td><code>V20__add_ativo_to_users.sql</code></td><td>Soft delete em usuários.</td></tr>
+          <tr><td><code>V21__insert_admin_inicial.sql</code></td><td>Reserva versão Flyway; admin de prod é criado pela aplicação.</td></tr>
+          <tr><td><code>V22__alter_pacientes_email_cpf_nullable.sql</code></td><td>Torna <code>email</code>/<code>cpf</code> opcionais (importação externa).</td></tr>
+          <tr><td><code>V23__add_pacientes_email_cpf_partial_unique.sql</code></td><td>Unicidade parcial (apenas valores preenchidos são únicos).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Seeds de desenvolvimento</h3>
+      <table>
+        <thead><tr><th>Arquivo</th><th>Conteúdo</th></tr></thead>
+        <tbody>
+          <tr><td><code>V7__insert_profissionais_teste.sql</code></td><td>3 profissionais de teste.</td></tr>
+          <tr><td><code>V12__insert_users_perfis_acesso.sql</code></td><td>5 usuários de teste com perfis ADMIN/USER (senha <code>senha1234</code>).</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>Testes automatizados</strong>
+        O Flyway fica desabilitado (<code>spring.flyway.enabled=false</code>) — H2 é gerenciado pelo Hibernate com <code>ddl-auto=create-drop</code>.
+      </div>
+    </section>
+
+    <section id="importacao">
+      <h2><span class="icon">14</span> Importação de pacientes (seufisio)</h2>
+      <p class="lead">O script <code>scripts/import_seufisio.py</code> popula o ambiente com a base real de clientes vinda do <code>seufisio.com.br</code>.</p>
+
+      <h3>O que o script faz</h3>
+      <ol>
+        <li>Consulta <code>GET /api/cliente?per_page=500</code> no seufisio com Bearer token capturado do navegador.</li>
+        <li>Para cada cliente, busca o detalhe e mapeia para o contrato de <code>POST /pacientes</code>.</li>
+        <li>Faz login na API local, carrega CPFs já cadastrados (idempotente) e cria apenas os novos em lote.</li>
+        <li>Pacientes com <code>situacao != 2</code> são marcados como inativos via <code>PATCH /pacientes/{id}/inativar</code>.</li>
+      </ol>
+
+      <h3>Configuração</h3>
+<pre><code># scripts/.env (NUNCA commitar)
+SEUFISIO_TOKEN="eyJ0eXAi..."
+SEUFISIO_CLINICA_ID="..."
+SEUFISIO_VERSION_APP="..."
+LOCAL_API_URL="http://localhost:8080"
+LOCAL_EMAIL="admin@carlessopilates.com"
+LOCAL_PASSWORD="senha1234"</code></pre>
+
+      <h3>Execução</h3>
+<pre><code>set -a; source scripts/.env; set +a
+
+# Dry-run (recomendado antes da carga real)
+python3 scripts/import_seufisio.py --dry-run
+
+# Importação (idempotente)
+python3 scripts/import_seufisio.py
+
+# Testes do script
+cd scripts &amp;&amp; python3 -m unittest test_import_seufisio -v</code></pre>
+
+      <div class="callout danger">
+        <strong>Segurança</strong>
+        Tokens, dumps de pacientes e <code>scripts/.env</code> estão no <code>.gitignore</code>. Logs e <code>--dry-run</code> mascaram CPF/e-mail/nome para evitar vazamento de PII em stdout/CI.
+      </div>
+    </section>
+
+    <section id="testes">
+      <h2><span class="icon">15</span> Testes</h2>
+      <p class="lead">Suítes organizadas por camada — unitários (Mockito), JPA (<code>@DataJpaTest</code>), controllers (<code>@WebMvcTest</code>) e integração (<code>@SpringBootTest</code> + H2 + MockMvc).</p>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">Unitários</div>
+          <div class="card-meta">Services e helpers com Mockito (PacienteService, PlanoService, PagamentoService, AulaService, etc.).</div>
+        </div>
+        <div class="card teal">
+          <div class="card-title">Controllers</div>
+          <div class="card-meta"><code>@WebMvcTest</code> + MockMvc cobrindo status, validação e serialização.</div>
+        </div>
+        <div class="card amber">
+          <div class="card-title">JPA</div>
+          <div class="card-meta"><code>@DataJpaTest</code> validando queries derivadas, índices e <code>@Query</code> consolidadas.</div>
+        </div>
+        <div class="card purple">
+          <div class="card-title">Integração</div>
+          <div class="card-meta"><code>@SpringBootTest</code> + H2 + MockMvc — segurança, scheduler, actuator e atomicidade de pagamento.</div>
+        </div>
+      </div>
+
+      <h3>Execução</h3>
+<pre><code>JAVA_HOME=/caminho/para/jdk21 mvn test</code></pre>
+      <p>O <code>@SpringBootTest</code> usa H2 em memória automaticamente via <code>src/test/resources/application.properties</code>. O Flyway fica desabilitado nos testes.</p>
+    </section>
+
+    <section id="observabilidade">
+      <h2><span class="icon">16</span> Observabilidade</h2>
+      <p>Spring Boot Actuator expõe endpoints operacionais para monitoramento:</p>
+      <table>
+        <thead><tr><th>Recurso</th><th>URL</th></tr></thead>
+        <tbody>
+          <tr><td>Health</td><td><a href="http://localhost:8080/actuator/health">http://localhost:8080/actuator/health</a></td></tr>
+          <tr><td>Info</td><td><a href="http://localhost:8080/actuator/info">http://localhost:8080/actuator/info</a></td></tr>
+        </tbody>
+      </table>
+      <p>Apenas <code>health</code> e <code>info</code> ficam expostos via HTTP.</p>
+    </section>
+
+    <footer>
+      <p>Carlesso Pilates API · documentação gerada a partir do <code>README.md</code> e <code>docs/context.md</code>.</p>
+      <p>Licença: MIT.</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

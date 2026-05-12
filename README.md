@@ -656,6 +656,8 @@ Com a aplicação rodando, acesse:
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | OpenAPI JSON | http://localhost:8080/api-docs |
 
+> Documentação visual offline do projeto: [`docs/documentacao.html`](docs/documentacao.html) — página HTML estática com arquitetura, endpoints, regras de negócio e setup. Abra direto no navegador.
+
 ---
 
 ## Observabilidade (Actuator)
