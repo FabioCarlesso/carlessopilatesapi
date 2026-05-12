@@ -676,10 +676,21 @@
           <tr><td><span class="method get">GET</span></td><td><code>/planos-tratamento/paciente/{pacienteId}</code></td><td>Planos de tratamento do paciente.</td></tr>
           <tr><td><span class="method put">PUT</span></td><td><code>/planos-tratamento/{id}</code></td><td>Atualização parcial.</td></tr>
           <tr><td><span class="method delete">DELETE</span></td><td><code>/planos-tratamento/{id}</code></td><td>Soft delete.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/sessoes</code></td><td>Registrar sessão de Pilates/Fisioterapia.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/sessoes/{id}</code></td><td>Buscar sessão por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/sessoes/paciente/{pacienteId}</code></td><td>Sessões do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/sessoes/{id}</code></td><td>Atualização parcial, exceto status.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/sessoes/{id}/realizar</code></td><td>Marcar sessão como realizada.</td></tr>
+          <tr><td><span class="method patch">PATCH</span></td><td><code>/sessoes/{id}/cancelar</code></td><td>Cancelar sessão agendada.</td></tr>
+          <tr><td><span class="method delete">DELETE</span></td><td><code>/sessoes/{id}</code></td><td>Excluir sessão permanentemente.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/evolucoes-sessao</code></td><td>Registrar evolução clínica de sessão.</td></tr>
           <tr><td><span class="method get">GET</span></td><td><code>/evolucoes-sessao/{id}</code></td><td>Buscar por ID.</td></tr>
           <tr><td><span class="method get">GET</span></td><td><code>/evolucoes-sessao/sessao/{sessaoId}</code></td><td>Buscar evolução pela sessão.</td></tr>
           <tr><td><span class="method put">PUT</span></td><td><code>/evolucoes-sessao/{id}</code></td><td>Atualização parcial.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/reavaliacoes</code></td><td>Criar reavaliação periódica.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/reavaliacoes/{id}</code></td><td>Buscar reavaliação por ID.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/reavaliacoes/paciente/{pacienteId}</code></td><td>Reavaliações do paciente.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/reavaliacoes/{id}</code></td><td>Atualização parcial.</td></tr>
         </tbody>
       </table>
 
