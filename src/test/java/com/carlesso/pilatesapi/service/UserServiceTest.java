@@ -274,6 +274,7 @@ class UserServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getPassword()).isEqualTo("hash-novo");
+        assertThat(captor.getValue().getTokenVersion()).isEqualTo(1);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.security;
 
+import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import io.jsonwebtoken.JwtException;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Objects;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -46,10 +48,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String username = jwtService.extractUsername(token);
             String role = jwtService.extractRole(token);
-            if (username != null && role != null &&
+            Long tokenVersion = jwtService.extractTokenVersion(token);
+            if (username != null && role != null && tokenVersion != null &&
                     SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                if (userDetails.isEnabled()) {
+                if (userDetails.isEnabled() && isTokenVersionAtual(userDetails, tokenVersion)) {
                     var authentication = new UsernamePasswordAuthenticationToken(
                             userDetails.getUsername(), null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -62,5 +65,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isTokenVersionAtual(UserDetails userDetails, Long tokenVersion) {
+        if (userDetails instanceof User user) {
+            return Objects.equals(user.getTokenVersion(), tokenVersion);
+        }
+        return false;
     }
 }

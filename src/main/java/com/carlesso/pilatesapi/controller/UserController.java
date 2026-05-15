@@ -56,7 +56,7 @@ public class UserController {
 
     @Operation(
             summary = "Trocar a própria senha",
-            description = "Requer autenticação JWT. Permite ao usuário autenticado trocar a própria senha informando a senha atual, a nova senha e a confirmação. A senha é armazenada com hash; sessões/tokens existentes seguem válidos até expirarem."
+            description = "Requer autenticação JWT. Permite ao usuário autenticado trocar a própria senha informando a senha atual, a nova senha e a confirmação. A senha é armazenada com hash; tokens emitidos antes da troca deixam de autorizar rotas protegidas."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Senha alterada com sucesso"),

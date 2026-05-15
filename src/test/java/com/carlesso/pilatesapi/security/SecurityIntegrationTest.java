@@ -283,6 +283,7 @@ class SecurityIntegrationTest {
     void usersAtualizar_comAdmin_deveAlterarPerfilESenha() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("perfil@email.com", Role.USER);
+        String tokenAntigo = bearer(user);
         var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN);
 
         mvc.perform(put("/users/{id}", user.getId())
@@ -296,6 +297,11 @@ class SecurityIntegrationTest {
         User updated = userRepository.findById(user.getId()).orElseThrow();
         assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
         assertThat(passwordEncoder.matches("novaSenha123", updated.getPassword())).isTrue();
+        assertThat(updated.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
+
+        mvc.perform(get("/dashboard/resumo")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -394,10 +400,11 @@ class SecurityIntegrationTest {
     @Test
     void alterarSenha_comUsuarioComum_deveTrocarSenhaEPermitirLoginComNovaSenha() throws Exception {
         User user = criarUsuario("trocasenha@email.com", Role.USER);
+        String tokenAntigo = bearer(user);
         var request = new UserAlterarSenhaRequestDTO("senha1234", "novaSenha123", "novaSenha123");
 
         mvc.perform(put("/users/me/senha")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isNoContent());
@@ -405,6 +412,11 @@ class SecurityIntegrationTest {
         User atualizado = userRepository.findById(user.getId()).orElseThrow();
         assertThat(passwordEncoder.matches("novaSenha123", atualizado.getPassword())).isTrue();
         assertThat(passwordEncoder.matches("senha1234", atualizado.getPassword())).isFalse();
+        assertThat(atualizado.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
+
+        mvc.perform(get("/dashboard/resumo")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo))
+                .andExpect(status().isUnauthorized());
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

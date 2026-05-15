@@ -200,7 +200,7 @@ Base URL: `http://localhost:8080`
 | `POST` | `/auth/register` | Público | Registra usuário com role `USER`, salva senha com BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT. Retorna `429` após 5 tentativas falhas em 15 min |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
-| `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual |
+| `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Tokens emitidos antes da troca deixam de autorizar rotas protegidas |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos |
@@ -209,7 +209,7 @@ Base URL: `http://localhost:8080`
 | `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
-As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos ou expirados retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.
+As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos, expirados ou emitidos antes da última troca/redefinição de senha retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.
 
 ### Pacientes
 

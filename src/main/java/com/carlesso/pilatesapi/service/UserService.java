@@ -93,7 +93,10 @@ public class UserService {
             user.setEmail(email);
         }
         if (dto.name() != null) user.setName(dto.name());
-        if (dto.password() != null) user.setPassword(passwordEncoder.encode(dto.password()));
+        if (dto.password() != null) {
+            user.setPassword(passwordEncoder.encode(dto.password()));
+            user.incrementarTokenVersion();
+        }
         if (dto.role() != null) user.setRole(dto.role());
 
         return UserResponseDTO.from(repository.save(user));
@@ -115,6 +118,7 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(dto.novaSenha()));
+        user.incrementarTokenVersion();
         repository.save(user);
     }
 

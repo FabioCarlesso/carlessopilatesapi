@@ -558,13 +558,14 @@
 
     <section id="auth">
       <h2><span class="icon">5</span> Autenticação &amp; Usuários</h2>
-      <p class="lead">Autenticação stateless via JWT. Senhas armazenadas com BCrypt. Roles: <code>USER</code> e <code>ADMIN</code>.</p>
+      <p class="lead">Autenticação stateless via JWT. Senhas armazenadas com BCrypt. Roles: <code>USER</code> e <code>ADMIN</code>. Tokens incluem <code>tokenVersion</code> e são invalidados após troca/redefinição de senha.</p>
 
       <h3>Fluxo</h3>
       <ol>
         <li><code>POST /auth/register</code> cria usuário <code>USER</code> e retorna access token.</li>
         <li><code>POST /auth/login</code> valida credenciais e retorna access token. Após 5 falhas em 15 min retorna <code>429</code>.</li>
         <li>Requisições autenticadas devem enviar <code>Authorization: Bearer &lt;accessToken&gt;</code>.</li>
+        <li>Tokens emitidos antes da última troca/redefinição de senha retornam <code>401</code>.</li>
         <li>Endpoints <code>/admin/**</code> e o CRUD de <code>/users</code> exigem role <code>ADMIN</code> → caso contrário, <code>403</code>.</li>
       </ol>
 
@@ -575,6 +576,7 @@
           <tr><td><span class="method post">POST</span></td><td><code>/auth/register</code></td><td>Público</td><td>Registra usuário com role <code>USER</code> e retorna JWT.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/auth/login</code></td><td>Público</td><td>Valida e-mail/senha e retorna JWT (rate limit 5/15min).</td></tr>
           <tr><td><span class="method get">GET</span></td><td><code>/users/me</code></td><td>Autenticado</td><td>Dados do usuário autenticado.</td></tr>
+          <tr><td><span class="method put">PUT</span></td><td><code>/users/me/senha</code></td><td>Autenticado</td><td>Troca a própria senha e invalida tokens antigos.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/users</code></td><td>ADMIN</td><td>Cria usuário com role <code>USER</code> ou <code>ADMIN</code>.</td></tr>
           <tr><td><span class="method get">GET</span></td><td><code>/users</code></td><td>ADMIN</td><td>Lista usuários (sem expor senha).</td></tr>
           <tr><td><span class="method get">GET</span></td><td><code>/users/roles</code></td><td>ADMIN</td><td>Roles disponíveis para formulários.</td></tr>
@@ -817,7 +819,7 @@ GET /profissionais?nome=paula&amp;tipoContrato=PJ&amp;ativo=true</code></pre>
           <tr><td><code>TooManyRequestsException</code></td><td>429</td><td>Mais de 5 tentativas falhas de login em 15 minutos.</td></tr>
           <tr><td><code>IllegalArgumentException</code></td><td>400</td><td>Parâmetros inválidos (período inválido, valor menor que plano).</td></tr>
           <tr><td><code>DataIntegrityViolationException</code></td><td>409</td><td>Violação de constraint no banco.</td></tr>
-          <tr><td>Autenticação ausente/inválida</td><td>401</td><td>Token ausente, inválido ou expirado.</td></tr>
+          <tr><td>Autenticação ausente/inválida</td><td>401</td><td>Token ausente, inválido, expirado ou emitido antes da última troca/redefinição de senha.</td></tr>
           <tr><td>Falta de role</td><td>403</td><td>Usuário sem role <code>ADMIN</code> em <code>/admin/**</code> ou no CRUD de <code>/users</code>.</td></tr>
         </tbody>
       </table>

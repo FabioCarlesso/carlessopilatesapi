@@ -40,6 +40,9 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean ativo = true;
 
+    @Column(name = "token_version", nullable = false)
+    private long tokenVersion = 0;
+
     public Long getId() {
         return id;
     }
@@ -83,6 +86,18 @@ public class User implements UserDetails {
 
     public void setAtivo(boolean ativo) {
         this.ativo = ativo;
+    }
+
+    public long getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(long tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
+
+    public void incrementarTokenVersion() {
+        this.tokenVersion++;
     }
 
     @Override
