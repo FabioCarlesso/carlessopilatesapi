@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.security;
 
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthRegisterRequestDTO;
+import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
@@ -282,6 +283,7 @@ class SecurityIntegrationTest {
     void usersAtualizar_comAdmin_deveAlterarPerfilESenha() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("perfil@email.com", Role.USER);
+        String tokenAntigo = bearer(user);
         var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN);
 
         mvc.perform(put("/users/{id}", user.getId())
@@ -295,6 +297,11 @@ class SecurityIntegrationTest {
         User updated = userRepository.findById(user.getId()).orElseThrow();
         assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
         assertThat(passwordEncoder.matches("novaSenha123", updated.getPassword())).isTrue();
+        assertThat(updated.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
+
+        mvc.perform(get("/dashboard/resumo")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -388,6 +395,99 @@ class SecurityIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
+    }
+
+    @Test
+    void alterarSenha_comUsuarioComum_deveTrocarSenhaEPermitirLoginComNovaSenha() throws Exception {
+        User user = criarUsuario("trocasenha@email.com", Role.USER);
+        String tokenAntigo = bearer(user);
+        var request = new UserAlterarSenhaRequestDTO("senha1234", "novaSenha123", "novaSenha123");
+
+        mvc.perform(put("/users/me/senha")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        User atualizado = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches("novaSenha123", atualizado.getPassword())).isTrue();
+        assertThat(passwordEncoder.matches("senha1234", atualizado.getPassword())).isFalse();
+        assertThat(atualizado.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
+
+        mvc.perform(get("/dashboard/resumo")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("trocasenha@email.com", "novaSenha123"))))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("trocasenha@email.com", "senha1234"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void alterarSenha_semToken_deveRetornar401() throws Exception {
+        var request = new UserAlterarSenhaRequestDTO("senha1234", "novaSenha123", "novaSenha123");
+
+        mvc.perform(put("/users/me/senha")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void alterarSenha_comSenhaAtualIncorreta_deveRetornar422() throws Exception {
+        User user = criarUsuario("erradasenha@email.com", Role.USER);
+        var request = new UserAlterarSenhaRequestDTO("errada1234", "novaSenha123", "novaSenha123");
+
+        mvc.perform(put("/users/me/senha")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Senha atual incorreta"));
+    }
+
+    @Test
+    void alterarSenha_comConfirmacaoDivergente_deveRetornar422() throws Exception {
+        User user = criarUsuario("confirmacao@email.com", Role.USER);
+        var request = new UserAlterarSenhaRequestDTO("senha1234", "novaSenha123", "outra123Senha");
+
+        mvc.perform(put("/users/me/senha")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Confirmação de senha não confere"));
+    }
+
+    @Test
+    void alterarSenha_reutilizandoSenhaAtual_deveRetornar422() throws Exception {
+        User user = criarUsuario("reutiliza@email.com", Role.USER);
+        var request = new UserAlterarSenhaRequestDTO("senha1234", "senha1234", "senha1234");
+
+        mvc.perform(put("/users/me/senha")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("A nova senha deve ser diferente da senha atual"));
+    }
+
+    @Test
+    void alterarSenha_comNovaSenhaCurta_deveRetornar400() throws Exception {
+        User user = criarUsuario("curta@email.com", Role.USER);
+        var request = new UserAlterarSenhaRequestDTO("senha1234", "curta", "curta");
+
+        mvc.perform(put("/users/me/senha")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

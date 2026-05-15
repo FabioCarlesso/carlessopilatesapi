@@ -227,8 +227,9 @@ Join table `plano_dias_semana`: `plano_id` + `dia_semana` (MONDAY, TUESDAY…)
 | `password` | VARCHAR | NOT NULL, BCrypt |
 | `role` | VARCHAR(30) | NOT NULL |
 | `ativo` | BOOLEAN | NOT NULL, default `true` |
+| `token_version` | BIGINT | NOT NULL, default `0` |
 
-Usuários inativos são preservados no banco, mas não podem autenticar nem usar tokens JWT emitidos antes da inativação.
+Usuários inativos são preservados no banco, mas não podem autenticar nem usar tokens JWT emitidos antes da inativação. `token_version` é incrementado quando a senha é trocada ou redefinida; tokens com versão anterior deixam de autorizar rotas protegidas.
 
 ### Tabela `pagamentos`
 
@@ -415,6 +416,7 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | POST | `/auth/register` | Registrar usuário `USER` com senha BCrypt e retornar JWT | 200 / 400 / 409 |
 | POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
 | GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
+| PUT | `/users/me/senha` | Trocar a própria senha (autenticado) informando senha atual, nova senha e confirmação | 204 / 400 / 401 / 422 |
 | POST | `/users` | Criar usuário com role `USER` ou `ADMIN` | 201 / 400 / 401 / 403 / 409 |
 | GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
 | GET | `/users/roles` | Listar roles disponíveis (`value` e `label`) para formulários administrativos | 200 / 401 / 403 |
@@ -496,11 +498,12 @@ CPF não pode ser alterado após o cadastro.
 - Autenticação stateless com Spring Security e JWT
 - Senhas são armazenadas com `BCryptPasswordEncoder`
 - O segredo JWT vem de `JWT_SECRET`; não há segredo fixo no código
-- JWT inclui claims `role` e `userId`; a cada requisição o filtro valida se o usuário ainda existe e está ativo antes de reconstruir o contexto de segurança
+- JWT inclui claims `role`, `userId` e `tokenVersion`; a cada requisição o filtro valida se o usuário ainda existe, está ativo e se a versão do token corresponde à versão atual do usuário antes de reconstruir o contexto de segurança
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
+- Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 

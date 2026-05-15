@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.RoleResponseDTO;
+import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -33,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -70,6 +72,12 @@ class UserControllerTest {
         return new UsernamePasswordAuthenticationToken(
                 "admin@email.com", null,
                 List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+    }
+
+    private Authentication userAuth(String email) {
+        return new UsernamePasswordAuthenticationToken(
+                email, null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
     @Test
@@ -216,6 +224,75 @@ class UserControllerTest {
                         .principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Não é possível inativar o último administrador ativo"));
+    }
+
+    @Test
+    void alterarSenha_comDadosValidos_deveRetornar204() throws Exception {
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "novaSenha123");
+        doNothing().when(service).alterarSenha(eq("user@email.com"), any());
+
+        mvc.perform(put("/users/me/senha")
+                        .principal(userAuth("user@email.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isNoContent());
+
+        verify(service).alterarSenha(eq("user@email.com"), any());
+    }
+
+    @Test
+    void alterarSenha_comSenhaAtualIncorreta_deveRetornar422() throws Exception {
+        var dto = new UserAlterarSenhaRequestDTO("errada1234", "novaSenha123", "novaSenha123");
+        doThrow(new BusinessException("Senha atual incorreta"))
+                .when(service).alterarSenha(eq("user@email.com"), any());
+
+        mvc.perform(put("/users/me/senha")
+                        .principal(userAuth("user@email.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Senha atual incorreta"));
+    }
+
+    @Test
+    void alterarSenha_comConfirmacaoDivergente_deveRetornar422() throws Exception {
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "outra123Senha");
+        doThrow(new BusinessException("Confirmação de senha não confere"))
+                .when(service).alterarSenha(eq("user@email.com"), any());
+
+        mvc.perform(put("/users/me/senha")
+                        .principal(userAuth("user@email.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Confirmação de senha não confere"));
+    }
+
+    @Test
+    void alterarSenha_reutilizandoSenhaAtual_deveRetornar422() throws Exception {
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "senhaAtual1", "senhaAtual1");
+        doThrow(new BusinessException("A nova senha deve ser diferente da senha atual"))
+                .when(service).alterarSenha(eq("user@email.com"), any());
+
+        mvc.perform(put("/users/me/senha")
+                        .principal(userAuth("user@email.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("A nova senha deve ser diferente da senha atual"));
+    }
+
+    @Test
+    void alterarSenha_comNovaSenhaCurta_deveRetornar400() throws Exception {
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "curta", "curta");
+
+        mvc.perform(put("/users/me/senha")
+                        .principal(userAuth("user@email.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).alterarSenha(anyString(), any());
     }
 
     @Test

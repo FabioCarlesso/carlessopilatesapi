@@ -231,11 +231,12 @@ src/
 - Senhas são persistidas com BCrypt e nunca retornadas nos DTOs
 - Usuários administrativos podem definir os perfis de acesso disponíveis: `USER` e `ADMIN`
 - O segredo JWT é configurado por `JWT_SECRET`; token ausente, inválido ou expirado retorna `401`
-- JWT inclui claims `role` e `userId`; a cada requisição o filtro valida se o usuário ainda existe e está ativo antes de reconstruir o contexto de segurança
+- JWT inclui claims `role`, `userId` e `tokenVersion`; a cada requisição o filtro valida se o usuário ainda existe, está ativo e se a versão do token corresponde à versão atual do usuário antes de reconstruir o contexto de segurança
 - Rate limiting de `/auth/login`: 5 tentativas falhas por e-mail em janela de 15 minutos retorna `429 Too Many Requests`; login bem-sucedido redefine o contador
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
+- Trocas ou redefinições de senha incrementam `token_version`; tokens emitidos antes da alteração deixam de autorizar rotas protegidas
 - CORS permite integração com Angular pela variável `CORS_ALLOWED_ORIGINS`
 
 ### 4.1 Pacientes
@@ -449,8 +450,9 @@ Tabela: `users`
 | `password` | `VARCHAR(255)` | NOT NULL | Senha criptografada com BCrypt |
 | `role` | `VARCHAR(30)` | NOT NULL | Perfil de acesso (`USER` / `ADMIN`) |
 | `ativo` | `BOOLEAN` | NOT NULL, default `true` | Indica se o usuário pode autenticar e usar JWTs |
+| `token_version` | `BIGINT` | NOT NULL, default `0` | Versão usada para invalidar JWTs antigos após troca/redefinição de senha |
 
-Usuários inativados são mantidos no banco para preservar histórico. `DELETE /users/{id}` marca `ativo = false`.
+Usuários inativados são mantidos no banco para preservar histórico. `DELETE /users/{id}` marca `ativo = false`. Alterações de senha incrementam `token_version`, invalidando tokens emitidos com versões anteriores.
 
 ---
 
@@ -489,6 +491,7 @@ Tabela: `planos_tratamento`
 | `POST` | `/auth/register` | Público | Cria usuário com role `USER`, senha BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Autentica e-mail/senha e retorna JWT |
 | `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email`, `role` e `ativo` do usuário logado |
+| `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha; tokens antigos deixam de autorizar rotas protegidas |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis no formato `{ value, label }` para uso em formulários administrativos |

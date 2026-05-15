@@ -38,7 +38,8 @@ public class JwtService {
 
         if (userDetails instanceof User user) {
             builder.claim("role", user.getRole().name())
-                   .claim("userId", user.getId());
+                   .claim("userId", user.getId())
+                   .claim("tokenVersion", user.getTokenVersion());
         }
 
         return builder.signWith(secretKey).compact();
@@ -50,6 +51,11 @@ public class JwtService {
 
     public String extractRole(String token) {
         return extractAllClaims(token).get("role", String.class);
+    }
+
+    public Long extractTokenVersion(String token) {
+        Object tokenVersion = extractAllClaims(token).get("tokenVersion");
+        return tokenVersion instanceof Number number ? number.longValue() : null;
     }
 
     private Claims extractAllClaims(String token) {
