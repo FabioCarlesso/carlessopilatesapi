@@ -415,6 +415,7 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | POST | `/auth/register` | Registrar usuário `USER` com senha BCrypt e retornar JWT | 200 / 400 / 409 |
 | POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
 | GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
+| PUT | `/users/me/senha` | Trocar a própria senha (autenticado) informando senha atual, nova senha e confirmação | 204 / 400 / 401 / 422 |
 | POST | `/users` | Criar usuário com role `USER` ou `ADMIN` | 201 / 400 / 401 / 403 / 409 |
 | GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
 | GET | `/users/roles` | Listar roles disponíveis (`value` e `label`) para formulários administrativos | 200 / 401 / 403 |
@@ -501,6 +502,7 @@ CPF não pode ser alterado após o cadastro.
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
+- Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 

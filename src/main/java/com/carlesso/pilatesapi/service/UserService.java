@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.service;
 
 import com.carlesso.pilatesapi.dto.RoleResponseDTO;
+import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -96,6 +97,25 @@ public class UserService {
         if (dto.role() != null) user.setRole(dto.role());
 
         return UserResponseDTO.from(repository.save(user));
+    }
+
+    @Transactional
+    public void alterarSenha(String currentEmail, UserAlterarSenhaRequestDTO dto) {
+        User user = repository.findByEmail(currentEmail.toLowerCase(Locale.ROOT))
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        if (!passwordEncoder.matches(dto.senhaAtual(), user.getPassword())) {
+            throw new BusinessException("Senha atual incorreta");
+        }
+        if (!dto.novaSenha().equals(dto.confirmacaoNovaSenha())) {
+            throw new BusinessException("Confirmação de senha não confere");
+        }
+        if (passwordEncoder.matches(dto.novaSenha(), user.getPassword())) {
+            throw new BusinessException("A nova senha deve ser diferente da senha atual");
+        }
+
+        user.setPassword(passwordEncoder.encode(dto.novaSenha()));
+        repository.save(user);
     }
 
     @Transactional

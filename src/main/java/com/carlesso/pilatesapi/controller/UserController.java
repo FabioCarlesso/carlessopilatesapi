@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.RoleResponseDTO;
+import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -51,6 +52,24 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponseDTO> me(Authentication authentication) {
         return ResponseEntity.ok(service.buscarPorEmail(authentication.getName()));
+    }
+
+    @Operation(
+            summary = "Trocar a própria senha",
+            description = "Requer autenticação JWT. Permite ao usuário autenticado trocar a própria senha informando a senha atual, a nova senha e a confirmação. A senha é armazenada com hash; sessões/tokens existentes seguem válidos até expirarem."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Senha alterada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Payload inválido (campos obrigatórios ou tamanho mínimo)"),
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
+            @ApiResponse(responseCode = "422", description = "Senha atual incorreta, confirmação não confere ou nova senha igual à atual")
+    })
+    @PutMapping("/me/senha")
+    public ResponseEntity<Void> alterarSenha(
+            @RequestBody @Valid UserAlterarSenhaRequestDTO dto,
+            Authentication authentication) {
+        service.alterarSenha(authentication.getName(), dto);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(

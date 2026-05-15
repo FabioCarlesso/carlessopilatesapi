@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -255,6 +256,96 @@ class UserServiceTest {
 
         assertThat(response).isNotNull();
         verify(repository).save(any());
+    }
+
+    @Test
+    void alterarSenha_comDadosValidos_devePersistirNovaSenhaCriptografada() {
+        User u = usuario(1L, "user@email.com", Role.USER);
+        u.setPassword("hash-atual");
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "novaSenha123");
+        when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("senhaAtual1", "hash-atual")).thenReturn(true);
+        when(passwordEncoder.matches("novaSenha123", "hash-atual")).thenReturn(false);
+        when(passwordEncoder.encode("novaSenha123")).thenReturn("hash-novo");
+        when(repository.save(any())).thenReturn(u);
+
+        service.alterarSenha("user@email.com", dto);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getPassword()).isEqualTo("hash-novo");
+    }
+
+    @Test
+    void alterarSenha_comEmailNormalizado_deveBuscarUsuario() {
+        User u = usuario(1L, "user@email.com", Role.USER);
+        u.setPassword("hash-atual");
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "novaSenha123");
+        when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("senhaAtual1", "hash-atual")).thenReturn(true);
+        when(passwordEncoder.matches("novaSenha123", "hash-atual")).thenReturn(false);
+        when(passwordEncoder.encode("novaSenha123")).thenReturn("hash-novo");
+        when(repository.save(any())).thenReturn(u);
+
+        service.alterarSenha("USER@EMAIL.COM", dto);
+
+        verify(repository).findByEmail("user@email.com");
+    }
+
+    @Test
+    void alterarSenha_comSenhaAtualIncorreta_deveLancarBusinessException() {
+        User u = usuario(1L, "user@email.com", Role.USER);
+        u.setPassword("hash-atual");
+        var dto = new UserAlterarSenhaRequestDTO("errada1234", "novaSenha123", "novaSenha123");
+        when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("errada1234", "hash-atual")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.alterarSenha("user@email.com", dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Senha atual incorreta");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void alterarSenha_comConfirmacaoDivergente_deveLancarBusinessException() {
+        User u = usuario(1L, "user@email.com", Role.USER);
+        u.setPassword("hash-atual");
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "outraSenha123");
+        when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("senhaAtual1", "hash-atual")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.alterarSenha("user@email.com", dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Confirmação de senha não confere");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void alterarSenha_reutilizandoSenhaAtual_deveLancarBusinessException() {
+        User u = usuario(1L, "user@email.com", Role.USER);
+        u.setPassword("hash-atual");
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "senhaAtual1", "senhaAtual1");
+        when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("senhaAtual1", "hash-atual")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.alterarSenha("user@email.com", dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A nova senha deve ser diferente da senha atual");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void alterarSenha_comUsuarioInexistente_deveLancarResourceNotFoundException() {
+        var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "novaSenha123");
+        when(repository.findByEmail(anyString())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.alterarSenha("ghost@email.com", dto))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(repository, never()).save(any());
     }
 
     @Test
