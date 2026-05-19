@@ -201,6 +201,8 @@ Base URL: `http://localhost:8080`
 | `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT. Retorna `429` após 5 tentativas falhas em 15 min |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
 | `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Tokens emitidos antes da troca deixam de autorizar rotas protegidas |
+| `GET` | `/users/me/preferencias` | Autenticado | Retorna as preferências do usuário autenticado (idioma, tema e notificações). Usuário sem preferências salvas recebe os valores padrão |
+| `PUT` | `/users/me/preferencias` | Autenticado | Atualiza as preferências do usuário autenticado. Valida `idioma` (`PT_BR`, `EN_US`, `ES_ES`) e `tema` (`CLARO`, `ESCURO`); valores inválidos retornam `400` |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos |
@@ -555,6 +557,19 @@ Todos os campos são opcionais. Apenas os campos enviados serão atualizados.
 
 > Campos obrigatórios: `pacienteId`, `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`. `escalaDor` deve estar entre 0 e 10.
 
+### PUT /users/me/preferencias — corpo da requisição
+
+```json
+{
+  "idioma": "PT_BR",
+  "tema": "CLARO",
+  "notificacoesEmail": true,
+  "notificacoesPush": false
+}
+```
+
+> Campos obrigatórios: todos. `idioma` aceita `PT_BR`, `EN_US`, `ES_ES`. `tema` aceita `CLARO`, `ESCURO`. Quando o usuário ainda não tem preferências salvas, `GET /users/me/preferencias` retorna os valores padrão (`idioma=PT_BR`, `tema=CLARO`, `notificacoesEmail=true`, `notificacoesPush=false`).
+
 ---
 
 ## Como rodar
@@ -705,6 +720,8 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V21__insert_admin_inicial.sql` | Mantém a versão Flyway reservada; o admin inicial de produção é criado pela aplicação com `APP_INITIAL_ADMIN_PASSWORD` |
 | `V22__alter_pacientes_email_cpf_nullable.sql` | Torna `email` e `cpf` opcionais (drop NOT NULL e drop das constraints únicas totais) para suportar importação de pacientes de sistemas externos sem esses dados |
 | `V23__add_pacientes_email_cpf_partial_unique.sql` | Recria a unicidade como índice **parcial** (`WHERE col IS NOT NULL`) — múltiplos pacientes podem ter `email`/`cpf` nulos, mas valores preenchidos seguem únicos. `PacienteService.cadastrar` também valida e retorna 409 antes de chegar no banco |
+| `V24__add_token_version_to_users.sql` | Adiciona coluna `token_version` em `users` para invalidar JWTs anteriores após troca/redefinição de senha |
+| `V25__create_preferencias_usuario_table.sql` | Cria tabela `preferencias_usuario` (1:1 com `users`) para idioma, tema e preferências de notificação |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -1097,7 +1114,10 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `SessaoPilatesServiceTest` | Unitário (Mockito) | 25 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 10 |
 | `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 13 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 32 |
+| `PreferenciasUsuarioServiceTest` | Unitário (Mockito) | 7 |
+| `PreferenciasUsuarioControllerTest` | Controller (`@WebMvcTest`) | 6 |
+| `PreferenciasUsuarioRepositoryTest` | Repositório (`@DataJpaTest` + H2) | 5 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 42 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 
