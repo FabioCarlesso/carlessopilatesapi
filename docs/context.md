@@ -59,7 +59,8 @@ com.carlesso.pilatesapi
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
 │   ├── RelatorioNfseController.java  — endpoint de relatório de emissão de NFSEs
-│   └── DashboardController.java      — endpoint de resumo para o painel inicial
+│   ├── DashboardController.java      — endpoint de resumo para o painel inicial
+│   └── PreferenciasUsuarioController.java — endpoints REST das preferências do usuário autenticado
 ├── service
 │   ├── PacienteService.java                    — lógica de negócio de pacientes
 │   ├── ProfissionalService.java                — lógica de negócio de profissionais
@@ -80,7 +81,8 @@ com.carlesso.pilatesapi
 │   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
 │   ├── JwtService.java                         — geração (claims role/userId) e validação de JWT
 │   ├── LoginAttemptService.java                — rate limiting in-memory por e-mail (5 tentativas / 15 min)
-│   └── CustomUserDetailsService.java           — carregamento de usuários para Spring Security
+│   ├── CustomUserDetailsService.java           — carregamento de usuários para Spring Security
+│   └── PreferenciasUsuarioService.java         — leitura/atualização das preferências do usuário com defaults centralizados
 ├── repository
 │   ├── PacienteRepository.java       — acesso ao banco via Spring Data JPA
 │   ├── ProfissionalRepository.java   — acesso ao banco via Spring Data JPA
@@ -93,7 +95,8 @@ com.carlesso.pilatesapi
 │   ├── SessaoPilatesRepository.java
 │   ├── EvolucaoSessaoRepository.java
 │   ├── ReavaliacaoRepository.java
-│   └── UserRepository.java
+│   ├── UserRepository.java
+│   └── PreferenciasUsuarioRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
 │   ├── Endereco.java                 — @Embeddable, colunas embutidas em `pacientes`
@@ -107,7 +110,8 @@ com.carlesso.pilatesapi
 │   ├── SessaoPilates.java            — entidade JPA, tabela `sessoes_pilates`
 │   ├── EvolucaoSessao.java           — entidade JPA, tabela `evolucoes_sessao`
 │   ├── Reavaliacao.java              — entidade JPA, tabela `reavaliacoes`
-│   └── User.java                     — entidade JPA, tabela `users`
+│   ├── User.java                     — entidade JPA, tabela `users`
+│   └── PreferenciasUsuario.java      — entidade JPA, tabela `preferencias_usuario` (1:1 com `users`)
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
 │   ├── TipoContrato.java             — CLT, PJ, AUTONOMO
@@ -115,7 +119,9 @@ com.carlesso.pilatesapi
 │   ├── StatusPagamento.java          — PENDENTE, PAGO, VENCIDO
 │   ├── TipoSessao.java               — PILATES, FISIOTERAPIA
 │   ├── StatusSessao.java             — AGENDADA, REALIZADA, CANCELADA
-│   └── Role.java                     — USER, ADMIN
+│   ├── Role.java                     — USER, ADMIN
+│   ├── IdiomaPreferencia.java        — PT_BR, EN_US, ES_ES (preferência de idioma do usuário)
+│   └── TemaPreferencia.java          — CLARO, ESCURO (preferência de tema do usuário)
 ├── security
 │   └── JwtAuthenticationFilter.java  — autentica requisições com Authorization Bearer
 ├── dto
@@ -160,7 +166,9 @@ com.carlesso.pilatesapi
 │   ├── AuthResponseDTO.java
 │   ├── UserRequestDTO.java
 │   ├── UserUpdateDTO.java
-│   └── UserResponseDTO.java
+│   ├── UserResponseDTO.java
+│   ├── PreferenciasUsuarioRequestDTO.java  — payload de atualização das preferências (idioma, tema, notificações)
+│   └── PreferenciasUsuarioResponseDTO.java — resposta das preferências (record com factory method `from`)
 └── scheduler
     └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
 ```
@@ -390,6 +398,21 @@ Relacionamento `@OneToOne` com `SessaoPilates`. Cada sessão possui no máximo u
 
 Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcionais com `AvaliacaoFisioterapeutica` e `PlanoTratamento`. Um paciente pode possuir múltiplas reavaliações periódicas para comparação longitudinal da evolução clínica.
 
+### Tabela `preferencias_usuario`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `user_id` | BIGINT | NOT NULL, UNIQUE, FK → users `ON DELETE CASCADE` |
+| `idioma` | VARCHAR(20) | NOT NULL (`PT_BR`, `EN_US`, `ES_ES`) |
+| `tema` | VARCHAR(20) | NOT NULL (`CLARO`, `ESCURO`) |
+| `notificacoes_email` | BOOLEAN | NOT NULL |
+| `notificacoes_push` | BOOLEAN | NOT NULL |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Relacionamento `@OneToOne` com `User` (1:1, owning side em `preferencias_usuario`). Cada usuário possui no máximo um registro de preferências — quando não existe, o GET retorna os valores padrão definidos no service.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -417,6 +440,8 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 | POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
 | GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
 | PUT | `/users/me/senha` | Trocar a própria senha (autenticado) informando senha atual, nova senha e confirmação | 204 / 400 / 401 / 422 |
+| GET | `/users/me/preferencias` | Consultar preferências do usuário autenticado; sem registro retorna defaults (`PT_BR`/`CLARO`/email=true/push=false) | 200 / 401 |
+| PUT | `/users/me/preferencias` | Atualizar preferências do usuário autenticado (idioma, tema, notificações); idioma/tema fora dos valores aceitos retornam 400 | 200 / 400 / 401 / 404 |
 | POST | `/users` | Criar usuário com role `USER` ou `ADMIN` | 201 / 400 / 401 / 403 / 409 |
 | GET | `/users` | Listar usuários paginados sem expor senha | 200 / 401 / 403 |
 | GET | `/users/roles` | Listar roles disponíveis (`value` e `label`) para formulários administrativos | 200 / 401 / 403 |
@@ -616,6 +641,16 @@ CPF não pode ser alterado após o cadastro.
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
+### Preferências do usuário
+- Cada usuário possui no máximo um registro de preferências (constraint `UNIQUE user_id`)
+- Defaults centralizados no `PreferenciasUsuarioService`: `idioma=PT_BR`, `tema=CLARO`, `notificacoesEmail=true`, `notificacoesPush=false`
+- `GET /users/me/preferencias` retorna os defaults quando o usuário ainda não tem registro salvo, sem persistir nada (1 query única via `findByUserEmail`)
+- `PUT /users/me/preferencias` cria o registro na primeira chamada e atualiza nas seguintes; protegido contra criação concorrente para o mesmo usuário por lock pessimista em `users` (`UserRepository.findByEmailForUpdate`)
+- Campos obrigatórios no PUT: `idioma`, `tema`, `notificacoesEmail`, `notificacoesPush` (Bean Validation `@NotNull`); idioma/tema fora dos enums retornam `400`
+- Identificação do dono é feita exclusivamente por `Authentication.getName()`; e-mail é normalizado para lowercase antes da consulta
+- A FK `preferencias_usuario.user_id` usa `ON DELETE CASCADE` para que a remoção física de um usuário (cenário de teste e cleanup) leve junto suas preferências
+- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+
 ### Scheduler (processos automáticos)
 | Cron (default) | Ação | Propriedade |
 |---|---|---|
@@ -775,7 +810,10 @@ mvn spring-boot:run
 | `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `UserServiceTest` | Unitário (Mockito, sem Spring) | 8 |
 | `UserControllerTest` | `@WebMvcTest` + MockMvc | 8 |
-| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 32 |
+| `PreferenciasUsuarioServiceTest` | Unitário (Mockito, sem Spring) | 7 |
+| `PreferenciasUsuarioControllerTest` | `@WebMvcTest` + MockMvc | 6 |
+| `PreferenciasUsuarioRepositoryTest` | `@DataJpaTest` + H2 | 5 |
+| `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 42 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 

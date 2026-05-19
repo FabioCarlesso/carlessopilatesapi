@@ -1115,8 +1115,9 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 10 |
 | `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 13 |
 | `PreferenciasUsuarioServiceTest` | Unitário (Mockito) | 7 |
-| `PreferenciasUsuarioControllerTest` | Controller (`@WebMvcTest`) | 5 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 32 |
+| `PreferenciasUsuarioControllerTest` | Controller (`@WebMvcTest`) | 6 |
+| `PreferenciasUsuarioRepositoryTest` | Repositório (`@DataJpaTest` + H2) | 5 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 42 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 

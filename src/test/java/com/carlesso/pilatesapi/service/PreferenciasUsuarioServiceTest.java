@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,9 +57,7 @@ class PreferenciasUsuarioServiceTest {
 
     @Test
     void buscarPorEmail_semPreferenciasSalvas_deveRetornarPadroes() {
-        User user = usuario(1L, "novo@email.com");
-        when(userRepository.findByEmail("novo@email.com")).thenReturn(Optional.of(user));
-        when(repository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(repository.findByUserEmail("novo@email.com")).thenReturn(Optional.empty());
 
         PreferenciasUsuarioResponseDTO response = service.buscarPorEmail("novo@email.com");
 
@@ -67,6 +66,7 @@ class PreferenciasUsuarioServiceTest {
         assertThat(response.notificacoesEmail()).isEqualTo(PreferenciasUsuarioService.NOTIFICACOES_EMAIL_PADRAO);
         assertThat(response.notificacoesPush()).isEqualTo(PreferenciasUsuarioService.NOTIFICACOES_PUSH_PADRAO);
         verify(repository, never()).save(any());
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -78,8 +78,7 @@ class PreferenciasUsuarioServiceTest {
         salvas.setTema(TemaPreferencia.ESCURO);
         salvas.setNotificacoesEmail(false);
         salvas.setNotificacoesPush(true);
-        when(userRepository.findByEmail("salvo@email.com")).thenReturn(Optional.of(user));
-        when(repository.findByUserId(1L)).thenReturn(Optional.of(salvas));
+        when(repository.findByUserEmail("salvo@email.com")).thenReturn(Optional.of(salvas));
 
         PreferenciasUsuarioResponseDTO response = service.buscarPorEmail("salvo@email.com");
 
@@ -91,28 +90,17 @@ class PreferenciasUsuarioServiceTest {
 
     @Test
     void buscarPorEmail_emailNormalizadoParaLowercase() {
-        User user = usuario(1L, "minusculo@email.com");
-        when(userRepository.findByEmail("minusculo@email.com")).thenReturn(Optional.of(user));
-        when(repository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(repository.findByUserEmail("minusculo@email.com")).thenReturn(Optional.empty());
 
         service.buscarPorEmail("MINUSCULO@EMAIL.COM");
 
-        verify(userRepository).findByEmail("minusculo@email.com");
-    }
-
-    @Test
-    void buscarPorEmail_usuarioInexistente_deveLancar404() {
-        when(userRepository.findByEmail("naoexiste@email.com")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.buscarPorEmail("naoexiste@email.com"))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessage("Usuário não encontrado");
+        verify(repository).findByUserEmail("minusculo@email.com");
     }
 
     @Test
     void atualizarPorEmail_semPreferenciasSalvas_deveCriarComValoresDoDTO() {
         User user = usuario(1L, "novo@email.com");
-        when(userRepository.findByEmail("novo@email.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate("novo@email.com")).thenReturn(Optional.of(user));
         when(repository.findByUserId(1L)).thenReturn(Optional.empty());
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.ES_ES, TemaPreferencia.ESCURO, false, true);
@@ -139,7 +127,7 @@ class PreferenciasUsuarioServiceTest {
         existente.setTema(TemaPreferencia.CLARO);
         existente.setNotificacoesEmail(true);
         existente.setNotificacoesPush(false);
-        when(userRepository.findByEmail("existente@email.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate("existente@email.com")).thenReturn(Optional.of(user));
         when(repository.findByUserId(1L)).thenReturn(Optional.of(existente));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true);
@@ -157,12 +145,26 @@ class PreferenciasUsuarioServiceTest {
     }
 
     @Test
+    void atualizarPorEmail_emailNormalizadoParaLowercase() {
+        User user = usuario(1L, "minusculo@email.com");
+        when(userRepository.findByEmailForUpdate("minusculo@email.com")).thenReturn(Optional.of(user));
+        when(repository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, false);
+
+        service.atualizarPorEmail("MINUSCULO@EMAIL.COM", dto);
+
+        verify(userRepository).findByEmailForUpdate("minusculo@email.com");
+    }
+
+    @Test
     void atualizarPorEmail_usuarioInexistente_deveLancar404() {
-        when(userRepository.findByEmail("naoexiste@email.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("naoexiste@email.com")).thenReturn(Optional.empty());
         var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, true);
 
         assertThatThrownBy(() -> service.atualizarPorEmail("naoexiste@email.com", dto))
-                .isInstanceOf(ResourceNotFoundException.class);
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Usuário não encontrado");
         verify(repository, never()).save(any());
     }
 }

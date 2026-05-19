@@ -491,6 +491,63 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void preferencias_get_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/users/me/preferencias"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void preferencias_get_comUsuarioComum_deveRetornarPadroes() throws Exception {
+        User user = criarUsuario("prefs-get@email.com", Role.USER);
+
+        mvc.perform(get("/users/me/preferencias")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idioma").value("PT_BR"))
+                .andExpect(jsonPath("$.tema").value("CLARO"))
+                .andExpect(jsonPath("$.notificacoesEmail").value(true))
+                .andExpect(jsonPath("$.notificacoesPush").value(false));
+    }
+
+    @Test
+    void preferencias_get_comAdmin_deveRetornar200() throws Exception {
+        User admin = criarUsuario("prefs-admin@email.com", Role.ADMIN);
+
+        mvc.perform(get("/users/me/preferencias")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void preferencias_put_comUsuarioComum_devePersistirEReturnarValoresAtualizados() throws Exception {
+        User user = criarUsuario("prefs-put@email.com", Role.USER);
+        String payload = """
+                {
+                  "idioma": "EN_US",
+                  "tema": "ESCURO",
+                  "notificacoesEmail": false,
+                  "notificacoesPush": true
+                }
+                """;
+
+        mvc.perform(put("/users/me/preferencias")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idioma").value("EN_US"))
+                .andExpect(jsonPath("$.tema").value("ESCURO"))
+                .andExpect(jsonPath("$.notificacoesEmail").value(false))
+                .andExpect(jsonPath("$.notificacoesPush").value(true));
+
+        mvc.perform(get("/users/me/preferencias")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idioma").value("EN_US"))
+                .andExpect(jsonPath("$.tema").value("ESCURO"));
+    }
+
+    @Test
     void dashboardResumo_semToken_deveRetornar401() throws Exception {
         mvc.perform(get("/dashboard/resumo"))
                 .andExpect(status().isUnauthorized());

@@ -32,29 +32,25 @@ public class PreferenciasUsuarioService {
 
     @Transactional(readOnly = true)
     public PreferenciasUsuarioResponseDTO buscarPorEmail(String email) {
-        User user = encontrarUsuario(email);
-        return repository.findByUserId(user.getId())
+        return repository.findByUserEmail(email.toLowerCase(Locale.ROOT))
                 .map(PreferenciasUsuarioResponseDTO::from)
-                .orElseGet(() -> padraoResponse());
+                .orElseGet(this::padraoResponse);
     }
 
     @Transactional
     public PreferenciasUsuarioResponseDTO atualizarPorEmail(String email, PreferenciasUsuarioRequestDTO dto) {
-        User user = encontrarUsuario(email);
+        User user = userRepository.findByEmailForUpdate(email.toLowerCase(Locale.ROOT))
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
         PreferenciasUsuario preferencias = repository.findByUserId(user.getId())
                 .orElseGet(() -> novaComPadroes(user));
 
         preferencias.setIdioma(dto.idioma());
         preferencias.setTema(dto.tema());
-        preferencias.setNotificacoesEmail(Boolean.TRUE.equals(dto.notificacoesEmail()));
-        preferencias.setNotificacoesPush(Boolean.TRUE.equals(dto.notificacoesPush()));
+        preferencias.setNotificacoesEmail(dto.notificacoesEmail());
+        preferencias.setNotificacoesPush(dto.notificacoesPush());
 
         return PreferenciasUsuarioResponseDTO.from(repository.save(preferencias));
-    }
-
-    private User encontrarUsuario(String email) {
-        return userRepository.findByEmail(email.toLowerCase(Locale.ROOT))
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
     }
 
     private PreferenciasUsuario novaComPadroes(User user) {

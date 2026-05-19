@@ -148,4 +148,24 @@ class PreferenciasUsuarioControllerTest {
 
         verify(service, never()).atualizarPorEmail(any(), any());
     }
+
+    @Test
+    void atualizar_comCamposExplicitamenteNull_deveRetornar400() throws Exception {
+        String payload = """
+                {
+                  "idioma": null,
+                  "tema": null,
+                  "notificacoesEmail": null,
+                  "notificacoesPush": null
+                }
+                """;
+
+        mvc.perform(put("/users/me/preferencias")
+                        .principal(userAuth("user@email.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).atualizarPorEmail(any(), any());
+    }
 }

@@ -12,7 +12,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "preferencias_usuario")
@@ -24,6 +30,7 @@ public class PreferenciasUsuario {
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
     @Enumerated(EnumType.STRING)
@@ -40,7 +47,23 @@ public class PreferenciasUsuario {
     @Column(name = "notificacoes_push", nullable = false)
     private boolean notificacoesPush;
 
+    @Column(name = "data_criacao", nullable = false)
+    private LocalDateTime dataCriacao;
+
+    @Column(name = "data_atualizacao")
+    private LocalDateTime dataAtualizacao;
+
     public PreferenciasUsuario() {}
+
+    @PrePersist
+    void prePersist() {
+        this.dataCriacao = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        this.dataAtualizacao = LocalDateTime.now();
+    }
 
     public Long getId() {
         return id;
@@ -84,5 +107,21 @@ public class PreferenciasUsuario {
 
     public void setNotificacoesPush(boolean notificacoesPush) {
         this.notificacoesPush = notificacoesPush;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public LocalDateTime getDataAtualizacao() {
+        return dataAtualizacao;
+    }
+
+    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
+        this.dataAtualizacao = dataAtualizacao;
     }
 }

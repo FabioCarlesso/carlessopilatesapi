@@ -50,7 +50,8 @@ public class PreferenciasUsuarioController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Preferências atualizadas com sucesso"),
             @ApiResponse(responseCode = "400", description = "Payload inválido (idioma/tema fora dos valores aceitos ou campos obrigatórios ausentes)"),
-            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido")
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
+            @ApiResponse(responseCode = "404", description = "Usuário do token não encontrado")
     })
     @PutMapping
     public ResponseEntity<PreferenciasUsuarioResponseDTO> atualizar(
