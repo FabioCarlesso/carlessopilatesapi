@@ -300,6 +300,13 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 |---|---|---|
 | `GET` | `/api/relatorios/nfse` | Gerar relatório de emissão de NFSEs por competência (JSON, CSV ou XLSX) |
 
+### NFSE emitidas
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/api/nfse-emitidas` | Registrar ou atualizar a NFSE emitida de um paciente em uma competência |
+| `GET` | `/api/nfse-emitidas/paciente/{pacienteId}` | Listar as NFSEs emitidas registradas para um paciente |
+
 ### Dashboard
 
 | Método | Endpoint | Descrição |
@@ -449,7 +456,47 @@ Contrato JSON:
 ]
 ```
 
-Para o modelo atual, `notaAnteriorEmitida` é inferido pela existência de pagamento confirmado anterior para o mesmo paciente. CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
+O campo `notaAnteriorEmitida` é preenchido com base nas NFSEs efetivamente registradas: é `true` quando existe uma NFSE emitida para o paciente em uma competência anterior à consultada (ver seção abaixo). CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
+
+### NFSE emitidas — registro fiscal
+
+Para que o relatório use dados reais em `notaAnteriorEmitida`, a última NFSE emitida de cada paciente é persistida por competência através de `POST /api/nfse-emitidas`. O registro é idempotente por `(paciente, competência)`: se já existir uma nota para o paciente na competência informada, ela é atualizada; caso contrário, é criada.
+
+Corpo da requisição:
+
+```json
+{
+  "pacienteId": 1,
+  "competencia": "04/2026",
+  "numeroNota": "NF-2026-000123",
+  "dataEmissao": "2026-04-30",
+  "valor": 250.00,
+  "observacoes": "Emitida pelo portal municipal"
+}
+```
+
+- `pacienteId` e `dataEmissao` são obrigatórios; o paciente precisa estar ativo (404 caso contrário).
+- `competencia` é obrigatória no formato `MM/AAAA` (400 quando fora do formato).
+- `numeroNota`, `valor` e `observacoes` são opcionais; quando informado, `valor` deve ser maior que zero (422 caso contrário).
+
+Resposta (`200 OK`):
+
+```json
+{
+  "id": 10,
+  "pacienteId": 1,
+  "nomePaciente": "Ana Souza",
+  "competencia": "04/2026",
+  "numeroNota": "NF-2026-000123",
+  "dataEmissao": "2026-04-30",
+  "valor": 250.00,
+  "observacoes": "Emitida pelo portal municipal",
+  "dataCriacao": "2026-05-01T10:00:00",
+  "dataAtualizacao": null
+}
+```
+
+`GET /api/nfse-emitidas/paciente/{pacienteId}` retorna as notas registradas do paciente, da competência mais recente para a mais antiga.
 
 ---
 
@@ -955,6 +1002,15 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### Registrar NFSE emitida
+```bash
+curl -s -X POST "http://localhost:8080/api/nfse-emitidas" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"pacienteId":1,"competencia":"04/2026","numeroNota":"NF-2026-000123","dataEmissao":"2026-04-30","valor":250.00}' | jq
+curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
 ---
 
 ## Regras de Negócio
@@ -997,8 +1053,9 @@ curl -s -OJ "http://localhost:8080/api/relatorios/nfse?competencia=04/2026&forma
 - Pacientes inativos são ignorados
 - `Nome`, `CPF/CNPJ`, `ValorPago` e `DataPagamento` vêm do paciente e do pagamento confirmado
 - `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
-- `NotaAnteriorEmitida` é inferida por pagamento confirmado anterior do mesmo paciente
+- `NotaAnteriorEmitida` é baseada nas NFSEs emitidas persistidas: `true` quando há nota registrada para o paciente em competência anterior à consultada
 - Registros sem nome, CPF/CNPJ, valor positivo ou data de pagamento retornam erro de regra de negócio (`422`)
+- As NFSEs emitidas são persistidas por `(paciente, competência)` via `POST /api/nfse-emitidas`; o registro é idempotente (atualiza a nota existente da competência) e exige paciente ativo
 
 ### Geração de Aulas
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento
@@ -1090,6 +1147,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
 | `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
 | `RelatorioNfseExporterServiceTest` | Unitário | 3 |
+| `NotaFiscalEmitidaServiceTest` | Unitário (Mockito) | 6 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
 | `GlobalExceptionHandlerTest` | Unitário | 7 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
@@ -1097,7 +1155,8 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
 | `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
-| `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
+| `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
+| `NotaFiscalEmitidaRepositoryTest` | JPA (`@DataJpaTest`) | 3 |
 | `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 4 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
@@ -1109,6 +1168,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `SessaoPilatesControllerTest` | Controller (`@WebMvcTest`) | 21 |
 | `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
 | `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
+| `NotaFiscalEmitidaControllerTest` | Controller (`@WebMvcTest`) | 4 |
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `DashboardServiceTest` | Unitário (Mockito) | 3 |
 | `SessaoPilatesServiceTest` | Unitário (Mockito) | 25 |

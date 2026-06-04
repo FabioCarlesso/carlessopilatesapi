@@ -5,7 +5,9 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
+import com.carlesso.pilatesapi.util.CompetenciaUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,52 +17,39 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class RelatorioNfseService {
 
-    private static final Pattern COMPETENCIA_PATTERN = Pattern.compile("^(0[1-9]|1[0-2])/\\d{4}$");
-
     private final PagamentoRepository pagamentoRepository;
+    private final NotaFiscalEmitidaRepository notaFiscalEmitidaRepository;
 
-    public RelatorioNfseService(PagamentoRepository pagamentoRepository) {
+    public RelatorioNfseService(PagamentoRepository pagamentoRepository,
+                                NotaFiscalEmitidaRepository notaFiscalEmitidaRepository) {
         this.pagamentoRepository = pagamentoRepository;
+        this.notaFiscalEmitidaRepository = notaFiscalEmitidaRepository;
     }
 
     @Transactional(readOnly = true)
     public List<RelatorioNfseResponseDTO> gerar(String competencia, Boolean notaAnteriorEmitida) {
-        YearMonth periodo = parseCompetencia(competencia);
+        YearMonth periodo = CompetenciaUtils.parse(competencia);
         LocalDate inicio = periodo.atDay(1);
         LocalDate fim = periodo.atEndOfMonth();
         List<Pagamento> pagamentos = pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(
                 StatusPagamento.PAGO,
                 inicio,
                 fim);
-        Set<Long> pacientesComPagamentoAnterior = buscarPacientesComPagamentoAnterior(pagamentos, inicio);
+        Set<Long> pacientesComNotaAnterior = buscarPacientesComNotaEmitidaAntes(pagamentos, inicio);
 
         return pagamentos.stream()
-                .map(pagamento -> montarItem(pagamento, competencia, pacientesComPagamentoAnterior))
+                .map(pagamento -> montarItem(pagamento, competencia, pacientesComNotaAnterior))
                 .filter(item -> notaAnteriorEmitida == null
                         || Objects.equals(item.notaAnteriorEmitida(), notaAnteriorEmitida))
                 .toList();
     }
 
-    private YearMonth parseCompetencia(String competencia) {
-        if (competencia == null || competencia.isBlank()) {
-            throw new IllegalArgumentException("competencia é obrigatória");
-        }
-        if (!COMPETENCIA_PATTERN.matcher(competencia).matches()) {
-            throw new IllegalArgumentException("competencia deve estar no formato MM/AAAA");
-        }
-
-        int mes = Integer.parseInt(competencia.substring(0, 2));
-        int ano = Integer.parseInt(competencia.substring(3));
-        return YearMonth.of(ano, mes);
-    }
-
-    private Set<Long> buscarPacientesComPagamentoAnterior(List<Pagamento> pagamentos, LocalDate inicioCompetencia) {
+    private Set<Long> buscarPacientesComNotaEmitidaAntes(List<Pagamento> pagamentos, LocalDate inicioCompetencia) {
         List<Long> pacienteIds = pagamentos.stream()
                 .map(pagamento -> pagamento.getPaciente().getId())
                 .distinct()
@@ -70,9 +59,8 @@ public class RelatorioNfseService {
             return Set.of();
         }
 
-        return pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+        return notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(
                         pacienteIds,
-                        StatusPagamento.PAGO,
                         inicioCompetencia)
                 .stream()
                 .collect(Collectors.toSet());
@@ -81,7 +69,7 @@ public class RelatorioNfseService {
     private RelatorioNfseResponseDTO montarItem(
             Pagamento pagamento,
             String competencia,
-            Set<Long> pacientesComPagamentoAnterior) {
+            Set<Long> pacientesComNotaAnterior) {
         Paciente paciente = pagamento.getPaciente();
         validarDadosParaEmissao(pagamento, paciente);
 
@@ -91,7 +79,7 @@ public class RelatorioNfseService {
                 pagamento.getValor(),
                 competencia,
                 "Aulas de Pilates - Competência " + competencia,
-                pacientesComPagamentoAnterior.contains(paciente.getId()),
+                pacientesComNotaAnterior.contains(paciente.getId()),
                 pagamento.getDataPagamento(),
                 ""
         );
