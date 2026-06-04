@@ -59,6 +59,7 @@ com.carlesso.pilatesapi
 │   ├── UserController.java           — endpoint do usuário autenticado e CRUD administrativo
 │   ├── AdminController.java          — endpoints administrativos
 │   ├── RelatorioNfseController.java  — endpoint de relatório de emissão de NFSEs
+│   ├── NotaFiscalEmitidaController.java — registro/consulta de NFSEs emitidas por paciente/competência
 │   ├── DashboardController.java      — endpoint de resumo para o painel inicial
 │   └── PreferenciasUsuarioController.java — endpoints REST das preferências do usuário autenticado
 ├── service
@@ -74,8 +75,9 @@ com.carlesso.pilatesapi
 │   ├── PagamentoService.java                   — cobranças, confirmação, vencimentos
 │   ├── AulaService.java                        — geração e controle de aulas
 │   ├── RelatorioPagamentoExporterService.java  — exporta o relatório em PDF (OpenPDF) e XLSX (Apache POI)
-│   ├── RelatorioNfseService.java               — monta relatório de NFSEs por competência
+│   ├── RelatorioNfseService.java               — monta relatório de NFSEs por competência (usa NFSEs emitidas persistidas em `notaAnteriorEmitida`)
 │   ├── RelatorioNfseExporterService.java       — exporta relatório de NFSEs em CSV e XLSX
+│   ├── NotaFiscalEmitidaService.java           — registro idempotente (upsert por paciente/competência) e consulta de NFSEs emitidas
 │   ├── DashboardService.java                   — consolida contadores e totais para o painel inicial
 │   ├── AuthService.java                        — registro/login, emissão de token e rate limiting
 │   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
@@ -96,7 +98,8 @@ com.carlesso.pilatesapi
 │   ├── EvolucaoSessaoRepository.java
 │   ├── ReavaliacaoRepository.java
 │   ├── UserRepository.java
-│   └── PreferenciasUsuarioRepository.java
+│   ├── PreferenciasUsuarioRepository.java
+│   └── NotaFiscalEmitidaRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
 │   ├── Endereco.java                 — @Embeddable, colunas embutidas em `pacientes`
@@ -111,7 +114,8 @@ com.carlesso.pilatesapi
 │   ├── EvolucaoSessao.java           — entidade JPA, tabela `evolucoes_sessao`
 │   ├── Reavaliacao.java              — entidade JPA, tabela `reavaliacoes`
 │   ├── User.java                     — entidade JPA, tabela `users`
-│   └── PreferenciasUsuario.java      — entidade JPA, tabela `preferencias_usuario` (1:1 com `users`)
+│   ├── PreferenciasUsuario.java      — entidade JPA, tabela `preferencias_usuario` (1:1 com `users`)
+│   └── NotaFiscalEmitida.java        — entidade JPA, tabela `notas_fiscais_emitidas` (NFSE emitida por paciente/competência)
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
 │   ├── TipoContrato.java             — CLT, PJ, AUTONOMO
@@ -139,6 +143,8 @@ com.carlesso.pilatesapi
 │   ├── ProfissionalPagamentoRelatorioDTO.java — relatório de pagamento do profissional (contrato Angular-friendly)
 │   ├── ProfissionalPagamentoAulaDTO.java      — detalhe de aula no relatório
 │   ├── RelatorioNfseResponseDTO.java          — item do relatório de emissão de NFSE
+│   ├── NotaFiscalEmitidaRequestDTO.java       — payload de registro de NFSE emitida (record)
+│   ├── NotaFiscalEmitidaResponseDTO.java      — resposta da API de NFSE emitida (record com factory `from`)
 │   ├── DashboardResumoDTO.java                — resposta do endpoint de resumo do dashboard (record com sub-records)
 │   ├── PlanoRequestDTO.java
 │   ├── PlanoResponseDTO.java
@@ -169,8 +175,10 @@ com.carlesso.pilatesapi
 │   ├── UserResponseDTO.java
 │   ├── PreferenciasUsuarioRequestDTO.java  — payload de atualização das preferências (idioma, tema, notificações)
 │   └── PreferenciasUsuarioResponseDTO.java — resposta das preferências (record com factory method `from`)
-└── scheduler
-    └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
+├── scheduler
+│   └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
+└── util
+    └── CompetenciaUtils.java         — validação/parsing/formatação de competências `MM/AAAA` (compartilhado pelo relatório e registro de NFSE)
 ```
 
 ---
@@ -413,6 +421,22 @@ Relacionamento `@ManyToOne` obrigatório com `Paciente` e relacionamentos opcion
 
 Relacionamento `@OneToOne` com `User` (1:1, owning side em `preferencias_usuario`). Cada usuário possui no máximo um registro de preferências — quando não existe, o GET retorna os valores padrão definidos no service.
 
+### Tabela `notas_fiscais_emitidas`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → pacientes |
+| `competencia` | DATE | NOT NULL (primeiro dia do mês; `MM/AAAA` na API) |
+| `numero_nota` | VARCHAR(60) | — |
+| `data_emissao` | DATE | NOT NULL |
+| `valor` | DECIMAL(10,2) | — (quando informado, deve ser > 0) |
+| `observacoes` | TEXT | — |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Restrição `UNIQUE (paciente_id, competencia)` garante uma única NFSE emitida por paciente em cada competência (registro idempotente via `POST /api/nfse-emitidas`). É a fonte de verdade do campo `notaAnteriorEmitida` do relatório de NFSE.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -428,6 +452,7 @@ Relacionamento `@OneToOne` com `User` (1:1, owning side em `preferencias_usuario
 | `idx_planos_tratamento_paciente_id` | `planos_tratamento(paciente_id)` | Listagem de planos de tratamento por paciente |
 | `idx_sessoes_pilates_paciente_id` | `sessoes_pilates(paciente_id)` | Listagem de sessões por paciente |
 | `idx_sessoes_pilates_data` | `sessoes_pilates(data)` | Busca e ordenação de sessões por data |
+| `idx_notas_fiscais_emitidas_paciente` | `notas_fiscais_emitidas(paciente_id)` | Listagem de NFSEs por paciente e lookup do relatório de NFSE |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
@@ -478,6 +503,8 @@ Relacionamento `@OneToOne` com `User` (1:1, owning side em `preferencias_usuario
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
 | PATCH | `/aulas/{id}/realizar?profissionalId={id}` | Marcar como realizada e opcionalmente vincular profissional | 200 / 404 / 409 / 422 |
 | GET | `/api/relatorios/nfse?competencia=MM/AAAA&notaAnteriorEmitida={true|false}&formato={JSON|CSV|XLSX}` | Gerar relatório de emissão de NFSEs por competência | 200 / 400 / 422 |
+| POST | `/api/nfse-emitidas` | Registrar/atualizar NFSE emitida do paciente na competência (upsert) | 200 / 400 / 404 / 422 |
+| GET | `/api/nfse-emitidas/paciente/{pacienteId}` | Listar NFSEs emitidas do paciente (competência desc) | 200 / 404 |
 | POST | `/anamneses` | Criar anamnese para um paciente | 201 / 400 / 404 / 409 |
 | GET | `/anamneses/{id}` | Buscar anamnese por ID | 200 / 404 |
 | GET | `/anamneses/paciente/{pacienteId}` | Buscar anamnese por paciente | 200 / 404 |
@@ -565,10 +592,12 @@ CPF não pode ser alterado após o cadastro.
 - `competencia` é obrigatória no formato `MM/AAAA`; mês deve estar entre `01` e `12`
 - O relatório retorna `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento` e `Observacoes`
 - `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
-- Como o modelo atual não possui entidade de nota fiscal, `NotaAnteriorEmitida` é inferida pela existência de pagamento confirmado anterior para o mesmo paciente
-- O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior inferida
+- `NotaAnteriorEmitida` é baseada nas NFSEs emitidas persistidas (`notas_fiscais_emitidas`): `true` quando existe nota registrada para o paciente em competência anterior à consultada
+- O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior emitida
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`
 - Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
+- As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente precisa estar ativo (`404`), `competencia` no formato `MM/AAAA` (`400`), `numeroNota` no máximo 60 caracteres (`400`), `dataEmissao` não futura (`422`) e `valor`, quando informado, maior que zero (`422`). O upsert é idempotente mesmo sob concorrência: a colisão da constraint única `(paciente, competência)` é repetida automaticamente como atualização
+- Timestamps de auditoria (`dataCriacao`/`dataAtualizacao`) das NFSEs emitidas são preenchidos pelos callbacks `@PrePersist`/`@PreUpdate` da entidade, conforme a convenção do projeto
 
 ### Aulas
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`
@@ -784,13 +813,16 @@ mvn spring-boot:run
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
 | `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + H2 | 11 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
-| `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 2 |
+| `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 1 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 17 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `AulaControllerTest` | `@WebMvcTest` + MockMvc | 10 |
 | `RelatorioNfseControllerTest` | `@WebMvcTest` + MockMvc | 6 |
+| `NotaFiscalEmitidaServiceTest` | Unitário (Mockito, sem Spring) | 6 |
+| `NotaFiscalEmitidaControllerTest` | `@WebMvcTest` + MockMvc | 4 |
+| `NotaFiscalEmitidaRepositoryTest` | `@DataJpaTest` + H2 | 3 |
 | `AnamneseServiceTest` | Unitário (Mockito, sem Spring) | 17 |
 | `AnamneseControllerTest` | `@WebMvcTest` + MockMvc | 14 |
 | `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito, sem Spring) | 8 |

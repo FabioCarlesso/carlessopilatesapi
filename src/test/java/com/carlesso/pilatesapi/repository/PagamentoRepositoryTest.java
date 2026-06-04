@@ -55,25 +55,6 @@ class PagamentoRepositoryTest {
                 .containsExactly(pagoNaCompetencia.getId());
     }
 
-    @Test
-    void findPacienteIdsComPagamentoConfirmadoAntes_retornaPacientesComPagamentoAnterior() {
-        Paciente paciente = entityManager.persist(paciente("Ana Ativa", "ana@email.com", "11122233344", true));
-        Paciente pacienteSemAnterior = entityManager.persist(paciente("Bia Ativa", "bia@email.com", "55566677788", true));
-        Plano plano = entityManager.persist(plano(paciente));
-        Plano planoSemAnterior = entityManager.persist(plano(pacienteSemAnterior));
-        entityManager.persist(pagamento(paciente, plano, StatusPagamento.PAGO, LocalDate.of(2026, 3, 10)));
-        entityManager.persist(pagamento(pacienteSemAnterior, planoSemAnterior, StatusPagamento.PAGO,
-                LocalDate.of(2026, 4, 10)));
-        entityManager.flush();
-
-        var pacienteIds = repository.findPacienteIdsComPagamentoConfirmadoAntes(
-                List.of(paciente.getId(), pacienteSemAnterior.getId()),
-                StatusPagamento.PAGO,
-                LocalDate.of(2026, 4, 1));
-
-        assertThat(pacienteIds).containsExactly(paciente.getId());
-    }
-
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {
         Paciente paciente = new Paciente();
         paciente.setNome(nome);

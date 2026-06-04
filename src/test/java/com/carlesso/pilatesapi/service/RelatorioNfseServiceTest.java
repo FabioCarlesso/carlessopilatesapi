@@ -5,6 +5,7 @@ import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,9 @@ class RelatorioNfseServiceTest {
     @Mock
     PagamentoRepository pagamentoRepository;
 
+    @Mock
+    NotaFiscalEmitidaRepository notaFiscalEmitidaRepository;
+
     @InjectMocks
     RelatorioNfseService service;
 
@@ -41,9 +45,8 @@ class RelatorioNfseServiceTest {
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(pagamento));
-        when(pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+        when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(
                 List.of(1L),
-                StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1)))
                 .thenReturn(List.of(1L));
 
@@ -59,9 +62,8 @@ class RelatorioNfseServiceTest {
             assertThat(item.dataPagamento()).isEqualTo(LocalDate.of(2026, 4, 10));
             assertThat(item.observacoes()).isEmpty();
         });
-        verify(pagamentoRepository).findPacienteIdsComPagamentoConfirmadoAntes(
+        verify(notaFiscalEmitidaRepository).findPacienteIdsComNotaEmitidaAntes(
                 List.of(1L),
-                StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1));
     }
 
@@ -78,9 +80,8 @@ class RelatorioNfseServiceTest {
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(comNotaAnterior, semNotaAnterior));
-        when(pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+        when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(
                 List.of(1L, 2L),
-                StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1)))
                 .thenReturn(List.of(1L));
 
@@ -90,9 +91,8 @@ class RelatorioNfseServiceTest {
                 .singleElement()
                 .extracting("nome")
                 .isEqualTo("Bia Lima");
-        verify(pagamentoRepository).findPacienteIdsComPagamentoConfirmadoAntes(
+        verify(notaFiscalEmitidaRepository).findPacienteIdsComNotaEmitidaAntes(
                 List.of(1L, 2L),
-                StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1));
     }
 
@@ -120,9 +120,8 @@ class RelatorioNfseServiceTest {
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(pagamento));
-        when(pagamentoRepository.findPacienteIdsComPagamentoConfirmadoAntes(
+        when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(
                 List.of(1L),
-                StatusPagamento.PAGO,
                 LocalDate.of(2026, 4, 1)))
                 .thenReturn(List.of());
 
