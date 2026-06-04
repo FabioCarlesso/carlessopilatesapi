@@ -10,7 +10,13 @@ import java.util.regex.Pattern;
  */
 public final class CompetenciaUtils {
 
-    private static final Pattern COMPETENCIA_PATTERN = Pattern.compile("^(0[1-9]|1[0-2])/\\d{4}$");
+    /**
+     * Expressão regular do formato de competência {@code MM/AAAA}, reutilizada
+     * tanto na validação Bean Validation (DTO) quanto no parsing programático.
+     */
+    public static final String COMPETENCIA_REGEX = "^(0[1-9]|1[0-2])/\\d{4}$";
+
+    private static final Pattern COMPETENCIA_PATTERN = Pattern.compile(COMPETENCIA_REGEX);
 
     private CompetenciaUtils() {
     }

@@ -475,9 +475,10 @@ Corpo da requisição:
 }
 ```
 
-- `pacienteId` e `dataEmissao` são obrigatórios; o paciente precisa estar ativo (404 caso contrário).
+- `pacienteId` e `dataEmissao` são obrigatórios; o paciente precisa estar ativo (404 caso contrário). `dataEmissao` não pode ser futura (422 caso contrário).
 - `competencia` é obrigatória no formato `MM/AAAA` (400 quando fora do formato).
-- `numeroNota`, `valor` e `observacoes` são opcionais; quando informado, `valor` deve ser maior que zero (422 caso contrário).
+- `numeroNota` é opcional e limitado a 60 caracteres (400 quando excedido); `valor` e `observacoes` são opcionais; quando informado, `valor` deve ser maior que zero (422 caso contrário).
+- O registro é idempotente por `(paciente, competência)` inclusive sob concorrência: requisições simultâneas para o mesmo par resolvem para uma única nota (a colisão da constraint única é repetida automaticamente como atualização).
 
 Resposta (`200 OK`):
 

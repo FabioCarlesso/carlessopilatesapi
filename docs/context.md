@@ -596,7 +596,8 @@ CPF não pode ser alterado após o cadastro.
 - O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior emitida
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`
 - Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
-- As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente precisa estar ativo (`404`), `competencia` no formato `MM/AAAA` (`400`) e `valor`, quando informado, maior que zero (`422`)
+- As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente precisa estar ativo (`404`), `competencia` no formato `MM/AAAA` (`400`), `numeroNota` no máximo 60 caracteres (`400`), `dataEmissao` não futura (`422`) e `valor`, quando informado, maior que zero (`422`). O upsert é idempotente mesmo sob concorrência: a colisão da constraint única `(paciente, competência)` é repetida automaticamente como atualização
+- Timestamps de auditoria (`dataCriacao`/`dataAtualizacao`) das NFSEs emitidas são preenchidos pelos callbacks `@PrePersist`/`@PreUpdate` da entidade, conforme a convenção do projeto
 
 ### Aulas
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`

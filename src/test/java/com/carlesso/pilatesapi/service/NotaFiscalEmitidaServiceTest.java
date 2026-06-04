@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -37,6 +38,13 @@ class NotaFiscalEmitidaServiceTest {
     @InjectMocks
     NotaFiscalEmitidaService service;
 
+    @BeforeEach
+    void setUp() {
+        // Em produção o proxy transacional é injetado via @Lazy; no teste unitário
+        // apontamos o "self" para a própria instância para que registrar() delegue ao upsert().
+        service.setSelf(service);
+    }
+
     @Test
     void registrar_quandoNaoExiste_deveCriarNota() {
         Paciente paciente = paciente();
@@ -66,7 +74,7 @@ class NotaFiscalEmitidaServiceTest {
         ArgumentCaptor<NotaFiscalEmitida> captor = ArgumentCaptor.forClass(NotaFiscalEmitida.class);
         org.mockito.Mockito.verify(repository).save(captor.capture());
         assertThat(captor.getValue().getCompetencia()).isEqualTo(LocalDate.of(2026, 4, 1));
-        assertThat(captor.getValue().getDataCriacao()).isNotNull();
+        // dataCriacao agora é preenchida pelo callback @PrePersist da entidade (coberto no teste de repositório).
     }
 
     @Test
@@ -93,7 +101,7 @@ class NotaFiscalEmitidaServiceTest {
         assertThat(response.id()).isEqualTo(9L);
         assertThat(response.numeroNota()).isEqualTo("NF-NOVA");
         assertThat(response.dataEmissao()).isEqualTo(LocalDate.of(2026, 4, 20));
-        assertThat(response.dataAtualizacao()).isNotNull();
+        // dataAtualizacao agora é preenchida pelo callback @PreUpdate da entidade.
     }
 
     @Test
@@ -118,6 +126,18 @@ class NotaFiscalEmitidaServiceTest {
         assertThatThrownBy(() -> service.registrar(dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("maior que zero");
+    }
+
+    @Test
+    void registrar_dataEmissaoFutura_deveLancarErroDeNegocio() {
+        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+
+        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1",
+                LocalDate.now().plusDays(1), new BigDecimal("250.00"), null);
+
+        assertThatThrownBy(() -> service.registrar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("futura");
     }
 
     @Test

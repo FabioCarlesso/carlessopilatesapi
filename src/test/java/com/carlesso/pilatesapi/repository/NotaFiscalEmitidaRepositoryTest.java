@@ -9,7 +9,6 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,6 +49,8 @@ class NotaFiscalEmitidaRepositoryTest {
 
         assertThat(nota).isPresent();
         assertThat(nota.get().getNumeroNota()).isEqualTo("NF-1");
+        // dataCriacao é preenchida automaticamente pelo callback @PrePersist (helper não a define).
+        assertThat(nota.get().getDataCriacao()).isNotNull();
     }
 
     @Test
@@ -87,7 +88,6 @@ class NotaFiscalEmitidaRepositoryTest {
         nota.setNumeroNota("NF-1");
         nota.setDataEmissao(competencia.plusDays(10));
         nota.setValor(new BigDecimal("250.00"));
-        nota.setDataCriacao(LocalDateTime.now());
         return nota;
     }
 }

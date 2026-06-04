@@ -46,6 +46,16 @@ public class NotaFiscalEmitida {
 
     public NotaFiscalEmitida() {}
 
+    @PrePersist
+    void prePersist() {
+        this.dataCriacao = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        this.dataAtualizacao = LocalDateTime.now();
+    }
+
     public Long getId() { return id; }
 
     public Paciente getPaciente() { return paciente; }
