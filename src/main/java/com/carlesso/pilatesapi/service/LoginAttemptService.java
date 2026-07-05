@@ -29,12 +29,27 @@ public class LoginAttemptService {
     }
 
     public boolean isBlocked(String key) {
-        Deque<Instant> deque = history.get(key);
-        if (deque == null) return false;
+        Deque<Instant> deque = prunirExpirados(key);
+        return deque != null && deque.size() >= MAX_ATTEMPTS;
+    }
+
+    /**
+     * Remove do mapa as chaves cujas tentativas já saíram da janela. Sem isso,
+     * chaves que nunca são revisitadas (ex.: um e-mail de recuperação de senha
+     * usado uma única vez) ficariam retidas para sempre, permitindo crescimento
+     * ilimitado do mapa em memória por um endpoint não autenticado.
+     */
+    public void limparEntradasExpiradas() {
+        history.keySet().forEach(this::prunirExpirados);
+    }
+
+    private Deque<Instant> prunirExpirados(String key) {
         Instant cutoff = Instant.now().minus(WINDOW);
-        while (!deque.isEmpty() && deque.peekFirst().isBefore(cutoff)) {
-            deque.pollFirst();
-        }
-        return deque.size() >= MAX_ATTEMPTS;
+        return history.computeIfPresent(key, (k, deque) -> {
+            while (!deque.isEmpty() && deque.peekFirst().isBefore(cutoff)) {
+                deque.pollFirst();
+            }
+            return deque.isEmpty() ? null : deque;
+        });
     }
 }

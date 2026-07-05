@@ -859,6 +859,7 @@ cd scripts && python3 -m unittest test_import_seufisio -v
 | `APP_EMAIL_PROVIDER` | `smtp` | Provedor de e-mail ativo (seleciona o bean `EmailSender` via `EmailConfig`) |
 | `APP_EMAIL_FROM` | `no-reply@carlessopilates.com.br` | Remetente usado no envio de e-mails transacionais |
 | `APP_EMAIL_RESET_PASSWORD_URL` | `https://app.carlessopilates.com.br/resetar-senha` | URL do frontend para onde o link de redefinição de senha aponta (`?token=...`) |
+| `APP_EMAIL_RESET_PASSWORD_TOKEN_TTL_MINUTOS` | `30` | Validade do token de redefinição de senha; a mesma propriedade define o prazo real e o texto exibido no e-mail |
 | `SMTP_HOST` | - | Host do servidor SMTP usado pelo `SmtpEmailSender` |
 | `SMTP_PORT` | `587` | Porta do servidor SMTP |
 | `SMTP_USERNAME` | - | Usuário de autenticação SMTP |
@@ -1124,11 +1125,12 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 
 ### Recuperação de senha (esqueci minha senha)
 - `POST /auth/forgot-password` recebe `email` e sempre retorna `200` com resposta genérica, mesmo se o e-mail não existir ou pertencer a um usuário inativo, para evitar enumeração de usuários
-- Rate limiting reaproveita o `LoginAttemptService` (5 solicitações por e-mail em 15 minutos); acima do limite retorna `429`
-- Token de redefinição: gerado aleatoriamente (32 bytes, Base64 URL-safe), salvo em `password_reset_tokens` **apenas como hash SHA-256** (nunca em texto puro), com expiração de 30 minutos e uso único
+- Rate limiting reaproveita o `LoginAttemptService` (5 solicitações por e-mail em 15 minutos); acima do limite retorna `429`. Chaves cujas tentativas já saíram da janela são removidas do mapa em memória tanto ao consultar o limite quanto periodicamente por `LoginAttemptCleanupScheduler` (a cada 15 min), evitando crescimento ilimitado via solicitações não autenticadas
+- Ao gerar um novo token, qualquer token anterior ainda válido do mesmo usuário é invalidado — apenas o token da solicitação mais recente funciona
+- Token de redefinição: gerado aleatoriamente (32 bytes, Base64 URL-safe), salvo em `password_reset_tokens` **apenas como hash SHA-256** (nunca em texto puro), com expiração configurável (`app.email.reset-password-token-ttl-minutos`, default 30 min — a mesma propriedade usada no texto do e-mail) e uso único
 - O e-mail de redefinição é montado a partir do template Thymeleaf `password-reset.html` e enviado de forma assíncrona (`@Async`) via `EmailSender`, sem bloquear a resposta do `forgot-password`
-- `POST /auth/reset-password` recebe `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`; token inexistente, expirado ou já utilizado, assim como confirmação divergente, retornam `422` com mensagem genérica
-- Ao redefinir com sucesso: a senha é armazenada com `BCryptPasswordEncoder`, o `token_version` do usuário é incrementado (invalidando JWTs emitidos antes da redefinição) e o token é marcado como usado
+- `POST /auth/reset-password` recebe `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`; token inexistente, expirado ou já utilizado, assim como confirmação divergente, retornam `422` com mensagem genérica. A busca do token usa lock pessimista (`@Lock(PESSIMISTIC_WRITE)`) para impedir que duas requisições concorrentes redimam o mesmo token de uso único
+- Ao redefinir com sucesso: a senha é armazenada com `BCryptPasswordEncoder` e o `token_version` do usuário é incrementado (invalidando JWTs emitidos antes da redefinição) via `UserService.aplicarNovaSenha`, reaproveitado também por `PUT /users/me/senha` e pelo CRUD administrativo; o token é marcado como usado
 - Troca de provedor de e-mail (SMTP → SES, por exemplo) exige apenas uma nova implementação de `EmailSender` e ajuste em `EmailConfig`/`app.email.provider`, sem alterar `PasswordResetService`
 
 ### Scheduler (processos automáticos)
@@ -1209,9 +1211,10 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PreferenciasUsuarioServiceTest` | Unitário (Mockito) | 7 |
 | `PreferenciasUsuarioControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `PreferenciasUsuarioRepositoryTest` | Repositório (`@DataJpaTest` + H2) | 5 |
-| `PasswordResetServiceTest` | Unitário (Mockito) | 10 |
+| `PasswordResetServiceTest` | Unitário (Mockito) | 12 |
+| `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
 | `AuthControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 5 |
+| `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 6 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 42 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |

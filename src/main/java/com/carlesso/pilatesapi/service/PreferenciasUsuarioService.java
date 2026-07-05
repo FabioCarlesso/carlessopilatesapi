@@ -9,10 +9,9 @@ import com.carlesso.pilatesapi.entity.enums.TemaPreferencia;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PreferenciasUsuarioRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import com.carlesso.pilatesapi.util.EmailNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Locale;
 
 @Service
 public class PreferenciasUsuarioService {
@@ -32,14 +31,14 @@ public class PreferenciasUsuarioService {
 
     @Transactional(readOnly = true)
     public PreferenciasUsuarioResponseDTO buscarPorEmail(String email) {
-        return repository.findByUserEmail(email.toLowerCase(Locale.ROOT))
+        return repository.findByUserEmail(EmailNormalizer.normalizar(email))
                 .map(PreferenciasUsuarioResponseDTO::from)
                 .orElseGet(this::padraoResponse);
     }
 
     @Transactional
     public PreferenciasUsuarioResponseDTO atualizarPorEmail(String email, PreferenciasUsuarioRequestDTO dto) {
-        User user = userRepository.findByEmailForUpdate(email.toLowerCase(Locale.ROOT))
+        User user = userRepository.findByEmailForUpdate(EmailNormalizer.normalizar(email))
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
         PreferenciasUsuario preferencias = repository.findByUserId(user.getId())

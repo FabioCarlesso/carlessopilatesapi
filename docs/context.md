@@ -188,9 +188,11 @@ com.carlesso.pilatesapi
 │   ├── ForgotPasswordRequestDTO.java  — payload de "esqueci minha senha" (record: email)
 │   └── ResetPasswordRequestDTO.java   — payload de redefinição de senha (record: token, novaSenha, confirmacaoNovaSenha)
 ├── scheduler
-│   └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
+│   ├── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
+│   └── LoginAttemptCleanupScheduler.java — remove periodicamente do LoginAttemptService chaves cujas tentativas já saíram da janela, evitando crescimento ilimitado do mapa em memória
 └── util
-    └── CompetenciaUtils.java         — validação/parsing/formatação de competências `MM/AAAA` (compartilhado pelo relatório e registro de NFSE)
+    ├── CompetenciaUtils.java         — validação/parsing/formatação de competências `MM/AAAA` (compartilhado pelo relatório e registro de NFSE)
+    └── EmailNormalizer.java          — normalização de e-mail (lowercase, locale-independente) compartilhada entre os services que identificam usuários por e-mail
 ```
 
 ---
@@ -589,11 +591,11 @@ CPF não pode ser alterado após o cadastro.
 
 ### Recuperação de senha (esqueci minha senha)
 - `POST /auth/forgot-password` recebe `email` e sempre retorna `200` com resposta genérica, independentemente de o e-mail existir ou pertencer a um usuário ativo, para evitar enumeração de usuários
-- Rate limiting reaproveitando `LoginAttemptService` (mesmo limite de login: 5 solicitações por e-mail em 15 minutos); acima do limite retorna `429 Too Many Requests`
-- Quando o e-mail pertence a um usuário ativo, é gerado um token aleatório (32 bytes, Base64 URL-safe) e salvo em `password_reset_tokens` **apenas como hash SHA-256**, com expiração de 30 minutos; o token em texto puro nunca é persistido, apenas enviado por e-mail
+- Rate limiting reaproveitando `LoginAttemptService` (mesmo limite de login: 5 solicitações por e-mail em 15 minutos); acima do limite retorna `429 Too Many Requests`. Chaves cujas tentativas já saíram da janela são removidas do mapa em memória tanto ao consultar o limite quanto periodicamente por `LoginAttemptCleanupScheduler` (a cada 15 min), evitando crescimento ilimitado de memória via solicitações não autenticadas
+- Quando o e-mail pertence a um usuário ativo, qualquer token de redefinição anterior ainda válido é invalidado e um novo token aleatório (32 bytes, Base64 URL-safe) é gerado e salvo em `password_reset_tokens` **apenas como hash SHA-256**, com expiração configurável (`app.email.reset-password-token-ttl-minutos`, default 30 min — a mesma propriedade usada no texto do e-mail, evitando divergência entre o prazo real e o exibido ao usuário); o token em texto puro nunca é persistido, apenas enviado por e-mail. Apenas o token da solicitação mais recente é válido
 - O e-mail é montado a partir do template Thymeleaf `password-reset.html` e enviado de forma assíncrona (`@Async`) via `EmailSender`, sem bloquear a resposta do `forgot-password`
-- `POST /auth/reset-password` recebe `token`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; token inexistente, expirado ou já utilizado retorna `422 Unprocessable Entity` com mensagem genérica ("Token inválido ou expirado"), assim como confirmação de senha divergente
-- Ao redefinir com sucesso, a senha é armazenada com `BCryptPasswordEncoder`, o `token_version` do usuário é incrementado (invalidando JWTs emitidos antes da redefinição) e o token de redefinição é marcado como usado (`used_at`), não podendo ser reutilizado
+- `POST /auth/reset-password` recebe `token`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; token inexistente, expirado ou já utilizado retorna `422 Unprocessable Entity` com mensagem genérica ("Token inválido ou expirado"), assim como confirmação de senha divergente. A busca do token usa lock pessimista (`@Lock(PESSIMISTIC_WRITE)`, mesmo padrão de `UserRepository.findByEmailForUpdate`) para impedir que duas requisições concorrentes redimam o mesmo token de uso único
+- Ao redefinir com sucesso, a senha é armazenada com `BCryptPasswordEncoder` e o `token_version` do usuário é incrementado (invalidando JWTs emitidos antes da redefinição) através do mesmo `UserService.aplicarNovaSenha` reaproveitado por `PUT /users/me/senha` e pelo CRUD administrativo de usuários; o token de redefinição é marcado como usado (`used_at`), não podendo ser reutilizado
 - A troca de provedor de e-mail (SMTP → SES, por exemplo) é feita apenas registrando uma nova implementação de `EmailSender` e ajustando `EmailConfig`/`app.email.provider`, sem alterar `PasswordResetService`
 
 ### Pacientes
@@ -763,6 +765,7 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 | `APP_EMAIL_PROVIDER` | `smtp` |
 | `APP_EMAIL_FROM` | `no-reply@carlessopilates.com.br` |
 | `APP_EMAIL_RESET_PASSWORD_URL` | `https://app.carlessopilates.com.br/resetar-senha` |
+| `APP_EMAIL_RESET_PASSWORD_TOKEN_TTL_MINUTOS` | `30` |
 | `SMTP_HOST` | — (obrigatório para envio real de e-mail) |
 | `SMTP_PORT` | `587` |
 | `SMTP_USERNAME` | — |
@@ -804,14 +807,14 @@ spring.data.web.pageable.default-page-size=${APP_PAGINACAO_TAMANHO_PADRAO:10}
 app.email.provider=${APP_EMAIL_PROVIDER:smtp}
 app.email.from=${APP_EMAIL_FROM:no-reply@carlessopilates.com.br}
 app.email.reset-password-url=${APP_EMAIL_RESET_PASSWORD_URL:https://app.carlessopilates.com.br/resetar-senha}
+app.email.reset-password-token-ttl-minutos=${APP_EMAIL_RESET_PASSWORD_TOKEN_TTL_MINUTOS:30}
 spring.mail.host=${SMTP_HOST:}
 spring.mail.port=${SMTP_PORT:587}
 spring.mail.username=${SMTP_USERNAME:}
 spring.mail.password=${SMTP_PASSWORD:}
-management.health.mail.enabled=false
 ```
 
-Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código. A paginação usa a propriedade nativa do Spring Data Web, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO`. O indicador de saúde do Actuator para `mail` é desabilitado (`management.health.mail.enabled=false`) para que uma falha de conectividade SMTP não derrube o status geral de `/actuator/health` — o envio de e-mail é assíncrono e não crítico para a disponibilidade da API.
+Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código. A paginação usa a propriedade nativa do Spring Data Web, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO`. A mesma propriedade `app.email.reset-password-token-ttl-minutos` define tanto a expiração real do token de redefinição quanto o texto exibido no e-mail, evitando divergência entre os dois. O indicador de saúde do Actuator para `mail` (`management.health.mail.enabled=false`) é desabilitado apenas nos perfis `dev` e nos testes, onde normalmente não há um servidor SMTP real disponível; em produção ele permanece ativo para refletir o estado real da conectividade SMTP em `/actuator/health`.
 
 ---
 
@@ -892,14 +895,15 @@ mvn spring-boot:run
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
-| `UserServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `UserServiceTest` | Unitário (Mockito, sem Spring) | 23 |
 | `UserControllerTest` | `@WebMvcTest` + MockMvc | 8 |
 | `PreferenciasUsuarioServiceTest` | Unitário (Mockito, sem Spring) | 7 |
 | `PreferenciasUsuarioControllerTest` | `@WebMvcTest` + MockMvc | 6 |
 | `PreferenciasUsuarioRepositoryTest` | `@DataJpaTest` + H2 | 5 |
-| `PasswordResetServiceTest` | Unitário (Mockito, sem Spring) | 10 |
+| `PasswordResetServiceTest` | Unitário (Mockito, sem Spring) | 12 |
+| `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
 | `AuthControllerTest` | `@WebMvcTest` + MockMvc | 9 |
-| `PasswordResetIntegrationTest` | `@SpringBootTest` + MockMvc + H2 (EmailSender mockado) | 5 |
+| `PasswordResetIntegrationTest` | `@SpringBootTest` + MockMvc + H2 (EmailSender mockado) | 6 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 42 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

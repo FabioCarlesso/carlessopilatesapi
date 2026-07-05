@@ -87,7 +87,7 @@ public class PasswordResetToken {
         return createdAt;
     }
 
-    public boolean isValido(LocalDateTime agora) {
-        return usedAt == null && expiresAt.isAfter(agora);
+    public boolean isValido() {
+        return usedAt == null && expiresAt.isAfter(LocalDateTime.now());
     }
 }

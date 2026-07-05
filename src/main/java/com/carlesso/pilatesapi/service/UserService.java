@@ -11,6 +11,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import com.carlesso.pilatesapi.util.EmailNormalizer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 @Service
 public class UserService {
@@ -34,7 +34,7 @@ public class UserService {
 
     @Transactional
     public UserResponseDTO criar(UserRequestDTO dto) {
-        String email = normalizarEmail(dto.email());
+        String email = EmailNormalizer.normalizar(dto.email());
         if (repository.existsByEmail(email)) {
             throw new ConflictException("E-mail já cadastrado");
         }
@@ -68,7 +68,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponseDTO buscarPorEmail(String email) {
         return UserResponseDTO.from(
-                repository.findByEmail(email.toLowerCase(Locale.ROOT))
+                repository.findByEmail(EmailNormalizer.normalizar(email))
                         .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"))
         );
     }
@@ -86,7 +86,7 @@ public class UserService {
         }
 
         if (dto.email() != null) {
-            String email = normalizarEmail(dto.email());
+            String email = EmailNormalizer.normalizar(dto.email());
             if (repository.existsByEmailAndIdNot(email, id)) {
                 throw new ConflictException("E-mail já cadastrado");
             }
@@ -94,8 +94,7 @@ public class UserService {
         }
         if (dto.name() != null) user.setName(dto.name());
         if (dto.password() != null) {
-            user.setPassword(passwordEncoder.encode(dto.password()));
-            user.incrementarTokenVersion();
+            aplicarNovaSenha(user, dto.password());
         }
         if (dto.role() != null) user.setRole(dto.role());
 
@@ -104,7 +103,7 @@ public class UserService {
 
     @Transactional
     public void alterarSenha(String currentEmail, UserAlterarSenhaRequestDTO dto) {
-        User user = repository.findByEmail(currentEmail.toLowerCase(Locale.ROOT))
+        User user = repository.findByEmail(EmailNormalizer.normalizar(currentEmail))
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
         if (!passwordEncoder.matches(dto.senhaAtual(), user.getPassword())) {
@@ -117,9 +116,19 @@ public class UserService {
             throw new BusinessException("A nova senha deve ser diferente da senha atual");
         }
 
-        user.setPassword(passwordEncoder.encode(dto.novaSenha()));
-        user.incrementarTokenVersion();
+        aplicarNovaSenha(user, dto.novaSenha());
         repository.save(user);
+    }
+
+    /**
+     * Aplica uma nova senha ao usuário (encode + invalidação de JWTs emitidos
+     * antes da troca via incremento de token_version), sem persistir; o
+     * chamador decide quando salvar. Reaproveitado por {@code alterarSenha},
+     * {@code atualizar} e pelo fluxo de redefinição de senha.
+     */
+    public void aplicarNovaSenha(User user, String novaSenhaPlana) {
+        user.setPassword(passwordEncoder.encode(novaSenhaPlana));
+        user.incrementarTokenVersion();
     }
 
     @Transactional
@@ -143,9 +152,5 @@ public class UserService {
     private User encontrar(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado: " + id));
-    }
-
-    private String normalizarEmail(String email) {
-        return email.toLowerCase(Locale.ROOT);
     }
 }

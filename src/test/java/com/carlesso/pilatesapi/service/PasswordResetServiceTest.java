@@ -17,7 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -26,7 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,6 +36,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PasswordResetServiceTest {
 
+    private static final String RESET_PASSWORD_URL = "https://app.carlessopilates.com.br/resetar-senha";
+    private static final long TOKEN_TTL_MINUTOS = 30;
+
     @Mock
     private UserRepository userRepository;
 
@@ -43,7 +46,7 @@ class PasswordResetServiceTest {
     private PasswordResetTokenRepository tokenRepository;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private UserService userService;
 
     @Mock
     private EmailSender emailSender;
@@ -58,9 +61,13 @@ class PasswordResetServiceTest {
     @BeforeEach
     void setUp() {
         loginAttemptService = new LoginAttemptService();
-        service = new PasswordResetService(
-                userRepository, tokenRepository, passwordEncoder, emailSender, emailTemplateService,
-                loginAttemptService, "https://app.carlessopilates.com.br/resetar-senha");
+        service = novoService(TOKEN_TTL_MINUTOS);
+    }
+
+    private PasswordResetService novoService(long tokenTtlMinutos) {
+        return new PasswordResetService(
+                userRepository, tokenRepository, userService, emailSender, emailTemplateService,
+                loginAttemptService, RESET_PASSWORD_URL, tokenTtlMinutos);
     }
 
     private User usuario(Long id, String email, boolean ativo) {
@@ -96,6 +103,35 @@ class PasswordResetServiceTest {
         assertThat(saved.getTokenHash()).isNotBlank();
         assertThat(saved.getExpiresAt()).isAfter(LocalDateTime.now());
         verify(emailSender).send(any(EmailMessage.class));
+    }
+
+    @Test
+    void solicitarRedefinicao_deveInvalidarTokensAnterioresAntesDeGerarNovo() {
+        User user = usuario(1L, "maria@email.com", true);
+        when(userRepository.findByEmail("maria@email.com")).thenReturn(Optional.of(user));
+        when(emailTemplateService.criarEmailRedefinicaoSenha(any(), anyString()))
+                .thenReturn(new EmailMessage("maria@email.com", "assunto", "html", "texto"));
+
+        service.solicitarRedefinicao("maria@email.com");
+
+        verify(tokenRepository).invalidarTokensAtivos(eq(user), any(LocalDateTime.class));
+    }
+
+    @Test
+    void solicitarRedefinicao_deveRespeitarTtlConfiguradoViaProperty() {
+        PasswordResetService customService = novoService(45);
+        User user = usuario(1L, "maria@email.com", true);
+        when(userRepository.findByEmail("maria@email.com")).thenReturn(Optional.of(user));
+        when(emailTemplateService.criarEmailRedefinicaoSenha(any(), anyString()))
+                .thenReturn(new EmailMessage("maria@email.com", "assunto", "html", "texto"));
+
+        customService.solicitarRedefinicao("maria@email.com");
+
+        ArgumentCaptor<PasswordResetToken> captor = ArgumentCaptor.forClass(PasswordResetToken.class);
+        verify(tokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getExpiresAt())
+                .isAfter(LocalDateTime.now().plusMinutes(44))
+                .isBefore(LocalDateTime.now().plusMinutes(46));
     }
 
     @Test
@@ -141,15 +177,21 @@ class PasswordResetServiceTest {
     }
 
     @Test
-    void redefinirSenha_comTokenValido_deveAtualizarSenhaEIncrementarTokenVersionEMarcarTokenUsado() {
+    void redefinirSenha_comTokenValido_deveAtualizarSenhaEMarcarTokenUsado() {
         User user = usuario(1L, "maria@email.com", true);
         PasswordResetToken token = tokenValido(user);
         when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
-        when(passwordEncoder.encode("novaSenha123")).thenReturn("hash-nova");
+        doAnswer(invocation -> {
+            User alvo = invocation.getArgument(0);
+            alvo.setPassword("hash-nova");
+            alvo.incrementarTokenVersion();
+            return null;
+        }).when(userService).aplicarNovaSenha(eq(user), eq("novaSenha123"));
         var dto = new ResetPasswordRequestDTO("token-bruto", "novaSenha123", "novaSenha123");
 
         service.redefinirSenha(dto);
 
+        verify(userService).aplicarNovaSenha(user, "novaSenha123");
         assertThat(user.getPassword()).isEqualTo("hash-nova");
         assertThat(user.getTokenVersion()).isEqualTo(1);
         assertThat(token.getUsedAt()).isNotNull();
@@ -180,8 +222,9 @@ class PasswordResetServiceTest {
 
     @Test
     void redefinirSenha_comTokenExpirado_deveLancarBusinessException() {
-        PasswordResetToken token = mock(PasswordResetToken.class);
-        when(token.isValido(any())).thenReturn(false);
+        User user = usuario(1L, "maria@email.com", true);
+        PasswordResetToken token = tokenValido(user);
+        token.setExpiresAt(LocalDateTime.now().minusMinutes(1));
         when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
         var dto = new ResetPasswordRequestDTO("token-expirado", "novaSenha123", "novaSenha123");
 

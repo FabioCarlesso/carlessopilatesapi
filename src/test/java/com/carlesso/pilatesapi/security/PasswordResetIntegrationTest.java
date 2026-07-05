@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -122,6 +123,38 @@ class PasswordResetIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(resetRequest)))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void forgotPassword_solicitadoDuasVezes_tokenAnteriorNaoDeveMaisFuncionar() throws Exception {
+        criarUsuario("duplasolicitacao@email.com");
+        var request = new ForgotPasswordRequestDTO("duplasolicitacao@email.com");
+
+        mvc.perform(post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        var captor = forClass(EmailMessage.class);
+        verify(emailSender, times(2)).send(captor.capture());
+        String tokenAntigo = extrairToken(captor.getAllValues().get(0));
+        String tokenNovo = extrairToken(captor.getAllValues().get(1));
+
+        mvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(
+                                new ResetPasswordRequestDTO(tokenAntigo, "novaSenha123", "novaSenha123"))))
+                .andExpect(status().isUnprocessableEntity());
+
+        mvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(
+                                new ResetPasswordRequestDTO(tokenNovo, "novaSenha123", "novaSenha123"))))
+                .andExpect(status().isOk());
     }
 
     @Test

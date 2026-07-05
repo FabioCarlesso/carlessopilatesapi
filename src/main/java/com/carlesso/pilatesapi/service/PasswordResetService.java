@@ -9,8 +9,8 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.repository.PasswordResetTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import com.carlesso.pilatesapi.util.EmailNormalizer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,46 +18,46 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Locale;
 
 @Service
 public class PasswordResetService {
 
     private static final String RATE_LIMIT_KEY_PREFIX = "forgot-password:";
-    private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
     private final EmailSender emailSender;
     private final EmailTemplateService emailTemplateService;
     private final LoginAttemptService loginAttemptService;
     private final String resetPasswordUrl;
+    private final long tokenTtlMinutos;
 
     public PasswordResetService(UserRepository userRepository,
                                  PasswordResetTokenRepository tokenRepository,
-                                 PasswordEncoder passwordEncoder,
+                                 UserService userService,
                                  EmailSender emailSender,
                                  EmailTemplateService emailTemplateService,
                                  LoginAttemptService loginAttemptService,
-                                 @Value("${app.email.reset-password-url}") String resetPasswordUrl) {
+                                 @Value("${app.email.reset-password-url}") String resetPasswordUrl,
+                                 @Value("${app.email.reset-password-token-ttl-minutos:30}") long tokenTtlMinutos) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.userService = userService;
         this.emailSender = emailSender;
         this.emailTemplateService = emailTemplateService;
         this.loginAttemptService = loginAttemptService;
         this.resetPasswordUrl = resetPasswordUrl;
+        this.tokenTtlMinutos = tokenTtlMinutos;
     }
 
     @Transactional
     public void solicitarRedefinicao(String email) {
-        String normalizedEmail = email.toLowerCase(Locale.ROOT);
+        String normalizedEmail = EmailNormalizer.normalizar(email);
         String rateLimitKey = RATE_LIMIT_KEY_PREFIX + normalizedEmail;
         if (loginAttemptService.isBlocked(rateLimitKey)) {
             throw new TooManyRequestsException("Muitas solicitações. Tente novamente em 15 minutos.");
@@ -76,12 +76,11 @@ public class PasswordResetService {
         }
 
         PasswordResetToken resetToken = tokenRepository.findByTokenHash(hash(dto.token()))
-                .filter(t -> t.isValido(LocalDateTime.now()))
+                .filter(PasswordResetToken::isValido)
                 .orElseThrow(() -> new BusinessException("Token inválido ou expirado"));
 
         User user = resetToken.getUser();
-        user.setPassword(passwordEncoder.encode(dto.novaSenha()));
-        user.incrementarTokenVersion();
+        userService.aplicarNovaSenha(user, dto.novaSenha());
         userRepository.save(user);
 
         resetToken.setUsedAt(LocalDateTime.now());
@@ -89,12 +88,14 @@ public class PasswordResetService {
     }
 
     private void gerarTokenEEnviarEmail(User user) {
+        tokenRepository.invalidarTokensAtivos(user, LocalDateTime.now());
+
         String rawToken = gerarTokenAleatorio();
 
         PasswordResetToken token = new PasswordResetToken();
         token.setUser(user);
         token.setTokenHash(hash(rawToken));
-        token.setExpiresAt(LocalDateTime.now().plus(TOKEN_TTL));
+        token.setExpiresAt(LocalDateTime.now().plusMinutes(tokenTtlMinutos));
         tokenRepository.save(token);
 
         String link = resetPasswordUrl + "?token=" + rawToken;
