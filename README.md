@@ -33,7 +33,7 @@ src/
 ├── main/
 │   ├── java/com/carlesso/pilatesapi/
 │   │   ├── config/
-│   │   │   ├── GlobalExceptionHandler.java  # Mapeia exceções customizadas para HTTP (404/409/422)
+│   │   │   ├── GlobalExceptionHandler.java  # Mapeia exceções para HTTP (400/403/404/409/422/500) com detalhe de campos na validação
 │   │   │   ├── OpenApiConfig.java           # Configuração do Swagger/OpenAPI
 │   │   │   └── SecurityConfig.java          # Spring Security, JWT stateless e CORS
 │   │   ├── exception/
@@ -1187,11 +1187,27 @@ A API utiliza exceções customizadas mapeadas pelo `GlobalExceptionHandler` par
 | `BusinessException` | `422 Unprocessable Entity` | Regra de negócio violada (ex.: paciente inativo não pode receber cobrança, profissional inativo não pode ser vinculado a aula) |
 | `IllegalArgumentException` | `400 Bad Request` | Parâmetros de entrada inválidos (ex.: período inicial maior que o final, valor menor que o do plano) |
 | `DataIntegrityViolationException` | `409 Conflict` | Violação de constraint do banco (ex.: registro duplicado ao salvar) |
+| `MethodArgumentNotValidException` / `HandlerMethodValidationException` / `ConstraintViolationException` | `400 Bad Request` | Bean Validation falhou (`@NotBlank`, `@Email`, `@Min`…); a resposta detalha os campos inválidos |
+| `HttpMessageNotReadableException` | `400 Bad Request` | Corpo da requisição malformado (JSON inválido) |
+| `AccessDeniedException` | `403 Forbidden` | Usuário autenticado sem permissão para o recurso |
+| Demais exceções | `500 Internal Server Error` | Erro inesperado; logado com stacktrace no servidor e respondido com mensagem neutra, sem vazar detalhes internos. Exceções do próprio Spring MVC preservam o status original (ex.: `405`, `415`, parâmetro obrigatório ausente → `400`) |
 
 Formato da resposta de erro:
 
 ```json
 { "erro": "Mensagem descritiva do problema" }
+```
+
+Erros de validação de campos incluem também o detalhe por campo:
+
+```json
+{
+  "erro": "Dados inválidos",
+  "campos": {
+    "nome": "não deve estar em branco",
+    "email": "deve ser um endereço de e-mail bem formado"
+  }
+}
 ```
 
 ---
@@ -1215,7 +1231,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `RelatorioNfseExporterServiceTest` | Unitário | 3 |
 | `NotaFiscalEmitidaServiceTest` | Unitário (Mockito) | 6 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
-| `GlobalExceptionHandlerTest` | Unitário | 7 |
+| `GlobalExceptionHandlerTest` | Unitário | 13 |
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
@@ -1224,7 +1240,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
 | `NotaFiscalEmitidaRepositoryTest` | JPA (`@DataJpaTest`) | 3 |
 | `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 4 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
+| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 20 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |

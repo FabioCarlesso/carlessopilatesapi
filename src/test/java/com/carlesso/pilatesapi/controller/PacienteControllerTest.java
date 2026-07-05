@@ -129,6 +129,51 @@ class PacienteControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void cadastrar_semNome_deveRetornar400ComDetalheDoCampo() throws Exception {
+        var dto = new PacienteRequestDTO(null, "maria@email.com", null, null, null, null);
+
+        mvc.perform(post("/pacientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Dados inválidos"))
+                .andExpect(jsonPath("$.campos.nome").isNotEmpty());
+    }
+
+    @Test
+    void cadastrar_emailInvalido_deveRetornar400ComDetalheDoCampo() throws Exception {
+        var dto = new PacienteRequestDTO("Maria", "nao-e-email", null, null, null, null);
+
+        mvc.perform(post("/pacientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Dados inválidos"))
+                .andExpect(jsonPath("$.campos.email").isNotEmpty());
+    }
+
+    @Test
+    void cadastrar_jsonMalformado_deveRetornar400ComMensagemNeutra() throws Exception {
+        mvc.perform(post("/pacientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\": "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Corpo da requisição inválido ou malformado"));
+    }
+
+    @Test
+    void cadastrar_erroInesperado_deveRetornar500SemVazarDetalhes() throws Exception {
+        when(service.cadastrar(any())).thenThrow(new RuntimeException("falha interna do banco"));
+        var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null);
+
+        mvc.perform(post("/pacientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.erro").value("Erro interno do servidor"));
+    }
+
     // -------------------------------------------------------------------------
     // GET /pacientes
     // -------------------------------------------------------------------------

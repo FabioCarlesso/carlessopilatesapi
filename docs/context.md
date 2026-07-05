@@ -36,7 +36,7 @@ com.carlesso.pilatesapi
 ├── config
 │   ├── AppProperties.java            — @ConfigurationProperties (cobranca)
 │   ├── EmailConfig.java              — bean do EmailSender ativo, selecionado via @ConditionalOnProperty("app.email.provider") (hoje só `smtp`; troca futura para `ses` não exige mudança no PasswordResetService)
-│   ├── GlobalExceptionHandler.java   — mapeia exceções customizadas para HTTP (404/409/422)
+│   ├── GlobalExceptionHandler.java   — mapeia exceções para HTTP (400/403/404/409/422/500), com detalhe de campos na validação
 │   ├── OpenApiConfig.java            — configuração do Swagger/OpenAPI
 │   └── SecurityConfig.java           — regras de acesso, CORS e sessão stateless
 ├── email
@@ -735,7 +735,7 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 - **Atualização parcial via PUT**: DTOs de update têm todos os campos opcionais; o service só sobrescreve os campos não-nulos.
 - **DTOs como records**: todos os DTOs de request e response são Java records.
 - **Factory method**: `*ResponseDTO.from(Entity)` centraliza o mapeamento entidade → DTO.
-- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409.
+- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409. Erros de Bean Validation retornam 400 com `{"erro": "Dados inválidos", "campos": {campo: mensagem}}`; JSON malformado retorna 400 com mensagem neutra; exceções não mapeadas retornam 500 com mensagem genérica e são logadas com stacktrace (exceções do próprio Spring MVC preservam o status original — 405, 415, parâmetro ausente → 400).
 - **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
 - **Transações de leitura**: métodos de consulta nos services usam `@Transactional(readOnly = true)` para evitar flush desnecessário e permitir otimizações de conexão.
 
@@ -869,7 +869,7 @@ mvn spring-boot:run
 | `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + H2 | 11 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
 | `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 1 |
-| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 16 |
+| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 20 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 17 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
@@ -890,7 +890,7 @@ mvn spring-boot:run
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
-| `GlobalExceptionHandlerTest` | Unitário | 7 |
+| `GlobalExceptionHandlerTest` | Unitário | 13 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |
