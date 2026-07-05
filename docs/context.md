@@ -35,9 +35,16 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 com.carlesso.pilatesapi
 ├── config
 │   ├── AppProperties.java            — @ConfigurationProperties (cobranca)
+│   ├── EmailConfig.java              — bean do EmailSender ativo, selecionado via @ConditionalOnProperty("app.email.provider") (hoje só `smtp`; troca futura para `ses` não exige mudança no PasswordResetService)
 │   ├── GlobalExceptionHandler.java   — mapeia exceções customizadas para HTTP (404/409/422)
 │   ├── OpenApiConfig.java            — configuração do Swagger/OpenAPI
 │   └── SecurityConfig.java           — regras de acesso, CORS e sessão stateless
+├── email
+│   ├── EmailMessage.java             — record (to, subject, htmlBody, textBody)
+│   ├── EmailSender.java              — interface de envio, implementada por SmtpEmailSender (portável para outros provedores)
+│   ├── EmailTemplateService.java     — interface de geração de EmailMessage a partir de template + variáveis
+│   ├── SmtpEmailSender.java          — implementação via JavaMailSender, envio assíncrono (@Async)
+│   └── ThymeleafEmailTemplateService.java — implementação via Thymeleaf + template `password-reset.html`
 ├── exception
 │   ├── ResourceNotFoundException.java — 404 (recurso não encontrado)
 │   ├── ConflictException.java         — 409 (conflito de estado/duplicidade)
@@ -82,9 +89,10 @@ com.carlesso.pilatesapi
 │   ├── AuthService.java                        — registro/login, emissão de token e rate limiting
 │   ├── UserService.java                        — CRUD de usuários e definição de perfis de acesso
 │   ├── JwtService.java                         — geração (claims role/userId) e validação de JWT
-│   ├── LoginAttemptService.java                — rate limiting in-memory por e-mail (5 tentativas / 15 min)
+│   ├── LoginAttemptService.java                — rate limiting in-memory por chave (e-mail de login ou de recuperação de senha; 5 tentativas / 15 min)
 │   ├── CustomUserDetailsService.java           — carregamento de usuários para Spring Security
-│   └── PreferenciasUsuarioService.java         — leitura/atualização das preferências do usuário com defaults centralizados
+│   ├── PreferenciasUsuarioService.java         — leitura/atualização das preferências do usuário com defaults centralizados
+│   └── PasswordResetService.java               — geração/validação de token de redefinição de senha (hash SHA-256) e redefinição com invalidação de JWTs ativos
 ├── repository
 │   ├── PacienteRepository.java       — acesso ao banco via Spring Data JPA
 │   ├── ProfissionalRepository.java   — acesso ao banco via Spring Data JPA
@@ -99,7 +107,8 @@ com.carlesso.pilatesapi
 │   ├── ReavaliacaoRepository.java
 │   ├── UserRepository.java
 │   ├── PreferenciasUsuarioRepository.java
-│   └── NotaFiscalEmitidaRepository.java
+│   ├── NotaFiscalEmitidaRepository.java
+│   └── PasswordResetTokenRepository.java
 ├── entity
 │   ├── Paciente.java                 — entidade JPA, tabela `pacientes`
 │   ├── Endereco.java                 — @Embeddable, colunas embutidas em `pacientes`
@@ -115,7 +124,8 @@ com.carlesso.pilatesapi
 │   ├── Reavaliacao.java              — entidade JPA, tabela `reavaliacoes`
 │   ├── User.java                     — entidade JPA, tabela `users`
 │   ├── PreferenciasUsuario.java      — entidade JPA, tabela `preferencias_usuario` (1:1 com `users`)
-│   └── NotaFiscalEmitida.java        — entidade JPA, tabela `notas_fiscais_emitidas` (NFSE emitida por paciente/competência)
+│   ├── NotaFiscalEmitida.java        — entidade JPA, tabela `notas_fiscais_emitidas` (NFSE emitida por paciente/competência)
+│   └── PasswordResetToken.java       — entidade JPA, tabela `password_reset_tokens` (token de redefinição de senha, salvo apenas como hash)
 ├── entity/enums
 │   ├── TipoPagamento.java            — MENSAL, TRIMESTRAL, ANUAL
 │   ├── TipoContrato.java             — CLT, PJ, AUTONOMO
@@ -174,11 +184,15 @@ com.carlesso.pilatesapi
 │   ├── UserUpdateDTO.java
 │   ├── UserResponseDTO.java
 │   ├── PreferenciasUsuarioRequestDTO.java  — payload de atualização das preferências (idioma, tema, notificações)
-│   └── PreferenciasUsuarioResponseDTO.java — resposta das preferências (record com factory method `from`)
+│   ├── PreferenciasUsuarioResponseDTO.java — resposta das preferências (record com factory method `from`)
+│   ├── ForgotPasswordRequestDTO.java  — payload de "esqueci minha senha" (record: email)
+│   └── ResetPasswordRequestDTO.java   — payload de redefinição de senha (record: token, novaSenha, confirmacaoNovaSenha)
 ├── scheduler
-│   └── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
+│   ├── CobrancaScheduler.java        — atualiza vencidos e gera cobranças futuras
+│   └── LoginAttemptCleanupScheduler.java — remove periodicamente do LoginAttemptService chaves cujas tentativas já saíram da janela, evitando crescimento ilimitado do mapa em memória
 └── util
-    └── CompetenciaUtils.java         — validação/parsing/formatação de competências `MM/AAAA` (compartilhado pelo relatório e registro de NFSE)
+    ├── CompetenciaUtils.java         — validação/parsing/formatação de competências `MM/AAAA` (compartilhado pelo relatório e registro de NFSE)
+    └── EmailNormalizer.java          — normalização de e-mail (lowercase, locale-independente) compartilhada entre os services que identificam usuários por e-mail
 ```
 
 ---
@@ -437,6 +451,19 @@ Relacionamento `@OneToOne` com `User` (1:1, owning side em `preferencias_usuario
 
 Restrição `UNIQUE (paciente_id, competencia)` garante uma única NFSE emitida por paciente em cada competência (registro idempotente via `POST /api/nfse-emitidas`). É a fonte de verdade do campo `notaAnteriorEmitida` do relatório de NFSE.
 
+### Tabela `password_reset_tokens`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `user_id` | BIGINT | NOT NULL, FK → users `ON DELETE CASCADE` |
+| `token_hash` | VARCHAR(64) | NOT NULL, UNIQUE (hash SHA-256 do token; o token em texto puro nunca é persistido) |
+| `expires_at` | TIMESTAMP | NOT NULL |
+| `used_at` | TIMESTAMP | nullable (marcado no uso; token de uso único) |
+| `created_at` | TIMESTAMP | NOT NULL |
+
+Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha senha" gera um novo registro; tokens não são reutilizados entre solicitações.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -453,6 +480,7 @@ Restrição `UNIQUE (paciente_id, competencia)` garante uma única NFSE emitida 
 | `idx_sessoes_pilates_paciente_id` | `sessoes_pilates(paciente_id)` | Listagem de sessões por paciente |
 | `idx_sessoes_pilates_data` | `sessoes_pilates(data)` | Busca e ordenação de sessões por data |
 | `idx_notas_fiscais_emitidas_paciente` | `notas_fiscais_emitidas(paciente_id)` | Listagem de NFSEs por paciente e lookup do relatório de NFSE |
+| `idx_password_reset_tokens_user_id` | `password_reset_tokens(user_id)` | Suporte a possíveis consultas administrativas/cleanup por usuário |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---
@@ -463,6 +491,8 @@ Restrição `UNIQUE (paciente_id, competencia)` garante uma única NFSE emitida 
 |---|---|---|---|
 | POST | `/auth/register` | Registrar usuário `USER` com senha BCrypt e retornar JWT | 200 / 400 / 409 |
 | POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
+| POST | `/auth/forgot-password` | Solicitar redefinição de senha por e-mail; sempre retorna 200 genérico (evita enumeração de usuários) | 200 / 400 / 429 |
+| POST | `/auth/reset-password` | Redefinir senha a partir de um token de redefinição válido, não expirado e ainda não utilizado | 200 / 400 / 422 |
 | GET | `/users/me` | Consultar usuário autenticado sem expor senha | 200 / 401 |
 | PUT | `/users/me/senha` | Trocar a própria senha (autenticado) informando senha atual, nova senha e confirmação | 204 / 400 / 401 / 422 |
 | GET | `/users/me/preferencias` | Consultar preferências do usuário autenticado; sem registro retorna defaults (`PT_BR`/`CLARO`/email=true/push=false) | 200 / 401 |
@@ -558,6 +588,15 @@ CPF não pode ser alterado após o cadastro.
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`)
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
+
+### Recuperação de senha (esqueci minha senha)
+- `POST /auth/forgot-password` recebe `email` e sempre retorna `200` com resposta genérica, independentemente de o e-mail existir ou pertencer a um usuário ativo, para evitar enumeração de usuários
+- Rate limiting reaproveitando `LoginAttemptService` (mesmo limite de login: 5 solicitações por e-mail em 15 minutos); acima do limite retorna `429 Too Many Requests`. Chaves cujas tentativas já saíram da janela são removidas do mapa em memória tanto ao consultar o limite quanto periodicamente por `LoginAttemptCleanupScheduler` (a cada 15 min), evitando crescimento ilimitado de memória via solicitações não autenticadas
+- Quando o e-mail pertence a um usuário ativo, qualquer token de redefinição anterior ainda válido é invalidado e um novo token aleatório (32 bytes, Base64 URL-safe) é gerado e salvo em `password_reset_tokens` **apenas como hash SHA-256**, com expiração configurável (`app.email.reset-password-token-ttl-minutos`, default 30 min — a mesma propriedade usada no texto do e-mail, evitando divergência entre o prazo real e o exibido ao usuário); o token em texto puro nunca é persistido, apenas enviado por e-mail. Apenas o token da solicitação mais recente é válido
+- O e-mail é montado a partir do template Thymeleaf `password-reset.html` e enviado de forma assíncrona (`@Async`) via `EmailSender`, sem bloquear a resposta do `forgot-password`
+- `POST /auth/reset-password` recebe `token`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; token inexistente, expirado ou já utilizado retorna `422 Unprocessable Entity` com mensagem genérica ("Token inválido ou expirado"), assim como confirmação de senha divergente. A busca do token usa lock pessimista (`@Lock(PESSIMISTIC_WRITE)`, mesmo padrão de `UserRepository.findByEmailForUpdate`) para impedir que duas requisições concorrentes redimam o mesmo token de uso único
+- Ao redefinir com sucesso, a senha é armazenada com `BCryptPasswordEncoder` e o `token_version` do usuário é incrementado (invalidando JWTs emitidos antes da redefinição) através do mesmo `UserService.aplicarNovaSenha` reaproveitado por `PUT /users/me/senha` e pelo CRUD administrativo de usuários; o token de redefinição é marcado como usado (`used_at`), não podendo ser reutilizado
+- A troca de provedor de e-mail (SMTP → SES, por exemplo) é feita apenas registrando uma nova implementação de `EmailSender` e ajustando `EmailConfig`/`app.email.provider`, sem alterar `PasswordResetService`
 
 ### Pacientes
 - Apenas um plano ativo por paciente por vez
@@ -723,6 +762,14 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` |
 | `APP_PAGINACAO_TAMANHO_PADRAO` | `10` |
+| `APP_EMAIL_PROVIDER` | `smtp` |
+| `APP_EMAIL_FROM` | `no-reply@carlessopilates.com.br` |
+| `APP_EMAIL_RESET_PASSWORD_URL` | `https://app.carlessopilates.com.br/resetar-senha` |
+| `APP_EMAIL_RESET_PASSWORD_TOKEN_TTL_MINUTOS` | `30` |
+| `SMTP_HOST` | — (obrigatório para envio real de e-mail) |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME` | — |
+| `SMTP_PASSWORD` | — |
 
 ### URLs de desenvolvimento
 
@@ -757,9 +804,17 @@ app.cobranca.cron-vencidos=${APP_COBRANCA_CRON_VENCIDOS:0 0 6 * * *}
 app.cobranca.cron-cobrancas-futuras=${APP_COBRANCA_CRON_COBRANCAS_FUTURAS:0 0 7 * * *}
 app.cobranca.vencimento-dias=${APP_COBRANCA_VENCIMENTO_DIAS:10}
 spring.data.web.pageable.default-page-size=${APP_PAGINACAO_TAMANHO_PADRAO:10}
+app.email.provider=${APP_EMAIL_PROVIDER:smtp}
+app.email.from=${APP_EMAIL_FROM:no-reply@carlessopilates.com.br}
+app.email.reset-password-url=${APP_EMAIL_RESET_PASSWORD_URL:https://app.carlessopilates.com.br/resetar-senha}
+app.email.reset-password-token-ttl-minutos=${APP_EMAIL_RESET_PASSWORD_TOKEN_TTL_MINUTOS:30}
+spring.mail.host=${SMTP_HOST:}
+spring.mail.port=${SMTP_PORT:587}
+spring.mail.username=${SMTP_USERNAME:}
+spring.mail.password=${SMTP_PASSWORD:}
 ```
 
-Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código. A paginação usa a propriedade nativa do Spring Data Web, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO`.
+Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código. A paginação usa a propriedade nativa do Spring Data Web, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO`. A mesma propriedade `app.email.reset-password-token-ttl-minutos` define tanto a expiração real do token de redefinição quanto o texto exibido no e-mail, evitando divergência entre os dois. O indicador de saúde do Actuator para `mail` (`management.health.mail.enabled=false`) é desabilitado apenas nos perfis `dev` e nos testes, onde normalmente não há um servidor SMTP real disponível; em produção ele permanece ativo para refletir o estado real da conectividade SMTP em `/actuator/health`.
 
 ---
 
@@ -840,11 +895,15 @@ mvn spring-boot:run
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `ReavaliacaoControllerTest` | `@WebMvcTest` + MockMvc | 9 |
-| `UserServiceTest` | Unitário (Mockito, sem Spring) | 8 |
+| `UserServiceTest` | Unitário (Mockito, sem Spring) | 23 |
 | `UserControllerTest` | `@WebMvcTest` + MockMvc | 8 |
 | `PreferenciasUsuarioServiceTest` | Unitário (Mockito, sem Spring) | 7 |
 | `PreferenciasUsuarioControllerTest` | `@WebMvcTest` + MockMvc | 6 |
 | `PreferenciasUsuarioRepositoryTest` | `@DataJpaTest` + H2 | 5 |
+| `PasswordResetServiceTest` | Unitário (Mockito, sem Spring) | 12 |
+| `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
+| `AuthControllerTest` | `@WebMvcTest` + MockMvc | 9 |
+| `PasswordResetIntegrationTest` | `@SpringBootTest` + MockMvc + H2 (EmailSender mockado) | 6 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 42 |
 | `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |

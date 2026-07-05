@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import com.carlesso.pilatesapi.util.EmailNormalizer;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,7 +41,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponseDTO register(AuthRegisterRequestDTO dto) {
-        String email = dto.email().toLowerCase();
+        String email = EmailNormalizer.normalizar(dto.email());
         if (userRepository.existsByEmail(email)) {
             throw new ConflictException("E-mail já cadastrado");
         }
@@ -58,7 +59,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponseDTO login(AuthLoginRequestDTO dto) {
-        String email = dto.email().toLowerCase();
+        String email = EmailNormalizer.normalizar(dto.email());
         if (loginAttemptService.isBlocked(email)) {
             throw new TooManyRequestsException("Muitas tentativas. Tente novamente em 15 minutos.");
         }

@@ -199,6 +199,8 @@ Base URL: `http://localhost:8080`
 |---|---|---|---|
 | `POST` | `/auth/register` | Público | Registra usuário com role `USER`, salva senha com BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT. Retorna `429` após 5 tentativas falhas em 15 min |
+| `POST` | `/auth/forgot-password` | Público | Solicita redefinição de senha por e-mail. Sempre retorna `200` com mensagem genérica, mesmo se o e-mail não existir (evita enumeração de usuários). Retorna `429` após 5 solicitações em 15 min para o mesmo e-mail |
+| `POST` | `/auth/reset-password` | Público | Redefine a senha a partir de `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para token inválido, expirado, já utilizado ou confirmação divergente |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
 | `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Tokens emitidos antes da troca deixam de autorizar rotas protegidas |
 | `GET` | `/users/me/preferencias` | Autenticado | Retorna as preferências do usuário autenticado (idioma, tema e notificações). Usuário sem preferências salvas recebe os valores padrão |
@@ -770,6 +772,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V23__add_pacientes_email_cpf_partial_unique.sql` | Recria a unicidade como índice **parcial** (`WHERE col IS NOT NULL`) — múltiplos pacientes podem ter `email`/`cpf` nulos, mas valores preenchidos seguem únicos. `PacienteService.cadastrar` também valida e retorna 409 antes de chegar no banco |
 | `V24__add_token_version_to_users.sql` | Adiciona coluna `token_version` em `users` para invalidar JWTs anteriores após troca/redefinição de senha |
 | `V25__create_preferencias_usuario_table.sql` | Cria tabela `preferencias_usuario` (1:1 com `users`) para idioma, tema e preferências de notificação |
+| `V26__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -853,6 +856,14 @@ cd scripts && python3 -m unittest test_import_seufisio -v
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` | Cron expression do scheduler que gera cobranças futuras |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
 | `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas |
+| `APP_EMAIL_PROVIDER` | `smtp` | Provedor de e-mail ativo (seleciona o bean `EmailSender` via `EmailConfig`) |
+| `APP_EMAIL_FROM` | `no-reply@carlessopilates.com.br` | Remetente usado no envio de e-mails transacionais |
+| `APP_EMAIL_RESET_PASSWORD_URL` | `https://app.carlessopilates.com.br/resetar-senha` | URL do frontend para onde o link de redefinição de senha aponta (`?token=...`) |
+| `APP_EMAIL_RESET_PASSWORD_TOKEN_TTL_MINUTOS` | `30` | Validade do token de redefinição de senha; a mesma propriedade define o prazo real e o texto exibido no e-mail |
+| `SMTP_HOST` | - | Host do servidor SMTP usado pelo `SmtpEmailSender` |
+| `SMTP_PORT` | `587` | Porta do servidor SMTP |
+| `SMTP_USERNAME` | - | Usuário de autenticação SMTP |
+| `SMTP_PASSWORD` | - | Senha de autenticação SMTP |
 
 ---
 
@@ -881,6 +892,18 @@ Usuários iniciais criados pela migration de seed `V12` no perfil `dev` usam a s
 | `recepcao@carlessopilates.com` | `USER` |
 | `financeiro@carlessopilates.com` | `USER` |
 | `consulta@carlessopilates.com` | `USER` |
+
+### Recuperar senha esquecida
+```bash
+curl -s -X POST http://localhost:8080/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"maria@email.com"}' -w "%{http_code}"
+
+# Token chega por e-mail (link com ?token=...); com o token em mãos:
+curl -s -X POST http://localhost:8080/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<token-recebido-por-email>","novaSenha":"novaSenha123","confirmacaoNovaSenha":"novaSenha123"}' | jq
+```
 
 ### Gerenciar usuários como ADMIN
 ```bash
@@ -1100,6 +1123,16 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 - Consultas e atualizações filtram sessões de pacientes ativos
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 
+### Recuperação de senha (esqueci minha senha)
+- `POST /auth/forgot-password` recebe `email` e sempre retorna `200` com resposta genérica, mesmo se o e-mail não existir ou pertencer a um usuário inativo, para evitar enumeração de usuários
+- Rate limiting reaproveita o `LoginAttemptService` (5 solicitações por e-mail em 15 minutos); acima do limite retorna `429`. Chaves cujas tentativas já saíram da janela são removidas do mapa em memória tanto ao consultar o limite quanto periodicamente por `LoginAttemptCleanupScheduler` (a cada 15 min), evitando crescimento ilimitado via solicitações não autenticadas
+- Ao gerar um novo token, qualquer token anterior ainda válido do mesmo usuário é invalidado — apenas o token da solicitação mais recente funciona
+- Token de redefinição: gerado aleatoriamente (32 bytes, Base64 URL-safe), salvo em `password_reset_tokens` **apenas como hash SHA-256** (nunca em texto puro), com expiração configurável (`app.email.reset-password-token-ttl-minutos`, default 30 min — a mesma propriedade usada no texto do e-mail) e uso único
+- O e-mail de redefinição é montado a partir do template Thymeleaf `password-reset.html` e enviado de forma assíncrona (`@Async`) via `EmailSender`, sem bloquear a resposta do `forgot-password`
+- `POST /auth/reset-password` recebe `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`; token inexistente, expirado ou já utilizado, assim como confirmação divergente, retornam `422` com mensagem genérica. A busca do token usa lock pessimista (`@Lock(PESSIMISTIC_WRITE)`) para impedir que duas requisições concorrentes redimam o mesmo token de uso único
+- Ao redefinir com sucesso: a senha é armazenada com `BCryptPasswordEncoder` e o `token_version` do usuário é incrementado (invalidando JWTs emitidos antes da redefinição) via `UserService.aplicarNovaSenha`, reaproveitado também por `PUT /users/me/senha` e pelo CRUD administrativo; o token é marcado como usado
+- Troca de provedor de e-mail (SMTP → SES, por exemplo) exige apenas uma nova implementação de `EmailSender` e ajuste em `EmailConfig`/`app.email.provider`, sem alterar `PasswordResetService`
+
 ### Scheduler (processos automáticos)
 | Horário | Ação | Configuração |
 |---|---|---|
@@ -1178,6 +1211,10 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PreferenciasUsuarioServiceTest` | Unitário (Mockito) | 7 |
 | `PreferenciasUsuarioControllerTest` | Controller (`@WebMvcTest`) | 6 |
 | `PreferenciasUsuarioRepositoryTest` | Repositório (`@DataJpaTest` + H2) | 5 |
+| `PasswordResetServiceTest` | Unitário (Mockito) | 12 |
+| `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
+| `AuthControllerTest` | Controller (`@WebMvcTest`) | 9 |
+| `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 6 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 42 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |

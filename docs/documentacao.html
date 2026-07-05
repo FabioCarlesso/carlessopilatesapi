@@ -575,6 +575,8 @@
         <tbody>
           <tr><td><span class="method post">POST</span></td><td><code>/auth/register</code></td><td>Público</td><td>Registra usuário com role <code>USER</code> e retorna JWT.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/auth/login</code></td><td>Público</td><td>Valida e-mail/senha e retorna JWT (rate limit 5/15min).</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/auth/forgot-password</code></td><td>Público</td><td>Solicita redefinição de senha por e-mail. Sempre retorna 200 genérico (evita enumeração de usuários); rate limit 5/15min por e-mail.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/auth/reset-password</code></td><td>Público</td><td>Redefine a senha a partir de um token válido, não expirado e ainda não utilizado.</td></tr>
           <tr><td><span class="method get">GET</span></td><td><code>/users/me</code></td><td>Autenticado</td><td>Dados do usuário autenticado.</td></tr>
           <tr><td><span class="method put">PUT</span></td><td><code>/users/me/senha</code></td><td>Autenticado</td><td>Troca a própria senha e invalida tokens antigos.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/users</code></td><td>ADMIN</td><td>Cria usuário com role <code>USER</code> ou <code>ADMIN</code>.</td></tr>
