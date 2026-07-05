@@ -713,6 +713,37 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 
 ---
 
+## Integração Contínua (CI)
+
+O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a cada `push` e `pull_request` para `master` (e sob demanda via `workflow_dispatch`). São três jobs:
+
+| Job | O que faz |
+|---|---|
+| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify` (H2 em memória). Publica os relatórios de teste como artefato. |
+| `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Cobre o gap dos testes, que rodam com Flyway desabilitado. |
+| `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage (sem push para registry). |
+
+Os jobs `flyway-postgres` e `docker-build` dependem de `build-test`. Nenhum segredo de produção é usado no CI.
+
+Para reproduzir localmente os mesmos passos:
+
+```bash
+# Build + testes (equivalente ao job build-test)
+mvn -B verify
+
+# Validar as migrations contra um PostgreSQL local (equivalente ao job flyway-postgres)
+mvn flyway:migrate \
+  -Dflyway.url=jdbc:postgresql://localhost:5432/carlesso_pilates \
+  -Dflyway.user=postgres -Dflyway.password=postgres
+
+# Build da imagem (equivalente ao job docker-build)
+docker build -t carlessopilatesapi:ci .
+```
+
+> O plugin `flyway-maven-plugin` está configurado no `pom.xml` apontando para `filesystem:src/main/resources/db/migration`; a conexão é passada por linha de comando.
+
+---
+
 ## Documentação interativa (Swagger UI)
 
 Com a aplicação rodando, acesse:
@@ -772,7 +803,8 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V23__add_pacientes_email_cpf_partial_unique.sql` | Recria a unicidade como índice **parcial** (`WHERE col IS NOT NULL`) — múltiplos pacientes podem ter `email`/`cpf` nulos, mas valores preenchidos seguem únicos. `PacienteService.cadastrar` também valida e retorna 409 antes de chegar no banco |
 | `V24__add_token_version_to_users.sql` | Adiciona coluna `token_version` em `users` para invalidar JWTs anteriores após troca/redefinição de senha |
 | `V25__create_preferencias_usuario_table.sql` | Cria tabela `preferencias_usuario` (1:1 com `users`) para idioma, tema e preferências de notificação |
-| `V26__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
+| `V26__create_notas_fiscais_emitidas_table.sql` | Cria tabela `notas_fiscais_emitidas` para persistir a última NFSE emitida por paciente/competência |
+| `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
