@@ -1,0 +1,42 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Varredura semanal mesmo sem push, para pegar novas queries/CVEs.
+    - cron: '30 8 * * 1'
+
+# Cancela execuções obsoletas do mesmo branch/PR para economizar recursos.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (Java)
+    runs-on: ubuntu-latest
+    permissions:
+      # Necessário para publicar os resultados na aba Security > Code scanning.
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inicializa o CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          # "none" analisa o código-fonte sem compilar — suficiente para Java
+          # e evita duplicar o build do Maven que já roda no ci.yml.
+          build-mode: none
+
+      - name: Executa a análise
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"
