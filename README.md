@@ -628,6 +628,8 @@ Todos os campos são opcionais. Apenas os campos enviados serão atualizados.
 
 Sobe o banco PostgreSQL e a aplicação juntos, sem instalar nada localmente além do Docker.
 
+O container da aplicação roda com usuário não-root (`app`) e possui `HEALTHCHECK` no `/actuator/health/liveness` (estado `healthy` visível em `docker ps`) — o probe de liveness reflete apenas o estado do processo, então indisponibilidade de banco/SMTP não marca o container como `unhealthy`. A memória do container é limitada por `mem_limit` (padrão `1g`, ajustável via `APP_MEM_LIMIT`) e a heap da JVM usa 75% desse limite (`-XX:MaxRAMPercentage=75.0`, ajustável via `JAVA_OPTS`).
+
 O projeto usa o padrão de **override do Docker Compose** para isolar os ambientes:
 
 | Ambiente | Comando | Volume PostgreSQL | Dados de seed |
@@ -765,9 +767,11 @@ O projeto expõe endpoints operacionais do Spring Boot Actuator para acompanhame
 | Recurso | URL |
 |---|---|
 | Health | http://localhost:8080/actuator/health |
+| Liveness | http://localhost:8080/actuator/health/liveness |
+| Readiness | http://localhost:8080/actuator/health/readiness |
 | Info | http://localhost:8080/actuator/info |
 
-Somente `health` e `info` ficam expostos via HTTP.
+Somente `health` e `info` ficam expostos via HTTP. Os probes de liveness/readiness (`management.endpoint.health.probes.enabled=true`) refletem apenas o estado do processo e são usados pelo `HEALTHCHECK` do container.
 
 ---
 
@@ -897,6 +901,8 @@ cd scripts && python3 -m unittest test_import_seufisio -v
 | `SMTP_PORT` | `587` | Porta do servidor SMTP |
 | `SMTP_USERNAME` | - | Usuário de autenticação SMTP |
 | `SMTP_PASSWORD` | - | Senha de autenticação SMTP |
+| `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0` | Flags da JVM no container Docker; o valor **substitui** o padrão por completo — inclua `-XX:MaxRAMPercentage` (ou `-Xmx`) ao customizar |
+| `APP_MEM_LIMIT` | `1g` | Limite de memória do container da aplicação no Docker Compose (a heap da JVM usa 75% desse valor) |
 
 ---
 

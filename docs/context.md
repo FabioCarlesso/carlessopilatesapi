@@ -770,6 +770,8 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 | `SMTP_PORT` | `587` |
 | `SMTP_USERNAME` | — |
 | `SMTP_PASSWORD` | — |
+| `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0` (flags da JVM no container; o valor substitui o padrão) |
+| `APP_MEM_LIMIT` | `1g` (limite de memória do container `app` no Compose) |
 
 ### URLs de desenvolvimento
 
@@ -788,12 +790,15 @@ O projeto usa Spring Boot Actuator para endpoints operacionais. Em desenvolvimen
 | Endpoint | Uso |
 |---|---|
 | `GET /actuator/health` | Verificar status da aplicação e componentes monitorados |
+| `GET /actuator/health/liveness` | Probe de liveness (apenas estado do processo) — usado pelo `HEALTHCHECK` do container |
+| `GET /actuator/health/readiness` | Probe de readiness (apenas estado do processo) |
 | `GET /actuator/info` | Consultar metadados configurados da aplicação |
 
 Configurações relevantes:
 
 ```properties
 management.endpoints.web.exposure.include=health,info
+management.endpoint.health.probes.enabled=true
 management.info.env.enabled=true
 info.app.name=${spring.application.name}
 info.app.description=Carlesso Pilates API
@@ -922,9 +927,18 @@ Os testes de integração usam H2 em memória configurado em `src/test/resources
 
 ### Dockerfile
 
-Build multi-stage:
-- Estágio `build`: `maven:3.9-eclipse-temurin-21` — compila e gera o JAR
-- Estágio `runtime`: `eclipse-temurin:21-jre-alpine` — executa o JAR
+Build multi-stage com hardening:
+- Estágio `build`: `maven:3.9-eclipse-temurin-21` — compila, gera o JAR e extrai as camadas do layered jar (`java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted`)
+- Estágio `runtime`: `eclipse-temurin:21-jre-alpine` — executa a aplicação via `JarLauncher`
+
+Medidas aplicadas no estágio de runtime:
+
+| Medida | Implementação |
+|---|---|
+| Usuário não-root | `addgroup -S app && adduser -S app -G app` + `USER app` |
+| Layered jars | Camadas copiadas na ordem `dependencies` → `spring-boot-loader` → `snapshot-dependencies` → `application`; rebuilds sem mudança de dependências reaproveitam o cache das camadas de libs |
+| `HEALTHCHECK` | `wget -q --spider http://localhost:${SERVER_PORT:-8080}/actuator/health/liveness` (wget do busybox, presente no alpine), com `start-period` de 60s. Usa o liveness probe para não marcar o container como `unhealthy` por queda de dependência externa (banco/SMTP) |
+| Memória da JVM | `JAVA_OPTS` padrão `-XX:MaxRAMPercentage=75.0` no `ENTRYPOINT`, sobrescrevível via variável de ambiente `JAVA_OPTS` (o valor substitui o padrão por completo). O Compose limita o container com `mem_limit: ${APP_MEM_LIMIT:-1g}` — é o limite que dá base de cálculo ao `MaxRAMPercentage` |
 
 ### Docker Compose — padrão override
 
