@@ -23,6 +23,7 @@ API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates,
 | Apache POI | 5.4.1 |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) |
 | H2 (testes) | (in-memory) |
+| JaCoCo (cobertura) | 0.8.13 |
 
 ---
 
@@ -722,7 +723,7 @@ O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a 
 
 | Job | O que faz |
 |---|---|
-| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify` (H2 em memória). Publica os relatórios de teste como artefato. |
+| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify` (H2 em memória). Publica os relatórios de teste e o relatório de cobertura JaCoCo como artefatos (`surefire-reports` e `jacoco-report`). |
 | `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Cobre o gap dos testes, que rodam com Flyway desabilitado. |
 | `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage (sem push para registry). |
 
@@ -744,6 +745,17 @@ docker build -t carlessopilatesapi:ci .
 ```
 
 > O plugin `flyway-maven-plugin` está configurado no `pom.xml` apontando para `filesystem:src/main/resources/db/migration`; a conexão é passada por linha de comando.
+
+### Cobertura de testes (JaCoCo)
+
+O `mvn verify` mede a cobertura com o **JaCoCo** e falha o build se a cobertura de linhas ficar abaixo do gate mínimo (propriedade `jacoco.line.coverage.minimum` no `pom.xml`, hoje **90%**). DTOs (records sem lógica) e a classe main ficam fora do cálculo.
+
+Para consultar a cobertura:
+
+- **Localmente:** rode `mvn verify` e abra `target/site/jacoco/index.html` no navegador.
+- **No CI:** baixe o artefato `jacoco-report` do job `build-test` (aba *Actions* → execução → *Artifacts*) e abra o `index.html`.
+
+O gate existe para impedir regressão da suíte — a intenção é subi-lo gradualmente, não persegui-lo. Para verificar o gate isoladamente reaproveitando a última execução dos testes: `mvn verify -DskipTests`.
 
 ### Segurança de dependências
 
