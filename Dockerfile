@@ -10,7 +10,7 @@ RUN mvn clean package -DskipTests -q
 # "-Djarmode=tools" substitui o antigo "layertools", deprecado no Boot 3.4.
 RUN java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
 # Usuário/grupo dedicados sem privilégios para executar a aplicação.
