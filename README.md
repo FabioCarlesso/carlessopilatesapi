@@ -748,14 +748,14 @@ docker build -t carlessopilatesapi:ci .
 
 ### Cobertura de testes (JaCoCo)
 
-O `mvn verify` mede a cobertura com o **JaCoCo** e falha o build se a cobertura de linhas ficar abaixo do gate mínimo (propriedade `jacoco.line.coverage.minimum` no `pom.xml`, hoje **90%**). DTOs (records sem lógica) e a classe main ficam fora do cálculo.
+O `mvn verify` mede a cobertura com o **JaCoCo** e falha o build se a cobertura de linhas ficar abaixo do gate mínimo (propriedade `jacoco.line.coverage.minimum` no `pom.xml`, hoje **90%**). DTOs (records) e a classe main ficam fora do gate, mas continuam visíveis no relatório.
 
 Para consultar a cobertura:
 
 - **Localmente:** rode `mvn verify` e abra `target/site/jacoco/index.html` no navegador.
 - **No CI:** baixe o artefato `jacoco-report` do job `build-test` (aba *Actions* → execução → *Artifacts*) e abra o `index.html`.
 
-O gate existe para impedir regressão da suíte — a intenção é subi-lo gradualmente, não persegui-lo. Para verificar o gate isoladamente reaproveitando a última execução dos testes: `mvn verify -DskipTests`.
+O gate existe para impedir regressão da suíte — a intenção é subi-lo gradualmente, não persegui-lo. Rode sempre o `mvn verify` completo: o relatório e o gate dependem dos dados de execução dos testes (`target/jacoco.exec`), então `-DskipTests` deixaria o JaCoCo sem medir e o gate passaria sem verificar nada.
 
 ### Segurança de dependências
 

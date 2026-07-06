@@ -143,18 +143,13 @@
             </plugin>
 
             <!-- Cobertura de testes: relatório HTML em target/site/jacoco e gate
-                 mínimo de linhas verificado no `mvn verify`. DTOs (records sem
-                 lógica) e a classe main ficam fora do cálculo. -->
+                 mínimo de linhas verificado no `mvn verify`. DTOs (records) e a
+                 classe main ficam fora do gate (exclusão apenas na execução
+                 `check`), mas continuam visíveis no relatório. -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
-                <configuration>
-                    <excludes>
-                        <exclude>com/carlesso/pilatesapi/dto/**</exclude>
-                        <exclude>com/carlesso/pilatesapi/PilatesApiApplication.class</exclude>
-                    </excludes>
-                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -176,6 +171,10 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <excludes>
+                                <exclude>com/carlesso/pilatesapi/dto/**</exclude>
+                                <exclude>com/carlesso/pilatesapi/PilatesApiApplication.class</exclude>
+                            </excludes>
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>
