@@ -663,7 +663,8 @@ docker compose down -v
 ```bash
 # Configurar variáveis de ambiente de produção (nunca versionar este arquivo)
 cp .env.example .env.prod
-# Edite .env.prod com credenciais seguras e APP_INITIAL_ADMIN_PASSWORD antes de subir
+# Edite .env.prod com credenciais seguras, APP_INITIAL_ADMIN_PASSWORD e as
+# variáveis SMTP_*/APP_EMAIL_* (necessárias para o e-mail de recuperação de senha)
 
 # Subir com perfil prod (banco limpo, sem seed)
 docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
