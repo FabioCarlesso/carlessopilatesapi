@@ -628,6 +628,8 @@ Todos os campos são opcionais. Apenas os campos enviados serão atualizados.
 
 Sobe o banco PostgreSQL e a aplicação juntos, sem instalar nada localmente além do Docker.
 
+O container da aplicação roda com usuário não-root (`app`), possui `HEALTHCHECK` no `/actuator/health` (estado `healthy` visível em `docker ps`) e limita a memória da JVM com `-XX:MaxRAMPercentage=75.0` (ajustável via variável de ambiente `JAVA_OPTS`).
+
 O projeto usa o padrão de **override do Docker Compose** para isolar os ambientes:
 
 | Ambiente | Comando | Volume PostgreSQL | Dados de seed |
@@ -897,6 +899,7 @@ cd scripts && python3 -m unittest test_import_seufisio -v
 | `SMTP_PORT` | `587` | Porta do servidor SMTP |
 | `SMTP_USERNAME` | - | Usuário de autenticação SMTP |
 | `SMTP_PASSWORD` | - | Senha de autenticação SMTP |
+| `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0` | Flags da JVM no container Docker; sobrescreva para ajustar memória ou adicionar outras opções |
 
 ---
 

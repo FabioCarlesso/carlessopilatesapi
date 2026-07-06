@@ -922,9 +922,18 @@ Os testes de integração usam H2 em memória configurado em `src/test/resources
 
 ### Dockerfile
 
-Build multi-stage:
-- Estágio `build`: `maven:3.9-eclipse-temurin-21` — compila e gera o JAR
-- Estágio `runtime`: `eclipse-temurin:21-jre-alpine` — executa o JAR
+Build multi-stage com hardening:
+- Estágio `build`: `maven:3.9-eclipse-temurin-21` — compila, gera o JAR e extrai as camadas do layered jar (`java -Djarmode=tools -jar app.jar extract --layers --launcher`)
+- Estágio `runtime`: `eclipse-temurin:21-jre-alpine` — executa a aplicação via `JarLauncher`
+
+Medidas aplicadas no estágio de runtime:
+
+| Medida | Implementação |
+|---|---|
+| Usuário não-root | `addgroup -S app && adduser -S app -G app` + `USER app` |
+| Layered jars | Camadas copiadas na ordem `dependencies` → `spring-boot-loader` → `snapshot-dependencies` → `application`; rebuilds sem mudança de dependências reaproveitam o cache das camadas de libs |
+| `HEALTHCHECK` | `wget -q --spider http://localhost:8080/actuator/health` (wget do busybox, presente no alpine), com `start-period` de 60s |
+| Memória da JVM | `JAVA_OPTS` padrão `-XX:MaxRAMPercentage=75.0` no `ENTRYPOINT`, sobrescrevível via variável de ambiente `JAVA_OPTS` |
 
 ### Docker Compose — padrão override
 
