@@ -210,7 +210,8 @@ class SecurityIntegrationTest {
 
         mvc.perform(get("/admin/health")
                         .header(HttpHeaders.AUTHORIZATION, bearer(user)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.erro").value("Acesso negado"));
     }
 
     @Test
