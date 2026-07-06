@@ -15,13 +15,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private final WebRequest webRequest = new ServletWebRequest(new MockHttpServletRequest());
 
     @Test
     void handleNotFound_resourceNotFound_retornaMensagemDoErro() {
@@ -72,10 +80,12 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleNoHandlerFound_retornaMensagemRotaNaoEncontrada() {
-        Map<String, String> response = handler.handleNoHandlerFound(
-                new NoHandlerFoundException("GET", "/inexistente", new HttpHeaders()));
+        ResponseEntity<Object> response = handler.handleNoHandlerFoundException(
+                new NoHandlerFoundException("GET", "/inexistente", new HttpHeaders()),
+                new HttpHeaders(), HttpStatus.NOT_FOUND, webRequest);
 
-        assertThat(response).containsEntry("erro", "Rota não encontrada");
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_ROTA));
     }
 
     @Test
@@ -96,13 +106,33 @@ class GlobalExceptionHandlerTest {
         var methodParameter = new MethodParameter(
                 getClass().getDeclaredMethod("handleMethodArgumentNotValid_retornaCamposComMensagens"), -1);
 
-        Map<String, Object> response = handler.handleMethodArgumentNotValid(
-                new MethodArgumentNotValidException(methodParameter, bindingResult));
+        ResponseEntity<Object> response = handler.handleMethodArgumentNotValid(
+                new MethodArgumentNotValidException(methodParameter, bindingResult),
+                new HttpHeaders(), HttpStatus.BAD_REQUEST, webRequest);
 
-        assertThat(response).containsEntry("erro", GlobalExceptionHandler.ERRO_VALIDACAO);
-        assertThat((Map<String, String>) response.get("campos"))
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry("erro", GlobalExceptionHandler.ERRO_VALIDACAO);
+        assertThat((Map<String, String>) body.get("campos"))
                 .containsEntry("nome", "não deve estar em branco")
                 .containsEntry("email", "deve ser um endereço de e-mail bem formado");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void handleMethodArgumentNotValid_mensagemNula_usaMensagemPadrao() throws Exception {
+        var bindingResult = new BeanPropertyBindingResult(new Object(), "pacienteRequestDTO");
+        bindingResult.addError(new FieldError("pacienteRequestDTO", "nome", null, false, null, null, null));
+        var methodParameter = new MethodParameter(
+                getClass().getDeclaredMethod("handleMethodArgumentNotValid_mensagemNula_usaMensagemPadrao"), -1);
+
+        ResponseEntity<Object> response = handler.handleMethodArgumentNotValid(
+                new MethodArgumentNotValidException(methodParameter, bindingResult),
+                new HttpHeaders(), HttpStatus.BAD_REQUEST, webRequest);
+
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat((Map<String, String>) body.get("campos"))
+                .containsEntry("nome", GlobalExceptionHandler.MENSAGEM_CAMPO_PADRAO);
     }
 
     @Test
@@ -121,12 +151,15 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void handleMessageNotReadable_retornaMensagemNeutra() {
-        Map<String, String> response = handler.handleMessageNotReadable(
+    void handleHttpMessageNotReadable_retornaMensagemNeutra() {
+        ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(
                 new HttpMessageNotReadableException("JSON malformado",
-                        new MockHttpInputMessage(new byte[0])));
+                        new MockHttpInputMessage(new byte[0])),
+                new HttpHeaders(), HttpStatus.BAD_REQUEST, webRequest);
 
-        assertThat(response).containsEntry("erro", GlobalExceptionHandler.ERRO_CORPO_ILEGIVEL);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody())
+                .isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_CORPO_ILEGIVEL));
     }
 
     @Test
@@ -138,13 +171,31 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void handleUnexpected_excecaoDoSpringMvc_preservaStatusOriginal() {
-        ResponseEntity<Map<String, String>> response = handler.handleUnexpected(
-                new MissingServletRequestParameterException("competencia", "String"));
+    void handleException_parametroObrigatorioAusente_retorna400ComDetalhe() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                new MissingServletRequestParameterException("competencia", "String"), webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).extractingByKey("erro").asString()
-                .contains("competencia");
+        assertThat(response.getBody().toString()).contains("competencia");
+    }
+
+    @Test
+    void handleException_metodoNaoSuportado_retorna405ComHeaderAllow() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                new HttpRequestMethodNotSupportedException("POST", List.of("GET")), webRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(response.getHeaders().getAllow()).isNotEmpty();
+    }
+
+    @Test
+    void handleException_erro5xxDoFramework_retornaMensagemNeutra() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                new AsyncRequestTimeoutException(), webRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody())
+                .isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_INTERNO));
     }
 
     @Test
@@ -155,5 +206,21 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody()).containsEntry("erro", GlobalExceptionHandler.ERRO_INTERNO);
         assertThat(response.getBody().get("erro")).doesNotContain("detalhe interno");
+    }
+
+    @ResponseStatus(HttpStatus.CONFLICT)
+    private static class ExcecaoAnotadaComConflito extends RuntimeException {
+        ExcecaoAnotadaComConflito(String message) {
+            super(message);
+        }
+    }
+
+    @Test
+    void handleUnexpected_excecaoAnotadaComResponseStatus_preservaStatusDeclarado() {
+        ResponseEntity<Map<String, String>> response = handler.handleUnexpected(
+                new ExcecaoAnotadaComConflito("Horário já reservado"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).containsEntry("erro", "Horário já reservado");
     }
 }

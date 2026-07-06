@@ -41,7 +41,15 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) ->
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                        // Autorização é por URL, então o 403 nasce no filter chain e nunca
+                        // chega ao GlobalExceptionHandler; escreve aqui o mesmo corpo
+                        // {"erro": ...} documentado para manter o contrato de erro da API.
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"erro\": \"Acesso negado\"}");
+                        }))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth

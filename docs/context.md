@@ -735,7 +735,7 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 - **Atualização parcial via PUT**: DTOs de update têm todos os campos opcionais; o service só sobrescreve os campos não-nulos.
 - **DTOs como records**: todos os DTOs de request e response são Java records.
 - **Factory method**: `*ResponseDTO.from(Entity)` centraliza o mapeamento entidade → DTO.
-- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409. Erros de Bean Validation retornam 400 com `{"erro": "Dados inválidos", "campos": {campo: mensagem}}`; JSON malformado retorna 400 com mensagem neutra; exceções não mapeadas retornam 500 com mensagem genérica e são logadas com stacktrace (exceções do próprio Spring MVC preservam o status original — 405, 415, parâmetro ausente → 400).
+- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409. Erros de Bean Validation retornam 400 com `{"erro": "Dados inválidos", "campos": {campo: mensagem}}`; JSON malformado retorna 400 com mensagem neutra. O handler estende `ResponseEntityExceptionHandler`, então as exceções do próprio Spring MVC mantêm status e headers do framework (405 com `Allow`, 415, parâmetro ausente e type mismatch → 400) com o corpo trocado para `{"erro": ...}`. Exceções não mapeadas (e 5xx do framework) retornam mensagem neutra e são logadas com stacktrace; `@ResponseStatus` em exceções customizadas é respeitado. O 403 de autorização por URL é escrito pelo `accessDeniedHandler` do `SecurityConfig` com o mesmo contrato `{"erro": "Acesso negado"}`.
 - **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
 - **Transações de leitura**: métodos de consulta nos services usam `@Transactional(readOnly = true)` para evitar flush desnecessário e permitir otimizações de conexão.
 
@@ -869,7 +869,7 @@ mvn spring-boot:run
 | `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + H2 | 11 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
 | `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 1 |
-| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 20 |
+| `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 22 |
 | `ProfissionalControllerTest` | `@WebMvcTest` + MockMvc | 17 |
 | `PlanoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
 | `PagamentoControllerTest` | `@WebMvcTest` + MockMvc | 11 |
@@ -890,7 +890,7 @@ mvn spring-boot:run
 | `DashboardControllerTest` | `@WebMvcTest` + MockMvc | 2 |
 | `DashboardServiceTest` | Unitário (Mockito, sem Spring) | 3 |
 | `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
-| `GlobalExceptionHandlerTest` | Unitário | 13 |
+| `GlobalExceptionHandlerTest` | Unitário | 17 |
 | `EvolucaoSessaoServiceTest` | Unitário (Mockito, sem Spring) | 10 |
 | `EvolucaoSessaoControllerTest` | `@WebMvcTest` + MockMvc | 13 |
 | `ReavaliacaoServiceTest` | Unitário (Mockito, sem Spring) | 14 |

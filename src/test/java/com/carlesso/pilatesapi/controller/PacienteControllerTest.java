@@ -163,6 +163,21 @@ class PacienteControllerTest {
     }
 
     @Test
+    void buscar_idNaoNumerico_deveRetornar400() throws Exception {
+        mvc.perform(get("/pacientes/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").isNotEmpty());
+    }
+
+    @Test
+    void metodoNaoSuportado_deveRetornar405ComHeaderAllow() throws Exception {
+        mvc.perform(delete("/pacientes/1"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().exists("Allow"))
+                .andExpect(jsonPath("$.erro").isNotEmpty());
+    }
+
+    @Test
     void cadastrar_erroInesperado_deveRetornar500SemVazarDetalhes() throws Exception {
         when(service.cadastrar(any())).thenThrow(new RuntimeException("falha interna do banco"));
         var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null);
