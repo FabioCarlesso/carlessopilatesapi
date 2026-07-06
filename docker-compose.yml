@@ -17,7 +17,11 @@ services:
     build: .
     ports:
       - "8080:8080"
+    # Limite de memória do container: é ele que dá sentido ao
+    # -XX:MaxRAMPercentage — sem limite, a JVM dimensiona a heap pela RAM do host.
+    mem_limit: ${APP_MEM_LIMIT:-1g}
     environment:
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75.0}
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-carlesso_pilates}

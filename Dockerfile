@@ -31,7 +31,9 @@ EXPOSE 8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
 
 # wget do busybox (presente na imagem alpine); --spider falha em respostas não-2xx.
+# Usa o liveness probe (apenas estado do processo): queda de dependência externa
+# (banco/SMTP) não marca o container como unhealthy nem o deixa preso em "starting".
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
+  CMD wget -q --spider "http://localhost:${SERVER_PORT:-8080}/actuator/health/liveness"
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS org.springframework.boot.loader.launch.JarLauncher"]

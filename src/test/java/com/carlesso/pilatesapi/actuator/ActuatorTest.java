@@ -25,6 +25,20 @@ class ActuatorTest {
     }
 
     @Test
+    void livenessProbeReturns200WithStatusUpWithoutAuthentication() throws Exception {
+        mvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void readinessProbeReturns200WithStatusUpWithoutAuthentication() throws Exception {
+        mvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
     void infoEndpointReturns200() throws Exception {
         mvc.perform(get("/actuator/info"))
                 .andExpect(status().isOk())
