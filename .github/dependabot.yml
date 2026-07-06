@@ -1,0 +1,59 @@
+# Dependabot — atualização automática de dependências e alertas de vulnerabilidade.
+# Cobre os três ecossistemas do projeto: Maven (pom.xml), GitHub Actions
+# (.github/workflows) e Docker (imagens base do Dockerfile).
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+version: 2
+
+updates:
+  # Dependências Maven (pom.xml)
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    # Agrupa patch/minor em um único PR para reduzir ruído; majors continuam
+    # em PRs individuais para revisão cuidadosa.
+    groups:
+      maven-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Actions usadas nos workflows (.github/workflows)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 3
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "ci(deps)"
+
+  # Imagens base do Dockerfile (build e runtime)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 3
+    groups:
+      docker-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(docker)"
