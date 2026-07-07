@@ -4,8 +4,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,8 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * schema PostgreSQL criado pelo Flyway — por isso este teste roda contra o
  * container ({@link PostgresTestcontainerSupport}) e não no H2.
  */
-@DataJpaTest(showSql = false)
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@PostgresDataJpaTest
 class PacienteRepositoryTest extends PostgresTestcontainerSupport {
 
     @Autowired

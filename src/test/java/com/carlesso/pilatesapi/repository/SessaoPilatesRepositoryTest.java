@@ -6,9 +6,8 @@ import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.time.LocalDate;
@@ -16,8 +15,7 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(showSql = false)
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@PostgresDataJpaTest
 class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
 
     @Autowired
@@ -87,8 +85,9 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
         paciente.setNome("Ana Oliveira");
         paciente.setEmail(email);
         // CPF único e curto (a coluna real é VARCHAR(14)); derivado do e-mail
-        // para manter a unicidade entre os pacientes de teste.
-        paciente.setCpf(String.format("%011d", Math.abs(email.hashCode()) % 100_000_000_000L));
+        // para manter a unicidade entre os pacientes de teste. Usa aritmética sem
+        // sinal para nunca gerar valor negativo (evita a armadilha de Math.abs).
+        paciente.setCpf(String.format("%011d", Integer.toUnsignedLong(email.hashCode()) % 100_000_000_000L));
         paciente.setAtivo(ativo);
         return entityManager.persist(paciente);
     }
