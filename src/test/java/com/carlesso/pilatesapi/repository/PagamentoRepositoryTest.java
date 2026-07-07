@@ -8,7 +8,8 @@ import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.math.BigDecimal;
@@ -18,8 +19,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(showSql = false)
-class PagamentoRepositoryTest {
+@PostgresDataJpaTest
+class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
 
     @Autowired
     PagamentoRepository repository;
@@ -32,11 +33,15 @@ class PagamentoRepositoryTest {
         Paciente pacienteAtivo = entityManager.persist(paciente("Ana Ativa", "ana@email.com", "11122233344", true));
         Paciente pacienteInativo = entityManager.persist(paciente("Bia Inativa", "bia@email.com", "55566677788", false));
         Plano planoAtivo = entityManager.persist(plano(pacienteAtivo));
+        // Segundo plano do mesmo paciente: o pagamento PENDENTE da competência
+        // usa-o para não violar a constraint UNIQUE (plano_id, periodo_inicio)
+        // com o pagamento PAGO — ambos teriam período 2026-04-01 no mesmo plano.
+        Plano planoAtivoSecundario = entityManager.persist(plano(pacienteAtivo));
         Plano planoInativo = entityManager.persist(plano(pacienteInativo));
 
         Pagamento pagoNaCompetencia = entityManager.persist(pagamento(pacienteAtivo, planoAtivo,
                 StatusPagamento.PAGO, LocalDate.of(2026, 4, 10)));
-        entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PENDENTE,
+        entityManager.persist(pagamento(pacienteAtivo, planoAtivoSecundario, StatusPagamento.PENDENTE,
                 LocalDate.of(2026, 4, 12)));
         entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PAGO,
                 LocalDate.of(2026, 3, 31)));

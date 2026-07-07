@@ -6,7 +6,8 @@ import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 
@@ -15,9 +16,9 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(showSql = false)
+@PostgresDataJpaTest
 @Import(ProfissionalService.class)
-class ProfissionalServiceIntegrationTest {
+class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private ProfissionalRepository repository;

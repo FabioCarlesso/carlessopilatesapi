@@ -12,7 +12,8 @@ import com.carlesso.pilatesapi.repository.PlanoRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Import;
@@ -30,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@DataJpaTest(showSql = false)
+@PostgresDataJpaTest
 @Import({PagamentoService.class, AulaService.class})
 @EnableConfigurationProperties(AppProperties.class)
 @TestPropertySource(properties = {
@@ -38,7 +39,7 @@ import static org.mockito.Mockito.*;
         "app.cobranca.cron-cobrancas-futuras=0 0 7 * * *",
         "app.cobranca.vencimento-dias=10"
 })
-class PagamentoServiceAtomicidadeIntegrationTest {
+class PagamentoServiceAtomicidadeIntegrationTest extends PostgresTestcontainerSupport {
 
     @SpyBean
     private PagamentoRepository pagamentoRepository;

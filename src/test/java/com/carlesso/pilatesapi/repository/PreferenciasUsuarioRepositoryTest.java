@@ -7,7 +7,8 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.entity.enums.TemaPreferencia;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
 
@@ -16,8 +17,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DataJpaTest(showSql = false)
-class PreferenciasUsuarioRepositoryTest {
+@PostgresDataJpaTest
+class PreferenciasUsuarioRepositoryTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private PreferenciasUsuarioRepository repository;

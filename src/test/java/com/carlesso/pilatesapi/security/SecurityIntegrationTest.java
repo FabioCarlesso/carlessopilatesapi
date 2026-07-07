@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class SecurityIntegrationTest {
+class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private MockMvc mvc;

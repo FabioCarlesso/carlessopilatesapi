@@ -12,7 +12,8 @@ import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.math.BigDecimal;
@@ -22,8 +23,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(showSql = false)
-class AulaRepositoryTest {
+@PostgresDataJpaTest
+class AulaRepositoryTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private AulaRepository repository;

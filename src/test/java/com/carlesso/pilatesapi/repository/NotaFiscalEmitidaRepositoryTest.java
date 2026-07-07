@@ -4,7 +4,8 @@ import com.carlesso.pilatesapi.entity.NotaFiscalEmitida;
 import com.carlesso.pilatesapi.entity.Paciente;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.math.BigDecimal;
@@ -13,8 +14,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(showSql = false)
-class NotaFiscalEmitidaRepositoryTest {
+@PostgresDataJpaTest
+class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
 
     @Autowired
     NotaFiscalEmitidaRepository repository;
