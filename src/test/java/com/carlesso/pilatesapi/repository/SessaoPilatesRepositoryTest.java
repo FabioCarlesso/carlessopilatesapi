@@ -86,7 +86,9 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
         Paciente paciente = new Paciente();
         paciente.setNome("Ana Oliveira");
         paciente.setEmail(email);
-        paciente.setCpf("cpf-" + email);
+        // CPF único e curto (a coluna real é VARCHAR(14)); derivado do e-mail
+        // para manter a unicidade entre os pacientes de teste.
+        paciente.setCpf(String.format("%011d", Math.abs(email.hashCode()) % 100_000_000_000L));
         paciente.setAtivo(ativo);
         return entityManager.persist(paciente);
     }

@@ -35,11 +35,15 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
         Paciente pacienteAtivo = entityManager.persist(paciente("Ana Ativa", "ana@email.com", "11122233344", true));
         Paciente pacienteInativo = entityManager.persist(paciente("Bia Inativa", "bia@email.com", "55566677788", false));
         Plano planoAtivo = entityManager.persist(plano(pacienteAtivo));
+        // Segundo plano do mesmo paciente: o pagamento PENDENTE da competência
+        // usa-o para não violar a constraint UNIQUE (plano_id, periodo_inicio)
+        // com o pagamento PAGO — ambos teriam período 2026-04-01 no mesmo plano.
+        Plano planoAtivoSecundario = entityManager.persist(plano(pacienteAtivo));
         Plano planoInativo = entityManager.persist(plano(pacienteInativo));
 
         Pagamento pagoNaCompetencia = entityManager.persist(pagamento(pacienteAtivo, planoAtivo,
                 StatusPagamento.PAGO, LocalDate.of(2026, 4, 10)));
-        entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PENDENTE,
+        entityManager.persist(pagamento(pacienteAtivo, planoAtivoSecundario, StatusPagamento.PENDENTE,
                 LocalDate.of(2026, 4, 12)));
         entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PAGO,
                 LocalDate.of(2026, 3, 31)));
