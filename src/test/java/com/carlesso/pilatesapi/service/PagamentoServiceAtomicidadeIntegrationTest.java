@@ -12,6 +12,8 @@ import com.carlesso.pilatesapi.repository.PlanoRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.mock.mockito.SpyBean;
@@ -38,7 +40,8 @@ import static org.mockito.Mockito.*;
         "app.cobranca.cron-cobrancas-futuras=0 0 7 * * *",
         "app.cobranca.vencimento-dias=10"
 })
-class PagamentoServiceAtomicidadeIntegrationTest {
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+class PagamentoServiceAtomicidadeIntegrationTest extends PostgresTestcontainerSupport {
 
     @SpyBean
     private PagamentoRepository pagamentoRepository;

@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class UserServiceConcurrencyIntegrationTest {
+class UserServiceConcurrencyIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private UserRepository repository;

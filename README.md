@@ -23,6 +23,7 @@ API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates,
 | Apache POI | 5.4.1 |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) |
 | H2 (testes) | (in-memory) |
+| Testcontainers (testes) | (via spring-boot-starter-parent) |
 | JaCoCo (cobertura) | 0.8.13 |
 
 ---
@@ -688,7 +689,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
 
 ### Opção 2 — Rodar localmente (Maven)
 
-Pré-requisitos: Java 21 e PostgreSQL rodando localmente.
+Pré-requisitos: Java 21 e PostgreSQL rodando localmente. Para rodar a suíte de
+testes (`mvn verify`) também é necessário **Docker**: parte dos testes (repositório
+e integração) sobe um PostgreSQL 16 via **Testcontainers** — veja [Estratégia de
+testes](#estratégia-de-testes).
 
 **1. Criar o banco de dados:**
 
@@ -723,8 +727,8 @@ O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a 
 
 | Job | O que faz |
 |---|---|
-| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify` (H2 em memória). Publica os relatórios de teste e o relatório de cobertura JaCoCo como artefatos (`surefire-reports` e `jacoco-report`). |
-| `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Cobre o gap dos testes, que rodam com Flyway desabilitado. |
+| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify`. Testes unitários e de controller usam H2 em memória; testes de repositório e integração sobem um PostgreSQL 16 via Testcontainers (o runner já tem Docker). Publica os relatórios de teste e o relatório de cobertura JaCoCo como artefatos (`surefire-reports` e `jacoco-report`). |
+| `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Complementa a validação das migrations (os testes de integração via Testcontainers já as exercitam). |
 | `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage (sem push para registry). |
 
 Os jobs `flyway-postgres` e `docker-build` dependem de `build-test`. Nenhum segredo de produção é usado no CI.
@@ -745,6 +749,25 @@ docker build -t carlessopilatesapi:ci .
 ```
 
 > O plugin `flyway-maven-plugin` está configurado no `pom.xml` apontando para `filesystem:src/main/resources/db/migration`; a conexão é passada por linha de comando.
+
+### Estratégia de testes
+
+A suíte usa dois bancos, conforme o que cada teste precisa exercitar:
+
+- **H2 em memória** (padrão em `src/test/resources/application.properties`, com Flyway
+  desabilitado e schema via `ddl-auto=create-drop`) — testes unitários, de serviço
+  (Mockito) e de controller (`@WebMvcTest`), que não dependem de recursos específicos
+  do PostgreSQL.
+- **PostgreSQL 16 via Testcontainers** — testes de repositório (`@DataJpaTest`) e de
+  integração (`@SpringBootTest`), que herdam de
+  `com.carlesso.pilatesapi.support.PostgresTestcontainerSupport`. Essa base sobe um
+  container **singleton** (reaproveitado por toda a suíte) e deixa o **Flyway** criar o
+  schema, igual à produção. Assim as migrations são exercitadas pelos testes e recursos
+  como o **índice parcial de unicidade** da V23 (`WHERE email/cpf IS NOT NULL`), que não
+  existe no H2, ficam cobertos.
+
+> Rodar esses testes exige **Docker** disponível na máquina. No CI o runner
+> `ubuntu-latest` já o fornece; localmente, garanta o daemon ativo antes de `mvn verify`.
 
 ### Cobertura de testes (JaCoCo)
 

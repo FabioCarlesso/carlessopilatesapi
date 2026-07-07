@@ -16,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
@@ -36,7 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.cobranca.cron-cobrancas-futuras=0 0 7 * * *",
         "app.cobranca.vencimento-dias=10"
 })
-class CobrancaSchedulerIntegrationTest {
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private CobrancaScheduler scheduler;
