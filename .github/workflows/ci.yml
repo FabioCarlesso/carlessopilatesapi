@@ -40,6 +40,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Publica relatório de cobertura (JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 7
+
   # Etapa 2 — aplica as migrations Flyway contra um PostgreSQL real.
   # Fecha o gap dos testes, que rodam em H2 com Flyway desabilitado.
   flyway-postgres:
