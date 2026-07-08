@@ -1,60 +1,31 @@
 package com.carlesso.pilatesapi.service;
 
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
-import com.carlesso.pilatesapi.dto.AuthRegisterRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthResponseDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.entity.User;
-import com.carlesso.pilatesapi.entity.enums.Role;
-import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
-import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
 
-    public AuthService(UserRepository userRepository,
-                       PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager,
+    public AuthService(AuthenticationManager authenticationManager,
                        JwtService jwtService,
                        LoginAttemptService loginAttemptService) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
-    }
-
-    @Transactional
-    public AuthResponseDTO register(AuthRegisterRequestDTO dto) {
-        String email = EmailNormalizer.normalizar(dto.email());
-        if (userRepository.existsByEmail(email)) {
-            throw new ConflictException("E-mail já cadastrado");
-        }
-
-        User user = new User();
-        user.setName(dto.name());
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(dto.password()));
-        user.setRole(Role.USER);
-
-        User saved = userRepository.save(user);
-        String token = jwtService.generateToken(saved);
-        return AuthResponseDTO.bearer(token, UserResponseDTO.from(saved));
     }
 
     @Transactional(readOnly = true)

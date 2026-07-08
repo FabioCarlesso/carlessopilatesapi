@@ -1,7 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
-import com.carlesso.pilatesapi.dto.AuthRegisterRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthResponseDTO;
 import com.carlesso.pilatesapi.dto.ForgotPasswordRequestDTO;
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
@@ -51,18 +50,6 @@ class AuthControllerTest {
 
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
-
-    @Test
-    void register_deveRetornar201() throws Exception {
-        var request = new AuthRegisterRequestDTO("Maria", "maria@email.com", "senha1234");
-        when(authService.register(any())).thenReturn(AuthResponseDTO.bearer("token",
-                new UserResponseDTO(1L, "Maria", "maria@email.com", Role.USER, true)));
-
-        mvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isCreated());
-    }
 
     @Test
     void login_deveRetornar200() throws Exception {

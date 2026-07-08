@@ -1,7 +1,6 @@
 package com.carlesso.pilatesapi.security;
 
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
-import com.carlesso.pilatesapi.dto.AuthRegisterRequestDTO;
 import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
@@ -67,34 +66,17 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void register_deveCriarUsuarioComSenhaCriptografadaERetornarJwt() throws Exception {
-        var request = new AuthRegisterRequestDTO("Maria", "maria@email.com", "senha1234");
+    void register_publico_naoDeveExistirENaoDeveCriarUsuario() throws Exception {
+        String payload = """
+                {"name": "Intruso", "email": "intruso@email.com", "password": "senha1234"}
+                """;
 
         mvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.user.email").value("maria@email.com"))
-                .andExpect(jsonPath("$.user.role").value("USER"))
-                .andExpect(jsonPath("$.user.password").doesNotExist());
+                        .content(payload))
+                .andExpect(status().isNotFound());
 
-        User saved = userRepository.findByEmail("maria@email.com").orElseThrow();
-        assertThat(saved.getPassword()).isNotEqualTo("senha1234");
-        assertThat(passwordEncoder.matches("senha1234", saved.getPassword())).isTrue();
-    }
-
-    @Test
-    void register_comEmailDuplicado_deveRetornar409() throws Exception {
-        criarUsuario("duplicado@email.com", Role.USER);
-        var request = new AuthRegisterRequestDTO("Outro", "duplicado@email.com", "senha1234");
-
-        mvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("E-mail já cadastrado"));
+        assertThat(userRepository.findByEmail("intruso@email.com")).isEmpty();
     }
 
     @Test
