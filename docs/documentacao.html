@@ -562,8 +562,7 @@
 
       <h3>Fluxo</h3>
       <ol>
-        <li><code>POST /auth/register</code> cria usuário <code>USER</code> e retorna access token.</li>
-        <li><code>POST /auth/login</code> valida credenciais e retorna access token. Após 5 falhas em 15 min retorna <code>429</code>.</li>
+        <li><code>POST /auth/login</code> valida credenciais e retorna access token. Após 5 falhas em 15 min retorna <code>429</code>. A criação de usuários é restrita a administradores em <code>POST /users</code>; não há registro público.</li>
         <li>Requisições autenticadas devem enviar <code>Authorization: Bearer &lt;accessToken&gt;</code>.</li>
         <li>Tokens emitidos antes da última troca/redefinição de senha retornam <code>401</code>.</li>
         <li>Endpoints <code>/admin/**</code> e o CRUD de <code>/users</code> exigem role <code>ADMIN</code> → caso contrário, <code>403</code>.</li>
@@ -573,7 +572,6 @@
       <table>
         <thead><tr><th>Método</th><th>Endpoint</th><th>Acesso</th><th>Descrição</th></tr></thead>
         <tbody>
-          <tr><td><span class="method post">POST</span></td><td><code>/auth/register</code></td><td>Público</td><td>Registra usuário com role <code>USER</code> e retorna JWT.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/auth/login</code></td><td>Público</td><td>Valida e-mail/senha e retorna JWT (rate limit 5/15min).</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/auth/forgot-password</code></td><td>Público</td><td>Solicita redefinição de senha por e-mail. Sempre retorna 200 genérico (evita enumeração de usuários); rate limit 5/15min por e-mail.</td></tr>
           <tr><td><span class="method post">POST</span></td><td><code>/auth/reset-password</code></td><td>Público</td><td>Redefine a senha a partir de um token válido, não expirado e ainda não utilizado.</td></tr>

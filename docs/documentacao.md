@@ -77,7 +77,7 @@ src/
 │   │   │   ├── AnamneseController.java      # /anamneses
 │   │   │   ├── AvaliacaoFisioterapeuticaController.java # /avaliacoes-fisioterapeuticas
 │   │   │   ├── PlanoTratamentoController.java # /planos-tratamento
-│   │   │   ├── AuthController.java          # /auth/register e /auth/login
+│   │   │   ├── AuthController.java          # /auth/login e recuperação de senha
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo
 │   │   │   ├── AdminController.java         # /admin/health
 │   │   │   ├── RelatorioNfseController.java # /api/relatorios/nfse
@@ -223,7 +223,7 @@ src/
 ## 4. Regras de Negócio
 
 ### 4.0 Segurança
-- `POST /auth/register` e `POST /auth/login` são públicos
+- `POST /auth/login` e os fluxos de recuperação de senha (`/auth/forgot-password`, `/auth/reset-password`) são públicos; não há registro público — a criação de usuários é feita por `POST /users` (role `ADMIN`)
 - `GET /users/me` exige usuário autenticado
 - `POST /users`, `GET /users`, `GET /users/{id}`, `PUT /users/{id}` e `DELETE /users/{id}` exigem role `ADMIN`
 - `/admin/**` exige role `ADMIN`
@@ -488,7 +488,6 @@ Tabela: `planos_tratamento`
 
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| `POST` | `/auth/register` | Público | Cria usuário com role `USER`, senha BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Autentica e-mail/senha e retorna JWT |
 | `GET` | `/users/me` | Autenticado | Retorna `id`, `name`, `email`, `role` e `ativo` do usuário logado |
 | `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha; tokens antigos deixam de autorizar rotas protegidas |
@@ -848,6 +847,8 @@ Com a aplicação rodando, acesse o Swagger UI para explorar e testar os endpoin
 |---|---|
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | OpenAPI JSON | http://localhost:8080/api-docs |
+
+> No perfil `prod` a documentação OpenAPI/Swagger fica desabilitada (`springdoc.api-docs.enabled=false` e `springdoc.swagger-ui.enabled=false`); as rotas retornam `404` em produção.
 
 ---
 

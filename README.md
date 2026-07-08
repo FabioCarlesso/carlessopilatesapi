@@ -52,7 +52,7 @@ src/
 │   │   │   ├── AnamneseController.java      # /anamneses
 │   │   │   ├── AvaliacaoFisioterapeuticaController.java # /avaliacoes-fisioterapeuticas
 │   │   │   ├── PlanoTratamentoController.java          # /planos-tratamento
-│   │   │   ├── AuthController.java          # /auth/register e /auth/login
+│   │   │   ├── AuthController.java          # /auth/login e recuperação de senha
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
 │   │   │   ├── AdminController.java         # /admin/health
 │   │   │   ├── RelatorioNfseController.java # /api/relatorios/nfse
@@ -199,7 +199,6 @@ Base URL: `http://localhost:8080`
 
 | Método | Endpoint | Acesso | Descrição |
 |---|---|---|---|
-| `POST` | `/auth/register` | Público | Registra usuário com role `USER`, salva senha com BCrypt e retorna JWT |
 | `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT. Retorna `429` após 5 tentativas falhas em 15 min |
 | `POST` | `/auth/forgot-password` | Público | Solicita redefinição de senha por e-mail. Sempre retorna `200` com mensagem genérica, mesmo se o e-mail não existir (evita enumeração de usuários). Retorna `429` após 5 solicitações em 15 min para o mesmo e-mail |
 | `POST` | `/auth/reset-password` | Público | Redefine a senha a partir de `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para token inválido, expirado, já utilizado ou confirmação divergente |
@@ -800,6 +799,8 @@ Com a aplicação rodando, acesse:
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | OpenAPI JSON | http://localhost:8080/api-docs |
 
+> No perfil `prod` a documentação OpenAPI/Swagger fica **desabilitada** (`springdoc.*.enabled=false`); essas rotas retornam `404` em produção para não expor o mapa da API.
+
 > Documentação visual offline do projeto: [`docs/documentacao.html`](docs/documentacao.html) — página HTML estática com arquitetura, endpoints, regras de negócio e setup. Abra direto no navegador.
 
 ---
@@ -952,15 +953,14 @@ cd scripts && python3 -m unittest test_import_seufisio -v
 
 ## Exemplos com curl
 
-### Registrar e fazer login
-```bash
-curl -s -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Maria","email":"maria@email.com","password":"senha1234"}' | jq
+### Fazer login
 
+O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Use um dos usuários de seed (perfil `dev`) ou o admin inicial de produção.
+
+```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"maria@email.com","password":"senha1234"}' | jq -r .accessToken)
+  -d '{"email":"admin@carlessopilates.com","password":"senha1234"}' | jq -r .accessToken)
 
 curl -s http://localhost:8080/users/me \
   -H "Authorization: Bearer $TOKEN" | jq

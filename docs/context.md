@@ -489,7 +489,6 @@ Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha sen
 
 | Método | Rota | Ação | Retorno |
 |---|---|---|---|
-| POST | `/auth/register` | Registrar usuário `USER` com senha BCrypt e retornar JWT | 200 / 400 / 409 |
 | POST | `/auth/login` | Autenticar e retornar JWT | 200 / 400 / 401 |
 | POST | `/auth/forgot-password` | Solicitar redefinição de senha por e-mail; sempre retorna 200 genérico (evita enumeração de usuários) | 200 / 400 / 429 |
 | POST | `/auth/reset-password` | Redefinir senha a partir de um token de redefinição válido, não expirado e ainda não utilizado | 200 / 400 / 422 |
