@@ -818,6 +818,23 @@ O projeto expõe endpoints operacionais do Spring Boot Actuator para acompanhame
 
 Somente `health` e `info` ficam expostos via HTTP. Os probes de liveness/readiness (`management.endpoint.health.probes.enabled=true`) refletem apenas o estado do processo e são usados pelo `HEALTHCHECK` do container.
 
+### Logging estruturado e correlation-id
+
+Operações de negócio críticas registram logs (nível `INFO` para eventos, `WARN` para bloqueios/rejeições) em `PagamentoService`, `AuthService`, `PasswordResetService`, `NotaFiscalEmitidaService`, `UserService`, nos schedulers e no bootstrap do admin. Dados sensíveis (senha, token) nunca são logados; e-mail e CPF são sempre mascarados via `LogMasker` (ex.: `j***@dominio.com`, `***.***.***-44`).
+
+Cada requisição recebe um **correlation-id** propagado pelo header `X-Request-Id`:
+
+- O `CorrelationIdFilter` lê o header `X-Request-Id`; se ausente, gera um UUID.
+- O id é colocado no MDC (chave `requestId`) e devolvido na resposta no mesmo header, permitindo ao frontend correlacionar suas chamadas com os logs do backend.
+- O valor recebido é sanitizado (apenas `[A-Za-z0-9_-]`, máx. 64 chars) para evitar log injection.
+
+O formato de saída é controlado por perfil em `src/main/resources/logback-spring.xml`:
+
+| Perfil | Saída |
+|---|---|
+| `dev` / default | Texto legível no console, com o correlation-id no pattern (`[requestId]`) |
+| `prod` | Uma linha **JSON** por evento (`logstash-logback-encoder`), com `requestId` como campo de topo, pronto para ingestão por agregadores de log |
+
 ---
 
 ## Migrações de banco (Flyway)
@@ -1315,9 +1332,11 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
 | `AuthControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 6 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 42 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 43 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
+| `CorrelationIdFilterTest` | Unitário (MockMvc servlet mocks) | 4 |
+| `LogMaskerTest` | Unitário (sem mocks) | 7 |
 
 ### Executar os testes
 

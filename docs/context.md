@@ -19,7 +19,7 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 | Validação | Spring Validation (Bean Validation) |
 | Documentação | springdoc-openapi 2.8.3 (Swagger UI) |
 | JWT | JJWT 0.12.6 |
-| Observabilidade | Spring Boot Actuator |
+| Observabilidade | Spring Boot Actuator + logging estruturado (SLF4J/Logback) com correlation-id (MDC) e saída JSON em prod (logstash-logback-encoder) |
 | Scheduler | Spring Scheduler |
 | Build | Maven 3.9 |
 | Containerização | Docker + Docker Compose |
@@ -138,6 +138,8 @@ com.carlesso.pilatesapi
 │   └── TemaPreferencia.java          — CLARO, ESCURO (preferência de tema do usuário)
 ├── security
 │   └── JwtAuthenticationFilter.java  — autentica requisições com Authorization Bearer
+├── web
+│   └── CorrelationIdFilter.java      — gera/propaga o correlation-id (header `X-Request-Id`) e o publica no MDC (`requestId`) para rastreio ponta a ponta nos logs; roda antes de todos os outros filtros
 ├── dto
 │   ├── PacienteRequestDTO.java       — payload de criação (record)
 │   ├── PacienteUpdateDTO.java        — payload de atualização parcial (record)
@@ -192,8 +194,14 @@ com.carlesso.pilatesapi
 │   └── LoginAttemptCleanupScheduler.java — remove periodicamente do LoginAttemptService chaves cujas tentativas já saíram da janela, evitando crescimento ilimitado do mapa em memória
 └── util
     ├── CompetenciaUtils.java         — validação/parsing/formatação de competências `MM/AAAA` (compartilhado pelo relatório e registro de NFSE)
-    └── EmailNormalizer.java          — normalização de e-mail (lowercase, locale-independente) compartilhada entre os services que identificam usuários por e-mail
+    ├── EmailNormalizer.java          — normalização de e-mail (lowercase, locale-independente) compartilhada entre os services que identificam usuários por e-mail
+    └── LogMasker.java                — máscaras de PII (e-mail/CPF) para logs, seguindo o padrão de ofuscação do script de importação
 ```
+
+### Configuração de logging (`src/main/resources/logback-spring.xml`)
+
+- Perfil `dev`/default: console em texto legível, com o correlation-id no pattern (`[%X{requestId}]`).
+- Perfil `prod`: uma linha JSON por evento via `logstash-logback-encoder`, com o `requestId` (e demais campos do MDC) promovido a chave de topo.
 
 ---
 

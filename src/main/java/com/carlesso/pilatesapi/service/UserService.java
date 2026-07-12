@@ -12,6 +12,9 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
+import com.carlesso.pilatesapi.util.LogMasker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +26,8 @@ import java.util.List;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
@@ -45,7 +50,9 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(dto.password()));
         user.setRole(dto.role());
 
-        return UserResponseDTO.from(repository.save(user));
+        User salvo = repository.save(user);
+        log.info("Usuário criado: userId={}, email={}, role={}", salvo.getId(), LogMasker.email(email), salvo.getRole());
+        return UserResponseDTO.from(salvo);
     }
 
     @Transactional(readOnly = true)
@@ -118,6 +125,7 @@ public class UserService {
 
         aplicarNovaSenha(user, dto.novaSenha());
         repository.save(user);
+        log.info("Senha alterada pelo próprio usuário: userId={}", user.getId());
     }
 
     /**
@@ -140,6 +148,7 @@ public class UserService {
         validarRemocaoDeAdminAtivo(user, "Não é possível inativar o último administrador ativo");
         user.setAtivo(false);
         repository.save(user);
+        log.info("Usuário inativado: userId={}, por={}", user.getId(), LogMasker.email(currentEmail));
     }
 
     private void validarRemocaoDeAdminAtivo(User user, String mensagem) {

@@ -9,6 +9,8 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.CompetenciaUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,6 +24,8 @@ import java.util.List;
 
 @Service
 public class NotaFiscalEmitidaService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotaFiscalEmitidaService.class);
 
     private final NotaFiscalEmitidaRepository repository;
     private final PacienteRepository pacienteRepository;
@@ -55,6 +59,8 @@ public class NotaFiscalEmitidaService {
         try {
             return self.upsert(dto);
         } catch (DataIntegrityViolationException e) {
+            log.warn("Colisão de constraint ao registrar NFSE (pacienteId={}, competencia={}); repetindo como atualização",
+                    dto.pacienteId(), dto.competencia());
             return self.upsert(dto);
         }
     }
@@ -76,12 +82,16 @@ public class NotaFiscalEmitidaService {
                     return nova;
                 });
 
+        boolean novo = nota.getId() == null;
         nota.setNumeroNota(dto.numeroNota());
         nota.setDataEmissao(dto.dataEmissao());
         nota.setValor(dto.valor());
         nota.setObservacoes(dto.observacoes());
 
-        return NotaFiscalEmitidaResponseDTO.from(repository.save(nota));
+        NotaFiscalEmitida salva = repository.save(nota);
+        log.info("NFSE {}: id={}, pacienteId={}, competencia={}, numeroNota={}",
+                novo ? "registrada" : "atualizada", salva.getId(), paciente.getId(), dto.competencia(), dto.numeroNota());
+        return NotaFiscalEmitidaResponseDTO.from(salva);
     }
 
     @Transactional(readOnly = true)

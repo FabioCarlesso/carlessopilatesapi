@@ -584,6 +584,16 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:4200"));
     }
 
+    @Test
+    void cors_deveExporHeaderDeCorrelationIdParaOFrontend() throws Exception {
+        mvc.perform(get("/actuator/health")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200"))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Request-Id"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        org.hamcrest.Matchers.containsString("X-Request-Id")));
+    }
+
     private User criarUsuario(String email, Role role) {
         return criarUsuario(email, role, true);
     }

@@ -3,6 +3,9 @@ package com.carlesso.pilatesapi.config;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import com.carlesso.pilatesapi.util.LogMasker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
@@ -16,6 +19,8 @@ import java.util.Locale;
 @Component
 @Profile("prod")
 public class InitialAdminBootstrap implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(InitialAdminBootstrap.class);
 
     private static final String DEFAULT_ADMIN_EMAIL = "admin@carlessopilates.com";
 
@@ -38,6 +43,8 @@ public class InitialAdminBootstrap implements ApplicationRunner {
             return;
         }
 
+        log.info("Nenhum administrador ativo encontrado; criando admin inicial");
+
         String email = initialAdminEmail();
         String password = initialAdminPassword();
         if (!StringUtils.hasText(password)) {
@@ -58,6 +65,7 @@ public class InitialAdminBootstrap implements ApplicationRunner {
         admin.setAtivo(true);
 
         repository.save(admin);
+        log.info("Admin inicial criado: email={}", LogMasker.email(email));
     }
 
     private String initialAdminEmail() {
