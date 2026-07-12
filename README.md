@@ -1332,7 +1332,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
 | `AuthControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 6 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 42 |
+| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 43 |
 | `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 | `CorrelationIdFilterTest` | Unitário (MockMvc servlet mocks) | 4 |
