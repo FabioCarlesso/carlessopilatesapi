@@ -13,6 +13,8 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,8 @@ import java.util.List;
 
 @Service
 public class PagamentoService {
+
+    private static final Logger log = LoggerFactory.getLogger(PagamentoService.class);
 
     private final PagamentoRepository pagamentoRepository;
     private final PacienteRepository pacienteRepository;
@@ -75,7 +79,10 @@ public class PagamentoService {
         pagamento.setPeriodoInicio(dto.periodoInicio());
         pagamento.setPeriodoFim(periodoFim);
 
-        return PagamentoResponseDTO.from(pagamentoRepository.save(pagamento));
+        Pagamento salvo = pagamentoRepository.save(pagamento);
+        log.info("Cobrança criada: pagamentoId={}, pacienteId={}, planoId={}, valor={}, vencimento={}",
+                salvo.getId(), paciente.getId(), plano.getId(), salvo.getValor(), salvo.getDataVencimento());
+        return PagamentoResponseDTO.from(salvo);
     }
 
     @Transactional
@@ -83,6 +90,7 @@ public class PagamentoService {
         Pagamento pagamento = encontrar(id);
 
         if (pagamento.getStatus() == StatusPagamento.PAGO) {
+            log.warn("Confirmação de pagamento rejeitada (já confirmado): pagamentoId={}", id);
             throw new ConflictException("Pagamento já foi confirmado");
         }
 
@@ -92,6 +100,8 @@ public class PagamentoService {
 
         aulaService.gerarAulas(pagamento);
 
+        log.info("Pagamento confirmado: pagamentoId={}, pacienteId={}, valor={}, dataPagamento={}",
+                pagamento.getId(), pagamento.getPaciente().getId(), pagamento.getValor(), pagamento.getDataPagamento());
         return PagamentoResponseDTO.from(pagamento);
     }
 

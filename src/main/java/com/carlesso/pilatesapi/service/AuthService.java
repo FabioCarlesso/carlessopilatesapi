@@ -6,6 +6,9 @@ import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
+import com.carlesso.pilatesapi.util.LogMasker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -32,6 +37,7 @@ public class AuthService {
     public AuthResponseDTO login(AuthLoginRequestDTO dto) {
         String email = EmailNormalizer.normalizar(dto.email());
         if (loginAttemptService.isBlocked(email)) {
+            log.warn("Login bloqueado por excesso de tentativas: email={}", LogMasker.email(email));
             throw new TooManyRequestsException("Muitas tentativas. Tente novamente em 15 minutos.");
         }
         try {
@@ -40,9 +46,11 @@ public class AuthService {
             loginAttemptService.registerSuccess(email);
             User user = (User) auth.getPrincipal();
             String token = jwtService.generateToken(user);
+            log.info("Login bem-sucedido: userId={}, email={}", user.getId(), LogMasker.email(email));
             return AuthResponseDTO.bearer(token, UserResponseDTO.from(user));
         } catch (AuthenticationException e) {
             loginAttemptService.registerFailure(email);
+            log.warn("Falha de autenticação: email={}", LogMasker.email(email));
             throw e;
         }
     }
