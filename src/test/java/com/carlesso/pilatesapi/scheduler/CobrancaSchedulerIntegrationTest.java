@@ -12,10 +12,12 @@ import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.PagamentoService;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.carlesso.pilatesapi.support.MetricsTestConfig;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -30,7 +32,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @PostgresDataJpaTest
-@Import({PagamentoService.class, AulaService.class, CobrancaScheduler.class})
+@Import({PagamentoService.class, AulaService.class, CobrancaScheduler.class, MetricsTestConfig.class})
 @EnableConfigurationProperties(AppProperties.class)
 @TestPropertySource(properties = {
         "app.cobranca.cron-vencidos=0 0 6 * * *",
@@ -56,6 +58,9 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     void limpar() {
@@ -213,6 +218,35 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
         Pagamento gerado = pagamentoRepository.findByPacienteId(paciente.getId()).get(0);
         assertThat(gerado.getDataVencimento())
                 .isEqualTo(gerado.getPeriodoInicio().plusDays(10));
+    }
+
+    // ── métricas ─────────────────────────────────────────────────────────
+
+    @Test
+    void gerarCobrancasFuturas_incrementaContadorDeCobrancasGeradas() {
+        Paciente paciente = pacienteRepository.save(paciente("Gil", "gil@email.com", "77788899900", true));
+        planoRepository.save(plano(paciente));
+        double antes = contador("pilates.cobrancas.geradas");
+
+        scheduler.gerarCobrancasFuturas();
+
+        assertThat(contador("pilates.cobrancas.geradas")).isEqualTo(antes + 1);
+    }
+
+    @Test
+    void atualizarVencidos_incrementaContadorDeCobrancasVencidas() {
+        Paciente paciente = pacienteRepository.save(paciente("Hugo", "hugo@email.com", "88899900011", true));
+        Plano plano = planoRepository.save(plano(paciente));
+        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(1)));
+        double antes = contador("pilates.cobrancas.vencidas");
+
+        scheduler.atualizarPagamentosVencidos();
+
+        assertThat(contador("pilates.cobrancas.vencidas")).isEqualTo(antes + 1);
+    }
+
+    private double contador(String nome) {
+        return meterRegistry.get(nome).counter().count();
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

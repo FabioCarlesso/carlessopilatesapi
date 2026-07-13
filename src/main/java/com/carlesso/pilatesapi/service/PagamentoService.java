@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
@@ -31,17 +32,20 @@ public class PagamentoService {
     private final PlanoRepository planoRepository;
     private final AulaService aulaService;
     private final AppProperties appProperties;
+    private final BusinessMetrics businessMetrics;
 
     public PagamentoService(PagamentoRepository pagamentoRepository,
                             PacienteRepository pacienteRepository,
                             PlanoRepository planoRepository,
                             AulaService aulaService,
-                            AppProperties appProperties) {
+                            AppProperties appProperties,
+                            BusinessMetrics businessMetrics) {
         this.pagamentoRepository = pagamentoRepository;
         this.pacienteRepository = pacienteRepository;
         this.planoRepository = planoRepository;
         this.aulaService = aulaService;
         this.appProperties = appProperties;
+        this.businessMetrics = businessMetrics;
     }
 
     @Transactional
@@ -100,6 +104,7 @@ public class PagamentoService {
 
         aulaService.gerarAulas(pagamento);
 
+        businessMetrics.registrarPagamentoConfirmado();
         log.info("Pagamento confirmado: pagamentoId={}, pacienteId={}, valor={}, dataPagamento={}",
                 pagamento.getId(), pagamento.getPaciente().getId(), pagamento.getValor(), pagamento.getDataPagamento());
         return PagamentoResponseDTO.from(pagamento);
@@ -121,6 +126,7 @@ public class PagamentoService {
         List<Pagamento> vencidos = pagamentoRepository
                 .findByStatusAndDataVencimentoBefore(StatusPagamento.PENDENTE, LocalDate.now());
         vencidos.forEach(p -> p.setStatus(StatusPagamento.VENCIDO));
+        businessMetrics.registrarCobrancasVencidas(vencidos.size());
         return vencidos.size();
     }
 
@@ -159,6 +165,7 @@ public class PagamentoService {
             count++;
         }
 
+        businessMetrics.registrarCobrancasGeradas(count);
         return count;
     }
 

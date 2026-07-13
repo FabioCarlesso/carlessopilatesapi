@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.repository.PlanoRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.carlesso.pilatesapi.support.MetricsTestConfig;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -32,7 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @PostgresDataJpaTest
-@Import({PagamentoService.class, AulaService.class})
+@Import({PagamentoService.class, AulaService.class, MetricsTestConfig.class})
 @EnableConfigurationProperties(AppProperties.class)
 @TestPropertySource(properties = {
         "app.cobranca.cron-vencidos=0 0 6 * * *",

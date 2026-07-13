@@ -56,6 +56,9 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        // Métricas (inclusive /actuator/prometheus) expõem detalhes internos
+                        // da aplicação: restritas a ADMIN, nunca públicas.
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .requestMatchers("/api-docs/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/users/me", "/users/me/senha", "/users/me/preferencias").authenticated()
                         .requestMatchers("/users/**").hasRole("ADMIN")

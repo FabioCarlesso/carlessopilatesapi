@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.PasswordResetToken;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
+import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PasswordResetTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
@@ -39,6 +40,7 @@ public class PasswordResetService {
     private final EmailSender emailSender;
     private final EmailTemplateService emailTemplateService;
     private final LoginAttemptService loginAttemptService;
+    private final BusinessMetrics businessMetrics;
     private final String resetPasswordUrl;
     private final long tokenTtlMinutos;
 
@@ -48,6 +50,7 @@ public class PasswordResetService {
                                  EmailSender emailSender,
                                  EmailTemplateService emailTemplateService,
                                  LoginAttemptService loginAttemptService,
+                                 BusinessMetrics businessMetrics,
                                  @Value("${app.email.reset-password-url}") String resetPasswordUrl,
                                  @Value("${app.email.reset-password-token-ttl-minutos:30}") long tokenTtlMinutos) {
         this.userRepository = userRepository;
@@ -56,6 +59,7 @@ public class PasswordResetService {
         this.emailSender = emailSender;
         this.emailTemplateService = emailTemplateService;
         this.loginAttemptService = loginAttemptService;
+        this.businessMetrics = businessMetrics;
         this.resetPasswordUrl = resetPasswordUrl;
         this.tokenTtlMinutos = tokenTtlMinutos;
     }
@@ -112,6 +116,7 @@ public class PasswordResetService {
 
         String link = resetPasswordUrl + "?token=" + rawToken;
         emailSender.send(emailTemplateService.criarEmailRedefinicaoSenha(user, link));
+        businessMetrics.registrarEmailResetEnviado();
     }
 
     private String gerarTokenAleatorio() {
