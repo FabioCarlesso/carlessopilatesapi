@@ -17,7 +17,8 @@ A aplicação foi construída com **Spring Boot 3** e **Java 21**, utiliza **Pos
 | Spring Data JPA | 3.4.5 | Persistência e ORM |
 | Spring Validation | 3.4.5 | Validação de entrada |
 | Spring Security | 6.4.5 | Autenticação e autorização stateless |
-| Spring Boot Actuator | 3.4.5 | Endpoints operacionais de health e info |
+| Spring Boot Actuator | 3.4.5 | Endpoints operacionais de health, info e métricas |
+| Micrometer (registry Prometheus) | 1.14.6 | Métricas de JVM, HTTP e de negócio em formato Prometheus |
 | PostgreSQL | 16 | Banco de dados relacional |
 | Flyway | (via spring-boot-starter-parent) | Versionamento e migração de schema do banco |
 | Spring Scheduler | (via spring-boot-starter) | Processos automáticos agendados |
@@ -188,7 +189,7 @@ src/
 └── test/java/com/carlesso/pilatesapi/
     ├── PilatesApiApplicationTests.java
     ├── actuator/
-    │   └── ActuatorTest.java                    # 3 casos
+    │   └── ActuatorTest.java                    # 8 casos
     ├── config/
     │   └── GlobalExceptionHandlerTest.java      # 6 casos
     ├── security/
@@ -854,12 +855,25 @@ Com a aplicação rodando, acesse o Swagger UI para explorar e testar os endpoin
 
 ## 8. Observabilidade (Actuator)
 
-O projeto utiliza **Spring Boot Actuator** para expor endpoints operacionais. Em desenvolvimento, apenas `health` e `info` ficam disponíveis via HTTP.
+O projeto utiliza **Spring Boot Actuator** para expor endpoints operacionais e **Micrometer** (`micrometer-registry-prometheus`) para métricas.
 
-| Endpoint | Descrição |
+| Endpoint | Descrição | Acesso |
+|---|---|---|
+| `GET /actuator/health` | Status da aplicação | Público |
+| `GET /actuator/info` | Metadados configurados da aplicação | Público (perfil `dev`) |
+| `GET /actuator/prometheus` | Métricas no formato de scrape do Prometheus | Role `ADMIN` |
+
+Além das métricas padrão de JVM, HTTP (`http_server_requests_seconds`, com histograma de latência), datasource e Hibernate, a classe `metrics/BusinessMetrics` publica contadores de negócio:
+
+| Métrica | Origem |
 |---|---|
-| `GET /actuator/health` | Status da aplicação |
-| `GET /actuator/info` | Metadados configurados da aplicação |
+| `pilates_cobrancas_geradas_total` | `PagamentoService.gerarCobrancasFuturas` (scheduler) |
+| `pilates_cobrancas_vencidas_total` | `PagamentoService.atualizarVencidos` (scheduler) |
+| `pilates_pagamentos_confirmados_total` | `PagamentoService.pagar` |
+| `pilates_logins_bloqueados_total` | `AuthService.login` (bloqueio por rate limit) |
+| `pilates_emails_reset_enviados_total` | `PasswordResetService` (envio do e-mail de redefinição) |
+
+O scrape exige um JWT de usuário `ADMIN` no header `Authorization` (`SecurityConfig` protege `/actuator/**` com `hasRole("ADMIN")`); ver o README para o exemplo de `prometheus.yml`.
 
 ---
 
@@ -1132,7 +1146,7 @@ A suíte de testes possui **295 casos** distribuídos nas classes abaixo:
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
-| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
+| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 13 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 2 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 16 |
@@ -1147,7 +1161,7 @@ A suíte de testes possui **295 casos** distribuídos nas classes abaixo:
 | `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
 | `GlobalExceptionHandlerTest` | Unitário | 6 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 23 |
-| `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
+| `ActuatorTest` | Integração (`@SpringBootTest`) | 8 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest` + H2) | 1 |
 
 ### Executar os testes

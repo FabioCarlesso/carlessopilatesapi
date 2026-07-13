@@ -12,6 +12,7 @@ API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates,
 | Spring Validation | 3.4.5 |
 | Spring Security | 6.4.5 |
 | Spring Boot Actuator | 3.4.5 |
+| Micrometer (registry Prometheus) | 1.14.6 |
 | PostgreSQL | 16 |
 | Flyway | (via spring-boot-starter-parent) |
 | springdoc-openapi | 2.8.3 |
@@ -815,8 +816,49 @@ O projeto expõe endpoints operacionais do Spring Boot Actuator para acompanhame
 | Liveness | http://localhost:8080/actuator/health/liveness |
 | Readiness | http://localhost:8080/actuator/health/readiness |
 | Info | http://localhost:8080/actuator/info |
+| Métricas (Prometheus) | http://localhost:8080/actuator/prometheus |
 
-Somente `health` e `info` ficam expostos via HTTP. Os probes de liveness/readiness (`management.endpoint.health.probes.enabled=true`) refletem apenas o estado do processo e são usados pelo `HEALTHCHECK` do container.
+`health` e `info` são públicos. Os probes de liveness/readiness (`management.endpoint.health.probes.enabled=true`) refletem apenas o estado do processo e são usados pelo `HEALTHCHECK` do container.
+
+### Métricas (Prometheus / Micrometer)
+
+O endpoint `/actuator/prometheus` expõe métricas no formato de scrape do Prometheus: métricas de JVM (`jvm_memory_used_bytes`, `jvm_gc_*`, threads), de HTTP (`http_server_requests_seconds_*`, com histograma habilitado para percentis de latência e séries por status — base para alertas de 5xx), do pool de conexões e do Hibernate, além dos contadores de negócio abaixo.
+
+| Métrica | Significado |
+|---|---|
+| `pilates_cobrancas_geradas_total` | Cobranças futuras geradas pelo scheduler |
+| `pilates_cobrancas_vencidas_total` | Pagamentos marcados como `VENCIDO` pelo scheduler |
+| `pilates_pagamentos_confirmados_total` | Pagamentos confirmados |
+| `pilates_logins_bloqueados_total` | Tentativas de login barradas pelo rate limit |
+| `pilates_emails_reset_enviados_total` | E-mails de redefinição de senha enviados |
+
+Os contadores são declarados em `metrics/BusinessMetrics` e nascem em `0` na subida da aplicação, permitindo alertas por taxa (`rate(...)`) sem esperar o primeiro evento. Todas as séries carregam a tag `application=CarlessoPilatesApi`.
+
+**O endpoint não é público:** exige um JWT de usuário com role `ADMIN` (`SecurityConfig`: `/actuator/**` → `hasRole("ADMIN")`). Sem token retorna `401`; com token de usuário comum, `403`.
+
+Para fazer o scrape, use um token de admin no `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: carlesso-pilates-api
+    metrics_path: /actuator/prometheus
+    scrape_interval: 15s
+    authorization:
+      type: Bearer
+      credentials: <JWT de um usuário ADMIN>
+    static_configs:
+      - targets: ['api:8080']
+```
+
+Verificação manual:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@carlessopilates.com","password":"<senha>"}' | jq -r .accessToken)
+
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/prometheus | head
+```
 
 ### Logging estruturado e correlation-id
 
@@ -1304,7 +1346,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
 | `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
 | `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
-| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 11 |
+| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 13 |
 | `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
 | `NotaFiscalEmitidaRepositoryTest` | JPA (`@DataJpaTest`) | 3 |
@@ -1333,7 +1375,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `AuthControllerTest` | Controller (`@WebMvcTest`) | 9 |
 | `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 6 |
 | `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 43 |
-| `ActuatorTest` | Integração (`@SpringBootTest`) | 3 |
+| `ActuatorTest` | Integração (`@SpringBootTest`) | 8 |
 | `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
 | `CorrelationIdFilterTest` | Unitário (MockMvc servlet mocks) | 4 |
 | `LogMaskerTest` | Unitário (sem mocks) | 7 |

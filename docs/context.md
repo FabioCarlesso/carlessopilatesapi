@@ -789,10 +789,11 @@ A quantidade de dias até o vencimento das cobranças geradas é controlada por 
 | OpenAPI JSON | `http://localhost:8080/api-docs` |
 | Actuator health | `http://localhost:8080/actuator/health` |
 | Actuator info | `http://localhost:8080/actuator/info` |
+| Actuator prometheus | `http://localhost:8080/actuator/prometheus` (requer JWT de ADMIN) |
 
 ### Observabilidade
 
-O projeto usa Spring Boot Actuator para endpoints operacionais. Em desenvolvimento, ficam expostos via HTTP apenas `health` e `info`.
+O projeto usa Spring Boot Actuator para endpoints operacionais. Em desenvolvimento, ficam expostos via HTTP `health`, `info` e `prometheus` (em `prod`, `health` e `prometheus`).
 
 | Endpoint | Uso |
 |---|---|
@@ -800,12 +801,19 @@ O projeto usa Spring Boot Actuator para endpoints operacionais. Em desenvolvimen
 | `GET /actuator/health/liveness` | Probe de liveness (apenas estado do processo) — usado pelo `HEALTHCHECK` do container |
 | `GET /actuator/health/readiness` | Probe de readiness (apenas estado do processo) |
 | `GET /actuator/info` | Consultar metadados configurados da aplicação |
+| `GET /actuator/prometheus` | Scrape de métricas (JVM, HTTP, negócio) — **restrito a role ADMIN** |
+
+As métricas vêm do Micrometer (`micrometer-registry-prometheus`). Além das métricas padrão de JVM/HTTP/datasource, a classe `metrics/BusinessMetrics` registra contadores de negócio (`pilates_cobrancas_geradas_total`, `pilates_cobrancas_vencidas_total`, `pilates_pagamentos_confirmados_total`, `pilates_logins_bloqueados_total`, `pilates_emails_reset_enviados_total`), incrementados em `PagamentoService`, `AuthService` e `PasswordResetService`. Diferente de `health`/`info`, `/actuator/prometheus` não é público: o `SecurityConfig` exige role ADMIN em `/actuator/**`, então o Prometheus precisa fazer scrape com um JWT de admin no header `Authorization`.
+
+Em testes, o Spring Boot desabilita o export de métricas por padrão; o `ActuatorTest` usa `@AutoConfigureObservability(tracing = false)` para que o registry do Prometheus seja criado.
 
 Configurações relevantes:
 
 ```properties
-management.endpoints.web.exposure.include=health,info
+management.endpoints.web.exposure.include=health,prometheus
 management.endpoint.health.probes.enabled=true
+management.metrics.tags.application=${spring.application.name}
+management.metrics.distribution.percentiles-histogram.http.server.requests=true
 management.info.env.enabled=true
 info.app.name=${spring.application.name}
 info.app.description=Carlesso Pilates API
@@ -878,7 +886,7 @@ mvn spring-boot:run
 | `AulaServiceTest` | Unitário (Mockito, sem Spring) | 14 |
 | `PacienteServiceIntegrationTest` | `@DataJpaTest` + H2 | 4 |
 | `ProfissionalServiceIntegrationTest` | `@DataJpaTest` + H2 | 5 |
-| `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + H2 | 11 |
+| `CobrancaSchedulerIntegrationTest` | `@DataJpaTest` + Postgres (Testcontainers) | 13 |
 | `AulaRepositoryTest` | `@DataJpaTest` + H2 | 6 |
 | `PagamentoRepositoryTest` | `@DataJpaTest` + H2 | 1 |
 | `PacienteControllerTest` | `@WebMvcTest` + MockMvc | 22 |
@@ -917,7 +925,7 @@ mvn spring-boot:run
 | `AuthControllerTest` | `@WebMvcTest` + MockMvc | 9 |
 | `PasswordResetIntegrationTest` | `@SpringBootTest` + MockMvc + H2 (EmailSender mockado) | 6 |
 | `SecurityIntegrationTest` | `@SpringBootTest` + MockMvc + H2 | 42 |
-| `ActuatorTest` | `@SpringBootTest` + H2 | 3 |
+| `ActuatorTest` | `@SpringBootTest` + H2 | 8 |
 | `PilatesApiApplicationTests` | `@SpringBootTest` + H2 | 1 |
 
 ```bash
@@ -926,7 +934,7 @@ JAVA_HOME=~/jdk mvn test
 
 Os testes de integração usam H2 em memória configurado em `src/test/resources/application.properties`.
 
-`CobrancaSchedulerIntegrationTest` usa `@DataJpaTest` + `@Import({PagamentoService.class, AulaService.class, CobrancaScheduler.class})` + `@EnableConfigurationProperties(AppProperties.class)` para testar as duas rotinas agendadas (`atualizarPagamentosVencidos` e `gerarCobrancasFuturas`) com banco H2 real, sem necessidade de subir o contexto completo.
+`CobrancaSchedulerIntegrationTest` usa `@DataJpaTest` + `@Import({PagamentoService.class, AulaService.class, CobrancaScheduler.class})` + `@EnableConfigurationProperties(AppProperties.class)` para testar as duas rotinas agendadas (`atualizarPagamentosVencidos` e `gerarCobrancasFuturas`) contra um PostgreSQL real (Testcontainers), sem necessidade de subir o contexto completo. `MetricsTestConfig` fornece o `MeterRegistry` in-memory usado pelos contadores de negócio nesse slice.
 
 ---
 

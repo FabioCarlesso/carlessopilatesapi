@@ -12,9 +12,11 @@ import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,13 +47,15 @@ class PagamentoServiceTest {
     private Paciente paciente;
     private Plano plano;
     private AppProperties appProperties;
+    private BusinessMetrics businessMetrics;
 
     @BeforeEach
     void setUp() {
+        businessMetrics = new BusinessMetrics(new SimpleMeterRegistry());
         appProperties = new AppProperties(
                 new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10));
         service = new PagamentoService(pagamentoRepository, pacienteRepository,
-                planoRepository, aulaService, appProperties);
+                planoRepository, aulaService, appProperties, businessMetrics);
 
         paciente = new Paciente();
         paciente.setNome("Ana");
@@ -185,7 +189,7 @@ class PagamentoServiceTest {
         appProperties = new AppProperties(
                 new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15));
         service = new PagamentoService(pagamentoRepository, pacienteRepository,
-                planoRepository, aulaService, appProperties);
+                planoRepository, aulaService, appProperties, businessMetrics);
 
         when(planoRepository.findByAtivoTrue()).thenReturn(List.of(plano));
         when(pagamentoRepository.findTopByPlanoOrderByPeriodoFimDesc(plano)).thenReturn(Optional.empty());

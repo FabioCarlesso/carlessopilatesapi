@@ -9,8 +9,10 @@ import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
+import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PasswordResetTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,7 +69,8 @@ class PasswordResetServiceTest {
     private PasswordResetService novoService(long tokenTtlMinutos) {
         return new PasswordResetService(
                 userRepository, tokenRepository, userService, emailSender, emailTemplateService,
-                loginAttemptService, RESET_PASSWORD_URL, tokenTtlMinutos);
+                loginAttemptService, new BusinessMetrics(new SimpleMeterRegistry()),
+                RESET_PASSWORD_URL, tokenTtlMinutos);
     }
 
     private User usuario(Long id, String email, boolean ativo) {
