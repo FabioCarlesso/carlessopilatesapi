@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Filtro de exclusões do SpotBugs.
+
+  Cada <Match> deve vir acompanhado de um comentário justificando por que o
+  finding é um falso positivo ou é aceitável no contexto do projeto.
+-->
+<FindBugsFilter>
+</FindBugsFilter>
