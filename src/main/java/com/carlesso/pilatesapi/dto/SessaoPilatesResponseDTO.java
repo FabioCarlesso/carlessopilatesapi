@@ -22,8 +22,7 @@ public record SessaoPilatesResponseDTO(
         Integer duracaoMinutos,
         String observacoes,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao
-) {
+        LocalDateTime dataAtualizacao) {
     public static SessaoPilatesResponseDTO from(SessaoPilates s) {
         return new SessaoPilatesResponseDTO(
                 s.getId(),
@@ -40,7 +39,6 @@ public record SessaoPilatesResponseDTO(
                 s.getDuracaoMinutos(),
                 s.getObservacoes(),
                 s.getDataCriacao(),
-                s.getDataAtualizacao()
-        );
+                s.getDataAtualizacao());
     }
 }

@@ -1,11 +1,10 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import java.util.Optional;
 
 public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, Long> {
 
@@ -13,7 +12,8 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
 
     void deleteBySessaoId(Long sessaoId);
 
-    @Query("""
+    @Query(
+            """
             SELECT e FROM EvolucaoSessao e
             JOIN FETCH e.sessao s
             JOIN s.paciente pac
@@ -21,7 +21,8 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
             """)
     Optional<EvolucaoSessao> findByIdComSessao(@Param("id") Long id);
 
-    @Query("""
+    @Query(
+            """
             SELECT e FROM EvolucaoSessao e
             JOIN FETCH e.sessao s
             JOIN s.paciente pac

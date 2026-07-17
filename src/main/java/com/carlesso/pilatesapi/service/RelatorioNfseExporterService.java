@@ -1,6 +1,12 @@
 package com.carlesso.pilatesapi.service;
 
 import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
@@ -9,26 +15,19 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 @Service
 public class RelatorioNfseExporterService {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String[] HEADERS = {
-            "Nome",
-            "CPF/CNPJ",
-            "ValorPago",
-            "Competencia",
-            "DescricaoServico",
-            "NotaAnteriorEmitida",
-            "DataPagamento",
-            "Observacoes"
+        "Nome",
+        "CPF/CNPJ",
+        "ValorPago",
+        "Competencia",
+        "DescricaoServico",
+        "NotaAnteriorEmitida",
+        "DataPagamento",
+        "Observacoes"
     };
 
     public byte[] exportarCsv(List<RelatorioNfseResponseDTO> itens) {
@@ -55,7 +54,7 @@ public class RelatorioNfseExporterService {
 
     public byte[] exportarXlsx(List<RelatorioNfseResponseDTO> itens) {
         try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("NFSE");
             CellStyle headerStyle = criarHeaderStyle(workbook);
 

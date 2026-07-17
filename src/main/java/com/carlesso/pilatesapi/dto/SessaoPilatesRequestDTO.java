@@ -15,5 +15,4 @@ public record SessaoPilatesRequestDTO(
         LocalTime horario,
         String local,
         @Positive Integer duracaoMinutos,
-        String observacoes
-) {}
+        String observacoes) {}

@@ -1,5 +1,10 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.NotaFiscalEmitidaRequestDTO;
 import com.carlesso.pilatesapi.entity.NotaFiscalEmitida;
 import com.carlesso.pilatesapi.entity.Paciente;
@@ -7,6 +12,10 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,16 +24,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NotaFiscalEmitidaServiceTest {
@@ -57,8 +56,8 @@ class NotaFiscalEmitidaServiceTest {
             return n;
         });
 
-        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-123",
-                LocalDate.of(2026, 4, 15), new BigDecimal("250.00"), "ok");
+        var dto = new NotaFiscalEmitidaRequestDTO(
+                1L, "04/2026", "NF-123", LocalDate.of(2026, 4, 15), new BigDecimal("250.00"), "ok");
 
         var response = service.registrar(dto);
 
@@ -93,8 +92,8 @@ class NotaFiscalEmitidaServiceTest {
                 .thenReturn(Optional.of(existente));
         when(repository.save(any(NotaFiscalEmitida.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-NOVA",
-                LocalDate.of(2026, 4, 20), new BigDecimal("300.00"), null);
+        var dto = new NotaFiscalEmitidaRequestDTO(
+                1L, "04/2026", "NF-NOVA", LocalDate.of(2026, 4, 20), new BigDecimal("300.00"), null);
 
         var response = service.registrar(dto);
 
@@ -108,8 +107,7 @@ class NotaFiscalEmitidaServiceTest {
     void registrar_pacienteInexistente_deveLancar404() {
         when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.empty());
 
-        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1",
-                LocalDate.of(2026, 4, 15), null, null);
+        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1", LocalDate.of(2026, 4, 15), null, null);
 
         assertThatThrownBy(() -> service.registrar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -120,8 +118,8 @@ class NotaFiscalEmitidaServiceTest {
     void registrar_valorNegativo_deveLancarErroDeNegocio() {
         when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
 
-        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1",
-                LocalDate.of(2026, 4, 15), new BigDecimal("-1.00"), null);
+        var dto = new NotaFiscalEmitidaRequestDTO(
+                1L, "04/2026", "NF-1", LocalDate.of(2026, 4, 15), new BigDecimal("-1.00"), null);
 
         assertThatThrownBy(() -> service.registrar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -132,8 +130,8 @@ class NotaFiscalEmitidaServiceTest {
     void registrar_dataEmissaoFutura_deveLancarErroDeNegocio() {
         when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
 
-        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1",
-                LocalDate.now().plusDays(1), new BigDecimal("250.00"), null);
+        var dto = new NotaFiscalEmitidaRequestDTO(
+                1L, "04/2026", "NF-1", LocalDate.now().plusDays(1), new BigDecimal("250.00"), null);
 
         assertThatThrownBy(() -> service.registrar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -144,8 +142,7 @@ class NotaFiscalEmitidaServiceTest {
     void registrar_competenciaInvalida_deveLancarErro() {
         when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
 
-        var dto = new NotaFiscalEmitidaRequestDTO(1L, "13/2026", "NF-1",
-                LocalDate.of(2026, 4, 15), null, null);
+        var dto = new NotaFiscalEmitidaRequestDTO(1L, "13/2026", "NF-1", LocalDate.of(2026, 4, 15), null, null);
 
         assertThatThrownBy(() -> service.registrar(dto))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -156,8 +153,7 @@ class NotaFiscalEmitidaServiceTest {
     void listarPorPaciente_pacienteInexistente_deveLancar404() {
         when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.listarPorPaciente(1L))
-                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.listarPorPaciente(1L)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     private Paciente paciente() {

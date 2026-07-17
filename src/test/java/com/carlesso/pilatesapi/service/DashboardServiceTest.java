@@ -1,39 +1,44 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.DashboardResumoDTO;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.YearMonth;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class DashboardServiceTest {
 
-    @Mock PacienteRepository pacienteRepository;
-    @Mock ProfissionalRepository profissionalRepository;
-    @Mock PagamentoRepository pagamentoRepository;
-    @Mock AulaRepository aulaRepository;
+    @Mock
+    PacienteRepository pacienteRepository;
+
+    @Mock
+    ProfissionalRepository profissionalRepository;
+
+    @Mock
+    PagamentoRepository pagamentoRepository;
+
+    @Mock
+    AulaRepository aulaRepository;
 
     DashboardService service;
 
     @BeforeEach
     void setUp() {
-        service = new DashboardService(pacienteRepository, profissionalRepository,
-                pagamentoRepository, aulaRepository);
+        service = new DashboardService(pacienteRepository, profissionalRepository, pagamentoRepository, aulaRepository);
     }
 
     @Test
@@ -50,7 +55,7 @@ class DashboardServiceTest {
         when(pagamentoRepository.countByStatus(StatusPagamento.PAGO)).thenReturn(10L);
         when(pagamentoRepository.countByStatus(StatusPagamento.VENCIDO)).thenReturn(2L);
         when(pagamentoRepository.sumValorByStatusAndDataPagamentoBetween(
-                eq(StatusPagamento.PAGO), eq(inicioMes), eq(fimMes)))
+                        eq(StatusPagamento.PAGO), eq(inicioMes), eq(fimMes)))
                 .thenReturn(new BigDecimal("2000.00"));
         when(aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(eq(true), eq(inicioMes), eq(fimMes)))
                 .thenReturn(30L);
@@ -84,7 +89,7 @@ class DashboardServiceTest {
         when(profissionalRepository.countByAtivoFalse()).thenReturn(0L);
         when(pagamentoRepository.countByStatus(any())).thenReturn(0L);
         when(pagamentoRepository.sumValorByStatusAndDataPagamentoBetween(
-                eq(StatusPagamento.PAGO), eq(inicioMes), eq(fimMes)))
+                        eq(StatusPagamento.PAGO), eq(inicioMes), eq(fimMes)))
                 .thenReturn(BigDecimal.ZERO);
         when(aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(anyBoolean(), eq(inicioMes), eq(fimMes)))
                 .thenReturn(0L);

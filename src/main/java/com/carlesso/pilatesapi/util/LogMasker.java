@@ -7,8 +7,7 @@ package com.carlesso.pilatesapi.util;
  */
 public final class LogMasker {
 
-    private LogMasker() {
-    }
+    private LogMasker() {}
 
     /**
      * Mascara um e-mail preservando a inicial do local e o domínio

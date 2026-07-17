@@ -18,8 +18,7 @@ public final class CompetenciaUtils {
 
     private static final Pattern COMPETENCIA_PATTERN = Pattern.compile(COMPETENCIA_REGEX);
 
-    private CompetenciaUtils() {
-    }
+    private CompetenciaUtils() {}
 
     public static YearMonth parse(String competencia) {
         if (competencia == null || competencia.isBlank()) {

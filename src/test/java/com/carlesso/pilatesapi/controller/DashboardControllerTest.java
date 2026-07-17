@@ -1,9 +1,15 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.carlesso.pilatesapi.dto.DashboardResumoDTO;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.DashboardService;
 import com.carlesso.pilatesapi.service.JwtService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -11,21 +17,21 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 @WebMvcTest(DashboardController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class DashboardControllerTest {
 
-    @Autowired MockMvc mockMvc;
-    @MockitoBean DashboardService dashboardService;
-    @MockitoBean JwtService jwtService;
-    @MockitoBean CustomUserDetailsService customUserDetailsService;
+    @Autowired
+    MockMvc mockMvc;
+
+    @MockitoBean
+    DashboardService dashboardService;
+
+    @MockitoBean
+    JwtService jwtService;
+
+    @MockitoBean
+    CustomUserDetailsService customUserDetailsService;
 
     private DashboardResumoDTO resumoCompleto() {
         return new DashboardResumoDTO(
@@ -33,8 +39,7 @@ class DashboardControllerTest {
                 new DashboardResumoDTO.ProfissionaisResumo(3L, 1L),
                 new DashboardResumoDTO.PagamentosResumo(5L, 10L, 2L, new BigDecimal("2000.00")),
                 new DashboardResumoDTO.AulasResumo(30L, 12L),
-                LocalDateTime.of(2026, 4, 29, 10, 0, 0)
-        );
+                LocalDateTime.of(2026, 4, 29, 10, 0, 0));
     }
 
     @Test

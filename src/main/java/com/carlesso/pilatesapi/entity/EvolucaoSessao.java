@@ -55,44 +55,111 @@ public class EvolucaoSessao {
         this.dataCriacao = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public SessaoPilates getSessao() { return sessao; }
-    public void setSessao(SessaoPilates sessao) { this.sessao = sessao; }
+    public SessaoPilates getSessao() {
+        return sessao;
+    }
 
-    public LocalDateTime getDataHoraRegistro() { return dataHoraRegistro; }
-    public void setDataHoraRegistro(LocalDateTime dataHoraRegistro) { this.dataHoraRegistro = dataHoraRegistro; }
+    public void setSessao(SessaoPilates sessao) {
+        this.sessao = sessao;
+    }
 
-    public String getExerciciosRealizados() { return exerciciosRealizados; }
-    public void setExerciciosRealizados(String exerciciosRealizados) { this.exerciciosRealizados = exerciciosRealizados; }
+    public LocalDateTime getDataHoraRegistro() {
+        return dataHoraRegistro;
+    }
 
-    public String getEquipamentosUtilizados() { return equipamentosUtilizados; }
-    public void setEquipamentosUtilizados(String equipamentosUtilizados) { this.equipamentosUtilizados = equipamentosUtilizados; }
+    public void setDataHoraRegistro(LocalDateTime dataHoraRegistro) {
+        this.dataHoraRegistro = dataHoraRegistro;
+    }
 
-    public String getCargasMolas() { return cargasMolas; }
-    public void setCargasMolas(String cargasMolas) { this.cargasMolas = cargasMolas; }
+    public String getExerciciosRealizados() {
+        return exerciciosRealizados;
+    }
 
-    public Integer getDorAntes() { return dorAntes; }
-    public void setDorAntes(Integer dorAntes) { this.dorAntes = dorAntes; }
+    public void setExerciciosRealizados(String exerciciosRealizados) {
+        this.exerciciosRealizados = exerciciosRealizados;
+    }
 
-    public Integer getDorDepois() { return dorDepois; }
-    public void setDorDepois(Integer dorDepois) { this.dorDepois = dorDepois; }
+    public String getEquipamentosUtilizados() {
+        return equipamentosUtilizados;
+    }
 
-    public String getRespostaPaciente() { return respostaPaciente; }
-    public void setRespostaPaciente(String respostaPaciente) { this.respostaPaciente = respostaPaciente; }
+    public void setEquipamentosUtilizados(String equipamentosUtilizados) {
+        this.equipamentosUtilizados = equipamentosUtilizados;
+    }
 
-    public String getIntercorrencias() { return intercorrencias; }
-    public void setIntercorrencias(String intercorrencias) { this.intercorrencias = intercorrencias; }
+    public String getCargasMolas() {
+        return cargasMolas;
+    }
 
-    public String getOrientacoes() { return orientacoes; }
-    public void setOrientacoes(String orientacoes) { this.orientacoes = orientacoes; }
+    public void setCargasMolas(String cargasMolas) {
+        this.cargasMolas = cargasMolas;
+    }
 
-    public String getObservacoesFisioterapeuta() { return observacoesFisioterapeuta; }
-    public void setObservacoesFisioterapeuta(String observacoesFisioterapeuta) { this.observacoesFisioterapeuta = observacoesFisioterapeuta; }
+    public Integer getDorAntes() {
+        return dorAntes;
+    }
 
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
-    public void setDataCriacao(LocalDateTime dataCriacao) { this.dataCriacao = dataCriacao; }
+    public void setDorAntes(Integer dorAntes) {
+        this.dorAntes = dorAntes;
+    }
 
-    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) { this.dataAtualizacao = dataAtualizacao; }
+    public Integer getDorDepois() {
+        return dorDepois;
+    }
+
+    public void setDorDepois(Integer dorDepois) {
+        this.dorDepois = dorDepois;
+    }
+
+    public String getRespostaPaciente() {
+        return respostaPaciente;
+    }
+
+    public void setRespostaPaciente(String respostaPaciente) {
+        this.respostaPaciente = respostaPaciente;
+    }
+
+    public String getIntercorrencias() {
+        return intercorrencias;
+    }
+
+    public void setIntercorrencias(String intercorrencias) {
+        this.intercorrencias = intercorrencias;
+    }
+
+    public String getOrientacoes() {
+        return orientacoes;
+    }
+
+    public void setOrientacoes(String orientacoes) {
+        this.orientacoes = orientacoes;
+    }
+
+    public String getObservacoesFisioterapeuta() {
+        return observacoesFisioterapeuta;
+    }
+
+    public void setObservacoesFisioterapeuta(String observacoesFisioterapeuta) {
+        this.observacoesFisioterapeuta = observacoesFisioterapeuta;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public LocalDateTime getDataAtualizacao() {
+        return dataAtualizacao;
+    }
+
+    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
+        this.dataAtualizacao = dataAtualizacao;
+    }
 }

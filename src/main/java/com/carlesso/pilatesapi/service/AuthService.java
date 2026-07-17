@@ -27,10 +27,11 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final BusinessMetrics businessMetrics;
 
-    public AuthService(AuthenticationManager authenticationManager,
-                       JwtService jwtService,
-                       LoginAttemptService loginAttemptService,
-                       BusinessMetrics businessMetrics) {
+    public AuthService(
+            AuthenticationManager authenticationManager,
+            JwtService jwtService,
+            LoginAttemptService loginAttemptService,
+            BusinessMetrics businessMetrics) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
@@ -46,8 +47,8 @@ public class AuthService {
             throw new TooManyRequestsException("Muitas tentativas. Tente novamente em 15 minutos.");
         }
         try {
-            Authentication auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(email, dto.password()));
+            Authentication auth =
+                    authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, dto.password()));
             loginAttemptService.registerSuccess(email);
             User user = (User) auth.getPrincipal();
             String token = jwtService.generateToken(user);

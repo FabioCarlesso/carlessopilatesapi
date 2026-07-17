@@ -1,5 +1,7 @@
 package com.carlesso.pilatesapi.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
@@ -7,6 +9,8 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,11 +32,6 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -40,40 +39,39 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleNotFound_resourceNotFound_retornaMensagemDoErro() {
-        Map<String, String> response = handler.handleNotFound(
-                new ResourceNotFoundException("Paciente não encontrado: 1"));
+        Map<String, String> response =
+                handler.handleNotFound(new ResourceNotFoundException("Paciente não encontrado: 1"));
 
         assertThat(response).containsEntry("erro", "Paciente não encontrado: 1");
     }
 
     @Test
     void handleNotFound_entityNotFound_retornaMensagemDoErro() {
-        Map<String, String> response = handler.handleNotFound(
-                new EntityNotFoundException("Profissional não encontrado: 1"));
+        Map<String, String> response =
+                handler.handleNotFound(new EntityNotFoundException("Profissional não encontrado: 1"));
 
         assertThat(response).containsEntry("erro", "Profissional não encontrado: 1");
     }
 
     @Test
     void handleConflict_retornaMensagemDoErro() {
-        Map<String, String> response = handler.handleConflict(
-                new ConflictException("E-mail já cadastrado"));
+        Map<String, String> response = handler.handleConflict(new ConflictException("E-mail já cadastrado"));
 
         assertThat(response).containsEntry("erro", "E-mail já cadastrado");
     }
 
     @Test
     void handleBusiness_retornaMensagemDoErro() {
-        Map<String, String> response = handler.handleBusiness(
-                new BusinessException("Paciente inativo não pode receber novas cobranças"));
+        Map<String, String> response =
+                handler.handleBusiness(new BusinessException("Paciente inativo não pode receber novas cobranças"));
 
         assertThat(response).containsEntry("erro", "Paciente inativo não pode receber novas cobranças");
     }
 
     @Test
     void handleBadRequest_retornaMensagemDoErro() {
-        Map<String, String> response = handler.handleBadRequest(
-                new IllegalArgumentException("Período inicial é obrigatório"));
+        Map<String, String> response =
+                handler.handleBadRequest(new IllegalArgumentException("Período inicial é obrigatório"));
 
         assertThat(response).containsEntry("erro", "Período inicial é obrigatório");
     }
@@ -82,7 +80,9 @@ class GlobalExceptionHandlerTest {
     void handleNoHandlerFound_retornaMensagemRotaNaoEncontrada() {
         ResponseEntity<Object> response = handler.handleNoHandlerFoundException(
                 new NoHandlerFoundException("GET", "/inexistente", new HttpHeaders()),
-                new HttpHeaders(), HttpStatus.NOT_FOUND, webRequest);
+                new HttpHeaders(),
+                HttpStatus.NOT_FOUND,
+                webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_ROTA));
@@ -90,11 +90,9 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleDataIntegrity_retornaMensagemPadrao() {
-        Map<String, String> response = handler.handleDataIntegrity(
-                new DataIntegrityViolationException("violação"));
+        Map<String, String> response = handler.handleDataIntegrity(new DataIntegrityViolationException("violação"));
 
-        assertThat(response).containsEntry("erro",
-                "Violação de integridade: registro duplicado ou constraint violada");
+        assertThat(response).containsEntry("erro", "Violação de integridade: registro duplicado ou constraint violada");
     }
 
     @Test
@@ -102,13 +100,16 @@ class GlobalExceptionHandlerTest {
     void handleMethodArgumentNotValid_retornaCamposComMensagens() throws Exception {
         var bindingResult = new BeanPropertyBindingResult(new Object(), "pacienteRequestDTO");
         bindingResult.addError(new FieldError("pacienteRequestDTO", "nome", "não deve estar em branco"));
-        bindingResult.addError(new FieldError("pacienteRequestDTO", "email", "deve ser um endereço de e-mail bem formado"));
+        bindingResult.addError(
+                new FieldError("pacienteRequestDTO", "email", "deve ser um endereço de e-mail bem formado"));
         var methodParameter = new MethodParameter(
                 getClass().getDeclaredMethod("handleMethodArgumentNotValid_retornaCamposComMensagens"), -1);
 
         ResponseEntity<Object> response = handler.handleMethodArgumentNotValid(
                 new MethodArgumentNotValidException(methodParameter, bindingResult),
-                new HttpHeaders(), HttpStatus.BAD_REQUEST, webRequest);
+                new HttpHeaders(),
+                HttpStatus.BAD_REQUEST,
+                webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         Map<String, Object> body = (Map<String, Object>) response.getBody();
@@ -128,7 +129,9 @@ class GlobalExceptionHandlerTest {
 
         ResponseEntity<Object> response = handler.handleMethodArgumentNotValid(
                 new MethodArgumentNotValidException(methodParameter, bindingResult),
-                new HttpHeaders(), HttpStatus.BAD_REQUEST, webRequest);
+                new HttpHeaders(),
+                HttpStatus.BAD_REQUEST,
+                webRequest);
 
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertThat((Map<String, String>) body.get("campos"))
@@ -142,8 +145,8 @@ class GlobalExceptionHandlerTest {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var violations = factory.getValidator().validate(new Filtro(""));
 
-            Map<String, Object> response = handler.handleConstraintViolation(
-                    new ConstraintViolationException(violations));
+            Map<String, Object> response =
+                    handler.handleConstraintViolation(new ConstraintViolationException(violations));
 
             assertThat(response).containsEntry("erro", GlobalExceptionHandler.ERRO_VALIDACAO);
             assertThat((Map<String, String>) response.get("campos")).containsKey("competencia");
@@ -153,19 +156,18 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleHttpMessageNotReadable_retornaMensagemNeutra() {
         ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(
-                new HttpMessageNotReadableException("JSON malformado",
-                        new MockHttpInputMessage(new byte[0])),
-                new HttpHeaders(), HttpStatus.BAD_REQUEST, webRequest);
+                new HttpMessageNotReadableException("JSON malformado", new MockHttpInputMessage(new byte[0])),
+                new HttpHeaders(),
+                HttpStatus.BAD_REQUEST,
+                webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody())
-                .isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_CORPO_ILEGIVEL));
+        assertThat(response.getBody()).isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_CORPO_ILEGIVEL));
     }
 
     @Test
     void handleAccessDenied_retornaMensagemAcessoNegado() {
-        Map<String, String> response = handler.handleAccessDenied(
-                new AccessDeniedException("negado"));
+        Map<String, String> response = handler.handleAccessDenied(new AccessDeniedException("negado"));
 
         assertThat(response).containsEntry("erro", "Acesso negado");
     }
@@ -181,8 +183,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleException_metodoNaoSuportado_retorna405ComHeaderAllow() throws Exception {
-        ResponseEntity<Object> response = handler.handleException(
-                new HttpRequestMethodNotSupportedException("POST", List.of("GET")), webRequest);
+        ResponseEntity<Object> response =
+                handler.handleException(new HttpRequestMethodNotSupportedException("POST", List.of("GET")), webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
         assertThat(response.getHeaders().getAllow()).isNotEmpty();
@@ -190,18 +192,16 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleException_erro5xxDoFramework_retornaMensagemNeutra() throws Exception {
-        ResponseEntity<Object> response = handler.handleException(
-                new AsyncRequestTimeoutException(), webRequest);
+        ResponseEntity<Object> response = handler.handleException(new AsyncRequestTimeoutException(), webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        assertThat(response.getBody())
-                .isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_INTERNO));
+        assertThat(response.getBody()).isEqualTo(Map.of("erro", GlobalExceptionHandler.ERRO_INTERNO));
     }
 
     @Test
     void handleUnexpected_excecaoNaoMapeada_retorna500ComMensagemNeutra() {
-        ResponseEntity<Map<String, String>> response = handler.handleUnexpected(
-                new RuntimeException("detalhe interno que não pode vazar"));
+        ResponseEntity<Map<String, String>> response =
+                handler.handleUnexpected(new RuntimeException("detalhe interno que não pode vazar"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody()).containsEntry("erro", GlobalExceptionHandler.ERRO_INTERNO);
@@ -217,8 +217,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleUnexpected_excecaoAnotadaComResponseStatus_preservaStatusDeclarado() {
-        ResponseEntity<Map<String, String>> response = handler.handleUnexpected(
-                new ExcecaoAnotadaComConflito("Horário já reservado"));
+        ResponseEntity<Map<String, String>> response =
+                handler.handleUnexpected(new ExcecaoAnotadaComConflito("Horário já reservado"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).containsEntry("erro", "Horário já reservado");

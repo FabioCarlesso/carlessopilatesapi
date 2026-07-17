@@ -1,5 +1,10 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.carlesso.pilatesapi.config.AppProperties;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
@@ -17,6 +22,11 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,24 +34,21 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class PagamentoServiceTest {
 
-    @Mock PagamentoRepository pagamentoRepository;
-    @Mock PacienteRepository pacienteRepository;
-    @Mock PlanoRepository planoRepository;
-    @Mock AulaService aulaService;
+    @Mock
+    PagamentoRepository pagamentoRepository;
+
+    @Mock
+    PacienteRepository pacienteRepository;
+
+    @Mock
+    PlanoRepository planoRepository;
+
+    @Mock
+    AulaService aulaService;
+
     PagamentoService service;
 
     private Paciente paciente;
@@ -52,10 +59,9 @@ class PagamentoServiceTest {
     @BeforeEach
     void setUp() {
         businessMetrics = new BusinessMetrics(new SimpleMeterRegistry());
-        appProperties = new AppProperties(
-                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10));
-        service = new PagamentoService(pagamentoRepository, pacienteRepository,
-                planoRepository, aulaService, appProperties, businessMetrics);
+        appProperties = new AppProperties(new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10));
+        service = new PagamentoService(
+                pagamentoRepository, pacienteRepository, planoRepository, aulaService, appProperties, businessMetrics);
 
         paciente = new Paciente();
         paciente.setNome("Ana");
@@ -73,12 +79,13 @@ class PagamentoServiceTest {
 
     @Test
     void criarPagamento_comSucesso() {
-        var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("200.00"),
-                LocalDate.now().plusDays(10), LocalDate.now());
+        var dto = new PagamentoRequestDTO(
+                1L, 1L, new BigDecimal("200.00"), LocalDate.now().plusDays(10), LocalDate.now());
 
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
         when(planoRepository.findById(1L)).thenReturn(Optional.of(plano));
-        when(pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio())).thenReturn(false);
+        when(pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio()))
+                .thenReturn(false);
 
         Pagamento salvo = new Pagamento();
         salvo.setPaciente(paciente);
@@ -98,8 +105,8 @@ class PagamentoServiceTest {
     @Test
     void criarPagamento_pacienteInativo_lancaExcecao() {
         paciente.setAtivo(false);
-        var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("200.00"),
-                LocalDate.now().plusDays(10), LocalDate.now());
+        var dto = new PagamentoRequestDTO(
+                1L, 1L, new BigDecimal("200.00"), LocalDate.now().plusDays(10), LocalDate.now());
 
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
 
@@ -110,8 +117,8 @@ class PagamentoServiceTest {
 
     @Test
     void criarPagamento_valorMenorQuePlano_lancaExcecao() {
-        var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("100.00"),
-                LocalDate.now().plusDays(10), LocalDate.now());
+        var dto = new PagamentoRequestDTO(
+                1L, 1L, new BigDecimal("100.00"), LocalDate.now().plusDays(10), LocalDate.now());
 
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
         when(planoRepository.findById(1L)).thenReturn(Optional.of(plano));
@@ -123,12 +130,13 @@ class PagamentoServiceTest {
 
     @Test
     void criarPagamento_duplicadoParaMesmoPeriodo_lancaExcecao() {
-        var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("200.00"),
-                LocalDate.now().plusDays(10), LocalDate.now());
+        var dto = new PagamentoRequestDTO(
+                1L, 1L, new BigDecimal("200.00"), LocalDate.now().plusDays(10), LocalDate.now());
 
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
         when(planoRepository.findById(1L)).thenReturn(Optional.of(plano));
-        when(pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio())).thenReturn(true);
+        when(pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio()))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ConflictException.class)
@@ -137,13 +145,12 @@ class PagamentoServiceTest {
 
     @Test
     void criarPagamento_pacienteNaoEncontrado_lancaExcecao() {
-        var dto = new PagamentoRequestDTO(99L, 1L, new BigDecimal("200.00"),
-                LocalDate.now().plusDays(10), LocalDate.now());
+        var dto = new PagamentoRequestDTO(
+                99L, 1L, new BigDecimal("200.00"), LocalDate.now().plusDays(10), LocalDate.now());
 
         when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.criar(dto))
-                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.criar(dto)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -186,10 +193,9 @@ class PagamentoServiceTest {
 
     @Test
     void gerarCobrancasFuturas_usaVencimentoDiasConfigurado() {
-        appProperties = new AppProperties(
-                new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15));
-        service = new PagamentoService(pagamentoRepository, pacienteRepository,
-                planoRepository, aulaService, appProperties, businessMetrics);
+        appProperties = new AppProperties(new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15));
+        service = new PagamentoService(
+                pagamentoRepository, pacienteRepository, planoRepository, aulaService, appProperties, businessMetrics);
 
         when(planoRepository.findByAtivoTrue()).thenReturn(List.of(plano));
         when(pagamentoRepository.findTopByPlanoOrderByPeriodoFimDesc(plano)).thenReturn(Optional.empty());

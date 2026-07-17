@@ -14,13 +14,12 @@ import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
+import java.time.LocalDate;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.util.List;
 
 @Service
 public class PagamentoService {
@@ -34,12 +33,13 @@ public class PagamentoService {
     private final AppProperties appProperties;
     private final BusinessMetrics businessMetrics;
 
-    public PagamentoService(PagamentoRepository pagamentoRepository,
-                            PacienteRepository pacienteRepository,
-                            PlanoRepository planoRepository,
-                            AulaService aulaService,
-                            AppProperties appProperties,
-                            BusinessMetrics businessMetrics) {
+    public PagamentoService(
+            PagamentoRepository pagamentoRepository,
+            PacienteRepository pacienteRepository,
+            PlanoRepository planoRepository,
+            AulaService aulaService,
+            AppProperties appProperties,
+            BusinessMetrics businessMetrics) {
         this.pagamentoRepository = pagamentoRepository;
         this.pacienteRepository = pacienteRepository;
         this.planoRepository = planoRepository;
@@ -50,29 +50,30 @@ public class PagamentoService {
 
     @Transactional
     public PagamentoResponseDTO criar(PagamentoRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findById(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         if (!paciente.isAtivo()) {
             throw new BusinessException("Paciente inativo não pode receber novas cobranças");
         }
 
-        Plano plano = planoRepository.findById(dto.planoId())
+        Plano plano = planoRepository
+                .findById(dto.planoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Plano não encontrado: " + dto.planoId()));
 
         if (dto.valor().compareTo(plano.getValor()) < 0) {
             throw new IllegalArgumentException(
                     "Valor do pagamento (R$ %s) não pode ser menor que o valor do plano (R$ %s)"
-                            .formatted(dto.valor(), plano.getValor())
-            );
+                            .formatted(dto.valor(), plano.getValor()));
         }
 
-        LocalDate periodoFim = dto.periodoInicio().plusMonths(plano.getTipo().getMeses()).minusDays(1);
+        LocalDate periodoFim =
+                dto.periodoInicio().plusMonths(plano.getTipo().getMeses()).minusDays(1);
 
         if (pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio())) {
             throw new ConflictException(
-                    "Já existe um pagamento para este plano no período iniciado em " + dto.periodoInicio()
-            );
+                    "Já existe um pagamento para este plano no período iniciado em " + dto.periodoInicio());
         }
 
         Pagamento pagamento = new Pagamento();
@@ -84,8 +85,13 @@ public class PagamentoService {
         pagamento.setPeriodoFim(periodoFim);
 
         Pagamento salvo = pagamentoRepository.save(pagamento);
-        log.info("Cobrança criada: pagamentoId={}, pacienteId={}, planoId={}, valor={}, vencimento={}",
-                salvo.getId(), paciente.getId(), plano.getId(), salvo.getValor(), salvo.getDataVencimento());
+        log.info(
+                "Cobrança criada: pagamentoId={}, pacienteId={}, planoId={}, valor={}, vencimento={}",
+                salvo.getId(),
+                paciente.getId(),
+                plano.getId(),
+                salvo.getValor(),
+                salvo.getDataVencimento());
         return PagamentoResponseDTO.from(salvo);
     }
 
@@ -105,8 +111,12 @@ public class PagamentoService {
         aulaService.gerarAulas(pagamento);
 
         businessMetrics.registrarPagamentoConfirmado();
-        log.info("Pagamento confirmado: pagamentoId={}, pacienteId={}, valor={}, dataPagamento={}",
-                pagamento.getId(), pagamento.getPaciente().getId(), pagamento.getValor(), pagamento.getDataPagamento());
+        log.info(
+                "Pagamento confirmado: pagamentoId={}, pacienteId={}, valor={}, dataPagamento={}",
+                pagamento.getId(),
+                pagamento.getPaciente().getId(),
+                pagamento.getValor(),
+                pagamento.getDataPagamento());
         return PagamentoResponseDTO.from(pagamento);
     }
 
@@ -115,16 +125,15 @@ public class PagamentoService {
     }
 
     public List<PagamentoResponseDTO> listarPorPaciente(Long pacienteId) {
-        return pagamentoRepository.findByPacienteId(pacienteId)
-                .stream()
+        return pagamentoRepository.findByPacienteId(pacienteId).stream()
                 .map(PagamentoResponseDTO::from)
                 .toList();
     }
 
     @Transactional
     public int atualizarVencidos() {
-        List<Pagamento> vencidos = pagamentoRepository
-                .findByStatusAndDataVencimentoBefore(StatusPagamento.PENDENTE, LocalDate.now());
+        List<Pagamento> vencidos =
+                pagamentoRepository.findByStatusAndDataVencimentoBefore(StatusPagamento.PENDENTE, LocalDate.now());
         vencidos.forEach(p -> p.setStatus(StatusPagamento.VENCIDO));
         businessMetrics.registrarCobrancasVencidas(vencidos.size());
         return vencidos.size();
@@ -151,7 +160,8 @@ public class PagamentoService {
                 if (pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, periodoInicio)) continue;
             }
 
-            LocalDate periodoFim = periodoInicio.plusMonths(plano.getTipo().getMeses()).minusDays(1);
+            LocalDate periodoFim =
+                    periodoInicio.plusMonths(plano.getTipo().getMeses()).minusDays(1);
 
             Pagamento novoPagamento = new Pagamento();
             novoPagamento.setPaciente(plano.getPaciente());
@@ -170,7 +180,8 @@ public class PagamentoService {
     }
 
     private Pagamento encontrar(Long id) {
-        return pagamentoRepository.findById(id)
+        return pagamentoRepository
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pagamento não encontrado: " + id));
     }
 }

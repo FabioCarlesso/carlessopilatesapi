@@ -1,16 +1,16 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Reavaliacao;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
-import java.util.Optional;
-
 public interface ReavaliacaoRepository extends JpaRepository<Reavaliacao, Long> {
 
-    @Query("""
+    @Query(
+            """
             SELECT r FROM Reavaliacao r
             JOIN FETCH r.paciente p
             LEFT JOIN FETCH r.avaliacaoFisioterapeutica
@@ -19,7 +19,8 @@ public interface ReavaliacaoRepository extends JpaRepository<Reavaliacao, Long> 
             """)
     Optional<Reavaliacao> findAtivaById(@Param("id") Long id);
 
-    @Query("""
+    @Query(
+            """
             SELECT r FROM Reavaliacao r
             JOIN FETCH r.paciente p
             LEFT JOIN FETCH r.avaliacaoFisioterapeutica

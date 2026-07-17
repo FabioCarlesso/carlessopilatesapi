@@ -1,11 +1,11 @@
 package com.carlesso.pilatesapi.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.ConfigurationPropertiesBindException;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class AppPropertiesTest {
 
@@ -33,21 +33,19 @@ class AppPropertiesTest {
 
     @Test
     void deveRejeitarCronComFormatoInvalido() {
-        contextRunner
-                .withPropertyValues("app.cobranca.cron-vencidos=invalido")
-                .run(context -> assertThat(context).hasFailed()
-                        .getFailure()
-                        .hasStackTraceContaining("cobranca.cronVencidos")
-                        .hasStackTraceContaining("Deve ser uma cron expression com 6 campos"));
+        contextRunner.withPropertyValues("app.cobranca.cron-vencidos=invalido").run(context -> assertThat(context)
+                .hasFailed()
+                .getFailure()
+                .hasStackTraceContaining("cobranca.cronVencidos")
+                .hasStackTraceContaining("Deve ser uma cron expression com 6 campos"));
     }
 
     @Test
     void deveRejeitarVencimentoDiasMenorQueUm() {
-        contextRunner
-                .withPropertyValues("app.cobranca.vencimento-dias=0")
-                .run(context -> assertThat(context).hasFailed()
-                        .getFailure()
-                        .isInstanceOf(ConfigurationPropertiesBindException.class)
-                        .hasMessageContaining("Could not bind properties to 'AppProperties'"));
+        contextRunner.withPropertyValues("app.cobranca.vencimento-dias=0").run(context -> assertThat(context)
+                .hasFailed()
+                .getFailure()
+                .isInstanceOf(ConfigurationPropertiesBindException.class)
+                .hasMessageContaining("Could not bind properties to 'AppProperties'"));
     }
 }

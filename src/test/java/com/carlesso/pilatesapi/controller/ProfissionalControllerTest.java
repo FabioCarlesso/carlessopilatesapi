@@ -1,5 +1,14 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.carlesso.pilatesapi.dto.PagamentoResumoDTO;
 import com.carlesso.pilatesapi.dto.PeriodoDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalPagamentoAulaDTO;
@@ -17,6 +26,10 @@ import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.ProfissionalService;
 import com.carlesso.pilatesapi.service.RelatorioPagamentoExporterService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,20 +39,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ProfissionalController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -64,14 +63,28 @@ class ProfissionalControllerTest {
     private ObjectMapper mapper;
 
     private ProfissionalResponseDTO response() {
-        return new ProfissionalResponseDTO(1L, "Paula Mendes", "paula@email.com", "12345678900", "11999999999",
-                TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15), true);
+        return new ProfissionalResponseDTO(
+                1L,
+                "Paula Mendes",
+                "paula@email.com",
+                "12345678900",
+                "11999999999",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                LocalDate.of(2024, 1, 15),
+                true);
     }
 
     @Test
     void cadastrar_deveRetornar201() throws Exception {
-        var request = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900", "11999999999",
-                TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+        var request = new ProfissionalRequestDTO(
+                "Paula Mendes",
+                "paula@email.com",
+                "12345678900",
+                "11999999999",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                LocalDate.of(2024, 1, 15));
         when(service.cadastrar(any())).thenReturn(response());
 
         mvc.perform(post("/profissionais")
@@ -85,8 +98,14 @@ class ProfissionalControllerTest {
 
     @Test
     void cadastrar_emailDuplicado_deveRetornar409() throws Exception {
-        var request = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900", "11999999999",
-                TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+        var request = new ProfissionalRequestDTO(
+                "Paula Mendes",
+                "paula@email.com",
+                "12345678900",
+                "11999999999",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                LocalDate.of(2024, 1, 15));
         when(service.cadastrar(any())).thenThrow(new ConflictException("E-mail já cadastrado: paula@email.com"));
 
         mvc.perform(post("/profissionais")
@@ -121,13 +140,14 @@ class ProfissionalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nome").value("Paula Mendes"));
 
-        verify(service).listar(
-                eq("paula"),
-                eq("email.com"),
-                eq(TipoContrato.PJ),
-                eq(new BigDecimal("45.00")),
-                eq(false),
-                any());
+        verify(service)
+                .listar(
+                        eq("paula"),
+                        eq("email.com"),
+                        eq(TipoContrato.PJ),
+                        eq(new BigDecimal("45.00")),
+                        eq(false),
+                        any());
     }
 
     @Test
@@ -152,8 +172,17 @@ class ProfissionalControllerTest {
     @Test
     void atualizar_deveRetornar200() throws Exception {
         var update = new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null);
-        when(service.atualizar(eq(1L), any())).thenReturn(new ProfissionalResponseDTO(1L, "Novo Nome", "paula@email.com",
-                "12345678900", "11999999999", TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15), true));
+        when(service.atualizar(eq(1L), any()))
+                .thenReturn(new ProfissionalResponseDTO(
+                        1L,
+                        "Novo Nome",
+                        "paula@email.com",
+                        "12345678900",
+                        "11999999999",
+                        TipoContrato.PJ,
+                        new BigDecimal("45.00"),
+                        LocalDate.of(2024, 1, 15),
+                        true));
 
         mvc.perform(put("/profissionais/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -169,7 +198,8 @@ class ProfissionalControllerTest {
 
         mvc.perform(put("/profissionais/99")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new ProfissionalUpdateDTO("Nome", null, null, null, null, null))))
+                        .content(mapper.writeValueAsString(
+                                new ProfissionalUpdateDTO("Nome", null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 
@@ -185,10 +215,10 @@ class ProfissionalControllerTest {
     @Test
     void ativar_quandoNaoExistente_deveRetornar404() throws Exception {
         doThrow(new ResourceNotFoundException("Profissional não encontrado: 99"))
-                .when(service).ativar(99L);
+                .when(service)
+                .ativar(99L);
 
-        mvc.perform(patch("/profissionais/99/ativar"))
-                .andExpect(status().isNotFound());
+        mvc.perform(patch("/profissionais/99/ativar")).andExpect(status().isNotFound());
     }
 
     @Test
@@ -203,29 +233,32 @@ class ProfissionalControllerTest {
     @Test
     void inativar_quandoNaoExistente_deveRetornar404() throws Exception {
         doThrow(new ResourceNotFoundException("Profissional não encontrado: 99"))
-                .when(service).inativar(99L);
+                .when(service)
+                .inativar(99L);
 
-        mvc.perform(patch("/profissionais/99/inativar"))
-                .andExpect(status().isNotFound());
+        mvc.perform(patch("/profissionais/99/inativar")).andExpect(status().isNotFound());
     }
 
     private ProfissionalPagamentoRelatorioDTO relatorio() {
-        var profissional = new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900",
-                TipoContrato.PJ, new BigDecimal("45.00"));
+        var profissional =
+                new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"));
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(2L, 1L, new BigDecimal("200.00"), new BigDecimal("22.50"));
-        var pagamento = new PagamentoResumoDTO(5L, new BigDecimal("200.00"), 8L, 2L,
-                new BigDecimal("25.00"), new BigDecimal("22.50"));
-        var aula = new ProfissionalPagamentoAulaDTO(10L, LocalDate.of(2025, 2, 3), 2L, "Ana", 5L,
-                new BigDecimal("200.00"), 8L, new BigDecimal("25.00"),
-                new BigDecimal("45.00"), new BigDecimal("11.25"));
+        var pagamento = new PagamentoResumoDTO(
+                5L, new BigDecimal("200.00"), 8L, 2L, new BigDecimal("25.00"), new BigDecimal("22.50"));
+        var aula = new ProfissionalPagamentoAulaDTO(
+                10L,
+                LocalDate.of(2025, 2, 3),
+                2L,
+                "Ana",
+                5L,
+                new BigDecimal("200.00"),
+                8L,
+                new BigDecimal("25.00"),
+                new BigDecimal("45.00"),
+                new BigDecimal("11.25"));
         return new ProfissionalPagamentoRelatorioDTO(
-                profissional,
-                periodo,
-                resumo,
-                List.of(pagamento),
-                List.of(aula),
-                LocalDateTime.of(2025, 3, 1, 10, 0));
+                profissional, periodo, resumo, List.of(pagamento), List.of(aula), LocalDateTime.of(2025, 3, 1, 10, 0));
     }
 
     @Test
@@ -275,8 +308,10 @@ class ProfissionalControllerTest {
                         .param("fim", "2025-02-28"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", MediaType.APPLICATION_PDF_VALUE))
-                .andExpect(header().string("Content-Disposition",
-                        "attachment; filename=\"relatorio-pagamento-profissional-1-2025-02-01-2025-02-28.pdf\""))
+                .andExpect(
+                        header().string(
+                                        "Content-Disposition",
+                                        "attachment; filename=\"relatorio-pagamento-profissional-1-2025-02-01-2025-02-28.pdf\""))
                 .andExpect(content().bytes(pdfBytes));
     }
 
@@ -291,10 +326,12 @@ class ProfissionalControllerTest {
                         .param("inicio", "2025-02-01")
                         .param("fim", "2025-02-28"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .andExpect(header().string("Content-Disposition",
-                        "attachment; filename=\"relatorio-pagamento-profissional-1-2025-02-01-2025-02-28.xlsx\""))
+                .andExpect(header().string(
+                                "Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(
+                        header().string(
+                                        "Content-Disposition",
+                                        "attachment; filename=\"relatorio-pagamento-profissional-1-2025-02-01-2025-02-28.xlsx\""))
                 .andExpect(content().bytes(xlsxBytes));
     }
 

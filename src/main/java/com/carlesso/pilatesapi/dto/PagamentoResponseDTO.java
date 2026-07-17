@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -16,8 +15,7 @@ public record PagamentoResponseDTO(
         LocalDate dataPagamento,
         LocalDate dataVencimento,
         LocalDate periodoInicio,
-        LocalDate periodoFim
-) {
+        LocalDate periodoFim) {
     public static PagamentoResponseDTO from(Pagamento pagamento) {
         return new PagamentoResponseDTO(
                 pagamento.getId(),
@@ -29,7 +27,6 @@ public record PagamentoResponseDTO(
                 pagamento.getDataPagamento(),
                 pagamento.getDataVencimento(),
                 pagamento.getPeriodoInicio(),
-                pagamento.getPeriodoFim()
-        );
+                pagamento.getPeriodoFim());
     }
 }

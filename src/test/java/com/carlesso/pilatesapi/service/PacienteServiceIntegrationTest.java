@@ -1,19 +1,19 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
-import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @PostgresDataJpaTest
 @Import(PacienteService.class)
@@ -36,30 +36,24 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
     void listar_semStatusRetornaAtivosPorPadrao() {
         var resultado = service.listar(null, null, null, null, null, PageRequest.of(0, 10));
 
-        assertThat(resultado.getContent())
-                .extracting("nome")
-                .containsExactlyInAnyOrder("Maria Souza", "João Silva");
+        assertThat(resultado.getContent()).extracting("nome").containsExactlyInAnyOrder("Maria Souza", "João Silva");
     }
 
     @Test
     void listar_filtraPorCamposTextuaisEStatus() {
         var resultado = service.listar("mari", "email.com", "987", "1199", false, PageRequest.of(0, 10));
 
-        assertThat(resultado.getContent())
-                .singleElement()
-                .satisfies(paciente -> {
-                    assertThat(paciente.nome()).isEqualTo("Mariana Lima");
-                    assertThat(paciente.ativo()).isFalse();
-                });
+        assertThat(resultado.getContent()).singleElement().satisfies(paciente -> {
+            assertThat(paciente.nome()).isEqualTo("Mariana Lima");
+            assertThat(paciente.ativo()).isFalse();
+        });
     }
 
     @Test
     void listar_filtroNomeEmBranco_deveIgnorarFiltro() {
         var resultado = service.listar("   ", null, null, null, null, PageRequest.of(0, 10));
 
-        assertThat(resultado.getContent())
-                .extracting("nome")
-                .containsExactlyInAnyOrder("Maria Souza", "João Silva");
+        assertThat(resultado.getContent()).extracting("nome").containsExactlyInAnyOrder("Maria Souza", "João Silva");
     }
 
     @Test
@@ -117,8 +111,7 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
         assertThat(ativos.getTotalElements()).isEqualTo(2);
         assertThat(inativos.getTotalElements()).isEqualTo(1);
-        assertThat(ativos.getTotalElements() + inativos.getTotalElements())
-                .isEqualTo(3);
+        assertThat(ativos.getTotalElements() + inativos.getTotalElements()).isEqualTo(3);
     }
 
     private Paciente paciente(String nome, String email, String cpf, String telefone, boolean ativo) {

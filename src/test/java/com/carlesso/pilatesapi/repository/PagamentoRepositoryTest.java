@@ -1,23 +1,22 @@
 package com.carlesso.pilatesapi.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 @PostgresDataJpaTest
 class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
@@ -31,7 +30,8 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
     @Test
     void findPagamentosConfirmadosParaRelatorioNfse_retornaApenasPagosAtivosNaCompetencia() {
         Paciente pacienteAtivo = entityManager.persist(paciente("Ana Ativa", "ana@email.com", "11122233344", true));
-        Paciente pacienteInativo = entityManager.persist(paciente("Bia Inativa", "bia@email.com", "55566677788", false));
+        Paciente pacienteInativo =
+                entityManager.persist(paciente("Bia Inativa", "bia@email.com", "55566677788", false));
         Plano planoAtivo = entityManager.persist(plano(pacienteAtivo));
         // Segundo plano do mesmo paciente: o pagamento PENDENTE da competência
         // usa-o para não violar a constraint UNIQUE (plano_id, periodo_inicio)
@@ -39,25 +39,20 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
         Plano planoAtivoSecundario = entityManager.persist(plano(pacienteAtivo));
         Plano planoInativo = entityManager.persist(plano(pacienteInativo));
 
-        Pagamento pagoNaCompetencia = entityManager.persist(pagamento(pacienteAtivo, planoAtivo,
-                StatusPagamento.PAGO, LocalDate.of(2026, 4, 10)));
-        entityManager.persist(pagamento(pacienteAtivo, planoAtivoSecundario, StatusPagamento.PENDENTE,
-                LocalDate.of(2026, 4, 12)));
-        entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PAGO,
-                LocalDate.of(2026, 3, 31)));
-        entityManager.persist(pagamento(pacienteInativo, planoInativo, StatusPagamento.PAGO,
-                LocalDate.of(2026, 4, 15)));
+        Pagamento pagoNaCompetencia = entityManager.persist(
+                pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PAGO, LocalDate.of(2026, 4, 10)));
+        entityManager.persist(
+                pagamento(pacienteAtivo, planoAtivoSecundario, StatusPagamento.PENDENTE, LocalDate.of(2026, 4, 12)));
+        entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PAGO, LocalDate.of(2026, 3, 31)));
+        entityManager.persist(
+                pagamento(pacienteInativo, planoInativo, StatusPagamento.PAGO, LocalDate.of(2026, 4, 15)));
         entityManager.flush();
         entityManager.clear();
 
         var pagamentos = repository.findPagamentosConfirmadosParaRelatorioNfse(
-                StatusPagamento.PAGO,
-                LocalDate.of(2026, 4, 1),
-                LocalDate.of(2026, 4, 30));
+                StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30));
 
-        assertThat(pagamentos)
-                .extracting(Pagamento::getId)
-                .containsExactly(pagoNaCompetencia.getId());
+        assertThat(pagamentos).extracting(Pagamento::getId).containsExactly(pagoNaCompetencia.getId());
     }
 
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {

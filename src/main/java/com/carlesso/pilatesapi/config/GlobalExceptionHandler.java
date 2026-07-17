@@ -6,6 +6,9 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -30,10 +33,6 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * Estende {@link ResponseEntityExceptionHandler} para que todas as exceções do
@@ -99,8 +98,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleConstraintViolation(ConstraintViolationException e) {
         Map<String, String> campos = new LinkedHashMap<>();
-        e.getConstraintViolations().forEach(v ->
-                campos.putIfAbsent(String.valueOf(v.getPropertyPath()), mensagemOuPadrao(v.getMessage())));
+        e.getConstraintViolations()
+                .forEach(
+                        v -> campos.putIfAbsent(String.valueOf(v.getPropertyPath()), mensagemOuPadrao(v.getMessage())));
         return respostaValidacao(campos);
     }
 
@@ -127,7 +127,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, String>> handleUnexpected(Exception e) {
         ResponseStatus anotado = AnnotatedElementUtils.findMergedAnnotation(e.getClass(), ResponseStatus.class);
         if (anotado != null && !anotado.code().is5xxServerError()) {
-            String motivo = !anotado.reason().isEmpty() ? anotado.reason()
+            String motivo = !anotado.reason().isEmpty()
+                    ? anotado.reason()
                     : Objects.requireNonNullElse(e.getMessage(), "Requisição inválida");
             return ResponseEntity.status(anotado.code()).body(Map.of("erro", motivo));
         }
@@ -137,51 +138,43 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @Override
-    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
-                                                                  HttpHeaders headers,
-                                                                  HttpStatusCode status,
-                                                                  WebRequest request) {
-        return handleExceptionInternal(ex, respostaValidacao(camposDe(ex.getBindingResult())),
-                headers, status, request);
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return handleExceptionInternal(
+                ex, respostaValidacao(camposDe(ex.getBindingResult())), headers, status, request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException ex,
-                                                                            HttpHeaders headers,
-                                                                            HttpStatusCode status,
-                                                                            WebRequest request) {
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         Map<String, String> campos = new LinkedHashMap<>();
         ex.getAllValidationResults().forEach(resultado -> {
             String parametro = resultado.getMethodParameter().getParameterName();
-            String nome = parametro != null ? parametro
+            String nome = parametro != null
+                    ? parametro
                     : "parametro" + resultado.getMethodParameter().getParameterIndex();
-            resultado.getResolvableErrors().forEach(erro ->
-                    campos.putIfAbsent(nome, mensagemOuPadrao(erro.getDefaultMessage())));
+            resultado
+                    .getResolvableErrors()
+                    .forEach(erro -> campos.putIfAbsent(nome, mensagemOuPadrao(erro.getDefaultMessage())));
         });
         return handleExceptionInternal(ex, respostaValidacao(campos), headers, status, request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
-                                                                  HttpHeaders headers,
-                                                                  HttpStatusCode status,
-                                                                  WebRequest request) {
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(ex, Map.of("erro", ERRO_CORPO_ILEGIVEL), headers, status, request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleNoHandlerFoundException(NoHandlerFoundException ex,
-                                                                   HttpHeaders headers,
-                                                                   HttpStatusCode status,
-                                                                   WebRequest request) {
+    protected ResponseEntity<Object> handleNoHandlerFoundException(
+            NoHandlerFoundException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(ex, Map.of("erro", ERRO_ROTA), headers, status, request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException ex,
-                                                                    HttpHeaders headers,
-                                                                    HttpStatusCode status,
-                                                                    WebRequest request) {
+    protected ResponseEntity<Object> handleNoResourceFoundException(
+            NoResourceFoundException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(ex, Map.of("erro", ERRO_ROTA), headers, status, request);
     }
 
@@ -192,11 +185,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      * stacktrace; nos 4xx o detail do framework é seguro para o cliente.
      */
     @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex,
-                                                             Object body,
-                                                             HttpHeaders headers,
-                                                             HttpStatusCode statusCode,
-                                                             WebRequest request) {
+    protected ResponseEntity<Object> handleExceptionInternal(
+            Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
         if (statusCode.is5xxServerError()) {
             log.error("Erro ao processar a requisição", ex);
             body = Map.of("erro", ERRO_INTERNO);
@@ -216,10 +206,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private Map<String, String> camposDe(BindingResult bindingResult) {
         Map<String, String> campos = new LinkedHashMap<>();
-        bindingResult.getFieldErrors().forEach(erro ->
-                campos.putIfAbsent(erro.getField(), mensagemOuPadrao(erro.getDefaultMessage())));
-        bindingResult.getGlobalErrors().forEach(erro ->
-                campos.putIfAbsent(erro.getObjectName(), mensagemOuPadrao(erro.getDefaultMessage())));
+        bindingResult
+                .getFieldErrors()
+                .forEach(erro -> campos.putIfAbsent(erro.getField(), mensagemOuPadrao(erro.getDefaultMessage())));
+        bindingResult
+                .getGlobalErrors()
+                .forEach(erro -> campos.putIfAbsent(erro.getObjectName(), mensagemOuPadrao(erro.getDefaultMessage())));
         return campos;
     }
 

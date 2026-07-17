@@ -1,23 +1,22 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SpringBootTest
 class UserServiceConcurrencyIntegrationTest extends PostgresTestcontainerSupport {
@@ -43,24 +42,21 @@ class UserServiceConcurrencyIntegrationTest extends PostgresTestcontainerSupport
 
         CountDownLatch largada = new CountDownLatch(1);
 
-        Callable<Throwable> inativarAdmin1 = () -> executarCapturandoErro(
-                () -> {
-                    aguardarLargada(largada);
-                    service.inativar(admin1.getId(), "operador@email.com");
-                });
-        Callable<Throwable> inativarAdmin2 = () -> executarCapturandoErro(
-                () -> {
-                    aguardarLargada(largada);
-                    service.inativar(admin2.getId(), "operador@email.com");
-                });
+        Callable<Throwable> inativarAdmin1 = () -> executarCapturandoErro(() -> {
+            aguardarLargada(largada);
+            service.inativar(admin1.getId(), "operador@email.com");
+        });
+        Callable<Throwable> inativarAdmin2 = () -> executarCapturandoErro(() -> {
+            aguardarLargada(largada);
+            service.inativar(admin2.getId(), "operador@email.com");
+        });
 
         try (var executor = Executors.newFixedThreadPool(2)) {
             var resultado1 = executor.submit(inativarAdmin1);
             var resultado2 = executor.submit(inativarAdmin2);
             largada.countDown();
 
-            List<Throwable> erros = List.of(resultado1, resultado2)
-                    .stream()
+            List<Throwable> erros = List.of(resultado1, resultado2).stream()
                     .map(future -> {
                         try {
                             return future.get();
@@ -71,8 +67,9 @@ class UserServiceConcurrencyIntegrationTest extends PostgresTestcontainerSupport
                     .toList();
 
             assertThat(erros).anyMatch(erro -> erro == null);
-            assertThat(erros).anyMatch(erro -> erro instanceof BusinessException
-                    && erro.getMessage().equals("Não é possível inativar o último administrador ativo"));
+            assertThat(erros)
+                    .anyMatch(erro -> erro instanceof BusinessException
+                            && erro.getMessage().equals("Não é possível inativar o último administrador ativo"));
         }
 
         assertThat(repository.countByRoleAndAtivoTrue(Role.ADMIN)).isEqualTo(1);

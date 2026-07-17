@@ -1,5 +1,17 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
 import com.carlesso.pilatesapi.email.EmailMessage;
 import com.carlesso.pilatesapi.email.EmailSender;
@@ -13,27 +25,14 @@ import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PasswordResetTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PasswordResetServiceTest {
@@ -68,9 +67,15 @@ class PasswordResetServiceTest {
 
     private PasswordResetService novoService(long tokenTtlMinutos) {
         return new PasswordResetService(
-                userRepository, tokenRepository, userService, emailSender, emailTemplateService,
-                loginAttemptService, new BusinessMetrics(new SimpleMeterRegistry()),
-                RESET_PASSWORD_URL, tokenTtlMinutos);
+                userRepository,
+                tokenRepository,
+                userService,
+                emailSender,
+                emailTemplateService,
+                loginAttemptService,
+                new BusinessMetrics(new SimpleMeterRegistry()),
+                RESET_PASSWORD_URL,
+                tokenTtlMinutos);
     }
 
     private User usuario(Long id, String email, boolean ativo) {
@@ -185,11 +190,13 @@ class PasswordResetServiceTest {
         PasswordResetToken token = tokenValido(user);
         when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
         doAnswer(invocation -> {
-            User alvo = invocation.getArgument(0);
-            alvo.setPassword("hash-nova");
-            alvo.incrementarTokenVersion();
-            return null;
-        }).when(userService).aplicarNovaSenha(eq(user), eq("novaSenha123"));
+                    User alvo = invocation.getArgument(0);
+                    alvo.setPassword("hash-nova");
+                    alvo.incrementarTokenVersion();
+                    return null;
+                })
+                .when(userService)
+                .aplicarNovaSenha(eq(user), eq("novaSenha123"));
         var dto = new ResetPasswordRequestDTO("token-bruto", "novaSenha123", "novaSenha123");
 
         service.redefinirSenha(dto);

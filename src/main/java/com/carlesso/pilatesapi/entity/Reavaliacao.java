@@ -66,50 +66,127 @@ public class Reavaliacao {
         this.dataCriacao = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Paciente getPaciente() { return paciente; }
-    public void setPaciente(Paciente paciente) { this.paciente = paciente; }
+    public Paciente getPaciente() {
+        return paciente;
+    }
 
-    public AvaliacaoFisioterapeutica getAvaliacaoFisioterapeutica() { return avaliacaoFisioterapeutica; }
-    public void setAvaliacaoFisioterapeutica(AvaliacaoFisioterapeutica avaliacaoFisioterapeutica) { this.avaliacaoFisioterapeutica = avaliacaoFisioterapeutica; }
+    public void setPaciente(Paciente paciente) {
+        this.paciente = paciente;
+    }
 
-    public PlanoTratamento getPlanoTratamento() { return planoTratamento; }
-    public void setPlanoTratamento(PlanoTratamento planoTratamento) { this.planoTratamento = planoTratamento; }
+    public AvaliacaoFisioterapeutica getAvaliacaoFisioterapeutica() {
+        return avaliacaoFisioterapeutica;
+    }
 
-    public LocalDate getDataReavaliacao() { return dataReavaliacao; }
-    public void setDataReavaliacao(LocalDate dataReavaliacao) { this.dataReavaliacao = dataReavaliacao; }
+    public void setAvaliacaoFisioterapeutica(AvaliacaoFisioterapeutica avaliacaoFisioterapeutica) {
+        this.avaliacaoFisioterapeutica = avaliacaoFisioterapeutica;
+    }
 
-    public String getComparativoAvaliacaoAnterior() { return comparativoAvaliacaoAnterior; }
-    public void setComparativoAvaliacaoAnterior(String comparativoAvaliacaoAnterior) { this.comparativoAvaliacaoAnterior = comparativoAvaliacaoAnterior; }
+    public PlanoTratamento getPlanoTratamento() {
+        return planoTratamento;
+    }
 
-    public String getEvolucaoDor() { return evolucaoDor; }
-    public void setEvolucaoDor(String evolucaoDor) { this.evolucaoDor = evolucaoDor; }
+    public void setPlanoTratamento(PlanoTratamento planoTratamento) {
+        this.planoTratamento = planoTratamento;
+    }
 
-    public String getEvolucaoForca() { return evolucaoForca; }
-    public void setEvolucaoForca(String evolucaoForca) { this.evolucaoForca = evolucaoForca; }
+    public LocalDate getDataReavaliacao() {
+        return dataReavaliacao;
+    }
 
-    public String getEvolucaoMobilidade() { return evolucaoMobilidade; }
-    public void setEvolucaoMobilidade(String evolucaoMobilidade) { this.evolucaoMobilidade = evolucaoMobilidade; }
+    public void setDataReavaliacao(LocalDate dataReavaliacao) {
+        this.dataReavaliacao = dataReavaliacao;
+    }
 
-    public String getEvolucaoFuncional() { return evolucaoFuncional; }
-    public void setEvolucaoFuncional(String evolucaoFuncional) { this.evolucaoFuncional = evolucaoFuncional; }
+    public String getComparativoAvaliacaoAnterior() {
+        return comparativoAvaliacaoAnterior;
+    }
 
-    public String getObjetivosAlcancados() { return objetivosAlcancados; }
-    public void setObjetivosAlcancados(String objetivosAlcancados) { this.objetivosAlcancados = objetivosAlcancados; }
+    public void setComparativoAvaliacaoAnterior(String comparativoAvaliacaoAnterior) {
+        this.comparativoAvaliacaoAnterior = comparativoAvaliacaoAnterior;
+    }
 
-    public String getPontosAtencao() { return pontosAtencao; }
-    public void setPontosAtencao(String pontosAtencao) { this.pontosAtencao = pontosAtencao; }
+    public String getEvolucaoDor() {
+        return evolucaoDor;
+    }
 
-    public String getAjustesRecomendados() { return ajustesRecomendados; }
-    public void setAjustesRecomendados(String ajustesRecomendados) { this.ajustesRecomendados = ajustesRecomendados; }
+    public void setEvolucaoDor(String evolucaoDor) {
+        this.evolucaoDor = evolucaoDor;
+    }
 
-    public String getObservacoesGerais() { return observacoesGerais; }
-    public void setObservacoesGerais(String observacoesGerais) { this.observacoesGerais = observacoesGerais; }
+    public String getEvolucaoForca() {
+        return evolucaoForca;
+    }
 
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
-    public void setDataCriacao(LocalDateTime dataCriacao) { this.dataCriacao = dataCriacao; }
+    public void setEvolucaoForca(String evolucaoForca) {
+        this.evolucaoForca = evolucaoForca;
+    }
 
-    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) { this.dataAtualizacao = dataAtualizacao; }
+    public String getEvolucaoMobilidade() {
+        return evolucaoMobilidade;
+    }
+
+    public void setEvolucaoMobilidade(String evolucaoMobilidade) {
+        this.evolucaoMobilidade = evolucaoMobilidade;
+    }
+
+    public String getEvolucaoFuncional() {
+        return evolucaoFuncional;
+    }
+
+    public void setEvolucaoFuncional(String evolucaoFuncional) {
+        this.evolucaoFuncional = evolucaoFuncional;
+    }
+
+    public String getObjetivosAlcancados() {
+        return objetivosAlcancados;
+    }
+
+    public void setObjetivosAlcancados(String objetivosAlcancados) {
+        this.objetivosAlcancados = objetivosAlcancados;
+    }
+
+    public String getPontosAtencao() {
+        return pontosAtencao;
+    }
+
+    public void setPontosAtencao(String pontosAtencao) {
+        this.pontosAtencao = pontosAtencao;
+    }
+
+    public String getAjustesRecomendados() {
+        return ajustesRecomendados;
+    }
+
+    public void setAjustesRecomendados(String ajustesRecomendados) {
+        this.ajustesRecomendados = ajustesRecomendados;
+    }
+
+    public String getObservacoesGerais() {
+        return observacoesGerais;
+    }
+
+    public void setObservacoesGerais(String observacoesGerais) {
+        this.observacoesGerais = observacoesGerais;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public LocalDateTime getDataAtualizacao() {
+        return dataAtualizacao;
+    }
+
+    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
+        this.dataAtualizacao = dataAtualizacao;
+    }
 }

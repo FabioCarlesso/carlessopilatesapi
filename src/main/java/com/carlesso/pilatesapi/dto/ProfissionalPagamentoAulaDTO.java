@@ -13,6 +13,4 @@ public record ProfissionalPagamentoAulaDTO(
         long quantidadeAulasPagamento,
         BigDecimal valorBaseAula,
         BigDecimal percentualPagamentoAula,
-        BigDecimal valorProfissional
-) {
-}
+        BigDecimal valorProfissional) {}

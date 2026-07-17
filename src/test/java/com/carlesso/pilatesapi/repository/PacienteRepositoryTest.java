@@ -1,14 +1,14 @@
 package com.carlesso.pilatesapi.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Cobre o índice parcial de unicidade da migration V23
@@ -42,8 +42,7 @@ class PacienteRepositoryTest extends PostgresTestcontainerSupport {
     void rejeitaEmailDuplicadoPreenchido() {
         repository.saveAndFlush(paciente("Ana", "duplicado@email.com", "11111111111"));
 
-        assertThatThrownBy(() ->
-                repository.saveAndFlush(paciente("Bia", "duplicado@email.com", "22222222222")))
+        assertThatThrownBy(() -> repository.saveAndFlush(paciente("Bia", "duplicado@email.com", "22222222222")))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -51,8 +50,7 @@ class PacienteRepositoryTest extends PostgresTestcontainerSupport {
     void rejeitaCpfDuplicadoPreenchido() {
         repository.saveAndFlush(paciente("Ana", "ana@email.com", "99999999999"));
 
-        assertThatThrownBy(() ->
-                repository.saveAndFlush(paciente("Bia", "bia@email.com", "99999999999")))
+        assertThatThrownBy(() -> repository.saveAndFlush(paciente("Bia", "bia@email.com", "99999999999")))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

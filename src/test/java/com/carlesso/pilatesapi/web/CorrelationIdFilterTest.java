@@ -1,19 +1,18 @@
 package com.carlesso.pilatesapi.web;
 
-import jakarta.servlet.FilterChain;
-import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+
+import jakarta.servlet.FilterChain;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 class CorrelationIdFilterTest {
 
@@ -27,9 +26,11 @@ class CorrelationIdFilterTest {
 
         FilterChain chain = mock(FilterChain.class);
         doAnswer(invocation -> {
-            mdcDuranteRequisicao.set(MDC.get(CorrelationIdFilter.MDC_KEY));
-            return null;
-        }).when(chain).doFilter(any(), any());
+                    mdcDuranteRequisicao.set(MDC.get(CorrelationIdFilter.MDC_KEY));
+                    return null;
+                })
+                .when(chain)
+                .doFilter(any(), any());
 
         filter.doFilter(request, response, chain);
 

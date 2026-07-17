@@ -13,8 +13,7 @@ public class EmailConfig {
 
     @Bean
     @ConditionalOnProperty(name = "app.email.provider", havingValue = "smtp", matchIfMissing = true)
-    public EmailSender smtpEmailSender(JavaMailSender mailSender,
-                                        @Value("${app.email.from}") String from) {
+    public EmailSender smtpEmailSender(JavaMailSender mailSender, @Value("${app.email.from}") String from) {
         return new SmtpEmailSender(mailSender, from);
     }
 }

@@ -8,6 +8,4 @@ public record PagamentoResumoDTO(
         long quantidadeAulasPagamento,
         long quantidadeAulasNoPeriodo,
         BigDecimal valorBaseAula,
-        BigDecimal totalProfissional
-) {
-}
+        BigDecimal totalProfissional) {}

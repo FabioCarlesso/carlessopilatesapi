@@ -27,30 +27,27 @@ public class AnamneseController {
 
     @Operation(
             summary = "Criar anamnese",
-            description = "Registra a anamnese inicial de um paciente. Cada paciente pode ter apenas uma anamnese principal."
-    )
+            description =
+                    "Registra a anamnese inicial de um paciente. Cada paciente pode ter apenas uma anamnese principal.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Anamnese criada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-            @ApiResponse(responseCode = "404", description = "Paciente não encontrado"),
-            @ApiResponse(responseCode = "409", description = "Paciente já possui anamnese cadastrada")
+        @ApiResponse(responseCode = "201", description = "Anamnese criada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado"),
+        @ApiResponse(responseCode = "409", description = "Paciente já possui anamnese cadastrada")
     })
     @PostMapping
     public ResponseEntity<AnamneseResponseDTO> criar(
-            @RequestBody @Valid AnamneseRequestDTO dto,
-            UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid AnamneseRequestDTO dto, UriComponentsBuilder uriBuilder) {
         AnamneseResponseDTO response = service.criar(dto);
-        var uri = uriBuilder.path("/anamneses/{id}").buildAndExpand(response.id()).toUri();
+        var uri =
+                uriBuilder.path("/anamneses/{id}").buildAndExpand(response.id()).toUri();
         return ResponseEntity.created(uri).body(response);
     }
 
-    @Operation(
-            summary = "Buscar anamnese por ID",
-            description = "Retorna a anamnese pelo seu identificador único."
-    )
+    @Operation(summary = "Buscar anamnese por ID", description = "Retorna a anamnese pelo seu identificador único.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Anamnese encontrada"),
-            @ApiResponse(responseCode = "404", description = "Anamnese não encontrada")
+        @ApiResponse(responseCode = "200", description = "Anamnese encontrada"),
+        @ApiResponse(responseCode = "404", description = "Anamnese não encontrada")
     })
     @GetMapping("/{id}")
     public ResponseEntity<AnamneseResponseDTO> buscarPorId(
@@ -60,11 +57,10 @@ public class AnamneseController {
 
     @Operation(
             summary = "Buscar anamnese por paciente",
-            description = "Retorna a anamnese vinculada ao paciente informado."
-    )
+            description = "Retorna a anamnese vinculada ao paciente informado.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Anamnese encontrada"),
-            @ApiResponse(responseCode = "404", description = "Paciente ou anamnese não encontrada")
+        @ApiResponse(responseCode = "200", description = "Anamnese encontrada"),
+        @ApiResponse(responseCode = "404", description = "Paciente ou anamnese não encontrada")
     })
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<AnamneseResponseDTO> buscarPorPaciente(
@@ -74,12 +70,11 @@ public class AnamneseController {
 
     @Operation(
             summary = "Atualizar anamnese",
-            description = "Atualiza as informações da anamnese. Apenas os campos enviados serão alterados."
-    )
+            description = "Atualiza as informações da anamnese. Apenas os campos enviados serão alterados.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Anamnese atualizada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "404", description = "Anamnese não encontrada")
+        @ApiResponse(responseCode = "200", description = "Anamnese atualizada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "404", description = "Anamnese não encontrada")
     })
     @PutMapping("/{id}")
     public ResponseEntity<AnamneseResponseDTO> atualizar(

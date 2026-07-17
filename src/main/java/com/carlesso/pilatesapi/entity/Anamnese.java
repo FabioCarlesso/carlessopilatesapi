@@ -52,44 +52,111 @@ public class Anamnese {
 
     public Anamnese() {}
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Paciente getPaciente() { return paciente; }
-    public void setPaciente(Paciente paciente) { this.paciente = paciente; }
+    public Paciente getPaciente() {
+        return paciente;
+    }
 
-    public String getQueixaPrincipal() { return queixaPrincipal; }
-    public void setQueixaPrincipal(String queixaPrincipal) { this.queixaPrincipal = queixaPrincipal; }
+    public void setPaciente(Paciente paciente) {
+        this.paciente = paciente;
+    }
 
-    public String getHistoricoDoencas() { return historicoDoencas; }
-    public void setHistoricoDoencas(String historicoDoencas) { this.historicoDoencas = historicoDoencas; }
+    public String getQueixaPrincipal() {
+        return queixaPrincipal;
+    }
 
-    public String getHistoricoCirurgias() { return historicoCirurgias; }
-    public void setHistoricoCirurgias(String historicoCirurgias) { this.historicoCirurgias = historicoCirurgias; }
+    public void setQueixaPrincipal(String queixaPrincipal) {
+        this.queixaPrincipal = queixaPrincipal;
+    }
 
-    public String getHistoricoLesoes() { return historicoLesoes; }
-    public void setHistoricoLesoes(String historicoLesoes) { this.historicoLesoes = historicoLesoes; }
+    public String getHistoricoDoencas() {
+        return historicoDoencas;
+    }
 
-    public String getMedicamentosUso() { return medicamentosUso; }
-    public void setMedicamentosUso(String medicamentosUso) { this.medicamentosUso = medicamentosUso; }
+    public void setHistoricoDoencas(String historicoDoencas) {
+        this.historicoDoencas = historicoDoencas;
+    }
 
-    public String getAlergias() { return alergias; }
-    public void setAlergias(String alergias) { this.alergias = alergias; }
+    public String getHistoricoCirurgias() {
+        return historicoCirurgias;
+    }
 
-    public String getNivelAtividadeFisica() { return nivelAtividadeFisica; }
-    public void setNivelAtividadeFisica(String nivelAtividadeFisica) { this.nivelAtividadeFisica = nivelAtividadeFisica; }
+    public void setHistoricoCirurgias(String historicoCirurgias) {
+        this.historicoCirurgias = historicoCirurgias;
+    }
 
-    public String getRestricoesMedicas() { return restricoesMedicas; }
-    public void setRestricoesMedicas(String restricoesMedicas) { this.restricoesMedicas = restricoesMedicas; }
+    public String getHistoricoLesoes() {
+        return historicoLesoes;
+    }
 
-    public String getObjetivos() { return objetivos; }
-    public void setObjetivos(String objetivos) { this.objetivos = objetivos; }
+    public void setHistoricoLesoes(String historicoLesoes) {
+        this.historicoLesoes = historicoLesoes;
+    }
 
-    public String getObservacoes() { return observacoes; }
-    public void setObservacoes(String observacoes) { this.observacoes = observacoes; }
+    public String getMedicamentosUso() {
+        return medicamentosUso;
+    }
 
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
-    public void setDataCriacao(LocalDateTime dataCriacao) { this.dataCriacao = dataCriacao; }
+    public void setMedicamentosUso(String medicamentosUso) {
+        this.medicamentosUso = medicamentosUso;
+    }
 
-    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) { this.dataAtualizacao = dataAtualizacao; }
+    public String getAlergias() {
+        return alergias;
+    }
+
+    public void setAlergias(String alergias) {
+        this.alergias = alergias;
+    }
+
+    public String getNivelAtividadeFisica() {
+        return nivelAtividadeFisica;
+    }
+
+    public void setNivelAtividadeFisica(String nivelAtividadeFisica) {
+        this.nivelAtividadeFisica = nivelAtividadeFisica;
+    }
+
+    public String getRestricoesMedicas() {
+        return restricoesMedicas;
+    }
+
+    public void setRestricoesMedicas(String restricoesMedicas) {
+        this.restricoesMedicas = restricoesMedicas;
+    }
+
+    public String getObjetivos() {
+        return objetivos;
+    }
+
+    public void setObjetivos(String objetivos) {
+        this.objetivos = objetivos;
+    }
+
+    public String getObservacoes() {
+        return observacoes;
+    }
+
+    public void setObservacoes(String observacoes) {
+        this.observacoes = observacoes;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public LocalDateTime getDataAtualizacao() {
+        return dataAtualizacao;
+    }
+
+    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
+        this.dataAtualizacao = dataAtualizacao;
+    }
 }

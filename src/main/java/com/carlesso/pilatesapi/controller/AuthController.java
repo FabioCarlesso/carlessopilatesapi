@@ -19,9 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(
         name = "Autenticação",
-        description = "Login e recuperação de senha com JWT. Use o accessToken retornado no botão Authorize do Swagger UI. "
-                + "A criação de usuários é restrita a administradores em POST /users."
-)
+        description =
+                "Login e recuperação de senha com JWT. Use o accessToken retornado no botão Authorize do Swagger UI. "
+                        + "A criação de usuários é restrita a administradores em POST /users.")
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -36,8 +36,8 @@ public class AuthController {
 
     @Operation(
             summary = "Login",
-            description = "Endpoint público. Valida e-mail/senha e retorna accessToken para uso no Authorize do Swagger UI."
-    )
+            description =
+                    "Endpoint público. Valida e-mail/senha e retorna accessToken para uso no Authorize do Swagger UI.")
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid AuthLoginRequestDTO dto) {
         return ResponseEntity.ok(authService.login(dto));
@@ -45,13 +45,13 @@ public class AuthController {
 
     @Operation(
             summary = "Esqueci minha senha",
-            description = "Endpoint público. Envia um e-mail com link de redefinição quando o e-mail informado pertencer a um usuário ativo. " +
-                    "Sempre retorna 200 com uma mensagem genérica, independentemente de o e-mail existir, para evitar enumeração de usuários."
-    )
+            description =
+                    "Endpoint público. Envia um e-mail com link de redefinição quando o e-mail informado pertencer a um usuário ativo. "
+                            + "Sempre retorna 200 com uma mensagem genérica, independentemente de o e-mail existir, para evitar enumeração de usuários.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Solicitação processada"),
-            @ApiResponse(responseCode = "400", description = "Payload inválido"),
-            @ApiResponse(responseCode = "429", description = "Muitas solicitações para o e-mail informado")
+        @ApiResponse(responseCode = "200", description = "Solicitação processada"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido"),
+        @ApiResponse(responseCode = "429", description = "Muitas solicitações para o e-mail informado")
     })
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@RequestBody @Valid ForgotPasswordRequestDTO dto) {
@@ -61,13 +61,15 @@ public class AuthController {
 
     @Operation(
             summary = "Redefinir senha",
-            description = "Endpoint público. Redefine a senha a partir de um token de redefinição válido, não expirado e ainda não utilizado. " +
-                    "Tokens emitidos antes da redefinição deixam de autorizar rotas protegidas."
-    )
+            description =
+                    "Endpoint público. Redefine a senha a partir de um token de redefinição válido, não expirado e ainda não utilizado. "
+                            + "Tokens emitidos antes da redefinição deixam de autorizar rotas protegidas.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Senha redefinida com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Payload inválido"),
-            @ApiResponse(responseCode = "422", description = "Token inválido, expirado, já utilizado ou confirmação de senha não confere")
+        @ApiResponse(responseCode = "200", description = "Senha redefinida com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido"),
+        @ApiResponse(
+                responseCode = "422",
+                description = "Token inválido, expirado, já utilizado ou confirmação de senha não confere")
     })
     @PostMapping("/reset-password")
     public ResponseEntity<Void> resetPassword(@RequestBody @Valid ResetPasswordRequestDTO dto) {

@@ -1,18 +1,17 @@
 package com.carlesso.pilatesapi.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.entity.NotaFiscalEmitida;
 import com.carlesso.pilatesapi.entity.Paciente;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 @PostgresDataJpaTest
 class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
@@ -33,8 +32,7 @@ class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
         entityManager.flush();
 
         var pacienteIds = repository.findPacienteIdsComNotaEmitidaAntes(
-                List.of(comNotaAnterior.getId(), semNotaAnterior.getId()),
-                LocalDate.of(2026, 4, 1));
+                List.of(comNotaAnterior.getId(), semNotaAnterior.getId()), LocalDate.of(2026, 4, 1));
 
         assertThat(pacienteIds).containsExactly(comNotaAnterior.getId());
     }
@@ -67,10 +65,7 @@ class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
 
         assertThat(notas)
                 .extracting(NotaFiscalEmitida::getCompetencia)
-                .containsExactly(
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 4, 1),
-                        LocalDate.of(2026, 3, 1));
+                .containsExactly(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 3, 1));
     }
 
     private Paciente paciente(String nome, String email, String cpf) {

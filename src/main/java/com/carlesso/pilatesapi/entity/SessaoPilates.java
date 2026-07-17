@@ -63,44 +63,111 @@ public class SessaoPilates {
         this.dataCriacao = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Paciente getPaciente() { return paciente; }
-    public void setPaciente(Paciente paciente) { this.paciente = paciente; }
+    public Paciente getPaciente() {
+        return paciente;
+    }
 
-    public Profissional getProfissional() { return profissional; }
-    public void setProfissional(Profissional profissional) { this.profissional = profissional; }
+    public void setPaciente(Paciente paciente) {
+        this.paciente = paciente;
+    }
 
-    public PlanoTratamento getPlanoTratamento() { return planoTratamento; }
-    public void setPlanoTratamento(PlanoTratamento planoTratamento) { this.planoTratamento = planoTratamento; }
+    public Profissional getProfissional() {
+        return profissional;
+    }
 
-    public TipoSessao getTipo() { return tipo; }
-    public void setTipo(TipoSessao tipo) { this.tipo = tipo; }
+    public void setProfissional(Profissional profissional) {
+        this.profissional = profissional;
+    }
 
-    public StatusSessao getStatus() { return status; }
-    public void setStatus(StatusSessao status) { this.status = status; }
+    public PlanoTratamento getPlanoTratamento() {
+        return planoTratamento;
+    }
 
-    public LocalDate getData() { return data; }
-    public void setData(LocalDate data) { this.data = data; }
+    public void setPlanoTratamento(PlanoTratamento planoTratamento) {
+        this.planoTratamento = planoTratamento;
+    }
 
-    public LocalTime getHorario() { return horario; }
-    public void setHorario(LocalTime horario) { this.horario = horario; }
+    public TipoSessao getTipo() {
+        return tipo;
+    }
 
-    public String getLocal() { return local; }
-    public void setLocal(String local) { this.local = local; }
+    public void setTipo(TipoSessao tipo) {
+        this.tipo = tipo;
+    }
 
-    public Integer getDuracaoMinutos() { return duracaoMinutos; }
-    public void setDuracaoMinutos(Integer duracaoMinutos) { this.duracaoMinutos = duracaoMinutos; }
+    public StatusSessao getStatus() {
+        return status;
+    }
 
-    public String getObservacoes() { return observacoes; }
-    public void setObservacoes(String observacoes) { this.observacoes = observacoes; }
+    public void setStatus(StatusSessao status) {
+        this.status = status;
+    }
 
-    public String getEvolucao() { return evolucao; }
-    public void setEvolucao(String evolucao) { this.evolucao = evolucao; }
+    public LocalDate getData() {
+        return data;
+    }
 
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
-    public void setDataCriacao(LocalDateTime dataCriacao) { this.dataCriacao = dataCriacao; }
+    public void setData(LocalDate data) {
+        this.data = data;
+    }
 
-    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) { this.dataAtualizacao = dataAtualizacao; }
+    public LocalTime getHorario() {
+        return horario;
+    }
+
+    public void setHorario(LocalTime horario) {
+        this.horario = horario;
+    }
+
+    public String getLocal() {
+        return local;
+    }
+
+    public void setLocal(String local) {
+        this.local = local;
+    }
+
+    public Integer getDuracaoMinutos() {
+        return duracaoMinutos;
+    }
+
+    public void setDuracaoMinutos(Integer duracaoMinutos) {
+        this.duracaoMinutos = duracaoMinutos;
+    }
+
+    public String getObservacoes() {
+        return observacoes;
+    }
+
+    public void setObservacoes(String observacoes) {
+        this.observacoes = observacoes;
+    }
+
+    public String getEvolucao() {
+        return evolucao;
+    }
+
+    public void setEvolucao(String evolucao) {
+        this.evolucao = evolucao;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public LocalDateTime getDataAtualizacao() {
+        return dataAtualizacao;
+    }
+
+    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
+        this.dataAtualizacao = dataAtualizacao;
+    }
 }

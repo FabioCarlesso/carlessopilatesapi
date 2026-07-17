@@ -1,5 +1,11 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.AnamneseRequestDTO;
 import com.carlesso.pilatesapi.dto.AnamneseResponseDTO;
 import com.carlesso.pilatesapi.dto.AnamneseUpdateDTO;
@@ -9,21 +15,14 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class AnamneseServiceTest {
@@ -86,8 +85,7 @@ class AnamneseServiceTest {
                 "Sedentário",
                 "Evitar impacto",
                 "Melhorar postura e reduzir dores",
-                "Paciente relata estresse"
-        );
+                "Paciente relata estresse");
     }
 
     private void setId(Paciente p, Long id) {
@@ -309,10 +307,16 @@ class AnamneseServiceTest {
         when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
 
         var dto = new AnamneseUpdateDTO(
-                "Dor cervical", "Diabetes", "Apendicectomia",
-                "Fratura punho", "Metformina", "Dipirona",
-                "Ativo", "Sem restrições", "Ganhar massa muscular", "Perfil atlético"
-        );
+                "Dor cervical",
+                "Diabetes",
+                "Apendicectomia",
+                "Fratura punho",
+                "Metformina",
+                "Dipirona",
+                "Ativo",
+                "Sem restrições",
+                "Ganhar massa muscular",
+                "Perfil atlético");
         AnamneseResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.queixaPrincipal()).isEqualTo("Dor cervical");

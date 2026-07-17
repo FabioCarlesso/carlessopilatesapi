@@ -14,6 +14,11 @@ import com.lowagie.text.Phrase;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.format.DateTimeFormatter;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -23,12 +28,6 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
-
-import java.awt.Color;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.format.DateTimeFormatter;
 
 @Service
 public class RelatorioPagamentoExporterService {
@@ -53,11 +52,16 @@ public class RelatorioPagamentoExporterService {
 
             document.add(linha("Profissional: ", relatorio.profissional().nome(), textoFont));
             document.add(linha("CPF: ", relatorio.profissional().cpf(), textoFont));
-            document.add(linha("Tipo de contrato: ", relatorio.profissional().tipoContrato().name(), textoFont));
-            document.add(linha("Percentual por aula: ", relatorio.profissional().percentualPagamentoAula() + "%", textoFont));
+            document.add(linha(
+                    "Tipo de contrato: ",
+                    relatorio.profissional().tipoContrato().name(),
+                    textoFont));
+            document.add(linha(
+                    "Percentual por aula: ", relatorio.profissional().percentualPagamentoAula() + "%", textoFont));
             document.add(linha(
                     "Período: ",
-                    relatorio.periodo().inicio().format(DATE) + " até " + relatorio.periodo().fim().format(DATE),
+                    relatorio.periodo().inicio().format(DATE) + " até "
+                            + relatorio.periodo().fim().format(DATE),
                     textoFont));
             document.add(linha("Gerado em: ", relatorio.geradoEm().format(DATE_TIME), textoFont));
 
@@ -66,14 +70,22 @@ public class RelatorioPagamentoExporterService {
             resumoTitulo.setSpacingAfter(6f);
             document.add(resumoTitulo);
 
-            document.add(linha("Total de aulas realizadas: ",
-                    String.valueOf(relatorio.resumo().totalAulas()), textoFont));
-            document.add(linha("Quantidade de pagamentos: ",
-                    String.valueOf(relatorio.resumo().quantidadePagamentos()), textoFont));
-            document.add(linha("Total bruto dos pagamentos: ",
-                    formatarMoeda(relatorio.resumo().totalPagamentosBruto()), textoFont));
-            document.add(linha("Total devido ao profissional: ",
-                    formatarMoeda(relatorio.resumo().totalProfissional()), textoFont));
+            document.add(linha(
+                    "Total de aulas realizadas: ",
+                    String.valueOf(relatorio.resumo().totalAulas()),
+                    textoFont));
+            document.add(linha(
+                    "Quantidade de pagamentos: ",
+                    String.valueOf(relatorio.resumo().quantidadePagamentos()),
+                    textoFont));
+            document.add(linha(
+                    "Total bruto dos pagamentos: ",
+                    formatarMoeda(relatorio.resumo().totalPagamentosBruto()),
+                    textoFont));
+            document.add(linha(
+                    "Total devido ao profissional: ",
+                    formatarMoeda(relatorio.resumo().totalProfissional()),
+                    textoFont));
 
             if (!relatorio.pagamentos().isEmpty()) {
                 Paragraph pagTitulo = new Paragraph("Pagamentos", subtituloFont);
@@ -105,7 +117,7 @@ public class RelatorioPagamentoExporterService {
 
     public byte[] exportarXlsx(ProfissionalPagamentoRelatorioDTO relatorio) {
         try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             CellStyle headerStyle = workbook.createCellStyle();
             org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
@@ -134,9 +146,16 @@ public class RelatorioPagamentoExporterService {
     }
 
     private PdfPTable montarTabelaPagamentos(ProfissionalPagamentoRelatorioDTO relatorio) {
-        PdfPTable table = new PdfPTable(new float[]{1.5f, 2f, 2f, 2f, 2f, 2f});
+        PdfPTable table = new PdfPTable(new float[] {1.5f, 2f, 2f, 2f, 2f, 2f});
         table.setWidthPercentage(100);
-        adicionarCabecalho(table, "Pagamento", "Valor", "Aulas total", "Aulas no período", "Valor base aula", "Total profissional");
+        adicionarCabecalho(
+                table,
+                "Pagamento",
+                "Valor",
+                "Aulas total",
+                "Aulas no período",
+                "Valor base aula",
+                "Total profissional");
         for (PagamentoResumoDTO pagamento : relatorio.pagamentos()) {
             adicionarCelula(table, String.valueOf(pagamento.pagamentoId()));
             adicionarCelula(table, formatarMoeda(pagamento.valorPagamento()));
@@ -149,7 +168,7 @@ public class RelatorioPagamentoExporterService {
     }
 
     private PdfPTable montarTabelaAulas(ProfissionalPagamentoRelatorioDTO relatorio) {
-        PdfPTable table = new PdfPTable(new float[]{1.5f, 2f, 3f, 2f, 2f});
+        PdfPTable table = new PdfPTable(new float[] {1.5f, 2f, 3f, 2f, 2f});
         table.setWidthPercentage(100);
         adicionarCabecalho(table, "Aula", "Data", "Paciente", "Pagamento", "Valor profissional");
         for (ProfissionalPagamentoAulaDTO aula : relatorio.aulas()) {
@@ -188,23 +207,46 @@ public class RelatorioPagamentoExporterService {
         tituloCell.setCellStyle(headerStyle);
         rowIndex++;
 
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Profissional", relatorio.profissional().nome());
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "CPF", relatorio.profissional().cpf());
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Tipo de contrato", relatorio.profissional().tipoContrato().name());
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Percentual por aula",
-                relatorio.profissional().percentualPagamentoAula() + "%");
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Período",
-                relatorio.periodo().inicio().format(DATE) + " até " + relatorio.periodo().fim().format(DATE));
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Gerado em", relatorio.geradoEm().format(DATE_TIME));
+        rowIndex = adicionarLinhaChaveValor(
+                sheet, rowIndex, "Profissional", relatorio.profissional().nome());
+        rowIndex = adicionarLinhaChaveValor(
+                sheet, rowIndex, "CPF", relatorio.profissional().cpf());
+        rowIndex = adicionarLinhaChaveValor(
+                sheet,
+                rowIndex,
+                "Tipo de contrato",
+                relatorio.profissional().tipoContrato().name());
+        rowIndex = adicionarLinhaChaveValor(
+                sheet, rowIndex, "Percentual por aula", relatorio.profissional().percentualPagamentoAula() + "%");
+        rowIndex = adicionarLinhaChaveValor(
+                sheet,
+                rowIndex,
+                "Período",
+                relatorio.periodo().inicio().format(DATE) + " até "
+                        + relatorio.periodo().fim().format(DATE));
+        rowIndex = adicionarLinhaChaveValor(
+                sheet, rowIndex, "Gerado em", relatorio.geradoEm().format(DATE_TIME));
         rowIndex++;
 
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Total de aulas realizadas",
+        rowIndex = adicionarLinhaChaveValor(
+                sheet,
+                rowIndex,
+                "Total de aulas realizadas",
                 String.valueOf(relatorio.resumo().totalAulas()));
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Quantidade de pagamentos",
+        rowIndex = adicionarLinhaChaveValor(
+                sheet,
+                rowIndex,
+                "Quantidade de pagamentos",
                 String.valueOf(relatorio.resumo().quantidadePagamentos()));
-        rowIndex = adicionarLinhaChaveValor(sheet, rowIndex, "Total bruto dos pagamentos",
+        rowIndex = adicionarLinhaChaveValor(
+                sheet,
+                rowIndex,
+                "Total bruto dos pagamentos",
                 formatarMoeda(relatorio.resumo().totalPagamentosBruto()));
-        adicionarLinhaChaveValor(sheet, rowIndex, "Total devido ao profissional",
+        adicionarLinhaChaveValor(
+                sheet,
+                rowIndex,
+                "Total devido ao profissional",
                 formatarMoeda(relatorio.resumo().totalProfissional()));
 
         sheet.autoSizeColumn(0);
@@ -212,7 +254,9 @@ public class RelatorioPagamentoExporterService {
     }
 
     private void preencherPagamentos(Sheet sheet, ProfissionalPagamentoRelatorioDTO relatorio, CellStyle headerStyle) {
-        String[] headers = {"Pagamento", "Valor", "Aulas total", "Aulas no período", "Valor base aula", "Total profissional"};
+        String[] headers = {
+            "Pagamento", "Valor", "Aulas total", "Aulas no período", "Valor base aula", "Total profissional"
+        };
         criarHeader(sheet, headers, headerStyle);
 
         int rowIndex = 1;
@@ -268,6 +312,9 @@ public class RelatorioPagamentoExporterService {
         if (valor == null) {
             return "-";
         }
-        return "R$ " + valor.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ',');
+        return "R$ "
+                + valor.setScale(2, java.math.RoundingMode.HALF_UP)
+                        .toPlainString()
+                        .replace('.', ',');
     }
 }

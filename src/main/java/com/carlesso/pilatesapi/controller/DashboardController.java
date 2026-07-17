@@ -24,11 +24,11 @@ public class DashboardController {
 
     @Operation(
             summary = "Resumo do dashboard",
-            description = "Retorna contadores e totais consolidados de pacientes, profissionais, pagamentos e aulas para o painel inicial."
-    )
+            description =
+                    "Retorna contadores e totais consolidados de pacientes, profissionais, pagamentos e aulas para o painel inicial.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Resumo retornado com sucesso"),
-            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido")
+        @ApiResponse(responseCode = "200", description = "Resumo retornado com sucesso"),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido")
     })
     @GetMapping("/resumo")
     public ResponseEntity<DashboardResumoDTO> resumo() {

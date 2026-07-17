@@ -4,8 +4,7 @@ import java.util.Locale;
 
 public final class EmailNormalizer {
 
-    private EmailNormalizer() {
-    }
+    private EmailNormalizer() {}
 
     public static String normalizar(String email) {
         return email.toLowerCase(Locale.ROOT);

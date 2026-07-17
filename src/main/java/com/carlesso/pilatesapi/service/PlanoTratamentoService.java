@@ -3,17 +3,16 @@ package com.carlesso.pilatesapi.service;
 import com.carlesso.pilatesapi.dto.PlanoTratamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PlanoTratamentoResponseDTO;
 import com.carlesso.pilatesapi.dto.PlanoTratamentoUpdateDTO;
-import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
-import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PlanoTratamentoService {
@@ -21,8 +20,8 @@ public class PlanoTratamentoService {
     private final PlanoTratamentoRepository planoTratamentoRepository;
     private final PacienteRepository pacienteRepository;
 
-    public PlanoTratamentoService(PlanoTratamentoRepository planoTratamentoRepository,
-                                   PacienteRepository pacienteRepository) {
+    public PlanoTratamentoService(
+            PlanoTratamentoRepository planoTratamentoRepository, PacienteRepository pacienteRepository) {
         this.planoTratamentoRepository = planoTratamentoRepository;
         this.pacienteRepository = pacienteRepository;
     }
@@ -31,7 +30,8 @@ public class PlanoTratamentoService {
     public PlanoTratamentoResponseDTO criar(PlanoTratamentoRequestDTO dto) {
         validarPeriodo(dto.dataInicio(), dto.dataFimPrevista());
 
-        Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         PlanoTratamento plano = new PlanoTratamento();
@@ -58,8 +58,7 @@ public class PlanoTratamentoService {
         if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return planoTratamentoRepository.findAtivosByPacienteOrdenados(pacienteId)
-                .stream()
+        return planoTratamentoRepository.findAtivosByPacienteOrdenados(pacienteId).stream()
                 .map(PlanoTratamentoResponseDTO::from)
                 .toList();
     }
@@ -92,7 +91,8 @@ public class PlanoTratamentoService {
     }
 
     private PlanoTratamento encontrar(Long id) {
-        return planoTratamentoRepository.findAtivoById(id)
+        return planoTratamentoRepository
+                .findAtivoById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Plano de tratamento não encontrado: " + id));
     }
 

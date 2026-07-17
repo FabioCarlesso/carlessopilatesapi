@@ -1,5 +1,11 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.*;
+
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
@@ -14,6 +20,12 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,25 +34,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class AulaServiceTest {
 
-    @Mock AulaRepository aulaRepository;
-    @Mock ProfissionalRepository profissionalRepository;
-    @InjectMocks AulaService service;
+    @Mock
+    AulaRepository aulaRepository;
+
+    @Mock
+    ProfissionalRepository profissionalRepository;
+
+    @InjectMocks
+    AulaService service;
 
     private Paciente paciente;
     private Plano plano;
@@ -98,23 +102,26 @@ class AulaServiceTest {
         List<Aula> aulas = service.gerarAulas(pagamentoPago);
 
         List<LocalDate> datas = aulas.stream().map(Aula::getData).toList();
-        assertThat(datas).containsExactlyInAnyOrder(
-                LocalDate.of(2025, 2, 3),  // seg
-                LocalDate.of(2025, 2, 5),  // qua
-                LocalDate.of(2025, 2, 10), // seg
-                LocalDate.of(2025, 2, 12), // qua
-                LocalDate.of(2025, 2, 17), // seg
-                LocalDate.of(2025, 2, 19), // qua
-                LocalDate.of(2025, 2, 24), // seg
-                LocalDate.of(2025, 2, 26)  // qua
-        );
+        assertThat(datas)
+                .containsExactlyInAnyOrder(
+                        LocalDate.of(2025, 2, 3), // seg
+                        LocalDate.of(2025, 2, 5), // qua
+                        LocalDate.of(2025, 2, 10), // seg
+                        LocalDate.of(2025, 2, 12), // qua
+                        LocalDate.of(2025, 2, 17), // seg
+                        LocalDate.of(2025, 2, 19), // qua
+                        LocalDate.of(2025, 2, 24), // seg
+                        LocalDate.of(2025, 2, 26) // qua
+                        );
     }
 
     @Test
     void gerarAulas_naoDuplicaAulasExistentes() {
         // Simula que segunda dia 3 já existe
-        when(aulaRepository.existsByPacienteAndData(paciente, LocalDate.of(2025, 2, 3))).thenReturn(true);
-        when(aulaRepository.existsByPacienteAndData(any(), argThat(d -> !d.equals(LocalDate.of(2025, 2, 3))))).thenReturn(false);
+        when(aulaRepository.existsByPacienteAndData(paciente, LocalDate.of(2025, 2, 3)))
+                .thenReturn(true);
+        when(aulaRepository.existsByPacienteAndData(any(), argThat(d -> !d.equals(LocalDate.of(2025, 2, 3)))))
+                .thenReturn(false);
         when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         List<Aula> aulas = service.gerarAulas(pagamentoPago);
@@ -225,8 +232,7 @@ class AulaServiceTest {
     void buscarPorId_naoEncontrado_lancaExcecao() {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.buscarPorId(99L))
-                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.buscarPorId(99L)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

@@ -17,12 +17,6 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.AulaRepository.ProfissionalPagamentoAulaProjection;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -32,6 +26,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProfissionalService {
@@ -74,7 +73,8 @@ public class ProfissionalService {
             BigDecimal percentualPagamentoAula,
             Boolean ativo,
             Pageable pageable) {
-        return repository.findAll(filtros(nome, email, tipoContrato, percentualPagamentoAula, ativo), pageable)
+        return repository
+                .findAll(filtros(nome, email, tipoContrato, percentualPagamentoAula, ativo), pageable)
                 .map(ProfissionalResponseDTO::from);
     }
 
@@ -90,7 +90,8 @@ public class ProfissionalService {
         if (dto.email() != null) profissional.setEmail(dto.email());
         if (dto.telefone() != null) profissional.setTelefone(dto.telefone());
         if (dto.tipoContrato() != null) profissional.setTipoContrato(dto.tipoContrato());
-        if (dto.percentualPagamentoAula() != null) profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
+        if (dto.percentualPagamentoAula() != null)
+            profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
         if (dto.dataInicio() != null) profissional.setDataInicio(dto.dataInicio());
         return ProfissionalResponseDTO.from(profissional);
     }
@@ -115,19 +116,18 @@ public class ProfissionalService {
         }
         long diasPeriodo = ChronoUnit.DAYS.between(inicio, fim) + 1;
         if (diasPeriodo > LIMITE_DIAS_RELATORIO_PAGAMENTO) {
-            throw new IllegalArgumentException("Relatório de pagamento limitado a "
-                    + LIMITE_DIAS_RELATORIO_PAGAMENTO + " dias");
+            throw new IllegalArgumentException(
+                    "Relatório de pagamento limitado a " + LIMITE_DIAS_RELATORIO_PAGAMENTO + " dias");
         }
 
         Profissional profissional = encontrar(id);
-        List<ProfissionalPagamentoAulaDTO> aulas = aulaRepository
-                .findRelatorioPagamentoByProfissionalIdAndPeriodo(id, inicio, fim)
-                .stream()
-                .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula()))
-                .toList();
+        List<ProfissionalPagamentoAulaDTO> aulas =
+                aulaRepository.findRelatorioPagamentoByProfissionalIdAndPeriodo(id, inicio, fim).stream()
+                        .map(aula -> mapearAulaPagamento(aula, profissional.getPercentualPagamentoAula()))
+                        .toList();
         if (aulas.size() > LIMITE_AULAS_RELATORIO_PAGAMENTO) {
-            throw new IllegalArgumentException("Relatório de pagamento limitado a "
-                    + LIMITE_AULAS_RELATORIO_PAGAMENTO + " aulas");
+            throw new IllegalArgumentException(
+                    "Relatório de pagamento limitado a " + LIMITE_AULAS_RELATORIO_PAGAMENTO + " aulas");
         }
 
         List<PagamentoResumoDTO> pagamentos = agruparPorPagamento(aulas);
@@ -142,11 +142,8 @@ public class ProfissionalService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        ResumoFinanceiroDTO resumo = new ResumoFinanceiroDTO(
-                aulas.size(),
-                pagamentos.size(),
-                totalBruto,
-                totalProfissional);
+        ResumoFinanceiroDTO resumo =
+                new ResumoFinanceiroDTO(aulas.size(), pagamentos.size(), totalBruto, totalProfissional);
 
         return new ProfissionalPagamentoRelatorioDTO(
                 ProfissionalResumoDTO.from(profissional),
@@ -163,9 +160,7 @@ public class ProfissionalService {
             PagamentoAcumulador acumulador = acumulado.computeIfAbsent(
                     aula.pagamentoId(),
                     id -> new PagamentoAcumulador(
-                            aula.valorPagamento(),
-                            aula.quantidadeAulasPagamento(),
-                            aula.valorBaseAula()));
+                            aula.valorPagamento(), aula.quantidadeAulasPagamento(), aula.valorBaseAula()));
             acumulador.adicionar(aula.valorProfissional());
         }
         return acumulado.entrySet().stream()
@@ -180,20 +175,20 @@ public class ProfissionalService {
     }
 
     private Profissional encontrar(Long id) {
-        return repository.findById(id)
+        return repository
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + id));
     }
 
     private ProfissionalPagamentoAulaDTO mapearAulaPagamento(
-            ProfissionalPagamentoAulaProjection aula,
-            BigDecimal percentualPagamentoAula) {
+            ProfissionalPagamentoAulaProjection aula, BigDecimal percentualPagamentoAula) {
         long quantidadeAulasPagamento = aula.getQuantidadeAulasPagamento();
         if (quantidadeAulasPagamento == 0) {
             throw new BusinessException("Pagamento sem aulas geradas: " + aula.getPagamentoId());
         }
 
-        BigDecimal valorBaseAula = aula.getValorPagamento()
-                .divide(BigDecimal.valueOf(quantidadeAulasPagamento), 6, RoundingMode.HALF_UP);
+        BigDecimal valorBaseAula =
+                aula.getValorPagamento().divide(BigDecimal.valueOf(quantidadeAulasPagamento), 6, RoundingMode.HALF_UP);
         BigDecimal valorProfissional = valorBaseAula
                 .multiply(percentualPagamentoAula)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -212,11 +207,7 @@ public class ProfissionalService {
     }
 
     private Specification<Profissional> filtros(
-            String nome,
-            String email,
-            TipoContrato tipoContrato,
-            BigDecimal percentualPagamentoAula,
-            Boolean ativo) {
+            String nome, String email, TipoContrato tipoContrato, BigDecimal percentualPagamentoAula, Boolean ativo) {
         Specification<Profissional> spec = porStatus(ativo);
         spec = spec.and(contemIgnorandoCase("nome", nome));
         spec = spec.and(contemIgnorandoCase("email", email));
@@ -236,8 +227,7 @@ public class ProfissionalService {
         }
 
         String filtro = "%" + valor.trim().toLowerCase(Locale.ROOT) + "%";
-        return (root, query, criteriaBuilder) ->
-                criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), filtro);
+        return (root, query, criteriaBuilder) -> criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), filtro);
     }
 
     private <T> Specification<Profissional> igual(String campo, T valor) {
@@ -255,7 +245,8 @@ public class ProfissionalService {
         private long quantidadeNoPeriodo;
         private BigDecimal totalProfissional;
 
-        private PagamentoAcumulador(BigDecimal valorPagamento, long quantidadeAulasPagamento, BigDecimal valorBaseAula) {
+        private PagamentoAcumulador(
+                BigDecimal valorPagamento, long quantidadeAulasPagamento, BigDecimal valorBaseAula) {
             this.valorPagamento = valorPagamento;
             this.quantidadeAulasPagamento = quantidadeAulasPagamento;
             this.valorBaseAula = valorBaseAula;

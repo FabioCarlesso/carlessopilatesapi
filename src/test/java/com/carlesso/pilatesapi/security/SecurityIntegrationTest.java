@@ -1,5 +1,16 @@
 package com.carlesso.pilatesapi.security;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
@@ -11,6 +22,7 @@ import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.lang.reflect.Field;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,19 +32,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.lang.reflect.Field;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -67,7 +66,8 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void register_publico_naoDeveExistirENaoDeveCriarUsuario() throws Exception {
-        String payload = """
+        String payload =
+                """
                 {"name": "Intruso", "email": "intruso@email.com", "password": "senha1234"}
                 """;
 
@@ -158,16 +158,14 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void usersMe_semToken_deveRetornar401() throws Exception {
-        mvc.perform(get("/users/me"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/users/me")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void usersMe_comTokenValido_deveRetornarUsuarioSemSenha() throws Exception {
         User user = criarUsuario("me@email.com", Role.USER);
 
-        mvc.perform(get("/users/me")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/users/me").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("me@email.com"))
                 .andExpect(jsonPath("$.role").value("USER"))
@@ -176,14 +174,12 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void rotaProtegida_semToken_deveRetornar401() throws Exception {
-        mvc.perform(get("/pacientes"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/pacientes")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void rotaProtegida_comTokenInvalido_deveRetornar401() throws Exception {
-        mvc.perform(get("/pacientes")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer token-invalido"))
+        mvc.perform(get("/pacientes").header(HttpHeaders.AUTHORIZATION, "Bearer token-invalido"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -191,8 +187,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void admin_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
         User user = criarUsuario("user@email.com", Role.USER);
 
-        mvc.perform(get("/admin/health")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/admin/health").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.erro").value("Acesso negado"));
     }
@@ -201,24 +196,21 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void admin_comRoleAdmin_deveRetornar200() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
-        mvc.perform(get("/admin/health")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+        mvc.perform(get("/admin/health").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
     }
 
     @Test
     void usersRoles_semToken_deveRetornar401() throws Exception {
-        mvc.perform(get("/users/roles"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/users/roles")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void usersRoles_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
         User user = criarUsuario("user@email.com", Role.USER);
 
-        mvc.perform(get("/users/roles")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/users/roles").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
     }
 
@@ -226,8 +218,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void usersRoles_comAdmin_deveRetornarRolesDisponiveis() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
-        mvc.perform(get("/users/roles")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+        mvc.perform(get("/users/roles").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(Role.values().length))
                 .andExpect(jsonPath("$[?(@.value == 'ADMIN')].label").value("Administrador"))
@@ -238,8 +229,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void usersListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
         User user = criarUsuario("user@email.com", Role.USER);
 
-        mvc.perform(get("/users")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/users").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
     }
 
@@ -280,11 +270,11 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
         User updated = userRepository.findById(user.getId()).orElseThrow();
         assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
-        assertThat(passwordEncoder.matches("novaSenha123", updated.getPassword())).isTrue();
+        assertThat(passwordEncoder.matches("novaSenha123", updated.getPassword()))
+                .isTrue();
         assertThat(updated.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
 
-        mvc.perform(get("/dashboard/resumo")
-                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo))
+        mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, tokenAntigo))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -348,8 +338,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("inativar@email.com", Role.USER);
 
-        mvc.perform(delete("/users/{id}", user.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+        mvc.perform(delete("/users/{id}", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isNoContent());
 
         User inativado = userRepository.findById(user.getId()).orElseThrow();
@@ -362,12 +351,10 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User user = criarUsuario("token-inativo@email.com", Role.USER);
         String tokenEmitidoAntesDaInativacao = bearer(user);
 
-        mvc.perform(delete("/users/{id}", user.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+        mvc.perform(delete("/users/{id}", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isNoContent());
 
-        mvc.perform(get("/dashboard/resumo")
-                        .header(HttpHeaders.AUTHORIZATION, tokenEmitidoAntesDaInativacao))
+        mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, tokenEmitidoAntesDaInativacao))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -375,8 +362,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void usersInativar_adminInativandoPropraConta_deveRetornar422() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
-        mvc.perform(delete("/users/{id}", admin.getId())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+        mvc.perform(delete("/users/{id}", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
     }
@@ -394,22 +380,25 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(status().isNoContent());
 
         User atualizado = userRepository.findById(user.getId()).orElseThrow();
-        assertThat(passwordEncoder.matches("novaSenha123", atualizado.getPassword())).isTrue();
-        assertThat(passwordEncoder.matches("senha1234", atualizado.getPassword())).isFalse();
+        assertThat(passwordEncoder.matches("novaSenha123", atualizado.getPassword()))
+                .isTrue();
+        assertThat(passwordEncoder.matches("senha1234", atualizado.getPassword()))
+                .isFalse();
         assertThat(atualizado.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
 
-        mvc.perform(get("/dashboard/resumo")
-                        .header(HttpHeaders.AUTHORIZATION, tokenAntigo))
+        mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, tokenAntigo))
                 .andExpect(status().isUnauthorized());
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("trocasenha@email.com", "novaSenha123"))))
+                        .content(mapper.writeValueAsString(
+                                new AuthLoginRequestDTO("trocasenha@email.com", "novaSenha123"))))
                 .andExpect(status().isOk());
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("trocasenha@email.com", "senha1234"))))
+                        .content(mapper.writeValueAsString(
+                                new AuthLoginRequestDTO("trocasenha@email.com", "senha1234"))))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -476,16 +465,14 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void preferencias_get_semToken_deveRetornar401() throws Exception {
-        mvc.perform(get("/users/me/preferencias"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/users/me/preferencias")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void preferencias_get_comUsuarioComum_deveRetornarPadroes() throws Exception {
         User user = criarUsuario("prefs-get@email.com", Role.USER);
 
-        mvc.perform(get("/users/me/preferencias")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/users/me/preferencias").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idioma").value("PT_BR"))
                 .andExpect(jsonPath("$.tema").value("CLARO"))
@@ -497,15 +484,15 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void preferencias_get_comAdmin_deveRetornar200() throws Exception {
         User admin = criarUsuario("prefs-admin@email.com", Role.ADMIN);
 
-        mvc.perform(get("/users/me/preferencias")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+        mvc.perform(get("/users/me/preferencias").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isOk());
     }
 
     @Test
     void preferencias_put_comUsuarioComum_devePersistirEReturnarValoresAtualizados() throws Exception {
         User user = criarUsuario("prefs-put@email.com", Role.USER);
-        String payload = """
+        String payload =
+                """
                 {
                   "idioma": "EN_US",
                   "tema": "ESCURO",
@@ -524,8 +511,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(jsonPath("$.notificacoesEmail").value(false))
                 .andExpect(jsonPath("$.notificacoesPush").value(true));
 
-        mvc.perform(get("/users/me/preferencias")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/users/me/preferencias").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idioma").value("EN_US"))
                 .andExpect(jsonPath("$.tema").value("ESCURO"));
@@ -533,16 +519,14 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void dashboardResumo_semToken_deveRetornar401() throws Exception {
-        mvc.perform(get("/dashboard/resumo"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/dashboard/resumo")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void dashboardResumo_comTokenValido_deveRetornar200() throws Exception {
         User user = criarUsuario("dashboard@email.com", Role.USER);
 
-        mvc.perform(get("/dashboard/resumo")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pacientes").exists())
                 .andExpect(jsonPath("$.profissionais").exists())
@@ -555,8 +539,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void rotaInexistente_comTokenValido_deveRetornar404() throws Exception {
         User user = criarUsuario("rota@email.com", Role.USER);
 
-        mvc.perform(get("/rota-que-nao-existe")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(get("/rota-que-nao-existe").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isNotFound());
     }
 
@@ -564,15 +547,13 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void rotaInexistenteEmRecursoExistente_comTokenValido_deveRetornar404() throws Exception {
         User user = criarUsuario("rota2@email.com", Role.USER);
 
-        mvc.perform(patch("/sessoes/1/inexistente")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+        mvc.perform(patch("/sessoes/1/inexistente").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void swaggerUi_devePermanecerAcessivelComAddMappingsDesabilitado() throws Exception {
-        mvc.perform(get("/v3/api-docs"))
-                .andExpect(status().isOk());
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
     }
 
     @Test
@@ -586,12 +567,12 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cors_deveExporHeaderDeCorrelationIdParaOFrontend() throws Exception {
-        mvc.perform(get("/actuator/health")
-                        .header(HttpHeaders.ORIGIN, "http://localhost:4200"))
+        mvc.perform(get("/actuator/health").header(HttpHeaders.ORIGIN, "http://localhost:4200"))
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Request-Id"))
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
-                        org.hamcrest.Matchers.containsString("X-Request-Id")));
+                .andExpect(header().string(
+                                HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                                org.hamcrest.Matchers.containsString("X-Request-Id")));
     }
 
     private User criarUsuario(String email, Role role) {

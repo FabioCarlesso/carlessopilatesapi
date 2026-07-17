@@ -8,13 +8,12 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import java.util.Locale;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Locale;
 
 @Service
 public class PacienteService {
@@ -46,21 +45,16 @@ public class PacienteService {
                     dto.endereco().bairro(),
                     dto.endereco().cidade(),
                     dto.endereco().uf(),
-                    dto.endereco().cep()
-            ));
+                    dto.endereco().cep()));
         }
         return PacienteResponseDTO.from(repository.save(paciente));
     }
 
     @Transactional(readOnly = true)
     public Page<PacienteResponseDTO> listar(
-            String nome,
-            String email,
-            String cpf,
-            String telefone,
-            Boolean ativo,
-            Pageable pageable) {
-        return repository.findAll(filtros(nome, email, cpf, telefone, ativo), pageable)
+            String nome, String email, String cpf, String telefone, Boolean ativo, Pageable pageable) {
+        return repository
+                .findAll(filtros(nome, email, cpf, telefone, ativo), pageable)
                 .map(PacienteResponseDTO::from);
     }
 
@@ -82,8 +76,7 @@ public class PacienteService {
                     dto.endereco().bairro(),
                     dto.endereco().cidade(),
                     dto.endereco().uf(),
-                    dto.endereco().cep()
-            ));
+                    dto.endereco().cep()));
         }
         return PacienteResponseDTO.from(paciente);
     }
@@ -101,7 +94,8 @@ public class PacienteService {
     }
 
     private Paciente encontrar(Long id) {
-        return repository.findById(id)
+        return repository
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + id));
     }
 
@@ -125,7 +119,6 @@ public class PacienteService {
         }
 
         String filtro = "%" + valor.trim().toLowerCase(Locale.ROOT) + "%";
-        return (root, query, criteriaBuilder) ->
-                criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), filtro);
+        return (root, query, criteriaBuilder) -> criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), filtro);
     }
 }

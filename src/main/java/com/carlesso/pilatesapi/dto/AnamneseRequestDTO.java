@@ -14,5 +14,4 @@ public record AnamneseRequestDTO(
         String nivelAtividadeFisica,
         String restricoesMedicas,
         @NotBlank String objetivos,
-        String observacoes
-) {}
+        String observacoes) {}

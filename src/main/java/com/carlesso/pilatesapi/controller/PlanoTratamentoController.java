@@ -10,11 +10,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import java.util.List;
 
 @Tag(name = "Planos de Tratamento", description = "Gerenciamento de planos de tratamento de pacientes")
 @RestController
@@ -29,26 +28,28 @@ public class PlanoTratamentoController {
 
     @Operation(
             summary = "Criar plano de tratamento",
-            description = "Registra um plano de tratamento para um paciente. O paciente pode possuir múltiplos planos ao longo do tempo."
-    )
+            description =
+                    "Registra um plano de tratamento para um paciente. O paciente pode possuir múltiplos planos ao longo do tempo.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Plano de tratamento criado com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+        @ApiResponse(responseCode = "201", description = "Plano de tratamento criado com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @PostMapping
     public ResponseEntity<PlanoTratamentoResponseDTO> criar(
-            @RequestBody @Valid PlanoTratamentoRequestDTO dto,
-            UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid PlanoTratamentoRequestDTO dto, UriComponentsBuilder uriBuilder) {
         PlanoTratamentoResponseDTO response = service.criar(dto);
-        var uri = uriBuilder.path("/planos-tratamento/{id}").buildAndExpand(response.id()).toUri();
+        var uri = uriBuilder
+                .path("/planos-tratamento/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
         return ResponseEntity.created(uri).body(response);
     }
 
     @Operation(summary = "Buscar plano de tratamento por ID")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Plano de tratamento encontrado"),
-            @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
+        @ApiResponse(responseCode = "200", description = "Plano de tratamento encontrado"),
+        @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
     })
     @GetMapping("/{id}")
     public ResponseEntity<PlanoTratamentoResponseDTO> buscarPorId(
@@ -58,8 +59,8 @@ public class PlanoTratamentoController {
 
     @Operation(summary = "Listar planos de tratamento por paciente")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Planos de tratamento encontrados"),
-            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+        @ApiResponse(responseCode = "200", description = "Planos de tratamento encontrados"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<List<PlanoTratamentoResponseDTO>> listarPorPaciente(
@@ -69,12 +70,11 @@ public class PlanoTratamentoController {
 
     @Operation(
             summary = "Atualizar plano de tratamento",
-            description = "Atualiza um plano de tratamento. Apenas os campos enviados serão alterados."
-    )
+            description = "Atualiza um plano de tratamento. Apenas os campos enviados serão alterados.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Plano de tratamento atualizado com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
+        @ApiResponse(responseCode = "200", description = "Plano de tratamento atualizado com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
     })
     @PutMapping("/{id}")
     public ResponseEntity<PlanoTratamentoResponseDTO> atualizar(
@@ -85,11 +85,10 @@ public class PlanoTratamentoController {
 
     @Operation(
             summary = "Inativar plano de tratamento",
-            description = "Inativa um plano de tratamento sem remover o histórico clínico do banco."
-    )
+            description = "Inativa um plano de tratamento sem remover o histórico clínico do banco.")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Plano de tratamento inativado com sucesso"),
-            @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
+        @ApiResponse(responseCode = "204", description = "Plano de tratamento inativado com sucesso"),
+        @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(

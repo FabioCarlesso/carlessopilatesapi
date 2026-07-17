@@ -9,10 +9,9 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 
 @Service
 public class EvolucaoSessaoService {
@@ -20,15 +19,16 @@ public class EvolucaoSessaoService {
     private final EvolucaoSessaoRepository evolucaoRepository;
     private final SessaoPilatesRepository sessaoRepository;
 
-    public EvolucaoSessaoService(EvolucaoSessaoRepository evolucaoRepository,
-                                 SessaoPilatesRepository sessaoRepository) {
+    public EvolucaoSessaoService(
+            EvolucaoSessaoRepository evolucaoRepository, SessaoPilatesRepository sessaoRepository) {
         this.evolucaoRepository = evolucaoRepository;
         this.sessaoRepository = sessaoRepository;
     }
 
     @Transactional
     public EvolucaoSessaoResponseDTO criar(EvolucaoSessaoRequestDTO dto) {
-        SessaoPilates sessao = sessaoRepository.findByIdComPaciente(dto.sessaoId())
+        SessaoPilates sessao = sessaoRepository
+                .findByIdComPaciente(dto.sessaoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sessão não encontrada: " + dto.sessaoId()));
 
         if (evolucaoRepository.existsBySessaoId(dto.sessaoId())) {
@@ -58,9 +58,11 @@ public class EvolucaoSessaoService {
 
     @Transactional(readOnly = true)
     public EvolucaoSessaoResponseDTO buscarPorSessao(Long sessaoId) {
-        sessaoRepository.findByIdComPaciente(sessaoId)
+        sessaoRepository
+                .findByIdComPaciente(sessaoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sessão não encontrada: " + sessaoId));
-        return evolucaoRepository.findBySessaoId(sessaoId)
+        return evolucaoRepository
+                .findBySessaoId(sessaoId)
                 .map(EvolucaoSessaoResponseDTO::from)
                 .orElseThrow(() -> new ResourceNotFoundException("Evolução não encontrada para a sessão: " + sessaoId));
     }
@@ -78,14 +80,16 @@ public class EvolucaoSessaoService {
         if (dto.respostaPaciente() != null) evolucao.setRespostaPaciente(dto.respostaPaciente());
         if (dto.intercorrencias() != null) evolucao.setIntercorrencias(dto.intercorrencias());
         if (dto.orientacoes() != null) evolucao.setOrientacoes(dto.orientacoes());
-        if (dto.observacoesFisioterapeuta() != null) evolucao.setObservacoesFisioterapeuta(dto.observacoesFisioterapeuta());
+        if (dto.observacoesFisioterapeuta() != null)
+            evolucao.setObservacoesFisioterapeuta(dto.observacoesFisioterapeuta());
         evolucao.setDataAtualizacao(LocalDateTime.now());
 
         return EvolucaoSessaoResponseDTO.from(evolucaoRepository.save(evolucao));
     }
 
     private EvolucaoSessao encontrar(Long id) {
-        return evolucaoRepository.findByIdComSessao(id)
+        return evolucaoRepository
+                .findByIdComSessao(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Evolução não encontrada: " + id));
     }
 }

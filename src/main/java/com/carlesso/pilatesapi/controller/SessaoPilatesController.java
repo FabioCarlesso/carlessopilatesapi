@@ -10,13 +10,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.List;
-
-@Tag(name = "Sessões de Pilates/Fisioterapia", description = "Registro e gerenciamento de sessões de Pilates e Fisioterapia")
+@Tag(
+        name = "Sessões de Pilates/Fisioterapia",
+        description = "Registro e gerenciamento de sessões de Pilates e Fisioterapia")
 @RestController
 @RequestMapping("/sessoes")
 public class SessaoPilatesController {
@@ -29,18 +30,20 @@ public class SessaoPilatesController {
 
     @Operation(
             summary = "Registrar sessão",
-            description = "Registra uma nova sessão de Pilates ou Fisioterapia para um paciente."
-    )
+            description = "Registra uma nova sessão de Pilates ou Fisioterapia para um paciente.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Sessão registrada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-            @ApiResponse(responseCode = "404", description = "Paciente, profissional ou plano de tratamento não encontrado"),
-            @ApiResponse(responseCode = "422", description = "Profissional inativo ou plano de tratamento incompatível com o paciente")
+        @ApiResponse(responseCode = "201", description = "Sessão registrada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Paciente, profissional ou plano de tratamento não encontrado"),
+        @ApiResponse(
+                responseCode = "422",
+                description = "Profissional inativo ou plano de tratamento incompatível com o paciente")
     })
     @PostMapping
     public ResponseEntity<SessaoPilatesResponseDTO> criar(
-            @RequestBody @Valid SessaoPilatesRequestDTO dto,
-            UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid SessaoPilatesRequestDTO dto, UriComponentsBuilder uriBuilder) {
         SessaoPilatesResponseDTO response = service.criar(dto);
         var uri = uriBuilder.path("/sessoes/{id}").buildAndExpand(response.id()).toUri();
         return ResponseEntity.created(uri).body(response);
@@ -48,8 +51,8 @@ public class SessaoPilatesController {
 
     @Operation(summary = "Buscar sessão por ID")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sessão encontrada"),
-            @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
+        @ApiResponse(responseCode = "200", description = "Sessão encontrada"),
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
     })
     @GetMapping("/{id}")
     public ResponseEntity<SessaoPilatesResponseDTO> buscarPorId(
@@ -59,8 +62,8 @@ public class SessaoPilatesController {
 
     @Operation(summary = "Listar sessões por paciente")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sessões encontradas"),
-            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+        @ApiResponse(responseCode = "200", description = "Sessões encontradas"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<List<SessaoPilatesResponseDTO>> listarPorPaciente(
@@ -70,12 +73,11 @@ public class SessaoPilatesController {
 
     @Operation(
             summary = "Atualizar sessão",
-            description = "Atualiza os dados de uma sessão. Apenas os campos enviados serão alterados."
-    )
+            description = "Atualiza os dados de uma sessão. Apenas os campos enviados serão alterados.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sessão atualizada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
+        @ApiResponse(responseCode = "200", description = "Sessão atualizada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
     })
     @PutMapping("/{id}")
     public ResponseEntity<SessaoPilatesResponseDTO> atualizar(
@@ -86,12 +88,11 @@ public class SessaoPilatesController {
 
     @Operation(
             summary = "Marcar sessão como realizada",
-            description = "Transiciona o status da sessão de AGENDADA para REALIZADA."
-    )
+            description = "Transiciona o status da sessão de AGENDADA para REALIZADA.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sessão marcada como realizada"),
-            @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
-            @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
+        @ApiResponse(responseCode = "200", description = "Sessão marcada como realizada"),
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
+        @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
     })
     @PatchMapping("/{id}/realizar")
     public ResponseEntity<SessaoPilatesResponseDTO> realizar(
@@ -99,14 +100,11 @@ public class SessaoPilatesController {
         return ResponseEntity.ok(service.realizar(id));
     }
 
-    @Operation(
-            summary = "Cancelar sessão",
-            description = "Transiciona o status da sessão de AGENDADA para CANCELADA."
-    )
+    @Operation(summary = "Cancelar sessão", description = "Transiciona o status da sessão de AGENDADA para CANCELADA.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sessão cancelada"),
-            @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
-            @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
+        @ApiResponse(responseCode = "200", description = "Sessão cancelada"),
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
+        @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
     })
     @PatchMapping("/{id}/cancelar")
     public ResponseEntity<SessaoPilatesResponseDTO> cancelar(
@@ -116,11 +114,10 @@ public class SessaoPilatesController {
 
     @Operation(
             summary = "Excluir sessão",
-            description = "Remove permanentemente uma sessão. Use apenas para cancelamentos/erros de registro."
-    )
+            description = "Remove permanentemente uma sessão. Use apenas para cancelamentos/erros de registro.")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Sessão excluída com sucesso"),
-            @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
+        @ApiResponse(responseCode = "204", description = "Sessão excluída com sucesso"),
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(

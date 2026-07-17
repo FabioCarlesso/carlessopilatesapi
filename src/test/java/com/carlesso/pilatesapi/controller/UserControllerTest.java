@@ -1,33 +1,5 @@
 package com.carlesso.pilatesapi.controller;
 
-import com.carlesso.pilatesapi.dto.RoleResponseDTO;
-import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
-import com.carlesso.pilatesapi.dto.UserRequestDTO;
-import com.carlesso.pilatesapi.dto.UserResponseDTO;
-import com.carlesso.pilatesapi.dto.UserUpdateDTO;
-import com.carlesso.pilatesapi.entity.enums.Role;
-import com.carlesso.pilatesapi.exception.BusinessException;
-import com.carlesso.pilatesapi.exception.ConflictException;
-import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
-import com.carlesso.pilatesapi.service.CustomUserDetailsService;
-import com.carlesso.pilatesapi.service.JwtService;
-import com.carlesso.pilatesapi.service.UserService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -44,6 +16,33 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.carlesso.pilatesapi.dto.RoleResponseDTO;
+import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
+import com.carlesso.pilatesapi.dto.UserRequestDTO;
+import com.carlesso.pilatesapi.dto.UserResponseDTO;
+import com.carlesso.pilatesapi.dto.UserUpdateDTO;
+import com.carlesso.pilatesapi.entity.enums.Role;
+import com.carlesso.pilatesapi.exception.BusinessException;
+import com.carlesso.pilatesapi.exception.ConflictException;
+import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.service.CustomUserDetailsService;
+import com.carlesso.pilatesapi.service.JwtService;
+import com.carlesso.pilatesapi.service.UserService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -70,14 +69,11 @@ class UserControllerTest {
 
     private Authentication adminAuth() {
         return new UsernamePasswordAuthenticationToken(
-                "admin@email.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+                "admin@email.com", null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
     }
 
     private Authentication userAuth(String email) {
-        return new UsernamePasswordAuthenticationToken(
-                email, null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        return new UsernamePasswordAuthenticationToken(email, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
     @Test
@@ -85,9 +81,7 @@ class UserControllerTest {
         var request = new UserRequestDTO("João Silva", "joao@email.com", "senha1234", Role.USER);
         when(service.criar(any())).thenReturn(response());
 
-        mvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
+        mvc.perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.id").value(1))
@@ -101,20 +95,16 @@ class UserControllerTest {
         var request = new UserRequestDTO("João Silva", "joao@email.com", "senha1234", Role.USER);
         when(service.criar(any())).thenThrow(new ConflictException("E-mail já cadastrado"));
 
-        mvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
+        mvc.perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.erro").value("E-mail já cadastrado"));
     }
 
     @Test
-    // Security filters are disabled via @AutoConfigureMockMvc(addFilters = false); auth is covered by SecurityIntegrationTest
+    // Security filters are disabled via @AutoConfigureMockMvc(addFilters = false); auth is covered by
+    // SecurityIntegrationTest
     void listarRoles_deveRetornar200ComTodasAsRoles() throws Exception {
-        var roles = List.of(
-                new RoleResponseDTO("ADMIN", "Administrador"),
-                new RoleResponseDTO("USER", "Usuário")
-        );
+        var roles = List.of(new RoleResponseDTO("ADMIN", "Administrador"), new RoleResponseDTO("USER", "Usuário"));
         when(service.listarRoles()).thenReturn(roles);
 
         mvc.perform(get("/users/roles"))
@@ -186,9 +176,7 @@ class UserControllerTest {
     void inativar_comIdValido_deveRetornar204() throws Exception {
         doNothing().when(service).inativar(eq(1L), anyString());
 
-        mvc.perform(delete("/users/1")
-                        .principal(adminAuth()))
-                .andExpect(status().isNoContent());
+        mvc.perform(delete("/users/1").principal(adminAuth())).andExpect(status().isNoContent());
 
         verify(service).inativar(eq(1L), anyString());
     }
@@ -196,10 +184,10 @@ class UserControllerTest {
     @Test
     void inativar_contaPropriaAdmin_deveRetornar422() throws Exception {
         doThrow(new BusinessException("Não é possível inativar a própria conta"))
-                .when(service).inativar(eq(1L), anyString());
+                .when(service)
+                .inativar(eq(1L), anyString());
 
-        mvc.perform(delete("/users/1")
-                        .principal(adminAuth()))
+        mvc.perform(delete("/users/1").principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
     }
@@ -207,10 +195,10 @@ class UserControllerTest {
     @Test
     void inativar_comIdInexistente_deveRetornar404() throws Exception {
         doThrow(new ResourceNotFoundException("Usuário não encontrado: 99"))
-                .when(service).inativar(eq(99L), anyString());
+                .when(service)
+                .inativar(eq(99L), anyString());
 
-        mvc.perform(delete("/users/99")
-                        .principal(adminAuth()))
+        mvc.perform(delete("/users/99").principal(adminAuth()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.erro").value("Usuário não encontrado: 99"));
     }
@@ -218,10 +206,10 @@ class UserControllerTest {
     @Test
     void inativar_ultimoAdmin_deveRetornar422() throws Exception {
         doThrow(new BusinessException("Não é possível inativar o último administrador ativo"))
-                .when(service).inativar(eq(2L), anyString());
+                .when(service)
+                .inativar(eq(2L), anyString());
 
-        mvc.perform(delete("/users/2")
-                        .principal(adminAuth()))
+        mvc.perform(delete("/users/2").principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Não é possível inativar o último administrador ativo"));
     }
@@ -243,8 +231,7 @@ class UserControllerTest {
     @Test
     void alterarSenha_comSenhaAtualIncorreta_deveRetornar422() throws Exception {
         var dto = new UserAlterarSenhaRequestDTO("errada1234", "novaSenha123", "novaSenha123");
-        doThrow(new BusinessException("Senha atual incorreta"))
-                .when(service).alterarSenha(eq("user@email.com"), any());
+        doThrow(new BusinessException("Senha atual incorreta")).when(service).alterarSenha(eq("user@email.com"), any());
 
         mvc.perform(put("/users/me/senha")
                         .principal(userAuth("user@email.com"))
@@ -258,7 +245,8 @@ class UserControllerTest {
     void alterarSenha_comConfirmacaoDivergente_deveRetornar422() throws Exception {
         var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "outra123Senha");
         doThrow(new BusinessException("Confirmação de senha não confere"))
-                .when(service).alterarSenha(eq("user@email.com"), any());
+                .when(service)
+                .alterarSenha(eq("user@email.com"), any());
 
         mvc.perform(put("/users/me/senha")
                         .principal(userAuth("user@email.com"))
@@ -272,7 +260,8 @@ class UserControllerTest {
     void alterarSenha_reutilizandoSenhaAtual_deveRetornar422() throws Exception {
         var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "senhaAtual1", "senhaAtual1");
         doThrow(new BusinessException("A nova senha deve ser diferente da senha atual"))
-                .when(service).alterarSenha(eq("user@email.com"), any());
+                .when(service)
+                .alterarSenha(eq("user@email.com"), any());
 
         mvc.perform(put("/users/me/senha")
                         .principal(userAuth("user@email.com"))

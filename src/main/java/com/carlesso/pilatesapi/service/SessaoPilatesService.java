@@ -15,11 +15,10 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SessaoPilatesService {
@@ -30,11 +29,12 @@ public class SessaoPilatesService {
     private final PlanoTratamentoRepository planoTratamentoRepository;
     private final EvolucaoSessaoRepository evolucaoSessaoRepository;
 
-    public SessaoPilatesService(SessaoPilatesRepository sessaoRepository,
-                                PacienteRepository pacienteRepository,
-                                ProfissionalRepository profissionalRepository,
-                                PlanoTratamentoRepository planoTratamentoRepository,
-                                EvolucaoSessaoRepository evolucaoSessaoRepository) {
+    public SessaoPilatesService(
+            SessaoPilatesRepository sessaoRepository,
+            PacienteRepository pacienteRepository,
+            ProfissionalRepository profissionalRepository,
+            PlanoTratamentoRepository planoTratamentoRepository,
+            EvolucaoSessaoRepository evolucaoSessaoRepository) {
         this.sessaoRepository = sessaoRepository;
         this.pacienteRepository = pacienteRepository;
         this.profissionalRepository = profissionalRepository;
@@ -44,7 +44,8 @@ public class SessaoPilatesService {
 
     @Transactional
     public SessaoPilatesResponseDTO criar(SessaoPilatesRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         SessaoPilates sessao = new SessaoPilates();
@@ -57,8 +58,10 @@ public class SessaoPilatesService {
         sessao.setObservacoes(dto.observacoes());
 
         if (dto.profissionalId() != null) {
-            Profissional profissional = profissionalRepository.findById(dto.profissionalId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + dto.profissionalId()));
+            Profissional profissional = profissionalRepository
+                    .findById(dto.profissionalId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Profissional não encontrado: " + dto.profissionalId()));
             if (!profissional.isAtivo()) {
                 throw new BusinessException("Profissional inativo não pode ser vinculado à sessão");
             }
@@ -66,8 +69,10 @@ public class SessaoPilatesService {
         }
 
         if (dto.planoTratamentoId() != null) {
-            PlanoTratamento plano = planoTratamentoRepository.findAtivoById(dto.planoTratamentoId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Plano de tratamento não encontrado: " + dto.planoTratamentoId()));
+            PlanoTratamento plano = planoTratamentoRepository
+                    .findAtivoById(dto.planoTratamentoId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Plano de tratamento não encontrado: " + dto.planoTratamentoId()));
             if (!plano.getPaciente().getId().equals(paciente.getId())) {
                 throw new BusinessException("Plano de tratamento não pertence ao paciente informado");
             }
@@ -87,8 +92,7 @@ public class SessaoPilatesService {
         if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return sessaoRepository.findByPacienteOrdenadas(pacienteId)
-                .stream()
+        return sessaoRepository.findByPacienteOrdenadas(pacienteId).stream()
                 .map(SessaoPilatesResponseDTO::from)
                 .toList();
     }
@@ -121,15 +125,14 @@ public class SessaoPilatesService {
         SessaoPilates sessao = encontrar(id);
 
         if (sessao.getStatus() != StatusSessao.AGENDADA) {
-            throw new BusinessException("Transição inválida: sessão " + sessao.getStatus()
-                    + " não pode ser alterada para " + novoStatus);
+            throw new BusinessException(
+                    "Transição inválida: sessão " + sessao.getStatus() + " não pode ser alterada para " + novoStatus);
         }
 
         LocalDateTime agora = LocalDateTime.now();
         int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, agora);
         if (atualizadas == 0) {
-            throw new BusinessException(
-                    "Sessão foi modificada concorrentemente; recarregue e tente novamente");
+            throw new BusinessException("Sessão foi modificada concorrentemente; recarregue e tente novamente");
         }
 
         sessao.setStatus(novoStatus);
@@ -145,7 +148,8 @@ public class SessaoPilatesService {
     }
 
     private SessaoPilates encontrar(Long id) {
-        return sessaoRepository.findByIdComPaciente(id)
+        return sessaoRepository
+                .findByIdComPaciente(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sessão não encontrada: " + id));
     }
 }

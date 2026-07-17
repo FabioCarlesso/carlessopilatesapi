@@ -10,11 +10,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import java.util.List;
 
 @Tag(name = "Avaliações Fisioterapêuticas", description = "Gerenciamento de avaliações fisioterapêuticas de pacientes")
 @RestController
@@ -29,26 +28,28 @@ public class AvaliacaoFisioterapeuticaController {
 
     @Operation(
             summary = "Criar avaliação fisioterapêutica",
-            description = "Registra uma avaliação fisioterapêutica para um paciente. O paciente pode possuir múltiplas avaliações."
-    )
+            description =
+                    "Registra uma avaliação fisioterapêutica para um paciente. O paciente pode possuir múltiplas avaliações.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Avaliação criada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+        @ApiResponse(responseCode = "201", description = "Avaliação criada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @PostMapping
     public ResponseEntity<AvaliacaoFisioterapeuticaResponseDTO> criar(
-            @RequestBody @Valid AvaliacaoFisioterapeuticaRequestDTO dto,
-            UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid AvaliacaoFisioterapeuticaRequestDTO dto, UriComponentsBuilder uriBuilder) {
         AvaliacaoFisioterapeuticaResponseDTO response = service.criar(dto);
-        var uri = uriBuilder.path("/avaliacoes-fisioterapeuticas/{id}").buildAndExpand(response.id()).toUri();
+        var uri = uriBuilder
+                .path("/avaliacoes-fisioterapeuticas/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
         return ResponseEntity.created(uri).body(response);
     }
 
     @Operation(summary = "Buscar avaliação fisioterapêutica por ID")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Avaliação encontrada"),
-            @ApiResponse(responseCode = "404", description = "Avaliação não encontrada")
+        @ApiResponse(responseCode = "200", description = "Avaliação encontrada"),
+        @ApiResponse(responseCode = "404", description = "Avaliação não encontrada")
     })
     @GetMapping("/{id}")
     public ResponseEntity<AvaliacaoFisioterapeuticaResponseDTO> buscarPorId(
@@ -58,8 +59,8 @@ public class AvaliacaoFisioterapeuticaController {
 
     @Operation(summary = "Listar avaliações fisioterapêuticas por paciente")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Avaliações encontradas"),
-            @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+        @ApiResponse(responseCode = "200", description = "Avaliações encontradas"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<List<AvaliacaoFisioterapeuticaResponseDTO>> listarPorPaciente(
@@ -69,12 +70,11 @@ public class AvaliacaoFisioterapeuticaController {
 
     @Operation(
             summary = "Atualizar avaliação fisioterapêutica",
-            description = "Atualiza uma avaliação fisioterapêutica. Apenas os campos enviados serão alterados."
-    )
+            description = "Atualiza uma avaliação fisioterapêutica. Apenas os campos enviados serão alterados.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Avaliação atualizada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "404", description = "Avaliação não encontrada")
+        @ApiResponse(responseCode = "200", description = "Avaliação atualizada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "404", description = "Avaliação não encontrada")
     })
     @PutMapping("/{id}")
     public ResponseEntity<AvaliacaoFisioterapeuticaResponseDTO> atualizar(

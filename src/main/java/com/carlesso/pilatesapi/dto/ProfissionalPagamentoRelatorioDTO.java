@@ -9,6 +9,4 @@ public record ProfissionalPagamentoRelatorioDTO(
         ResumoFinanceiroDTO resumo,
         List<PagamentoResumoDTO> pagamentos,
         List<ProfissionalPagamentoAulaDTO> aulas,
-        LocalDateTime geradoEm
-) {
-}
+        LocalDateTime geradoEm) {}

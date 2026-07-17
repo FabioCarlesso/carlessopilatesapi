@@ -1,5 +1,11 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
@@ -7,6 +13,8 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
+import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,23 +22,21 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDate;
-import java.util.List;
-
-import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 @WebMvcTest(AulaController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AulaControllerTest {
 
-    @Autowired MockMvc mockMvc;
-    @MockitoBean AulaService aulaService;
-    @MockitoBean JwtService jwtService;
-    @MockitoBean CustomUserDetailsService customUserDetailsService;
+    @Autowired
+    MockMvc mockMvc;
+
+    @MockitoBean
+    AulaService aulaService;
+
+    @MockitoBean
+    JwtService jwtService;
+
+    @MockitoBean
+    CustomUserDetailsService customUserDetailsService;
 
     private AulaResponseDTO aulaResponse(boolean realizada) {
         return new AulaResponseDTO(1L, 1L, "Ana", 1L, LocalDate.of(2025, 2, 3), realizada);
@@ -48,8 +54,7 @@ class AulaControllerTest {
 
     @Test
     void buscar_naoEncontrada_retorna404() throws Exception {
-        when(aulaService.buscarPorId(99L))
-                .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
+        when(aulaService.buscarPorId(99L)).thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
 
         mockMvc.perform(get("/aulas/99"))
                 .andExpect(status().isNotFound())
@@ -126,7 +131,6 @@ class AulaControllerTest {
         when(aulaService.realizarAula(eq(99L), isNull()))
                 .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
 
-        mockMvc.perform(patch("/aulas/99/realizar"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(patch("/aulas/99/realizar")).andExpect(status().isNotFound());
     }
 }

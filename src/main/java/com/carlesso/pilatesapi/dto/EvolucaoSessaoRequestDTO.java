@@ -16,5 +16,4 @@ public record EvolucaoSessaoRequestDTO(
         String respostaPaciente,
         String intercorrencias,
         String orientacoes,
-        String observacoesFisioterapeuta
-) {}
+        String observacoesFisioterapeuta) {}

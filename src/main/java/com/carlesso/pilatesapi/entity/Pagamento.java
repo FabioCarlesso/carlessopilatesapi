@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.entity;
 
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -43,29 +42,71 @@ public class Pagamento {
 
     public Pagamento() {}
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Paciente getPaciente() { return paciente; }
-    public void setPaciente(Paciente paciente) { this.paciente = paciente; }
+    public Paciente getPaciente() {
+        return paciente;
+    }
 
-    public Plano getPlano() { return plano; }
-    public void setPlano(Plano plano) { this.plano = plano; }
+    public void setPaciente(Paciente paciente) {
+        this.paciente = paciente;
+    }
 
-    public BigDecimal getValor() { return valor; }
-    public void setValor(BigDecimal valor) { this.valor = valor; }
+    public Plano getPlano() {
+        return plano;
+    }
 
-    public StatusPagamento getStatus() { return status; }
-    public void setStatus(StatusPagamento status) { this.status = status; }
+    public void setPlano(Plano plano) {
+        this.plano = plano;
+    }
 
-    public LocalDate getDataPagamento() { return dataPagamento; }
-    public void setDataPagamento(LocalDate dataPagamento) { this.dataPagamento = dataPagamento; }
+    public BigDecimal getValor() {
+        return valor;
+    }
 
-    public LocalDate getDataVencimento() { return dataVencimento; }
-    public void setDataVencimento(LocalDate dataVencimento) { this.dataVencimento = dataVencimento; }
+    public void setValor(BigDecimal valor) {
+        this.valor = valor;
+    }
 
-    public LocalDate getPeriodoInicio() { return periodoInicio; }
-    public void setPeriodoInicio(LocalDate periodoInicio) { this.periodoInicio = periodoInicio; }
+    public StatusPagamento getStatus() {
+        return status;
+    }
 
-    public LocalDate getPeriodoFim() { return periodoFim; }
-    public void setPeriodoFim(LocalDate periodoFim) { this.periodoFim = periodoFim; }
+    public void setStatus(StatusPagamento status) {
+        this.status = status;
+    }
+
+    public LocalDate getDataPagamento() {
+        return dataPagamento;
+    }
+
+    public void setDataPagamento(LocalDate dataPagamento) {
+        this.dataPagamento = dataPagamento;
+    }
+
+    public LocalDate getDataVencimento() {
+        return dataVencimento;
+    }
+
+    public void setDataVencimento(LocalDate dataVencimento) {
+        this.dataVencimento = dataVencimento;
+    }
+
+    public LocalDate getPeriodoInicio() {
+        return periodoInicio;
+    }
+
+    public void setPeriodoInicio(LocalDate periodoInicio) {
+        this.periodoInicio = periodoInicio;
+    }
+
+    public LocalDate getPeriodoFim() {
+        return periodoFim;
+    }
+
+    public void setPeriodoFim(LocalDate periodoFim) {
+        this.periodoFim = periodoFim;
+    }
 }

@@ -31,18 +31,19 @@ public class PreferenciasUsuarioService {
 
     @Transactional(readOnly = true)
     public PreferenciasUsuarioResponseDTO buscarPorEmail(String email) {
-        return repository.findByUserEmail(EmailNormalizer.normalizar(email))
+        return repository
+                .findByUserEmail(EmailNormalizer.normalizar(email))
                 .map(PreferenciasUsuarioResponseDTO::from)
                 .orElseGet(this::padraoResponse);
     }
 
     @Transactional
     public PreferenciasUsuarioResponseDTO atualizarPorEmail(String email, PreferenciasUsuarioRequestDTO dto) {
-        User user = userRepository.findByEmailForUpdate(EmailNormalizer.normalizar(email))
+        User user = userRepository
+                .findByEmailForUpdate(EmailNormalizer.normalizar(email))
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
-        PreferenciasUsuario preferencias = repository.findByUserId(user.getId())
-                .orElseGet(() -> novaComPadroes(user));
+        PreferenciasUsuario preferencias = repository.findByUserId(user.getId()).orElseGet(() -> novaComPadroes(user));
 
         preferencias.setIdioma(dto.idioma());
         preferencias.setTema(dto.tema());
@@ -64,10 +65,6 @@ public class PreferenciasUsuarioService {
 
     private PreferenciasUsuarioResponseDTO padraoResponse() {
         return new PreferenciasUsuarioResponseDTO(
-                IDIOMA_PADRAO,
-                TEMA_PADRAO,
-                NOTIFICACOES_EMAIL_PADRAO,
-                NOTIFICACOES_PUSH_PADRAO
-        );
+                IDIOMA_PADRAO, TEMA_PADRAO, NOTIFICACOES_EMAIL_PADRAO, NOTIFICACOES_PUSH_PADRAO);
     }
 }

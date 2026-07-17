@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.LogMasker;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -13,8 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-
-import java.util.Locale;
 
 @Component
 @Profile("prod")
@@ -28,9 +27,8 @@ public class InitialAdminBootstrap implements ApplicationRunner {
     private final PasswordEncoder passwordEncoder;
     private final InitialAdminProperties initialAdminProperties;
 
-    public InitialAdminBootstrap(UserRepository repository,
-                                 PasswordEncoder passwordEncoder,
-                                 InitialAdminProperties initialAdminProperties) {
+    public InitialAdminBootstrap(
+            UserRepository repository, PasswordEncoder passwordEncoder, InitialAdminProperties initialAdminProperties) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.initialAdminProperties = initialAdminProperties;
@@ -48,7 +46,8 @@ public class InitialAdminBootstrap implements ApplicationRunner {
         String email = initialAdminEmail();
         String password = initialAdminPassword();
         if (!StringUtils.hasText(password)) {
-            throw new IllegalStateException("APP_INITIAL_ADMIN_PASSWORD deve ser configurada para criar o admin inicial em produção");
+            throw new IllegalStateException(
+                    "APP_INITIAL_ADMIN_PASSWORD deve ser configurada para criar o admin inicial em produção");
         }
         if (password.length() < 8) {
             throw new IllegalStateException("APP_INITIAL_ADMIN_PASSWORD deve ter pelo menos 8 caracteres");

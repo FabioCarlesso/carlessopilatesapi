@@ -6,12 +6,11 @@ import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DashboardService {
@@ -21,10 +20,11 @@ public class DashboardService {
     private final PagamentoRepository pagamentoRepository;
     private final AulaRepository aulaRepository;
 
-    public DashboardService(PacienteRepository pacienteRepository,
-                            ProfissionalRepository profissionalRepository,
-                            PagamentoRepository pagamentoRepository,
-                            AulaRepository aulaRepository) {
+    public DashboardService(
+            PacienteRepository pacienteRepository,
+            ProfissionalRepository profissionalRepository,
+            PagamentoRepository pagamentoRepository,
+            AulaRepository aulaRepository) {
         this.pacienteRepository = pacienteRepository;
         this.profissionalRepository = profissionalRepository;
         this.pagamentoRepository = pagamentoRepository;
@@ -38,27 +38,20 @@ public class DashboardService {
         LocalDate fimMes = mesAtual.atEndOfMonth();
 
         var pacientes = new DashboardResumoDTO.PacientesResumo(
-                pacienteRepository.countByAtivoTrue(),
-                pacienteRepository.countByAtivoFalse()
-        );
+                pacienteRepository.countByAtivoTrue(), pacienteRepository.countByAtivoFalse());
 
         var profissionais = new DashboardResumoDTO.ProfissionaisResumo(
-                profissionalRepository.countByAtivoTrue(),
-                profissionalRepository.countByAtivoFalse()
-        );
+                profissionalRepository.countByAtivoTrue(), profissionalRepository.countByAtivoFalse());
 
         var pagamentos = new DashboardResumoDTO.PagamentosResumo(
                 pagamentoRepository.countByStatus(StatusPagamento.PENDENTE),
                 pagamentoRepository.countByStatus(StatusPagamento.PAGO),
                 pagamentoRepository.countByStatus(StatusPagamento.VENCIDO),
-                pagamentoRepository.sumValorByStatusAndDataPagamentoBetween(
-                        StatusPagamento.PAGO, inicioMes, fimMes)
-        );
+                pagamentoRepository.sumValorByStatusAndDataPagamentoBetween(StatusPagamento.PAGO, inicioMes, fimMes));
 
         var aulas = new DashboardResumoDTO.AulasResumo(
                 aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(true, inicioMes, fimMes),
-                aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(false, inicioMes, fimMes)
-        );
+                aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(false, inicioMes, fimMes));
 
         return new DashboardResumoDTO(pacientes, profissionais, pagamentos, aulas, LocalDateTime.now());
     }
