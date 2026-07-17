@@ -12,8 +12,9 @@ public class ThymeleafEmailTemplateService implements EmailTemplateService {
     private final SpringTemplateEngine templateEngine;
     private final int expiracaoMinutos;
 
-    public ThymeleafEmailTemplateService(SpringTemplateEngine templateEngine,
-                                          @Value("${app.email.reset-password-token-ttl-minutos:30}") int expiracaoMinutos) {
+    public ThymeleafEmailTemplateService(
+            SpringTemplateEngine templateEngine,
+            @Value("${app.email.reset-password-token-ttl-minutos:30}") int expiracaoMinutos) {
         this.templateEngine = templateEngine;
         this.expiracaoMinutos = expiracaoMinutos;
     }

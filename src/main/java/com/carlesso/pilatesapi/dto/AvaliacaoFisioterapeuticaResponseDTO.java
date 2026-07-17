@@ -22,8 +22,7 @@ public record AvaliacaoFisioterapeuticaResponseDTO(
         String diagnosticoFisioterapeutico,
         String observacoesGerais,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao
-) {
+        LocalDateTime dataAtualizacao) {
     public static AvaliacaoFisioterapeuticaResponseDTO from(AvaliacaoFisioterapeutica a) {
         return new AvaliacaoFisioterapeuticaResponseDTO(
                 a.getId(),
@@ -43,7 +42,6 @@ public record AvaliacaoFisioterapeuticaResponseDTO(
                 a.getDiagnosticoFisioterapeutico(),
                 a.getObservacoesGerais(),
                 a.getDataCriacao(),
-                a.getDataAtualizacao()
-        );
+                a.getDataAtualizacao());
     }
 }

@@ -8,11 +8,10 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AvaliacaoFisioterapeuticaService {
@@ -20,15 +19,16 @@ public class AvaliacaoFisioterapeuticaService {
     private final AvaliacaoFisioterapeuticaRepository avaliacaoRepository;
     private final PacienteRepository pacienteRepository;
 
-    public AvaliacaoFisioterapeuticaService(AvaliacaoFisioterapeuticaRepository avaliacaoRepository,
-                                            PacienteRepository pacienteRepository) {
+    public AvaliacaoFisioterapeuticaService(
+            AvaliacaoFisioterapeuticaRepository avaliacaoRepository, PacienteRepository pacienteRepository) {
         this.avaliacaoRepository = avaliacaoRepository;
         this.pacienteRepository = pacienteRepository;
     }
 
     @Transactional
     public AvaliacaoFisioterapeuticaResponseDTO criar(AvaliacaoFisioterapeuticaRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         AvaliacaoFisioterapeutica avaliacao = new AvaliacaoFisioterapeutica();
@@ -61,8 +61,7 @@ public class AvaliacaoFisioterapeuticaService {
         if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return avaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId)
-                .stream()
+        return avaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId).stream()
                 .map(AvaliacaoFisioterapeuticaResponseDTO::from)
                 .toList();
     }
@@ -81,8 +80,10 @@ public class AvaliacaoFisioterapeuticaService {
         if (dto.coordenacaoMotora() != null) avaliacao.setCoordenacaoMotora(dto.coordenacaoMotora());
         if (dto.padraoRespiratorio() != null) avaliacao.setPadraoRespiratorio(dto.padraoRespiratorio());
         if (dto.escalaDor() != null) avaliacao.setEscalaDor(dto.escalaDor());
-        if (dto.testesFuncionaisRealizados() != null) avaliacao.setTestesFuncionaisRealizados(dto.testesFuncionaisRealizados());
-        if (dto.diagnosticoFisioterapeutico() != null) avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
+        if (dto.testesFuncionaisRealizados() != null)
+            avaliacao.setTestesFuncionaisRealizados(dto.testesFuncionaisRealizados());
+        if (dto.diagnosticoFisioterapeutico() != null)
+            avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         if (dto.observacoesGerais() != null) avaliacao.setObservacoesGerais(dto.observacoesGerais());
         avaliacao.setDataAtualizacao(LocalDateTime.now());
 
@@ -90,7 +91,8 @@ public class AvaliacaoFisioterapeuticaService {
     }
 
     private AvaliacaoFisioterapeutica encontrar(Long id) {
-        return avaliacaoRepository.findAtivaById(id)
+        return avaliacaoRepository
+                .findAtivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: " + id));
     }
 }

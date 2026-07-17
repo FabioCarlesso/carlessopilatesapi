@@ -1,5 +1,12 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.EnderecoDTO;
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
@@ -8,6 +15,9 @@ import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,17 +26,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PacienteServiceTest {
@@ -55,10 +54,12 @@ class PacienteServiceTest {
 
     private PacienteRequestDTO requestDTO() {
         return new PacienteRequestDTO(
-                "Maria Souza", "maria@email.com", "12345678900",
-                "11912345678", LocalDate.of(1990, 5, 20),
-                new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000")
-        );
+                "Maria Souza",
+                "maria@email.com",
+                "12345678900",
+                "11912345678",
+                LocalDate.of(1990, 5, 20),
+                new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"));
     }
 
     private void setId(Paciente p, Long id) {
@@ -116,7 +117,8 @@ class PacienteServiceTest {
     void listar_deveRetornarPageComPacientesAtivos() {
         var pageable = PageRequest.of(0, 10);
         var page = new PageImpl<>(List.of(paciente()), pageable, 1);
-        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable))).thenReturn(page);
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable)))
+                .thenReturn(page);
 
         var resultado = service.listar(null, null, null, null, null, pageable);
 
@@ -127,7 +129,8 @@ class PacienteServiceTest {
     @Test
     void listar_semPacientes_deveRetornarPageVazia() {
         var pageable = PageRequest.of(0, 10);
-        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable))).thenReturn(new PageImpl<>(List.of()));
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of()));
 
         var resultado = service.listar(null, null, null, null, null, pageable);
 
@@ -139,7 +142,8 @@ class PacienteServiceTest {
     void listar_comFiltros_deveConsultarRepositoryComSpecification() {
         var pageable = PageRequest.of(0, 10);
         var page = new PageImpl<>(List.of(paciente()), pageable, 1);
-        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable))).thenReturn(page);
+        when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Paciente>>any(), eq(pageable)))
+                .thenReturn(page);
 
         var resultado = service.listar("maria", "email.com", "123", "119", false, pageable);
 

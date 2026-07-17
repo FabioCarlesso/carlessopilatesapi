@@ -1,10 +1,9 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Paciente;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-
-import java.util.Optional;
 
 public interface PacienteRepository extends JpaRepository<Paciente, Long>, JpaSpecificationExecutor<Paciente> {
 

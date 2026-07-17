@@ -1,5 +1,7 @@
 package com.carlesso.pilatesapi.scheduler;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.config.AppProperties;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
@@ -12,33 +14,31 @@ import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.PagamentoService;
-import io.micrometer.core.instrument.MeterRegistry;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import com.carlesso.pilatesapi.support.MetricsTestConfig;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
-
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 
 @PostgresDataJpaTest
 @Import({PagamentoService.class, AulaService.class, CobrancaScheduler.class, MetricsTestConfig.class})
 @EnableConfigurationProperties(AppProperties.class)
-@TestPropertySource(properties = {
-        "app.cobranca.cron-vencidos=0 0 6 * * *",
-        "app.cobranca.cron-cobrancas-futuras=0 0 7 * * *",
-        "app.cobranca.vencimento-dias=10"
-})
+@TestPropertySource(
+        properties = {
+            "app.cobranca.cron-vencidos=0 0 6 * * *",
+            "app.cobranca.cron-cobrancas-futuras=0 0 7 * * *",
+            "app.cobranca.vencimento-dias=10"
+        })
 class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired
@@ -76,8 +76,8 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
     void atualizarVencidos_marcaVencidoPagamentoPendenteSuperado() {
         Paciente paciente = pacienteRepository.save(paciente("Ana", "ana@email.com", "11122233344", true));
         Plano plano = planoRepository.save(plano(paciente));
-        Pagamento pendente = pagamentoRepository.save(
-                pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(1)));
+        Pagamento pendente = pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(1)));
 
         scheduler.atualizarPagamentosVencidos();
 
@@ -89,8 +89,8 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
     void atualizarVencidos_naoAlteraPendenteDentroDoVencimento() {
         Paciente paciente = pacienteRepository.save(paciente("Ana", "ana@email.com", "11122233344", true));
         Plano plano = planoRepository.save(plano(paciente));
-        Pagamento pendente = pagamentoRepository.save(
-                pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now()));
+        Pagamento pendente =
+                pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now()));
 
         scheduler.atualizarPagamentosVencidos();
 
@@ -115,11 +115,22 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
     void atualizarVencidos_retornaContagemCorreta() {
         Paciente paciente = pacienteRepository.save(paciente("Ana", "ana@email.com", "11122233344", true));
         Plano plano = planoRepository.save(plano(paciente));
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(3)));
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(2),
-                LocalDate.now().minusDays(60), LocalDate.now().minusDays(31)));
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().plusDays(1),
-                LocalDate.now().plusDays(2), LocalDate.now().plusDays(32)));
+        pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(3)));
+        pagamentoRepository.save(pagamento(
+                paciente,
+                plano,
+                StatusPagamento.PENDENTE,
+                LocalDate.now().minusDays(2),
+                LocalDate.now().minusDays(60),
+                LocalDate.now().minusDays(31)));
+        pagamentoRepository.save(pagamento(
+                paciente,
+                plano,
+                StatusPagamento.PENDENTE,
+                LocalDate.now().plusDays(1),
+                LocalDate.now().plusDays(2),
+                LocalDate.now().plusDays(32)));
 
         assertThat(pagamentoService.atualizarVencidos()).isEqualTo(2);
     }
@@ -144,8 +155,8 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
         Plano plano = planoRepository.save(plano(paciente));
         LocalDate periodoFim = LocalDate.now().plusDays(6);
         LocalDate periodoInicio = periodoFim.minusMonths(1).plusDays(1);
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE,
-                LocalDate.now().plusDays(10), periodoInicio, periodoFim));
+        pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().plusDays(10), periodoInicio, periodoFim));
 
         scheduler.gerarCobrancasFuturas();
 
@@ -159,8 +170,8 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
         Plano plano = planoRepository.save(plano(paciente));
         LocalDate periodoFim = LocalDate.now().plusDays(15);
         LocalDate periodoInicio = periodoFim.minusMonths(1).plusDays(1);
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE,
-                LocalDate.now().plusDays(10), periodoInicio, periodoFim));
+        pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().plusDays(10), periodoInicio, periodoFim));
 
         scheduler.gerarCobrancasFuturas();
 
@@ -170,12 +181,14 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void gerarCobrancasFuturas_ignoraPlanoDePacienteInativo() {
-        Paciente pacienteInativo = pacienteRepository.save(paciente("Carlos", "carlos@email.com", "33344455566", false));
+        Paciente pacienteInativo =
+                pacienteRepository.save(paciente("Carlos", "carlos@email.com", "33344455566", false));
         planoRepository.save(plano(pacienteInativo));
 
         scheduler.gerarCobrancasFuturas();
 
-        assertThat(pagamentoRepository.findByPacienteId(pacienteInativo.getId())).isEmpty();
+        assertThat(pagamentoRepository.findByPacienteId(pacienteInativo.getId()))
+                .isEmpty();
     }
 
     @Test
@@ -196,12 +209,17 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
         Plano plano = planoRepository.save(plano(paciente));
         LocalDate periodoFim = LocalDate.now().plusDays(5);
         LocalDate periodoInicio = periodoFim.minusMonths(1).plusDays(1);
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE,
-                LocalDate.now().plusDays(10), periodoInicio, periodoFim));
+        pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().plusDays(10), periodoInicio, periodoFim));
         LocalDate proximoPeriodoInicio = periodoFim.plusDays(1);
         LocalDate proximoPeriodoFim = proximoPeriodoInicio.plusMonths(1).minusDays(1);
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE,
-                proximoPeriodoInicio.plusDays(10), proximoPeriodoInicio, proximoPeriodoFim));
+        pagamentoRepository.save(pagamento(
+                paciente,
+                plano,
+                StatusPagamento.PENDENTE,
+                proximoPeriodoInicio.plusDays(10),
+                proximoPeriodoInicio,
+                proximoPeriodoFim));
 
         int gerados = pagamentoService.gerarCobrancasFuturas();
 
@@ -215,7 +233,8 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
 
         scheduler.gerarCobrancasFuturas();
 
-        Pagamento gerado = pagamentoRepository.findByPacienteId(paciente.getId()).get(0);
+        Pagamento gerado =
+                pagamentoRepository.findByPacienteId(paciente.getId()).get(0);
         assertThat(gerado.getDataVencimento())
                 .isEqualTo(gerado.getPeriodoInicio().plusDays(10));
     }
@@ -237,7 +256,8 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
     void atualizarVencidos_incrementaContadorDeCobrancasVencidas() {
         Paciente paciente = pacienteRepository.save(paciente("Hugo", "hugo@email.com", "88899900011", true));
         Plano plano = planoRepository.save(plano(paciente));
-        pagamentoRepository.save(pagamento(paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(1)));
+        pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(1)));
         double antes = contador("pilates.cobrancas.vencidas");
 
         scheduler.atualizarPagamentosVencidos();
@@ -277,8 +297,13 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
         return pagamento(paciente, plano, status, dataVencimento, periodoInicio, periodoFim);
     }
 
-    private Pagamento pagamento(Paciente paciente, Plano plano, StatusPagamento status,
-                                LocalDate dataVencimento, LocalDate periodoInicio, LocalDate periodoFim) {
+    private Pagamento pagamento(
+            Paciente paciente,
+            Plano plano,
+            StatusPagamento status,
+            LocalDate dataVencimento,
+            LocalDate periodoInicio,
+            LocalDate periodoFim) {
         Pagamento pagamento = new Pagamento();
         pagamento.setPaciente(paciente);
         pagamento.setPlano(plano);

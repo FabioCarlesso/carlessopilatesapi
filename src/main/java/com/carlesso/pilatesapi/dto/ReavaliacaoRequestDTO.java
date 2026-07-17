@@ -16,5 +16,4 @@ public record ReavaliacaoRequestDTO(
         String objetivosAlcancados,
         String pontosAtencao,
         String ajustesRecomendados,
-        String observacoesGerais
-) {}
+        String observacoesGerais) {}

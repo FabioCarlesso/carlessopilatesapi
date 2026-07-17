@@ -1,5 +1,11 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaUpdateDTO;
@@ -8,22 +14,15 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AvaliacaoFisioterapeuticaServiceTest {
@@ -82,8 +81,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
                 6,
                 "Agachamento, ponte, apoio unipodal",
                 "Disfunção lombopélvica",
-                "Reavaliar em 30 dias"
-        );
+                "Reavaliar em 30 dias");
     }
 
     private void setId(Paciente p, Long id) {
@@ -127,9 +125,20 @@ class AvaliacaoFisioterapeuticaServiceTest {
         when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
 
         var dto = new AvaliacaoFisioterapeuticaRequestDTO(
-                99L, LocalDate.of(2026, 4, 20), "Dor", null, null, null, null,
-                null, null, null, 5, null, "Diagnóstico", null
-        );
+                99L,
+                LocalDate.of(2026, 4, 20),
+                "Dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                5,
+                null,
+                "Diagnóstico",
+                null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -196,12 +205,17 @@ class AvaliacaoFisioterapeuticaServiceTest {
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
                 LocalDate.of(2026, 5, 5),
                 "Dor reduzida ao agachar",
-                null, null, null, null, null, null, null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 3,
                 null,
                 null,
-                "Evoluiu com exercícios"
-        );
+                "Evoluiu com exercícios");
 
         AvaliacaoFisioterapeuticaResponseDTO response = service.atualizar(1L, dto);
 
@@ -217,8 +231,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
         when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, null, null, null, null, null, null, null, null, null, null, null, null
-        );
+                null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)

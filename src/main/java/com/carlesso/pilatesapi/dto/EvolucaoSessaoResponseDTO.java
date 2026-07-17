@@ -17,8 +17,7 @@ public record EvolucaoSessaoResponseDTO(
         String orientacoes,
         String observacoesFisioterapeuta,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao
-) {
+        LocalDateTime dataAtualizacao) {
     public static EvolucaoSessaoResponseDTO from(EvolucaoSessao e) {
         return new EvolucaoSessaoResponseDTO(
                 e.getId(),
@@ -34,7 +33,6 @@ public record EvolucaoSessaoResponseDTO(
                 e.getOrientacoes(),
                 e.getObservacoesFisioterapeuta(),
                 e.getDataCriacao(),
-                e.getDataAtualizacao()
-        );
+                e.getDataAtualizacao());
     }
 }

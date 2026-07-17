@@ -13,6 +13,8 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import com.carlesso.pilatesapi.util.LogMasker;
+import java.util.Arrays;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -20,9 +22,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Arrays;
-import java.util.List;
 
 @Service
 public class UserService {
@@ -51,7 +50,8 @@ public class UserService {
         user.setRole(dto.role());
 
         User salvo = repository.save(user);
-        log.info("Usuário criado: userId={}, email={}, role={}", salvo.getId(), LogMasker.email(email), salvo.getRole());
+        log.info(
+                "Usuário criado: userId={}, email={}, role={}", salvo.getId(), LogMasker.email(email), salvo.getRole());
         return UserResponseDTO.from(salvo);
     }
 
@@ -74,17 +74,18 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO buscarPorEmail(String email) {
-        return UserResponseDTO.from(
-                repository.findByEmail(EmailNormalizer.normalizar(email))
-                        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"))
-        );
+        return UserResponseDTO.from(repository
+                .findByEmail(EmailNormalizer.normalizar(email))
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado")));
     }
 
     @Transactional
     public UserResponseDTO atualizar(Long id, UserUpdateDTO dto, String currentEmail) {
         User user = encontrar(id);
 
-        if (user.getEmail().equals(currentEmail) && dto.role() != null && !dto.role().equals(user.getRole())) {
+        if (user.getEmail().equals(currentEmail)
+                && dto.role() != null
+                && !dto.role().equals(user.getRole())) {
             throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
         }
 
@@ -110,7 +111,8 @@ public class UserService {
 
     @Transactional
     public void alterarSenha(String currentEmail, UserAlterarSenhaRequestDTO dto) {
-        User user = repository.findByEmail(EmailNormalizer.normalizar(currentEmail))
+        User user = repository
+                .findByEmail(EmailNormalizer.normalizar(currentEmail))
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
         if (!passwordEncoder.matches(dto.senhaAtual(), user.getPassword())) {
@@ -152,14 +154,16 @@ public class UserService {
     }
 
     private void validarRemocaoDeAdminAtivo(User user, String mensagem) {
-        if (user.isAtivo() && user.getRole() == Role.ADMIN
+        if (user.isAtivo()
+                && user.getRole() == Role.ADMIN
                 && repository.findActiveByRoleForUpdate(Role.ADMIN).size() <= 1) {
             throw new BusinessException(mensagem);
         }
     }
 
     private User encontrar(Long id) {
-        return repository.findById(id)
+        return repository
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado: " + id));
     }
 }

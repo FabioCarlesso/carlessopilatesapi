@@ -1,19 +1,18 @@
 package com.carlesso.pilatesapi.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 @PostgresDataJpaTest
 class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
@@ -50,16 +49,13 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
         entityManager.clear();
 
         LocalDateTime quando = LocalDateTime.of(2026, 5, 8, 12, 30);
-        int atualizadas = repository.transicionarStatusSeAgendada(
-                sessao.getId(), StatusSessao.CANCELADA, quando);
+        int atualizadas = repository.transicionarStatusSeAgendada(sessao.getId(), StatusSessao.CANCELADA, quando);
 
         assertThat(atualizadas).isEqualTo(1);
-        assertThat(repository.findByIdComPaciente(sessao.getId()))
-                .get()
-                .satisfies(s -> {
-                    assertThat(s.getStatus()).isEqualTo(StatusSessao.CANCELADA);
-                    assertThat(s.getDataAtualizacao()).isEqualTo(quando);
-                });
+        assertThat(repository.findByIdComPaciente(sessao.getId())).get().satisfies(s -> {
+            assertThat(s.getStatus()).isEqualTo(StatusSessao.CANCELADA);
+            assertThat(s.getDataAtualizacao()).isEqualTo(quando);
+        });
     }
 
     @Test
@@ -72,8 +68,7 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
 
     @Test
     void findByIdComPaciente_quandoPacienteInativo_deveRetornarVazio() {
-        SessaoPilates sessao = entityManager.persist(
-                sessao(persistirPaciente("inativo.repository@email.com", false)));
+        SessaoPilates sessao = entityManager.persist(sessao(persistirPaciente("inativo.repository@email.com", false)));
         entityManager.flush();
         entityManager.clear();
 

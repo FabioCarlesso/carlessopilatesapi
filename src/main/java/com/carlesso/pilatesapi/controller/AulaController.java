@@ -7,10 +7,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Tag(name = "Aulas", description = "Consulta e controle de presença nas aulas")
 @RestController
@@ -25,16 +24,17 @@ public class AulaController {
 
     @Operation(summary = "Buscar aula por ID")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Aula encontrada"),
-            @ApiResponse(responseCode = "404", description = "Aula não encontrada")
+        @ApiResponse(responseCode = "200", description = "Aula encontrada"),
+        @ApiResponse(responseCode = "404", description = "Aula não encontrada")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<AulaResponseDTO> buscar(
-            @Parameter(description = "ID da aula") @PathVariable Long id) {
+    public ResponseEntity<AulaResponseDTO> buscar(@Parameter(description = "ID da aula") @PathVariable Long id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Listar aulas do paciente", description = "Retorna todas as aulas de um paciente ordenadas por data.")
+    @Operation(
+            summary = "Listar aulas do paciente",
+            description = "Retorna todas as aulas de um paciente ordenadas por data.")
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<List<AulaResponseDTO>> listarPorPaciente(
@@ -52,16 +52,16 @@ public class AulaController {
 
     @Operation(summary = "Marcar aula como realizada")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Aula marcada como realizada"),
-            @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
-            @ApiResponse(responseCode = "409", description = "Aula já marcada como realizada"),
-            @ApiResponse(responseCode = "422", description = "Profissional inativo")
+        @ApiResponse(responseCode = "200", description = "Aula marcada como realizada"),
+        @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
+        @ApiResponse(responseCode = "409", description = "Aula já marcada como realizada"),
+        @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/realizar")
     public ResponseEntity<AulaResponseDTO> realizar(
             @Parameter(description = "ID da aula") @PathVariable Long id,
-            @Parameter(description = "ID do profissional que ministrou a aula")
-            @RequestParam(required = false) Long profissionalId) {
+            @Parameter(description = "ID do profissional que ministrou a aula") @RequestParam(required = false)
+                    Long profissionalId) {
         return ResponseEntity.ok(service.realizarAula(id, profissionalId));
     }
 }

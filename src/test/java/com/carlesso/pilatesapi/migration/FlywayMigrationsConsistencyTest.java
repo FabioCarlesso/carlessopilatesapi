@@ -1,8 +1,6 @@
 package com.carlesso.pilatesapi.migration;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,8 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /**
  * Garante a consistência das migrations versionadas do Flyway em
@@ -25,8 +24,7 @@ class FlywayMigrationsConsistencyTest {
             Pattern.compile("^V(?<version>[0-9]+(?:[._][0-9]+)*)__.+\\.sql$");
 
     private List<String> migrationFileNames() throws Exception {
-        Resource[] resources = new PathMatchingResourcePatternResolver()
-                .getResources("classpath*:db/migration/*.sql");
+        Resource[] resources = new PathMatchingResourcePatternResolver().getResources("classpath*:db/migration/*.sql");
         List<String> names = new ArrayList<>();
         for (Resource resource : resources) {
             names.add(resource.getFilename());
@@ -42,7 +40,9 @@ class FlywayMigrationsConsistencyTest {
             Matcher matcher = VERSIONED_MIGRATION.matcher(fileName);
             if (matcher.matches()) {
                 String versao = matcher.group("version").replace('_', '.');
-                arquivosPorVersao.computeIfAbsent(versao, v -> new ArrayList<>()).add(fileName);
+                arquivosPorVersao
+                        .computeIfAbsent(versao, v -> new ArrayList<>())
+                        .add(fileName);
             }
         }
 

@@ -1,5 +1,11 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoRequestDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoResponseDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoUpdateDTO;
@@ -12,21 +18,14 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EvolucaoSessaoServiceTest {
@@ -86,8 +85,7 @@ class EvolucaoSessaoServiceTest {
                 "Boa evolução",
                 null,
                 "Manter exercícios",
-                null
-        );
+                null);
     }
 
     private <T> void setId(T obj, Class<T> clazz, Long id) {
@@ -122,7 +120,8 @@ class EvolucaoSessaoServiceTest {
     void criar_comSessaoInexistente_deveLancarResourceNotFoundException() {
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        var dto = new EvolucaoSessaoRequestDTO(99L, LocalDateTime.now(), null, null, null, null, null, null, null, null, null);
+        var dto = new EvolucaoSessaoRequestDTO(
+                99L, LocalDateTime.now(), null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -200,17 +199,7 @@ class EvolucaoSessaoServiceTest {
         when(evolucaoRepository.save(e)).thenReturn(e);
 
         var dto = new EvolucaoSessaoUpdateDTO(
-                null,
-                "Reformer, Chair",
-                null,
-                "Mola 3",
-                3,
-                1,
-                "Melhorou muito",
-                null,
-                null,
-                null
-        );
+                null, "Reformer, Chair", null, "Mola 3", 3, 1, "Melhorou muito", null, null, null);
 
         EvolucaoSessaoResponseDTO response = service.atualizar(1L, dto);
 

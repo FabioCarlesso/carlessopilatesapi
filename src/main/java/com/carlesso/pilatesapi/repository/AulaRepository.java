@@ -2,14 +2,13 @@ package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface AulaRepository extends JpaRepository<Aula, Long> {
 
@@ -23,7 +22,8 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
     @Query("SELECT a FROM Aula a WHERE a.pagamento.id = :pagamentoId AND a.paciente.ativo = true ORDER BY a.data")
     List<Aula> findByPagamentoIdOrderByData(@Param("pagamentoId") Long pagamentoId);
 
-    @Query("""
+    @Query(
+            """
             SELECT a.pagamento.id, COUNT(a)
             FROM Aula a
             WHERE a.pagamento.id IN :ids
@@ -32,7 +32,8 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             """)
     List<Object[]> countGroupedByPagamentoId(@Param("ids") List<Long> ids);
 
-    @Query("""
+    @Query(
+            """
             SELECT a.id AS aulaId,
                    a.data AS data,
                    paciente.id AS pacienteId,
@@ -62,7 +63,8 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim);
 
-    @Query("""
+    @Query(
+            """
             SELECT a
             FROM Aula a
             WHERE a.profissional.id = :profissionalId
@@ -76,7 +78,8 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim);
 
-    @Query("""
+    @Query(
+            """
             select count(a)
             from Aula a
             where a.realizada = :realizada
@@ -84,17 +87,21 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
               and a.paciente.ativo = true
             """)
     long countByRealizadaAndDataBetweenAndPacienteAtivoTrue(
-            @Param("realizada") boolean realizada,
-            @Param("inicio") LocalDate inicio,
-            @Param("fim") LocalDate fim);
+            @Param("realizada") boolean realizada, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 
     interface ProfissionalPagamentoAulaProjection {
         Long getAulaId();
+
         LocalDate getData();
+
         Long getPacienteId();
+
         String getPacienteNome();
+
         Long getPagamentoId();
+
         BigDecimal getValorPagamento();
+
         Long getQuantidadeAulasPagamento();
     }
 }

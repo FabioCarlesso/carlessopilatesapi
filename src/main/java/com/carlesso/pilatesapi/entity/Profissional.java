@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.entity;
 
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 

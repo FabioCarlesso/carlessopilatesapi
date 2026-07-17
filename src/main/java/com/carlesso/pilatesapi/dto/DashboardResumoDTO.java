@@ -8,19 +8,14 @@ public record DashboardResumoDTO(
         ProfissionaisResumo profissionais,
         PagamentosResumo pagamentos,
         AulasResumo aulas,
-        LocalDateTime geradoEm
-) {
+        LocalDateTime geradoEm) {
 
     public record PacientesResumo(long totalAtivos, long totalInativos) {}
 
     public record ProfissionaisResumo(long totalAtivos, long totalInativos) {}
 
     public record PagamentosResumo(
-            long totalPendentes,
-            long totalPagos,
-            long totalVencidos,
-            BigDecimal receitaMesAtual
-    ) {}
+            long totalPendentes, long totalPagos, long totalVencidos, BigDecimal receitaMesAtual) {}
 
     public record AulasResumo(long totalRealizadasMesAtual, long totalAgendadasMesAtual) {}
 }

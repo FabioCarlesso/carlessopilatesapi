@@ -13,11 +13,10 @@ import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReavaliacaoService {
@@ -27,10 +26,11 @@ public class ReavaliacaoService {
     private final AvaliacaoFisioterapeuticaRepository avaliacaoRepository;
     private final PlanoTratamentoRepository planoTratamentoRepository;
 
-    public ReavaliacaoService(ReavaliacaoRepository reavaliacaoRepository,
-                              PacienteRepository pacienteRepository,
-                              AvaliacaoFisioterapeuticaRepository avaliacaoRepository,
-                              PlanoTratamentoRepository planoTratamentoRepository) {
+    public ReavaliacaoService(
+            ReavaliacaoRepository reavaliacaoRepository,
+            PacienteRepository pacienteRepository,
+            AvaliacaoFisioterapeuticaRepository avaliacaoRepository,
+            PlanoTratamentoRepository planoTratamentoRepository) {
         this.reavaliacaoRepository = reavaliacaoRepository;
         this.pacienteRepository = pacienteRepository;
         this.avaliacaoRepository = avaliacaoRepository;
@@ -39,7 +39,8 @@ public class ReavaliacaoService {
 
     @Transactional
     public ReavaliacaoResponseDTO criar(ReavaliacaoRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         Reavaliacao reavaliacao = new Reavaliacao();
@@ -56,8 +57,10 @@ public class ReavaliacaoService {
         reavaliacao.setObservacoesGerais(dto.observacoesGerais());
 
         if (dto.avaliacaoFisioterapeuticaId() != null) {
-            AvaliacaoFisioterapeutica avaliacao = avaliacaoRepository.findAtivaById(dto.avaliacaoFisioterapeuticaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: " + dto.avaliacaoFisioterapeuticaId()));
+            AvaliacaoFisioterapeutica avaliacao = avaliacaoRepository
+                    .findAtivaById(dto.avaliacaoFisioterapeuticaId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Avaliação fisioterapêutica não encontrada: " + dto.avaliacaoFisioterapeuticaId()));
             if (!avaliacao.getPaciente().getId().equals(paciente.getId())) {
                 throw new BusinessException("Avaliação fisioterapêutica não pertence ao paciente informado");
             }
@@ -65,8 +68,10 @@ public class ReavaliacaoService {
         }
 
         if (dto.planoTratamentoId() != null) {
-            PlanoTratamento plano = planoTratamentoRepository.findAtivoById(dto.planoTratamentoId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Plano de tratamento não encontrado: " + dto.planoTratamentoId()));
+            PlanoTratamento plano = planoTratamentoRepository
+                    .findAtivoById(dto.planoTratamentoId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Plano de tratamento não encontrado: " + dto.planoTratamentoId()));
             if (!plano.getPaciente().getId().equals(paciente.getId())) {
                 throw new BusinessException("Plano de tratamento não pertence ao paciente informado");
             }
@@ -86,8 +91,7 @@ public class ReavaliacaoService {
         if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return reavaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId)
-                .stream()
+        return reavaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId).stream()
                 .map(ReavaliacaoResponseDTO::from)
                 .toList();
     }
@@ -97,7 +101,8 @@ public class ReavaliacaoService {
         Reavaliacao reavaliacao = encontrar(id);
 
         if (dto.dataReavaliacao() != null) reavaliacao.setDataReavaliacao(dto.dataReavaliacao());
-        if (dto.comparativoAvaliacaoAnterior() != null) reavaliacao.setComparativoAvaliacaoAnterior(dto.comparativoAvaliacaoAnterior());
+        if (dto.comparativoAvaliacaoAnterior() != null)
+            reavaliacao.setComparativoAvaliacaoAnterior(dto.comparativoAvaliacaoAnterior());
         if (dto.evolucaoDor() != null) reavaliacao.setEvolucaoDor(dto.evolucaoDor());
         if (dto.evolucaoForca() != null) reavaliacao.setEvolucaoForca(dto.evolucaoForca());
         if (dto.evolucaoMobilidade() != null) reavaliacao.setEvolucaoMobilidade(dto.evolucaoMobilidade());
@@ -112,7 +117,8 @@ public class ReavaliacaoService {
     }
 
     private Reavaliacao encontrar(Long id) {
-        return reavaliacaoRepository.findAtivaById(id)
+        return reavaliacaoRepository
+                .findAtivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reavaliação não encontrada: " + id));
     }
 }

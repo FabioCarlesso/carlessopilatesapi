@@ -1,23 +1,5 @@
 package com.carlesso.pilatesapi.controller;
 
-import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
-import com.carlesso.pilatesapi.service.CustomUserDetailsService;
-import com.carlesso.pilatesapi.service.JwtService;
-import com.carlesso.pilatesapi.service.RelatorioNfseExporterService;
-import com.carlesso.pilatesapi.service.RelatorioNfseService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,6 +7,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
+import com.carlesso.pilatesapi.service.CustomUserDetailsService;
+import com.carlesso.pilatesapi.service.JwtService;
+import com.carlesso.pilatesapi.service.RelatorioNfseExporterService;
+import com.carlesso.pilatesapi.service.RelatorioNfseService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(RelatorioNfseController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -49,8 +46,7 @@ class RelatorioNfseControllerTest {
     void gerar_json_deveRetornarRelatorio() throws Exception {
         when(service.gerar("04/2026", null)).thenReturn(List.of(item()));
 
-        mockMvc.perform(get("/api/relatorios/nfse")
-                        .param("competencia", "04/2026"))
+        mockMvc.perform(get("/api/relatorios/nfse").param("competencia", "04/2026"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].nome").value("Ana Souza"))
                 .andExpect(jsonPath("$[0].cpfCnpj").value("11122233344"))
@@ -84,24 +80,23 @@ class RelatorioNfseControllerTest {
                         .param("formato", "CSV"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("text/csv"))
-                .andExpect(header().string("Content-Disposition",
-                        "attachment; filename=\"relatorio-nfse-04-2026.csv\""));
+                .andExpect(
+                        header().string("Content-Disposition", "attachment; filename=\"relatorio-nfse-04-2026.csv\""));
     }
 
     @Test
     void gerar_xlsx_deveRetornarArquivo() throws Exception {
         var relatorio = List.of(item());
         when(service.gerar("04/2026", null)).thenReturn(relatorio);
-        when(exporter.exportarXlsx(relatorio)).thenReturn(new byte[]{1, 2, 3});
+        when(exporter.exportarXlsx(relatorio)).thenReturn(new byte[] {1, 2, 3});
 
         mockMvc.perform(get("/api/relatorios/nfse")
                         .param("competencia", "04/2026")
                         .param("formato", "XLSX"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .andExpect(header().string("Content-Disposition",
-                        "attachment; filename=\"relatorio-nfse-04-2026.xlsx\""));
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(
+                        header().string("Content-Disposition", "attachment; filename=\"relatorio-nfse-04-2026.xlsx\""));
     }
 
     @Test
@@ -117,8 +112,7 @@ class RelatorioNfseControllerTest {
 
     @Test
     void gerar_semCompetencia_deveRetornar400() throws Exception {
-        mockMvc.perform(get("/api/relatorios/nfse"))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/relatorios/nfse")).andExpect(status().isBadRequest());
     }
 
     private RelatorioNfseResponseDTO item() {
@@ -130,7 +124,6 @@ class RelatorioNfseControllerTest {
                 "Aulas de Pilates - Competência 04/2026",
                 false,
                 LocalDate.of(2026, 4, 10),
-                ""
-        );
+                "");
     }
 }

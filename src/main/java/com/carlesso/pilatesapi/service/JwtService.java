@@ -5,14 +5,13 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Service;
-
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import javax.crypto.SecretKey;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
 
 @Service
 public class JwtService {
@@ -22,8 +21,7 @@ public class JwtService {
     private final long expirationMillis;
 
     public JwtService(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration-ms:86400000}") long expirationMillis) {
+            @Value("${jwt.secret}") String secret, @Value("${jwt.expiration-ms:86400000}") long expirationMillis) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.jwtParser = Jwts.parser().verifyWith(secretKey).build();
         this.expirationMillis = expirationMillis;
@@ -38,8 +36,8 @@ public class JwtService {
 
         if (userDetails instanceof User user) {
             builder.claim("role", user.getRole().name())
-                   .claim("userId", user.getId())
-                   .claim("tokenVersion", user.getTokenVersion());
+                    .claim("userId", user.getId())
+                    .claim("tokenVersion", user.getTokenVersion());
         }
 
         return builder.signWith(secretKey).compact();

@@ -1,5 +1,7 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.dto.PagamentoResumoDTO;
 import com.carlesso.pilatesapi.dto.PeriodoDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalPagamentoAulaDTO;
@@ -7,36 +9,49 @@ import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResumoDTO;
 import com.carlesso.pilatesapi.dto.ResumoFinanceiroDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.Test;
 
 class RelatorioPagamentoExporterServiceTest {
 
     private final RelatorioPagamentoExporterService service = new RelatorioPagamentoExporterService();
 
     private ProfissionalPagamentoRelatorioDTO relatorio() {
-        var profissional = new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900",
-                TipoContrato.PJ, new BigDecimal("45.00"));
+        var profissional =
+                new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"));
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(2L, 1L, new BigDecimal("200.00"), new BigDecimal("22.50"));
-        var pagamento = new PagamentoResumoDTO(5L, new BigDecimal("200.00"), 8L, 2L,
-                new BigDecimal("25.00"), new BigDecimal("22.50"));
-        var aula1 = new ProfissionalPagamentoAulaDTO(10L, LocalDate.of(2025, 2, 3), 2L, "Ana", 5L,
-                new BigDecimal("200.00"), 8L, new BigDecimal("25.00"),
-                new BigDecimal("45.00"), new BigDecimal("11.25"));
-        var aula2 = new ProfissionalPagamentoAulaDTO(11L, LocalDate.of(2025, 2, 5), 2L, "Ana", 5L,
-                new BigDecimal("200.00"), 8L, new BigDecimal("25.00"),
-                new BigDecimal("45.00"), new BigDecimal("11.25"));
+        var pagamento = new PagamentoResumoDTO(
+                5L, new BigDecimal("200.00"), 8L, 2L, new BigDecimal("25.00"), new BigDecimal("22.50"));
+        var aula1 = new ProfissionalPagamentoAulaDTO(
+                10L,
+                LocalDate.of(2025, 2, 3),
+                2L,
+                "Ana",
+                5L,
+                new BigDecimal("200.00"),
+                8L,
+                new BigDecimal("25.00"),
+                new BigDecimal("45.00"),
+                new BigDecimal("11.25"));
+        var aula2 = new ProfissionalPagamentoAulaDTO(
+                11L,
+                LocalDate.of(2025, 2, 5),
+                2L,
+                "Ana",
+                5L,
+                new BigDecimal("200.00"),
+                8L,
+                new BigDecimal("25.00"),
+                new BigDecimal("45.00"),
+                new BigDecimal("11.25"));
         return new ProfissionalPagamentoRelatorioDTO(
                 profissional,
                 periodo,
@@ -79,12 +94,12 @@ class RelatorioPagamentoExporterServiceTest {
 
     @Test
     void exportarPdf_quandoNaoHaAulas_deveGerarPdfComMensagem() {
-        var profissional = new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900",
-                TipoContrato.PJ, new BigDecimal("45.00"));
+        var profissional =
+                new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"));
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(0L, 0L, BigDecimal.ZERO, BigDecimal.ZERO);
-        var vazio = new ProfissionalPagamentoRelatorioDTO(profissional, periodo, resumo,
-                List.of(), List.of(), LocalDateTime.of(2025, 3, 1, 10, 0));
+        var vazio = new ProfissionalPagamentoRelatorioDTO(
+                profissional, periodo, resumo, List.of(), List.of(), LocalDateTime.of(2025, 3, 1, 10, 0));
 
         byte[] pdf = service.exportarPdf(vazio);
 

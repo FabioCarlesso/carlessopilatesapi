@@ -9,12 +9,11 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PlanoService {
@@ -29,7 +28,8 @@ public class PlanoService {
 
     @Transactional
     public PlanoResponseDTO criar(PlanoRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findById(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         if (!paciente.isAtivo()) {
@@ -42,16 +42,13 @@ public class PlanoService {
                             .formatted(
                                     dto.diasSemana().size(),
                                     dto.frequenciaSemanal(),
-                                    dto.frequenciaSemanal().getVezesPorSemana()
-                            )
-            );
+                                    dto.frequenciaSemanal().getVezesPorSemana()));
         }
 
-        planoRepository.findByPacienteIdAndAtivoTrue(dto.pacienteId())
-                .ifPresent(planoAtivo -> {
-                    planoAtivo.setAtivo(false);
-                    planoRepository.save(planoAtivo);
-                });
+        planoRepository.findByPacienteIdAndAtivoTrue(dto.pacienteId()).ifPresent(planoAtivo -> {
+            planoAtivo.setAtivo(false);
+            planoRepository.save(planoAtivo);
+        });
 
         Plano plano = new Plano();
         plano.setPaciente(paciente);
@@ -71,14 +68,12 @@ public class PlanoService {
 
     @Transactional(readOnly = true)
     public Optional<PlanoResponseDTO> buscarAtivoPorPaciente(Long pacienteId) {
-        return planoRepository.findByPacienteIdAndAtivoTrue(pacienteId)
-                .map(PlanoResponseDTO::from);
+        return planoRepository.findByPacienteIdAndAtivoTrue(pacienteId).map(PlanoResponseDTO::from);
     }
 
     @Transactional(readOnly = true)
     public List<PlanoResponseDTO> listarPorPaciente(Long pacienteId) {
-        return planoRepository.findByPacienteId(pacienteId)
-                .stream()
+        return planoRepository.findByPacienteId(pacienteId).stream()
                 .map(PlanoResponseDTO::from)
                 .toList();
     }
@@ -93,7 +88,8 @@ public class PlanoService {
     }
 
     private Plano encontrar(Long id) {
-        return planoRepository.findById(id)
+        return planoRepository
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Plano não encontrado: " + id));
     }
 }

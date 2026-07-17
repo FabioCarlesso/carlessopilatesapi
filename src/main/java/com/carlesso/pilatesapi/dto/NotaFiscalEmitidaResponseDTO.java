@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.NotaFiscalEmitida;
 import com.carlesso.pilatesapi.util.CompetenciaUtils;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -18,8 +17,7 @@ public record NotaFiscalEmitidaResponseDTO(
         BigDecimal valor,
         String observacoes,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao
-) {
+        LocalDateTime dataAtualizacao) {
     public static NotaFiscalEmitidaResponseDTO from(NotaFiscalEmitida n) {
         return new NotaFiscalEmitidaResponseDTO(
                 n.getId(),
@@ -31,7 +29,6 @@ public record NotaFiscalEmitidaResponseDTO(
                 n.getValor(),
                 n.getObservacoes(),
                 n.getDataCriacao(),
-                n.getDataAtualizacao()
-        );
+                n.getDataAtualizacao());
     }
 }

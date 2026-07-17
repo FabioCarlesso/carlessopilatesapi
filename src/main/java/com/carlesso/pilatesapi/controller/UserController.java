@@ -2,8 +2,8 @@ package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.RoleResponseDTO;
 import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
-import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
+import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,12 +30,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.List;
-
 @Tag(
         name = "Usuários",
-        description = "Dados do usuário autenticado e gestão administrativa de usuários. O CRUD exige role ADMIN."
-)
+        description = "Dados do usuário autenticado e gestão administrativa de usuários. O CRUD exige role ADMIN.")
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -47,8 +45,8 @@ public class UserController {
 
     @Operation(
             summary = "Usuário autenticado",
-            description = "Requer autenticação JWT. Perfis USER e ADMIN podem acessar. Retorna dados seguros do usuário logado."
-    )
+            description =
+                    "Requer autenticação JWT. Perfis USER e ADMIN podem acessar. Retorna dados seguros do usuário logado.")
     @GetMapping("/me")
     public ResponseEntity<UserResponseDTO> me(Authentication authentication) {
         return ResponseEntity.ok(service.buscarPorEmail(authentication.getName()));
@@ -56,30 +54,29 @@ public class UserController {
 
     @Operation(
             summary = "Trocar a própria senha",
-            description = "Requer autenticação JWT. Permite ao usuário autenticado trocar a própria senha informando a senha atual, a nova senha e a confirmação. A senha é armazenada com hash; tokens emitidos antes da troca deixam de autorizar rotas protegidas."
-    )
+            description =
+                    "Requer autenticação JWT. Permite ao usuário autenticado trocar a própria senha informando a senha atual, a nova senha e a confirmação. A senha é armazenada com hash; tokens emitidos antes da troca deixam de autorizar rotas protegidas.")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Senha alterada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Payload inválido (campos obrigatórios ou tamanho mínimo)"),
-            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
-            @ApiResponse(responseCode = "422", description = "Senha atual incorreta, confirmação não confere ou nova senha igual à atual")
+        @ApiResponse(responseCode = "204", description = "Senha alterada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido (campos obrigatórios ou tamanho mínimo)"),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
+        @ApiResponse(
+                responseCode = "422",
+                description = "Senha atual incorreta, confirmação não confere ou nova senha igual à atual")
     })
     @PutMapping("/me/senha")
     public ResponseEntity<Void> alterarSenha(
-            @RequestBody @Valid UserAlterarSenhaRequestDTO dto,
-            Authentication authentication) {
+            @RequestBody @Valid UserAlterarSenhaRequestDTO dto, Authentication authentication) {
         service.alterarSenha(authentication.getName(), dto);
         return ResponseEntity.noContent().build();
     }
 
     @Operation(
             summary = "Criar usuário",
-            description = "Requer role ADMIN. Cria um usuário com perfil USER ou ADMIN e nunca retorna a senha."
-    )
+            description = "Requer role ADMIN. Cria um usuário com perfil USER ou ADMIN e nunca retorna a senha.")
     @PostMapping
     public ResponseEntity<UserResponseDTO> criar(
-            @RequestBody @Valid UserRequestDTO dto,
-            UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid UserRequestDTO dto, UriComponentsBuilder uriBuilder) {
         UserResponseDTO response = service.criar(dto);
         var uri = uriBuilder.path("/users/{id}").buildAndExpand(response.id()).toUri();
         return ResponseEntity.status(HttpStatus.CREATED).location(uri).body(response);
@@ -87,8 +84,7 @@ public class UserController {
 
     @Operation(
             summary = "Listar usuários",
-            description = "Requer role ADMIN. Lista usuários cadastrados com paginação, sem expor senhas."
-    )
+            description = "Requer role ADMIN. Lista usuários cadastrados com paginação, sem expor senhas.")
     @GetMapping
     public ResponseEntity<Page<UserResponseDTO>> listar(
             @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
@@ -97,12 +93,12 @@ public class UserController {
 
     @Operation(
             summary = "Listar roles disponíveis",
-            description = "Requer role ADMIN. Retorna todas as roles disponíveis no sistema com value e label, para uso em formulários administrativos."
-    )
+            description =
+                    "Requer role ADMIN. Retorna todas as roles disponíveis no sistema com value e label, para uso em formulários administrativos.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lista de roles retornada com sucesso"),
-            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
-            @ApiResponse(responseCode = "403", description = "Usuário sem role ADMIN")
+        @ApiResponse(responseCode = "200", description = "Lista de roles retornada com sucesso"),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
+        @ApiResponse(responseCode = "403", description = "Usuário sem role ADMIN")
     })
     @GetMapping("/roles")
     public ResponseEntity<List<RoleResponseDTO>> listarRoles() {
@@ -111,8 +107,7 @@ public class UserController {
 
     @Operation(
             summary = "Buscar usuário por ID",
-            description = "Requer role ADMIN. Busca um usuário cadastrado sem expor senha."
-    )
+            description = "Requer role ADMIN. Busca um usuário cadastrado sem expor senha.")
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDTO> buscar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
@@ -121,8 +116,8 @@ public class UserController {
 
     @Operation(
             summary = "Atualizar usuário",
-            description = "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN. Admin não pode alterar o próprio role nem rebaixar o último administrador ativo."
-    )
+            description =
+                    "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN. Admin não pode alterar o próprio role nem rebaixar o último administrador ativo.")
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDTO> atualizar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
@@ -133,8 +128,8 @@ public class UserController {
 
     @Operation(
             summary = "Inativar usuário",
-            description = "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado. Admin não pode inativar a própria conta nem o último administrador ativo."
-    )
+            description =
+                    "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado. Admin não pode inativar a própria conta nem o último administrador ativo.")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,

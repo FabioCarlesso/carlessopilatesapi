@@ -1,5 +1,11 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.ReavaliacaoRequestDTO;
 import com.carlesso.pilatesapi.dto.ReavaliacaoResponseDTO;
 import com.carlesso.pilatesapi.dto.ReavaliacaoUpdateDTO;
@@ -13,22 +19,15 @@ import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReavaliacaoServiceTest {
@@ -98,8 +97,7 @@ class ReavaliacaoServiceTest {
                 "Retorno às atividades diárias",
                 "Ainda apresenta dor ao agachar",
                 "Aumentar carga nos exercícios de glúteo",
-                "Paciente motivado com a evolução"
-        );
+                "Paciente motivado com a evolução");
     }
 
     private void setFieldId(Object obj, Class<?> clazz, Long id) {
@@ -132,9 +130,7 @@ class ReavaliacaoServiceTest {
         when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
-                99L, null, null, LocalDate.of(2026, 5, 1),
-                null, null, null, null, null, null, null, null, null
-        );
+                99L, null, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -156,9 +152,7 @@ class ReavaliacaoServiceTest {
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComVinculo);
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, 2L, null, LocalDate.of(2026, 5, 1),
-                null, null, null, null, null, null, null, null, null
-        );
+                1L, 2L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
 
         ReavaliacaoResponseDTO response = service.criar(dto);
 
@@ -180,9 +174,7 @@ class ReavaliacaoServiceTest {
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComPlano);
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, null, 3L, LocalDate.of(2026, 5, 1),
-                null, null, null, null, null, null, null, null, null
-        );
+                1L, null, 3L, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
 
         ReavaliacaoResponseDTO response = service.criar(dto);
 
@@ -196,9 +188,7 @@ class ReavaliacaoServiceTest {
         when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, 99L, null, LocalDate.of(2026, 5, 1),
-                null, null, null, null, null, null, null, null, null
-        );
+                1L, 99L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -216,9 +206,7 @@ class ReavaliacaoServiceTest {
         when(avaliacaoRepository.findAtivaById(2L)).thenReturn(Optional.of(avaliacao));
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, 2L, null, LocalDate.of(2026, 5, 1),
-                null, null, null, null, null, null, null, null, null
-        );
+                1L, 2L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -236,9 +224,7 @@ class ReavaliacaoServiceTest {
         when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, null, 3L, LocalDate.of(2026, 5, 1),
-                null, null, null, null, null, null, null, null, null
-        );
+                1L, null, 3L, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -303,11 +289,7 @@ class ReavaliacaoServiceTest {
         when(reavaliacaoRepository.save(r)).thenReturn(r);
 
         var dto = new ReavaliacaoUpdateDTO(
-                LocalDate.of(2026, 5, 10),
-                "Evolução excelente",
-                "Sem dor",
-                null, null, null, null, null, null, null
-        );
+                LocalDate.of(2026, 5, 10), "Evolução excelente", "Sem dor", null, null, null, null, null, null, null);
 
         ReavaliacaoResponseDTO response = service.atualizar(1L, dto);
 

@@ -1,5 +1,10 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.carlesso.pilatesapi.dto.PlanoRequestDTO;
 import com.carlesso.pilatesapi.dto.PlanoResponseDTO;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
@@ -10,6 +15,11 @@ import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.PlanoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -18,38 +28,47 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 @WebMvcTest(PlanoController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class PlanoControllerTest {
 
-    @Autowired MockMvc mockMvc;
-    @Autowired ObjectMapper objectMapper;
-    @MockitoBean PlanoService planoService;
-    @MockitoBean JwtService jwtService;
-    @MockitoBean CustomUserDetailsService customUserDetailsService;
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
+
+    @MockitoBean
+    PlanoService planoService;
+
+    @MockitoBean
+    JwtService jwtService;
+
+    @MockitoBean
+    CustomUserDetailsService customUserDetailsService;
 
     private PlanoResponseDTO planoResponse() {
-        return new PlanoResponseDTO(1L, 1L, "Ana", TipoPagamento.MENSAL, new BigDecimal("200.00"),
-                FrequenciaSemanal.DUAS_VEZES, List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
-                LocalDate.now(), true);
+        return new PlanoResponseDTO(
+                1L,
+                1L,
+                "Ana",
+                TipoPagamento.MENSAL,
+                new BigDecimal("200.00"),
+                FrequenciaSemanal.DUAS_VEZES,
+                List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
+                LocalDate.now(),
+                true);
     }
 
     @Test
     void criar_retorna201() throws Exception {
-        var dto = new PlanoRequestDTO(1L, TipoPagamento.MENSAL, new BigDecimal("200.00"),
-                FrequenciaSemanal.DUAS_VEZES, List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY), LocalDate.now());
+        var dto = new PlanoRequestDTO(
+                1L,
+                TipoPagamento.MENSAL,
+                new BigDecimal("200.00"),
+                FrequenciaSemanal.DUAS_VEZES,
+                List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
+                LocalDate.now());
 
         when(planoService.criar(any())).thenReturn(planoResponse());
 
@@ -63,8 +82,13 @@ class PlanoControllerTest {
 
     @Test
     void criar_semPacienteId_retorna400() throws Exception {
-        var dto = new PlanoRequestDTO(null, TipoPagamento.MENSAL, new BigDecimal("200.00"),
-                FrequenciaSemanal.UMA_VEZ, List.of(DayOfWeek.MONDAY), null);
+        var dto = new PlanoRequestDTO(
+                null,
+                TipoPagamento.MENSAL,
+                new BigDecimal("200.00"),
+                FrequenciaSemanal.UMA_VEZ,
+                List.of(DayOfWeek.MONDAY),
+                null);
 
         mockMvc.perform(post("/planos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -74,8 +98,13 @@ class PlanoControllerTest {
 
     @Test
     void criar_pacienteInativo_retorna422() throws Exception {
-        var dto = new PlanoRequestDTO(1L, TipoPagamento.MENSAL, new BigDecimal("200.00"),
-                FrequenciaSemanal.UMA_VEZ, List.of(DayOfWeek.MONDAY), null);
+        var dto = new PlanoRequestDTO(
+                1L,
+                TipoPagamento.MENSAL,
+                new BigDecimal("200.00"),
+                FrequenciaSemanal.UMA_VEZ,
+                List.of(DayOfWeek.MONDAY),
+                null);
 
         when(planoService.criar(any())).thenThrow(new BusinessException("Paciente inativo"));
 
@@ -88,8 +117,13 @@ class PlanoControllerTest {
 
     @Test
     void criar_frequenciaIncompativel_retorna400() throws Exception {
-        var dto = new PlanoRequestDTO(1L, TipoPagamento.MENSAL, new BigDecimal("200.00"),
-                FrequenciaSemanal.DUAS_VEZES, List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY), null);
+        var dto = new PlanoRequestDTO(
+                1L,
+                TipoPagamento.MENSAL,
+                new BigDecimal("200.00"),
+                FrequenciaSemanal.DUAS_VEZES,
+                List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+                null);
 
         when(planoService.criar(any())).thenThrow(new IllegalArgumentException("incompatível"));
 
@@ -140,23 +174,22 @@ class PlanoControllerTest {
     void buscarAtivoPorPaciente_semPlano_retorna204() throws Exception {
         when(planoService.buscarAtivoPorPaciente(1L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/planos/paciente/1/ativo"))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/planos/paciente/1/ativo")).andExpect(status().isNoContent());
     }
 
     @Test
     void inativar_comSucesso_retorna204() throws Exception {
         doNothing().when(planoService).inativar(1L);
 
-        mockMvc.perform(delete("/planos/1"))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/planos/1")).andExpect(status().isNoContent());
     }
 
     @Test
     void inativar_naoEncontrado_retorna404() throws Exception {
-        doThrow(new ResourceNotFoundException("Plano não encontrado: 99")).when(planoService).inativar(99L);
+        doThrow(new ResourceNotFoundException("Plano não encontrado: 99"))
+                .when(planoService)
+                .inativar(99L);
 
-        mockMvc.perform(delete("/planos/99"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(delete("/planos/99")).andExpect(status().isNotFound());
     }
 }

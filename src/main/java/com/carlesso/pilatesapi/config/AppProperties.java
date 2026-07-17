@@ -12,14 +12,13 @@ import org.springframework.validation.annotation.Validated;
 public record AppProperties(@Valid Cobranca cobranca) {
 
     public record Cobranca(
-            @NotBlank
-            @Pattern(regexp = "^(\\S+\\s){5}\\S+$",
-                     message = "Deve ser uma cron expression com 6 campos (s m h dom mon dow)")
-            String cronVencidos,
-            @NotBlank
-            @Pattern(regexp = "^(\\S+\\s){5}\\S+$",
-                     message = "Deve ser uma cron expression com 6 campos (s m h dom mon dow)")
-            String cronCobrancasFuturas,
-            @Min(1) int vencimentoDias) {
-    }
+            @NotBlank @Pattern(
+                            regexp = "^(\\S+\\s){5}\\S+$",
+                            message = "Deve ser uma cron expression com 6 campos (s m h dom mon dow)")
+                    String cronVencidos,
+            @NotBlank @Pattern(
+                            regexp = "^(\\S+\\s){5}\\S+$",
+                            message = "Deve ser uma cron expression com 6 campos (s m h dom mon dow)")
+                    String cronCobrancasFuturas,
+            @Min(1) int vencimentoDias) {}
 }

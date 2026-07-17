@@ -11,8 +11,7 @@ public record PacienteResponseDTO(
         String telefone,
         LocalDate dataNascimento,
         EnderecoDTO endereco,
-        boolean ativo
-) {
+        boolean ativo) {
     public static PacienteResponseDTO from(Paciente p) {
         EnderecoDTO enderecoDTO = null;
         if (p.getEndereco() != null) {
@@ -22,8 +21,7 @@ public record PacienteResponseDTO(
                     p.getEndereco().getBairro(),
                     p.getEndereco().getCidade(),
                     p.getEndereco().getUf(),
-                    p.getEndereco().getCep()
-            );
+                    p.getEndereco().getCep());
         }
         return new PacienteResponseDTO(
                 p.getId(),
@@ -33,7 +31,6 @@ public record PacienteResponseDTO(
                 p.getTelefone(),
                 p.getDataNascimento(),
                 enderecoDTO,
-                p.isAtivo()
-        );
+                p.isAtivo());
     }
 }

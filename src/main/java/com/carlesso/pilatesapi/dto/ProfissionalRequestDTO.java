@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import jakarta.validation.constraints.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -13,5 +12,4 @@ public record ProfissionalRequestDTO(
         String telefone,
         @NotNull TipoContrato tipoContrato,
         @NotNull @DecimalMin("0.01") @DecimalMax("100.00") BigDecimal percentualPagamentoAula,
-        @NotNull LocalDate dataInicio
-) {}
+        @NotNull LocalDate dataInicio) {}

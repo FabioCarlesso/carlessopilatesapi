@@ -727,7 +727,7 @@ O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a 
 
 | Job | O que faz |
 |---|---|
-| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify`. Testes unitários e de controller usam H2 em memória; testes de repositório e integração sobem um PostgreSQL 16 via Testcontainers (o runner já tem Docker). Publica os relatórios de teste e o relatório de cobertura JaCoCo como artefatos (`surefire-reports` e `jacoco-report`). |
+| `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify`. O mesmo `verify` também checa formatação (**Spotless**) e roda a análise estática (**SpotBugs**). Testes unitários e de controller usam H2 em memória; testes de repositório e integração sobem um PostgreSQL 16 via Testcontainers (o runner já tem Docker). Publica os relatórios de teste e o relatório de cobertura JaCoCo como artefatos (`surefire-reports` e `jacoco-report`). |
 | `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Complementa a validação das migrations (os testes de integração via Testcontainers já as exercitam). |
 | `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage (sem push para registry). |
 
@@ -788,6 +788,31 @@ O gate existe para impedir regressão da suíte — a intenção é subi-lo grad
 | **CodeQL** | `.github/workflows/codeql.yml` | Análise estática de segurança (SAST) do código Java a cada `push`/`pull_request` para `master` e semanalmente via agenda. Resultados aparecem em *Security → Code scanning*. |
 
 > Os alertas de vulnerabilidade (*Dependabot alerts*) são habilitados nas configurações do repositório (*Settings → Advanced Security*); o monitoramento dos três ecossistemas pode ser conferido em *Insights → Dependency graph → Dependabot*.
+
+### Formatação e análise estática (Spotless + SpotBugs)
+
+O build aplica duas verificações automáticas de qualidade, ambas executadas no `mvn verify` (e, portanto, no CI):
+
+- **Spotless** (`spotless-maven-plugin`) impõe formatação determinística com o **palantir-java-format** (indentação de 4 espaços, imports não utilizados removidos). O goal `spotless:check` roda na fase `check`, então `mvn verify` **falha se algum arquivo estiver fora do formato**.
+- **SpotBugs** (`spotbugs-maven-plugin`) faz análise estática de bytecode com `effort=Max` e `threshold=High`, falhando o build **apenas em findings de alta confiança** (evita ruído de falsos positivos). Exclusões justificadas ficam em `config/spotbugs-exclude.xml`.
+
+Comandos úteis:
+
+```bash
+# Reformatar todo o código-fonte no padrão do projeto
+mvn spotless:apply
+
+# Verificar formatação sem alterar arquivos (o que o CI faz)
+mvn spotless:check
+
+# Rodar a análise estática e falhar em findings de alta severidade
+mvn spotbugs:check
+
+# Abrir a UI do SpotBugs para inspecionar os findings
+mvn spotbugs:gui
+```
+
+> Dica: rode `mvn spotless:apply` antes de commitar. Se o CI reprovar por formatação, esse comando resolve automaticamente.
 
 ---
 

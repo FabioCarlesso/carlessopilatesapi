@@ -5,9 +5,4 @@ import jakarta.validation.constraints.Email;
 import java.time.LocalDate;
 
 public record PacienteUpdateDTO(
-        String nome,
-        @Email String email,
-        String telefone,
-        LocalDate dataNascimento,
-        @Valid EnderecoDTO endereco
-) {}
+        String nome, @Email String email, String telefone, LocalDate dataNascimento, @Valid EnderecoDTO endereco) {}

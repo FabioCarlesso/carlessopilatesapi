@@ -1,5 +1,14 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.carlesso.pilatesapi.dto.EnderecoDTO;
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
@@ -9,27 +18,17 @@ import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.PacienteService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.time.LocalDate;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(PacienteController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -56,19 +55,24 @@ class PacienteControllerTest {
 
     private PacienteResponseDTO responseDTO() {
         return new PacienteResponseDTO(
-                1L, "Maria Souza", "maria@email.com", "12345678900",
-                "11912345678", LocalDate.of(1990, 5, 20),
+                1L,
+                "Maria Souza",
+                "maria@email.com",
+                "12345678900",
+                "11912345678",
+                LocalDate.of(1990, 5, 20),
                 new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"),
-                true
-        );
+                true);
     }
 
     private PacienteRequestDTO requestDTO() {
         return new PacienteRequestDTO(
-                "Maria Souza", "maria@email.com", "12345678900",
-                "11912345678", LocalDate.of(1990, 5, 20),
-                new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000")
-        );
+                "Maria Souza",
+                "maria@email.com",
+                "12345678900",
+                "11912345678",
+                LocalDate.of(1990, 5, 20),
+                new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"));
     }
 
     // -------------------------------------------------------------------------
@@ -94,9 +98,7 @@ class PacienteControllerTest {
     void cadastrar_semNome_deveRetornar400() throws Exception {
         var dto = new PacienteRequestDTO(null, "maria@email.com", "12345678900", null, null, null);
 
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(dto)))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -105,9 +107,7 @@ class PacienteControllerTest {
         when(service.cadastrar(any())).thenReturn(responseDTO());
         var dto = new PacienteRequestDTO("Maria", null, null, null, null, null);
 
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(dto)))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated());
     }
 
@@ -115,17 +115,13 @@ class PacienteControllerTest {
     void cadastrar_emailInvalido_deveRetornar400() throws Exception {
         var dto = new PacienteRequestDTO("Maria", "nao-e-email", "12345678900", null, null, null);
 
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(dto)))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void cadastrar_bodyVazio_deveRetornar400() throws Exception {
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -133,9 +129,7 @@ class PacienteControllerTest {
     void cadastrar_semNome_deveRetornar400ComDetalheDoCampo() throws Exception {
         var dto = new PacienteRequestDTO(null, "maria@email.com", null, null, null, null);
 
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(dto)))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").value("Dados inválidos"))
                 .andExpect(jsonPath("$.campos.nome").isNotEmpty());
@@ -145,9 +139,7 @@ class PacienteControllerTest {
     void cadastrar_emailInvalido_deveRetornar400ComDetalheDoCampo() throws Exception {
         var dto = new PacienteRequestDTO("Maria", "nao-e-email", null, null, null, null);
 
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(dto)))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").value("Dados inválidos"))
                 .andExpect(jsonPath("$.campos.email").isNotEmpty());
@@ -155,9 +147,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_jsonMalformado_deveRetornar400ComMensagemNeutra() throws Exception {
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\": "))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content("{\"nome\": "))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").value("Corpo da requisição inválido ou malformado"));
     }
@@ -182,9 +172,7 @@ class PacienteControllerTest {
         when(service.cadastrar(any())).thenThrow(new RuntimeException("falha interna do banco"));
         var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null);
 
-        mvc.perform(post("/pacientes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(dto)))
+        mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.erro").value("Erro interno do servidor"));
     }
@@ -247,8 +235,7 @@ class PacienteControllerTest {
 
     @Test
     void buscar_quandoNaoExistente_deveRetornar404() throws Exception {
-        when(service.buscarPorId(99L))
-                .thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
+        when(service.buscarPorId(99L)).thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
 
         mvc.perform(get("/pacientes/99"))
                 .andExpect(status().isNotFound())
@@ -262,8 +249,15 @@ class PacienteControllerTest {
     @Test
     void atualizar_deveRetornar200ComDadosAtualizados() throws Exception {
         var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null);
-        var updated = new PacienteResponseDTO(1L, "Novo Nome", "maria@email.com",
-                "12345678900", "11912345678", LocalDate.of(1990, 5, 20), null, true);
+        var updated = new PacienteResponseDTO(
+                1L,
+                "Novo Nome",
+                "maria@email.com",
+                "12345678900",
+                "11912345678",
+                LocalDate.of(1990, 5, 20),
+                null,
+                true);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
         mvc.perform(put("/pacientes/1")
@@ -276,8 +270,7 @@ class PacienteControllerTest {
 
     @Test
     void atualizar_quandoNaoExistente_deveRetornar404() throws Exception {
-        when(service.atualizar(eq(99L), any()))
-                .thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
+        when(service.atualizar(eq(99L), any())).thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
 
         mvc.perform(put("/pacientes/99")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -301,10 +294,10 @@ class PacienteControllerTest {
     @Test
     void inativar_quandoNaoExistente_deveRetornar404() throws Exception {
         doThrow(new ResourceNotFoundException("Paciente não encontrado: 99"))
-                .when(service).inativar(99L);
+                .when(service)
+                .inativar(99L);
 
-        mvc.perform(patch("/pacientes/99/inativar"))
-                .andExpect(status().isNotFound());
+        mvc.perform(patch("/pacientes/99/inativar")).andExpect(status().isNotFound());
     }
 
     @Test
@@ -319,9 +312,9 @@ class PacienteControllerTest {
     @Test
     void ativar_quandoNaoExistente_deveRetornar404() throws Exception {
         doThrow(new ResourceNotFoundException("Paciente não encontrado: 99"))
-                .when(service).ativar(99L);
+                .when(service)
+                .ativar(99L);
 
-        mvc.perform(patch("/pacientes/99/ativar"))
-                .andExpect(status().isNotFound());
+        mvc.perform(patch("/pacientes/99/ativar")).andExpect(status().isNotFound());
     }
 }

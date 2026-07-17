@@ -1,5 +1,13 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.SessaoPilatesRequestDTO;
 import com.carlesso.pilatesapi.dto.SessaoPilatesResponseDTO;
 import com.carlesso.pilatesapi.dto.SessaoPilatesUpdateDTO;
@@ -16,25 +24,16 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class SessaoPilatesServiceTest {
@@ -92,14 +91,15 @@ class SessaoPilatesServiceTest {
 
     private SessaoPilatesRequestDTO requestDTO() {
         return new SessaoPilatesRequestDTO(
-                1L, null, null,
+                1L,
+                null,
+                null,
                 TipoSessao.PILATES,
                 LocalDate.of(2026, 5, 10),
                 LocalTime.of(9, 0),
                 "Sala 1",
                 50,
-                "Observação teste"
-        );
+                "Observação teste");
     }
 
     private <T> void setId(T obj, Class<T> clazz, Long id) {
@@ -134,9 +134,7 @@ class SessaoPilatesServiceTest {
         when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
 
         var dto = new SessaoPilatesRequestDTO(
-                99L, null, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10),
-                null, null, null, null
-        );
+                99L, null, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10), null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -150,9 +148,7 @@ class SessaoPilatesServiceTest {
         when(profissionalRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new SessaoPilatesRequestDTO(
-                1L, 99L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10),
-                null, null, null, null
-        );
+                1L, 99L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10), null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -170,9 +166,7 @@ class SessaoPilatesServiceTest {
         when(profissionalRepository.findById(2L)).thenReturn(Optional.of(prof));
 
         var dto = new SessaoPilatesRequestDTO(
-                1L, 2L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10),
-                null, null, null, null
-        );
+                1L, 2L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10), null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -186,9 +180,7 @@ class SessaoPilatesServiceTest {
         when(planoTratamentoRepository.findAtivoById(99L)).thenReturn(Optional.empty());
 
         var dto = new SessaoPilatesRequestDTO(
-                1L, null, 99L, TipoSessao.FISIOTERAPIA, LocalDate.of(2026, 5, 10),
-                null, null, null, null
-        );
+                1L, null, 99L, TipoSessao.FISIOTERAPIA, LocalDate.of(2026, 5, 10), null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -208,9 +200,7 @@ class SessaoPilatesServiceTest {
         when(planoTratamentoRepository.findAtivoById(10L)).thenReturn(Optional.of(plano));
 
         var dto = new SessaoPilatesRequestDTO(
-                1L, null, 10L, TipoSessao.FISIOTERAPIA, LocalDate.of(2026, 5, 10),
-                null, null, null, null
-        );
+                1L, null, 10L, TipoSessao.FISIOTERAPIA, LocalDate.of(2026, 5, 10), null, null, null, null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -232,9 +222,7 @@ class SessaoPilatesServiceTest {
         when(sessaoRepository.save(any(SessaoPilates.class))).thenReturn(s);
 
         var dto = new SessaoPilatesRequestDTO(
-                1L, 2L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10),
-                null, null, null, null
-        );
+                1L, 2L, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10), null, null, null, null);
 
         SessaoPilatesResponseDTO response = service.criar(dto);
 
@@ -300,13 +288,7 @@ class SessaoPilatesServiceTest {
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(sessaoRepository.save(s)).thenReturn(s);
 
-        var dto = new SessaoPilatesUpdateDTO(
-                LocalDate.of(2026, 5, 15),
-                LocalTime.of(10, 0),
-                null,
-                60,
-                null
-        );
+        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 15), LocalTime.of(10, 0), null, 60, null);
 
         SessaoPilatesResponseDTO response = service.atualizar(1L, dto);
 
@@ -333,14 +315,16 @@ class SessaoPilatesServiceTest {
     void realizar_comSessaoAgendada_deveTransicionarParaRealizada() {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+        when(sessaoRepository.transicionarStatusSeAgendada(
+                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
                 .thenReturn(1);
 
         SessaoPilatesResponseDTO response = service.realizar(1L);
 
         assertThat(response.status()).isEqualTo(StatusSessao.REALIZADA);
         assertThat(response.dataAtualizacao()).isNotNull();
-        verify(sessaoRepository).transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class));
+        verify(sessaoRepository)
+                .transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class));
     }
 
     @Test
@@ -353,8 +337,7 @@ class SessaoPilatesServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida")
                 .hasMessageContaining("REALIZADA");
-        verify(sessaoRepository, never())
-                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
@@ -367,8 +350,7 @@ class SessaoPilatesServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida")
                 .hasMessageContaining("CANCELADA");
-        verify(sessaoRepository, never())
-                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
@@ -378,8 +360,7 @@ class SessaoPilatesServiceTest {
         assertThatThrownBy(() -> service.realizar(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
-        verify(sessaoRepository, never())
-                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
@@ -388,10 +369,8 @@ class SessaoPilatesServiceTest {
         // a query retorna empty mesmo se a sessão existir no banco. UPDATE não deve rodar.
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.realizar(1L))
-                .isInstanceOf(ResourceNotFoundException.class);
-        verify(sessaoRepository, never())
-                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        assertThatThrownBy(() -> service.realizar(1L)).isInstanceOf(ResourceNotFoundException.class);
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test
@@ -400,7 +379,8 @@ class SessaoPilatesServiceTest {
         // e o UPDATE → atualizadas == 0 e mensagem deve indicar concorrência.
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+        when(sessaoRepository.transicionarStatusSeAgendada(
+                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
                 .thenReturn(0);
 
         assertThatThrownBy(() -> service.realizar(1L))
@@ -412,7 +392,8 @@ class SessaoPilatesServiceTest {
     void cancelar_comSessaoAgendada_deveTransicionarParaCancelada() {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
-        when(sessaoRepository.transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
+        when(sessaoRepository.transicionarStatusSeAgendada(
+                        eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
                 .thenReturn(1);
 
         SessaoPilatesResponseDTO response = service.cancelar(1L);
@@ -430,8 +411,7 @@ class SessaoPilatesServiceTest {
         assertThatThrownBy(() -> service.cancelar(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida");
-        verify(sessaoRepository, never())
-                .transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
     }
 
     @Test

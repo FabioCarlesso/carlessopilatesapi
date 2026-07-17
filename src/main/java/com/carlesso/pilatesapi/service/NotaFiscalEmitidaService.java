@@ -9,6 +9,10 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.CompetenciaUtils;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +20,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.util.List;
 
 @Service
 public class NotaFiscalEmitidaService {
@@ -37,8 +36,7 @@ public class NotaFiscalEmitidaService {
      */
     private NotaFiscalEmitidaService self;
 
-    public NotaFiscalEmitidaService(NotaFiscalEmitidaRepository repository,
-                                    PacienteRepository pacienteRepository) {
+    public NotaFiscalEmitidaService(NotaFiscalEmitidaRepository repository, PacienteRepository pacienteRepository) {
         this.repository = repository;
         this.pacienteRepository = pacienteRepository;
     }
@@ -59,22 +57,26 @@ public class NotaFiscalEmitidaService {
         try {
             return self.upsert(dto);
         } catch (DataIntegrityViolationException e) {
-            log.warn("Colisão de constraint ao registrar NFSE (pacienteId={}, competencia={}); repetindo como atualização",
-                    dto.pacienteId(), dto.competencia());
+            log.warn(
+                    "Colisão de constraint ao registrar NFSE (pacienteId={}, competencia={}); repetindo como atualização",
+                    dto.pacienteId(),
+                    dto.competencia());
             return self.upsert(dto);
         }
     }
 
     @Transactional
     public NotaFiscalEmitidaResponseDTO upsert(NotaFiscalEmitidaRequestDTO dto) {
-        Paciente paciente = pacienteRepository.findByIdAndAtivoTrue(dto.pacienteId())
+        Paciente paciente = pacienteRepository
+                .findByIdAndAtivoTrue(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
 
         YearMonth periodo = CompetenciaUtils.parse(dto.competencia());
         LocalDate competencia = periodo.atDay(1);
         validar(dto);
 
-        NotaFiscalEmitida nota = repository.findByPacienteIdAndCompetencia(paciente.getId(), competencia)
+        NotaFiscalEmitida nota = repository
+                .findByPacienteIdAndCompetencia(paciente.getId(), competencia)
                 .orElseGet(() -> {
                     NotaFiscalEmitida nova = new NotaFiscalEmitida();
                     nova.setPaciente(paciente);
@@ -89,8 +91,13 @@ public class NotaFiscalEmitidaService {
         nota.setObservacoes(dto.observacoes());
 
         NotaFiscalEmitida salva = repository.save(nota);
-        log.info("NFSE {}: id={}, pacienteId={}, competencia={}, numeroNota={}",
-                novo ? "registrada" : "atualizada", salva.getId(), paciente.getId(), dto.competencia(), dto.numeroNota());
+        log.info(
+                "NFSE {}: id={}, pacienteId={}, competencia={}, numeroNota={}",
+                novo ? "registrada" : "atualizada",
+                salva.getId(),
+                paciente.getId(),
+                dto.competencia(),
+                dto.numeroNota());
         return NotaFiscalEmitidaResponseDTO.from(salva);
     }
 

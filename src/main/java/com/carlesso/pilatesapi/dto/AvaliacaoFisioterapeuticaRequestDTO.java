@@ -20,5 +20,4 @@ public record AvaliacaoFisioterapeuticaRequestDTO(
         @NotNull @Min(0) @Max(10) Integer escalaDor,
         String testesFuncionaisRealizados,
         @NotBlank String diagnosticoFisioterapeutico,
-        String observacoesGerais
-) {}
+        String observacoesGerais) {}

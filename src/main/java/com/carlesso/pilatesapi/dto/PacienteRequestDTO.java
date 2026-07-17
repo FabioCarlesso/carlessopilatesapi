@@ -11,5 +11,4 @@ public record PacienteRequestDTO(
         String cpf,
         String telefone,
         LocalDate dataNascimento,
-        @Valid EnderecoDTO endereco
-) {}
+        @Valid EnderecoDTO endereco) {}

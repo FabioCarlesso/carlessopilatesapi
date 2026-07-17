@@ -1,5 +1,7 @@
 package com.carlesso.pilatesapi.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
@@ -9,19 +11,16 @@ import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 @PostgresDataJpaTest
 class AulaRepositoryTest extends PostgresTestcontainerSupport {
@@ -70,7 +69,8 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
                 .extracting(aula -> aula.getPaciente().getNome())
                 .containsExactly("Ana Ativa");
 
-        assertThat(repository.findByPacienteIdOrderByData(pacienteInativo.getId())).isEmpty();
+        assertThat(repository.findByPacienteIdOrderByData(pacienteInativo.getId()))
+                .isEmpty();
     }
 
     @Test
@@ -79,54 +79,47 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
                 .extracting(Aula::getId)
                 .containsExactly(aulaAtiva.getId());
 
-        assertThat(repository.findByPagamentoIdOrderByData(pagamentoInativo.getId())).isEmpty();
+        assertThat(repository.findByPagamentoIdOrderByData(pagamentoInativo.getId()))
+                .isEmpty();
     }
 
     @Test
     void findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData_naoRetornaPacienteInativo() {
         var aulas = repository.findByProfissionalIdAndRealizadaTrueAndDataBetweenOrderByData(
-                profissional.getId(),
-                LocalDate.of(2025, 1, 1),
-                LocalDate.of(2025, 12, 31));
+                profissional.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31));
 
-        assertThat(aulas)
-                .extracting(aula -> aula.getPaciente().getNome())
-                .containsExactly("Ana Ativa");
+        assertThat(aulas).extracting(aula -> aula.getPaciente().getNome()).containsExactly("Ana Ativa");
     }
 
     @Test
     void findRelatorioPagamentoByProfissionalIdAndPeriodo_retornaCamposEQuantidadeNaMesmaConsulta() {
-        entityManager.persist(aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
-        entityManager.persist(aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 17)));
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 17)));
         entityManager.flush();
         entityManager.clear();
 
         var aulas = repository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
-                profissional.getId(),
-                LocalDate.of(2025, 1, 1),
-                LocalDate.of(2025, 12, 31));
+                profissional.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31));
 
-        assertThat(aulas)
-                .singleElement()
-                .satisfies(aula -> {
-                    assertThat(aula.getAulaId()).isEqualTo(aulaAtiva.getId());
-                    assertThat(aula.getPacienteNome()).isEqualTo("Ana Ativa");
-                    assertThat(aula.getPagamentoId()).isEqualTo(pagamentoAtivo.getId());
-                    assertThat(aula.getValorPagamento()).isEqualByComparingTo("200.00");
-                    assertThat(aula.getQuantidadeAulasPagamento()).isEqualTo(3L);
-                });
+        assertThat(aulas).singleElement().satisfies(aula -> {
+            assertThat(aula.getAulaId()).isEqualTo(aulaAtiva.getId());
+            assertThat(aula.getPacienteNome()).isEqualTo("Ana Ativa");
+            assertThat(aula.getPagamentoId()).isEqualTo(pagamentoAtivo.getId());
+            assertThat(aula.getValorPagamento()).isEqualByComparingTo("200.00");
+            assertThat(aula.getQuantidadeAulasPagamento()).isEqualTo(3L);
+        });
     }
 
     @Test
     void countGroupedByPagamentoId_naoContaAulasDePacienteInativo() {
         var contagens = repository.countGroupedByPagamentoId(List.of(pagamentoAtivo.getId(), pagamentoInativo.getId()));
 
-        assertThat(contagens)
-                .singleElement()
-                .satisfies(row -> {
-                    assertThat(row[0]).isEqualTo(pagamentoAtivo.getId());
-                    assertThat(row[1]).isEqualTo(1L);
-                });
+        assertThat(contagens).singleElement().satisfies(row -> {
+            assertThat(row[0]).isEqualTo(pagamentoAtivo.getId());
+            assertThat(row[1]).isEqualTo(1L);
+        });
     }
 
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {

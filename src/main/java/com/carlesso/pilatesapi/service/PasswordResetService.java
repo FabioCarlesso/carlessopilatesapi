@@ -12,12 +12,6 @@ import com.carlesso.pilatesapi.repository.PasswordResetTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import com.carlesso.pilatesapi.util.LogMasker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -25,6 +19,11 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PasswordResetService {
@@ -44,15 +43,16 @@ public class PasswordResetService {
     private final String resetPasswordUrl;
     private final long tokenTtlMinutos;
 
-    public PasswordResetService(UserRepository userRepository,
-                                 PasswordResetTokenRepository tokenRepository,
-                                 UserService userService,
-                                 EmailSender emailSender,
-                                 EmailTemplateService emailTemplateService,
-                                 LoginAttemptService loginAttemptService,
-                                 BusinessMetrics businessMetrics,
-                                 @Value("${app.email.reset-password-url}") String resetPasswordUrl,
-                                 @Value("${app.email.reset-password-token-ttl-minutos:30}") long tokenTtlMinutos) {
+    public PasswordResetService(
+            UserRepository userRepository,
+            PasswordResetTokenRepository tokenRepository,
+            UserService userService,
+            EmailSender emailSender,
+            EmailTemplateService emailTemplateService,
+            LoginAttemptService loginAttemptService,
+            BusinessMetrics businessMetrics,
+            @Value("${app.email.reset-password-url}") String resetPasswordUrl,
+            @Value("${app.email.reset-password-token-ttl-minutos:30}") long tokenTtlMinutos) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.userService = userService;
@@ -69,15 +69,14 @@ public class PasswordResetService {
         String normalizedEmail = EmailNormalizer.normalizar(email);
         String rateLimitKey = RATE_LIMIT_KEY_PREFIX + normalizedEmail;
         if (loginAttemptService.isBlocked(rateLimitKey)) {
-            log.warn("Solicitação de redefinição de senha bloqueada por excesso de tentativas: email={}",
+            log.warn(
+                    "Solicitação de redefinição de senha bloqueada por excesso de tentativas: email={}",
                     LogMasker.email(normalizedEmail));
             throw new TooManyRequestsException("Muitas solicitações. Tente novamente em 15 minutos.");
         }
         loginAttemptService.registerFailure(rateLimitKey);
 
-        userRepository.findByEmail(normalizedEmail)
-                .filter(User::isAtivo)
-                .ifPresent(this::gerarTokenEEnviarEmail);
+        userRepository.findByEmail(normalizedEmail).filter(User::isAtivo).ifPresent(this::gerarTokenEEnviarEmail);
         log.info("Solicitação de redefinição de senha processada: email={}", LogMasker.email(normalizedEmail));
     }
 
@@ -87,7 +86,8 @@ public class PasswordResetService {
             throw new BusinessException("Confirmação de senha não confere");
         }
 
-        PasswordResetToken resetToken = tokenRepository.findByTokenHash(hash(dto.token()))
+        PasswordResetToken resetToken = tokenRepository
+                .findByTokenHash(hash(dto.token()))
                 .filter(PasswordResetToken::isValido)
                 .orElseThrow(() -> {
                     log.warn("Redefinição de senha rejeitada: token inválido ou expirado");

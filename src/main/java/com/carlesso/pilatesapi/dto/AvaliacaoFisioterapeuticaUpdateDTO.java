@@ -7,8 +7,7 @@ import java.time.LocalDate;
 
 public record AvaliacaoFisioterapeuticaUpdateDTO(
         LocalDate dataAvaliacao,
-        @Pattern(regexp = ".*\\S.*", message = "queixaFuncional não pode ser vazio")
-        String queixaFuncional,
+        @Pattern(regexp = ".*\\S.*", message = "queixaFuncional não pode ser vazio") String queixaFuncional,
         String avaliacaoPostural,
         String mobilidadeArticular,
         String forcaMuscular,
@@ -18,7 +17,5 @@ public record AvaliacaoFisioterapeuticaUpdateDTO(
         String padraoRespiratorio,
         @Min(0) @Max(10) Integer escalaDor,
         String testesFuncionaisRealizados,
-        @Pattern(regexp = ".*\\S.*", message = "diagnosticoFisioterapeutico não pode ser vazio")
-        String diagnosticoFisioterapeutico,
-        String observacoesGerais
-) {}
+        @Pattern(regexp = ".*\\S.*", message = "diagnosticoFisioterapeutico não pode ser vazio") String diagnosticoFisioterapeutico,
+        String observacoesGerais) {}

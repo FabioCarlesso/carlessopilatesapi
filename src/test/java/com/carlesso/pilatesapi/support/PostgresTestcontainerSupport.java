@@ -25,8 +25,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  */
 public abstract class PostgresTestcontainerSupport {
 
-    private static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine");
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     static {
         POSTGRES.start();

@@ -1,16 +1,15 @@
 package com.carlesso.pilatesapi.service;
 
-import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.Test;
 
 class RelatorioNfseExporterServiceTest {
 
@@ -35,8 +34,7 @@ class RelatorioNfseExporterServiceTest {
                 "@SUM(1,1)",
                 false,
                 LocalDate.of(2026, 4, 10),
-                "-observacao"
-        );
+                "-observacao");
 
         String content = new String(service.exportarCsv(List.of(itemMalicioso)));
 
@@ -72,7 +70,6 @@ class RelatorioNfseExporterServiceTest {
                 "Aulas de Pilates - Competência 04/2026",
                 false,
                 LocalDate.of(2026, 4, 10),
-                ""
-        );
+                "");
     }
 }

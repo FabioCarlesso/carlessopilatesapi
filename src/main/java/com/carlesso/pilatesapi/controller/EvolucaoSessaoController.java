@@ -27,27 +27,29 @@ public class EvolucaoSessaoController {
 
     @Operation(
             summary = "Registrar evolução de sessão",
-            description = "Registra a evolução clínica de uma sessão de Pilates ou Fisioterapia. Cada sessão admite apenas uma evolução."
-    )
+            description =
+                    "Registra a evolução clínica de uma sessão de Pilates ou Fisioterapia. Cada sessão admite apenas uma evolução.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Evolução registrada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-            @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
-            @ApiResponse(responseCode = "409", description = "Sessão já possui evolução registrada")
+        @ApiResponse(responseCode = "201", description = "Evolução registrada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
+        @ApiResponse(responseCode = "409", description = "Sessão já possui evolução registrada")
     })
     @PostMapping
     public ResponseEntity<EvolucaoSessaoResponseDTO> criar(
-            @RequestBody @Valid EvolucaoSessaoRequestDTO dto,
-            UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid EvolucaoSessaoRequestDTO dto, UriComponentsBuilder uriBuilder) {
         EvolucaoSessaoResponseDTO response = service.criar(dto);
-        var uri = uriBuilder.path("/evolucoes-sessao/{id}").buildAndExpand(response.id()).toUri();
+        var uri = uriBuilder
+                .path("/evolucoes-sessao/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
         return ResponseEntity.created(uri).body(response);
     }
 
     @Operation(summary = "Buscar evolução por ID")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Evolução encontrada"),
-            @ApiResponse(responseCode = "404", description = "Evolução não encontrada")
+        @ApiResponse(responseCode = "200", description = "Evolução encontrada"),
+        @ApiResponse(responseCode = "404", description = "Evolução não encontrada")
     })
     @GetMapping("/{id}")
     public ResponseEntity<EvolucaoSessaoResponseDTO> buscarPorId(
@@ -57,8 +59,8 @@ public class EvolucaoSessaoController {
 
     @Operation(summary = "Buscar evolução por sessão")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Evolução encontrada"),
-            @ApiResponse(responseCode = "404", description = "Sessão ou evolução não encontrada")
+        @ApiResponse(responseCode = "200", description = "Evolução encontrada"),
+        @ApiResponse(responseCode = "404", description = "Sessão ou evolução não encontrada")
     })
     @GetMapping("/sessao/{sessaoId}")
     public ResponseEntity<EvolucaoSessaoResponseDTO> buscarPorSessao(
@@ -68,12 +70,11 @@ public class EvolucaoSessaoController {
 
     @Operation(
             summary = "Atualizar evolução",
-            description = "Atualiza os dados da evolução clínica. Apenas os campos enviados serão alterados."
-    )
+            description = "Atualiza os dados da evolução clínica. Apenas os campos enviados serão alterados.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Evolução atualizada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "404", description = "Evolução não encontrada")
+        @ApiResponse(responseCode = "200", description = "Evolução atualizada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "404", description = "Evolução não encontrada")
     })
     @PutMapping("/{id}")
     public ResponseEntity<EvolucaoSessaoResponseDTO> atualizar(

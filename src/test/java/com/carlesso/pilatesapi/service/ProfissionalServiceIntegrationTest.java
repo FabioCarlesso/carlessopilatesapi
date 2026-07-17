@@ -1,20 +1,19 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
+import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
-import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @PostgresDataJpaTest
 @Import(ProfissionalService.class)
@@ -30,8 +29,10 @@ class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
     void setUp() {
         repository.deleteAll();
         repository.save(profissional("Paula Mendes", "paula@email.com", "12345678900", TipoContrato.PJ, "45.00", true));
-        repository.save(profissional("Ricardo Souza", "ricardo@email.com", "98765432100", TipoContrato.AUTONOMO, "40.00", true));
-        repository.save(profissional("Fernanda Lima", "fernanda@email.com", "11122233344", TipoContrato.CLT, "35.00", false));
+        repository.save(profissional(
+                "Ricardo Souza", "ricardo@email.com", "98765432100", TipoContrato.AUTONOMO, "40.00", true));
+        repository.save(
+                profissional("Fernanda Lima", "fernanda@email.com", "11122233344", TipoContrato.CLT, "35.00", false));
     }
 
     @Test
@@ -46,19 +47,12 @@ class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void listar_filtraPorCamposDaIssueEStatus() {
         var resultado = service.listar(
-                "fer",
-                "email.com",
-                TipoContrato.CLT,
-                new BigDecimal("35.00"),
-                false,
-                PageRequest.of(0, 10));
+                "fer", "email.com", TipoContrato.CLT, new BigDecimal("35.00"), false, PageRequest.of(0, 10));
 
-        assertThat(resultado.getContent())
-                .singleElement()
-                .satisfies(profissional -> {
-                    assertThat(profissional.nome()).isEqualTo("Fernanda Lima");
-                    assertThat(profissional.ativo()).isFalse();
-                });
+        assertThat(resultado.getContent()).singleElement().satisfies(profissional -> {
+            assertThat(profissional.nome()).isEqualTo("Fernanda Lima");
+            assertThat(profissional.ativo()).isFalse();
+        });
     }
 
     @Test
@@ -77,20 +71,17 @@ class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
 
         assertThat(ativos.getTotalElements()).isEqualTo(2);
         assertThat(inativos.getTotalElements()).isEqualTo(1);
-        assertThat(ativos.getTotalElements() + inativos.getTotalElements())
-                .isEqualTo(3);
+        assertThat(ativos.getTotalElements() + inativos.getTotalElements()).isEqualTo(3);
     }
 
     @Test
     void listar_filtraPorPercentualPagamentoAulaIsolado() {
         var resultado = service.listar(null, null, null, new BigDecimal("40.00"), null, PageRequest.of(0, 10));
 
-        assertThat(resultado.getContent())
-                .singleElement()
-                .satisfies(profissional -> {
-                    assertThat(profissional.nome()).isEqualTo("Ricardo Souza");
-                    assertThat(profissional.percentualPagamentoAula()).isEqualByComparingTo("40.00");
-                });
+        assertThat(resultado.getContent()).singleElement().satisfies(profissional -> {
+            assertThat(profissional.nome()).isEqualTo("Ricardo Souza");
+            assertThat(profissional.percentualPagamentoAula()).isEqualByComparingTo("40.00");
+        });
     }
 
     private Profissional profissional(

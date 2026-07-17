@@ -18,8 +18,7 @@ public record AnamneseResponseDTO(
         String objetivos,
         String observacoes,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao
-) {
+        LocalDateTime dataAtualizacao) {
     public static AnamneseResponseDTO from(Anamnese a) {
         return new AnamneseResponseDTO(
                 a.getId(),
@@ -36,7 +35,6 @@ public record AnamneseResponseDTO(
                 a.getObjetivos(),
                 a.getObservacoes(),
                 a.getDataCriacao(),
-                a.getDataAtualizacao()
-        );
+                a.getDataAtualizacao());
     }
 }

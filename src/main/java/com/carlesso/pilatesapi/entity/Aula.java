@@ -1,13 +1,12 @@
 package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "aulas", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"paciente_id", "data"})
-})
+@Table(
+        name = "aulas",
+        uniqueConstraints = {@UniqueConstraint(columnNames = {"paciente_id", "data"})})
 public class Aula {
 
     @Id
@@ -34,20 +33,47 @@ public class Aula {
 
     public Aula() {}
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Paciente getPaciente() { return paciente; }
-    public void setPaciente(Paciente paciente) { this.paciente = paciente; }
+    public Paciente getPaciente() {
+        return paciente;
+    }
 
-    public Pagamento getPagamento() { return pagamento; }
-    public void setPagamento(Pagamento pagamento) { this.pagamento = pagamento; }
+    public void setPaciente(Paciente paciente) {
+        this.paciente = paciente;
+    }
 
-    public Profissional getProfissional() { return profissional; }
-    public void setProfissional(Profissional profissional) { this.profissional = profissional; }
+    public Pagamento getPagamento() {
+        return pagamento;
+    }
 
-    public LocalDate getData() { return data; }
-    public void setData(LocalDate data) { this.data = data; }
+    public void setPagamento(Pagamento pagamento) {
+        this.pagamento = pagamento;
+    }
 
-    public boolean isRealizada() { return realizada; }
-    public void setRealizada(boolean realizada) { this.realizada = realizada; }
+    public Profissional getProfissional() {
+        return profissional;
+    }
+
+    public void setProfissional(Profissional profissional) {
+        this.profissional = profissional;
+    }
+
+    public LocalDate getData() {
+        return data;
+    }
+
+    public void setData(LocalDate data) {
+        this.data = data;
+    }
+
+    public boolean isRealizada() {
+        return realizada;
+    }
+
+    public void setRealizada(boolean realizada) {
+        this.realizada = realizada;
+    }
 }

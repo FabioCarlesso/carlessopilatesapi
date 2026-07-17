@@ -1,10 +1,9 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Plano;
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PlanoRepository extends JpaRepository<Plano, Long> {
 

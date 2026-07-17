@@ -1,5 +1,13 @@
 package com.carlesso.pilatesapi.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
@@ -10,6 +18,10 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.AulaRepository.ProfissionalPagamentoAulaProjection;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,19 +30,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProfissionalServiceTest {
@@ -59,8 +58,14 @@ class ProfissionalServiceTest {
 
     @Test
     void cadastrar_deveRetornarProfissionalCriado() {
-        var dto = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900",
-                "11999999999", TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+        var dto = new ProfissionalRequestDTO(
+                "Paula Mendes",
+                "paula@email.com",
+                "12345678900",
+                "11999999999",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                LocalDate.of(2024, 1, 15));
         when(repository.existsByEmail(dto.email())).thenReturn(false);
         when(repository.existsByCpf(dto.cpf())).thenReturn(false);
         when(repository.save(any(Profissional.class))).thenReturn(profissional());
@@ -74,8 +79,14 @@ class ProfissionalServiceTest {
 
     @Test
     void cadastrar_emailDuplicado_deveLancarConflito() {
-        var dto = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900",
-                "11999999999", TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+        var dto = new ProfissionalRequestDTO(
+                "Paula Mendes",
+                "paula@email.com",
+                "12345678900",
+                "11999999999",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                LocalDate.of(2024, 1, 15));
         when(repository.existsByEmail(dto.email())).thenReturn(true);
 
         assertThatThrownBy(() -> service.cadastrar(dto))
@@ -85,8 +96,14 @@ class ProfissionalServiceTest {
 
     @Test
     void cadastrar_cpfDuplicado_deveLancarConflito() {
-        var dto = new ProfissionalRequestDTO("Paula Mendes", "paula@email.com", "12345678900",
-                "11999999999", TipoContrato.PJ, new BigDecimal("45.00"), LocalDate.of(2024, 1, 15));
+        var dto = new ProfissionalRequestDTO(
+                "Paula Mendes",
+                "paula@email.com",
+                "12345678900",
+                "11999999999",
+                TipoContrato.PJ,
+                new BigDecimal("45.00"),
+                LocalDate.of(2024, 1, 15));
         when(repository.existsByEmail(dto.email())).thenReturn(false);
         when(repository.existsByCpf(dto.cpf())).thenReturn(true);
 
@@ -112,13 +129,7 @@ class ProfissionalServiceTest {
         when(repository.findAll(org.mockito.ArgumentMatchers.<Specification<Profissional>>any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(profissional()), pageable, 1));
 
-        var resultado = service.listar(
-                "paula",
-                "email.com",
-                TipoContrato.PJ,
-                new BigDecimal("45.00"),
-                false,
-                pageable);
+        var resultado = service.listar("paula", "email.com", TipoContrato.PJ, new BigDecimal("45.00"), false, pageable);
 
         assertThat(resultado.getTotalElements()).isEqualTo(1);
         assertThat(resultado.getContent().get(0).tipoContrato()).isEqualTo(TipoContrato.PJ);
@@ -129,8 +140,8 @@ class ProfissionalServiceTest {
     void atualizar_deveAtualizarCamposInformados() {
         when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
 
-        var response = service.atualizar(1L,
-                new ProfissionalUpdateDTO("Novo Nome", null, null, null, new BigDecimal("50.00"), null));
+        var response = service.atualizar(
+                1L, new ProfissionalUpdateDTO("Novo Nome", null, null, null, new BigDecimal("50.00"), null));
 
         assertThat(response.nome()).isEqualTo("Novo Nome");
         assertThat(response.percentualPagamentoAula()).isEqualByComparingTo("50.00");
@@ -192,13 +203,10 @@ class ProfissionalServiceTest {
 
         when(repository.findById(1L)).thenReturn(Optional.of(profissional));
         when(aulaRepository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
-                1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                        1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
                 .thenReturn(List.of(aula, outraAula));
 
-        var relatorio = service.gerarRelatorioPagamento(
-                1L,
-                LocalDate.of(2025, 2, 1),
-                LocalDate.of(2025, 2, 28));
+        var relatorio = service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
 
         assertThat(relatorio.profissional().id()).isEqualTo(1L);
         assertThat(relatorio.profissional().nome()).isEqualTo("Paula Mendes");
@@ -209,8 +217,9 @@ class ProfissionalServiceTest {
         assertThat(relatorio.aulas().getFirst().valorBaseAula()).isEqualByComparingTo("25.00");
         assertThat(relatorio.aulas().getFirst().valorProfissional()).isEqualByComparingTo("11.25");
         assertThat(relatorio.geradoEm()).isNotNull();
-        verify(aulaRepository).findRelatorioPagamentoByProfissionalIdAndPeriodo(
-                1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
+        verify(aulaRepository)
+                .findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                        1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         verify(aulaRepository, never()).countGroupedByPagamentoId(any());
     }
 
@@ -223,13 +232,10 @@ class ProfissionalServiceTest {
 
         when(repository.findById(1L)).thenReturn(Optional.of(profissional));
         when(aulaRepository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
-                1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
+                        1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28)))
                 .thenReturn(List.of(aulaPagamentoA1, aulaPagamentoA2, aulaPagamentoB));
 
-        var relatorio = service.gerarRelatorioPagamento(
-                1L,
-                LocalDate.of(2025, 2, 1),
-                LocalDate.of(2025, 2, 28));
+        var relatorio = service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
 
         assertThat(relatorio.pagamentos()).hasSize(2);
         assertThat(relatorio.pagamentos().get(0).pagamentoId()).isEqualTo(5L);
@@ -243,20 +249,16 @@ class ProfissionalServiceTest {
 
     @Test
     void gerarRelatorioPagamento_periodoInvalido_deveLancarBadRequest() {
-        assertThatThrownBy(() -> service.gerarRelatorioPagamento(
-                1L,
-                LocalDate.of(2025, 3, 1),
-                LocalDate.of(2025, 2, 28)))
+        assertThatThrownBy(
+                        () -> service.gerarRelatorioPagamento(1L, LocalDate.of(2025, 3, 1), LocalDate.of(2025, 2, 28)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("não pode ser maior");
     }
 
     @Test
     void gerarRelatorioPagamento_periodoMaiorQueLimite_deveLancarBadRequest() {
-        assertThatThrownBy(() -> service.gerarRelatorioPagamento(
-                1L,
-                LocalDate.of(2024, 1, 1),
-                LocalDate.of(2025, 1, 1)))
+        assertThatThrownBy(
+                        () -> service.gerarRelatorioPagamento(1L, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("366 dias");
     }

@@ -1,5 +1,13 @@
 package com.carlesso.pilatesapi.security;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.carlesso.pilatesapi.dto.ForgotPasswordRequestDTO;
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
 import com.carlesso.pilatesapi.email.EmailMessage;
@@ -11,6 +19,9 @@ import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.lang.reflect.Field;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,18 +32,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.lang.reflect.Field;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentCaptor.forClass;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -88,7 +87,8 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(status().isOk());
 
         User atualizado = userRepository.findById(user.getId()).orElseThrow();
-        assertThat(passwordEncoder.matches("novaSenha123", atualizado.getPassword())).isTrue();
+        assertThat(passwordEncoder.matches("novaSenha123", atualizado.getPassword()))
+                .isTrue();
         assertThat(atualizado.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
 
         mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, tokenAntigo))
@@ -96,8 +96,8 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(
-                                new com.carlesso.pilatesapi.dto.AuthLoginRequestDTO("recupera@email.com", "novaSenha123"))))
+                        .content(mapper.writeValueAsString(new com.carlesso.pilatesapi.dto.AuthLoginRequestDTO(
+                                "recupera@email.com", "novaSenha123"))))
                 .andExpect(status().isOk());
     }
 

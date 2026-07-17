@@ -24,6 +24,11 @@
              adoção do JaCoCo: 94,75% — o gate impede regressão, com folga para
              flutuações pequenas. -->
         <jacoco.line.coverage.minimum>0.90</jacoco.line.coverage.minimum>
+
+        <!-- Formatação (Spotless) e análise estática (SpotBugs). -->
+        <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
+        <palantir-java-format.version>2.50.0</palantir-java-format.version>
+        <spotbugs-maven-plugin.version>4.8.6.6</spotbugs-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -229,6 +234,59 @@
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>
                 </configuration>
+            </plugin>
+
+            <!-- Formatação determinística com palantir-java-format. O goal `check`
+                 roda na fase `check` (antes de `verify`), então `mvn verify` falha
+                 se algum arquivo estiver fora do formato. Para reformatar tudo:
+                 `mvn spotless:apply`. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless-maven-plugin.version}</version>
+                <configuration>
+                    <java>
+                        <palantirJavaFormat>
+                            <version>${palantir-java-format.version}</version>
+                        </palantirJavaFormat>
+                        <removeUnusedImports/>
+                        <formatAnnotations/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Análise estática. `threshold=High` + `effort=Max` faz o build falhar
+                 apenas em findings de alta confiança, evitando ruído de falsos
+                 positivos. Roda na fase `verify` (precisa das classes compiladas).
+                 Para inspecionar localmente: `mvn spotbugs:check` ou `mvn spotbugs:gui`.
+                 Exclusões justificadas ficam em `config/spotbugs-exclude.xml`. -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-maven-plugin.version}</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>High</threshold>
+                    <includeTests>false</includeTests>
+                    <failOnError>true</failOnError>
+                    <excludeFilterFile>config/spotbugs-exclude.xml</excludeFilterFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

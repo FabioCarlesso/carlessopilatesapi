@@ -10,12 +10,11 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AulaService {
@@ -61,16 +60,14 @@ public class AulaService {
 
     @Transactional(readOnly = true)
     public List<AulaResponseDTO> buscarPorPaciente(Long pacienteId) {
-        return aulaRepository.findByPacienteIdOrderByData(pacienteId)
-                .stream()
+        return aulaRepository.findByPacienteIdOrderByData(pacienteId).stream()
                 .map(AulaResponseDTO::from)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<AulaResponseDTO> buscarPorPagamento(Long pagamentoId) {
-        return aulaRepository.findByPagamentoIdOrderByData(pagamentoId)
-                .stream()
+        return aulaRepository.findByPagamentoIdOrderByData(pagamentoId).stream()
                 .map(AulaResponseDTO::from)
                 .toList();
     }
@@ -92,7 +89,8 @@ public class AulaService {
             throw new ConflictException("Aula já foi marcada como realizada");
         }
         if (profissionalId != null) {
-            Profissional profissional = profissionalRepository.findById(profissionalId)
+            Profissional profissional = profissionalRepository
+                    .findById(profissionalId)
                     .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + profissionalId));
             if (!profissional.isAtivo()) {
                 throw new BusinessException("Profissional inativo não pode ser vinculado à aula");
@@ -104,7 +102,8 @@ public class AulaService {
     }
 
     private Aula encontrar(Long id) {
-        return aulaRepository.findByIdAndPacienteAtivoTrue(id)
+        return aulaRepository
+                .findByIdAndPacienteAtivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Aula não encontrada: " + id));
     }
 }
