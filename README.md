@@ -813,6 +813,28 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 
 ---
 
+## Ferramentas de desenvolvimento (CodeGraph)
+
+O projeto está configurado para usar o [CodeGraph](https://github.com/colbymchenry/codegraph), um grafo de conhecimento de código que permite a agentes de IA (Claude Code, Cursor, etc.) localizar símbolos, entry points e relações entre chamadas em uma única consulta, sem precisar explorar arquivo por arquivo.
+
+A configuração já está versionada no repositório (`.mcp.json`, `.claude/settings.json`, `.claude/CLAUDE.md`); o índice em si (`.codegraph/`) é local a cada máquina e não é versionado.
+
+**Para usar em uma nova cópia do repositório:**
+
+```bash
+# 1. Instalar a CLI (sem Node.js)
+curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
+# ou, com Node.js 22.5+:
+npm i -g @colbymchenry/codegraph
+
+# 2. Construir o índice do projeto (o agente já está configurado via .mcp.json)
+codegraph init
+```
+
+Após alterações no código, o CodeGraph reindexiza automaticamente em segundo plano. Para forçar uma sincronização ou verificar o status: `codegraph sync` / `codegraph status`.
+
+---
+
 ## Integração Contínua (CI)
 
 O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a cada `push` e `pull_request` para `master` (e sob demanda via `workflow_dispatch`). São três jobs:
