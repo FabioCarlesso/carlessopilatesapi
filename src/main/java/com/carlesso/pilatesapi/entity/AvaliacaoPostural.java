@@ -32,7 +32,8 @@ public class AvaliacaoPostural {
     @JdbcTypeCode(SqlTypes.JSON)
     private String landmarks;
 
-    @Column(precision = 6, scale = 5)
+    // Nome explícito: a naming strategy padrão converteria "linhaPrumoX" para "linha_prumox"
+    @Column(name = "linha_prumo_x", precision = 6, scale = 5)
     private BigDecimal linhaPrumoX;
 
     @Column(precision = 10, scale = 4)
