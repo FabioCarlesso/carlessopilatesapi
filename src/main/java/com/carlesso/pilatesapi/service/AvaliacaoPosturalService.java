@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.service;
 
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalFotoResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
@@ -14,16 +15,24 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
+import com.carlesso.pilatesapi.storage.FotoArmazenada;
+import com.carlesso.pilatesapi.storage.FotoStorage;
 import com.carlesso.pilatesapi.util.MetricasPosturaisCalculator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import javax.imageio.ImageIO;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Regras do simetrógrafo virtual: a análise vive dentro de uma avaliação
@@ -33,17 +42,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AvaliacaoPosturalService {
 
+    /** Limite do MVP: o frontend comprime a foto (~1080px no maior lado) antes de enviar. */
+    static final long TAMANHO_MAXIMO_FOTO_BYTES = 2L * 1024 * 1024;
+
+    private static final byte[] MAGIC_JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+    private static final byte[] MAGIC_PNG = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+
     private final AvaliacaoPosturalRepository avaliacaoPosturalRepository;
     private final AvaliacaoFisioterapeuticaRepository avaliacaoFisioterapeuticaRepository;
     private final ObjectMapper objectMapper;
+    private final FotoStorage fotoStorage;
 
     public AvaliacaoPosturalService(
             AvaliacaoPosturalRepository avaliacaoPosturalRepository,
             AvaliacaoFisioterapeuticaRepository avaliacaoFisioterapeuticaRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            FotoStorage fotoStorage) {
         this.avaliacaoPosturalRepository = avaliacaoPosturalRepository;
         this.avaliacaoFisioterapeuticaRepository = avaliacaoFisioterapeuticaRepository;
         this.objectMapper = objectMapper;
+        this.fotoStorage = fotoStorage;
     }
 
     @Transactional
@@ -127,6 +145,87 @@ public class AvaliacaoPosturalService {
         analise.setDataAtualizacao(LocalDateTime.now());
 
         return montarResposta(avaliacaoPosturalRepository.save(analise));
+    }
+
+    @Transactional
+    public AvaliacaoPosturalFotoResponseDTO enviarFoto(Long id, MultipartFile foto) {
+        AvaliacaoPostural analise = encontrar(id);
+        if (analise.getStatus() != StatusAvaliacaoPostural.RASCUNHO) {
+            throw new BusinessException(
+                    "Foto de análise postural concluída não pode ser substituída; cancele a análise e crie outra: "
+                            + id);
+        }
+
+        byte[] conteudo = lerConteudo(foto);
+        String contentType = detectarContentType(conteudo);
+        BufferedImage imagem = decodificar(conteudo);
+
+        FotoArmazenada salva = fotoStorage.salvar(id, conteudo, contentType, imagem.getWidth(), imagem.getHeight());
+
+        analise.setFotoContentType(contentType);
+        analise.setDataAtualizacao(LocalDateTime.now());
+        avaliacaoPosturalRepository.save(analise);
+
+        return AvaliacaoPosturalFotoResponseDTO.from(id, salva);
+    }
+
+    @Transactional(readOnly = true)
+    public FotoArmazenada buscarFoto(Long id) {
+        AvaliacaoPostural analise = encontrar(id);
+        return fotoStorage
+                .recuperar(analise.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Análise postural sem foto: " + id));
+    }
+
+    private byte[] lerConteudo(MultipartFile foto) {
+        if (foto == null || foto.isEmpty()) {
+            throw new IllegalArgumentException("foto é obrigatória");
+        }
+        if (foto.getSize() > TAMANHO_MAXIMO_FOTO_BYTES) {
+            throw new BusinessException("Foto excede o tamanho máximo permitido de 2 MB");
+        }
+        try {
+            return foto.getBytes();
+        } catch (IOException e) {
+            throw new IllegalStateException("Falha ao ler o conteúdo da foto", e);
+        }
+    }
+
+    /** Formato validado pelos magic bytes do conteúdo — extensão e Content-Type informados não contam. */
+    private String detectarContentType(byte[] conteudo) {
+        if (comecaCom(conteudo, MAGIC_JPEG)) {
+            return MediaType.IMAGE_JPEG_VALUE;
+        }
+        if (comecaCom(conteudo, MAGIC_PNG)) {
+            return MediaType.IMAGE_PNG_VALUE;
+        }
+        throw new IllegalArgumentException("Formato de foto não suportado: envie JPEG ou PNG");
+    }
+
+    private boolean comecaCom(byte[] conteudo, byte[] prefixo) {
+        if (conteudo.length < prefixo.length) {
+            return false;
+        }
+        for (int i = 0; i < prefixo.length; i++) {
+            if (conteudo[i] != prefixo[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Decodifica a imagem para extrair largura/altura, exigidas pelo cálculo fiel dos ângulos. */
+    private BufferedImage decodificar(byte[] conteudo) {
+        BufferedImage imagem;
+        try {
+            imagem = ImageIO.read(new ByteArrayInputStream(conteudo));
+        } catch (IOException e) {
+            imagem = null;
+        }
+        if (imagem == null) {
+            throw new IllegalArgumentException("Arquivo de foto inválido ou corrompido");
+        }
+        return imagem;
     }
 
     private AvaliacaoPostural encontrar(Long id) {

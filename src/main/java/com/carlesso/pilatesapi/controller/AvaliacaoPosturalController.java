@@ -1,9 +1,11 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalFotoResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
 import com.carlesso.pilatesapi.service.AvaliacaoPosturalService;
+import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -11,8 +13,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Tag(
@@ -106,6 +111,44 @@ public class AvaliacaoPosturalController {
     public ResponseEntity<AvaliacaoPosturalResponseDTO> concluir(
             @Parameter(description = "ID da análise postural", required = true) @PathVariable Long id) {
         return ResponseEntity.ok(service.concluir(id));
+    }
+
+    @Operation(
+            summary = "Enviar ou substituir a foto da análise postural",
+            description =
+                    "Recebe multipart/form-data com o campo 'foto' (JPEG ou PNG, máx. 2 MB, formato validado pelo conteúdo). Só análises em RASCUNHO aceitam foto; um novo envio substitui a anterior.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Foto gravada, metadados retornados"),
+        @ApiResponse(responseCode = "400", description = "Arquivo ausente, corrompido ou que não é JPEG/PNG"),
+        @ApiResponse(responseCode = "404", description = "Análise não encontrada ou cancelada"),
+        @ApiResponse(responseCode = "413", description = "Foto acima do tamanho máximo de 2 MB"),
+        @ApiResponse(responseCode = "422", description = "Análise concluída não admite substituição da foto")
+    })
+    @PutMapping(value = "/{id}/foto", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AvaliacaoPosturalFotoResponseDTO> enviarFoto(
+            @Parameter(description = "ID da análise postural", required = true) @PathVariable Long id,
+            @RequestPart("foto") MultipartFile foto) {
+        return ResponseEntity.ok(service.enviarFoto(id, foto));
+    }
+
+    @Operation(
+            summary = "Recuperar a foto da análise postural",
+            description = "Devolve o binário da foto com o Content-Type do upload, para exibição inline.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Foto retornada"),
+        @ApiResponse(responseCode = "404", description = "Análise não encontrada, cancelada ou sem foto")
+    })
+    @GetMapping("/{id}/foto")
+    public ResponseEntity<byte[]> baixarFoto(
+            @Parameter(description = "ID da análise postural", required = true) @PathVariable Long id) {
+        FotoArmazenada foto = service.buscarFoto(id);
+        String extensao = MediaType.IMAGE_PNG_VALUE.equals(foto.contentType()) ? "png" : "jpg";
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(foto.contentType()))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"avaliacao-postural-" + id + "." + extensao + "\"")
+                .body(foto.conteudo());
     }
 
     @Operation(

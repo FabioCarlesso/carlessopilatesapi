@@ -109,7 +109,7 @@ Medidas em **centímetros** só aparecem quando há referência de tamanho conhe
 
 | Tema | Decisão / Direção |
 |---|---|
-| Armazenamento de fotos | MVP: `bytea` no PostgreSQL com compressão no frontend (~1080px). Evolução: Cloudflare R2 via interface `FotoStorage` (mesmo padrão do `EmailSender`) |
+| Armazenamento de fotos | MVP: `bytea` no PostgreSQL em tabela própria (`avaliacoes_posturais_fotos`, V30) para o binário ficar fora das listagens, com compressão no frontend (~1080px). O acesso ao binário já passa pela interface `FotoStorage` (mesmo padrão do `EmailSender`); evolução: implementação Cloudflare R2 |
 | Coordenadas dos landmarks | Normalizadas (0 a 1, relativas à imagem), persistidas como JSONB separado da foto |
 | Cálculo das métricas | Trigonometria sobre os pontos (sem ML no MVP); métricas sempre derivadas, nunca editadas |
 | Detecção automática | Fase futura: MediaPipe Pose / MoveNet via TensorFlow.js no browser |
