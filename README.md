@@ -84,6 +84,7 @@ src/
 │   │   │   ├── AulaRepository.java
 │   │   │   ├── AnamneseRepository.java
 │   │   │   ├── AvaliacaoFisioterapeuticaRepository.java
+│   │   │   ├── AvaliacaoPosturalRepository.java
 │   │   │   ├── PlanoTratamentoRepository.java
 │   │   │   └── UserRepository.java
 │   │   ├── entity/
@@ -95,6 +96,7 @@ src/
 │   │   │   ├── Aula.java                    # Aula agendada (com presença)
 │   │   │   ├── Anamnese.java                # Anamnese clínica do paciente
 │   │   │   ├── AvaliacaoFisioterapeutica.java # Avaliação técnica do paciente
+│   │   │   ├── AvaliacaoPostural.java         # Análise postural (simetrógrafo virtual) da avaliação
 │   │   │   ├── PlanoTratamento.java           # Plano de tratamento clínico do paciente
 │   │   │   └── User.java                    # Usuário autenticável da API
 │   │   ├── security/
@@ -104,6 +106,8 @@ src/
 │   │   │   ├── TipoContrato.java            # CLT, PJ, AUTONOMO
 │   │   │   ├── FrequenciaSemanal.java       # UMA_VEZ, DUAS_VEZES, TRES_VEZES
 │   │   │   ├── StatusPagamento.java         # PENDENTE, PAGO, VENCIDO
+│   │   │   ├── VistaPostural.java           # FRENTE, COSTAS, LADO_DIREITO, LADO_ESQUERDO
+│   │   │   ├── StatusAvaliacaoPostural.java # RASCUNHO, CONCLUIDA
 │   │   │   └── Role.java                    # USER, ADMIN
 │   │   ├── dto/
 │   │   │   ├── PacienteRequestDTO.java
@@ -939,6 +943,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V25__create_preferencias_usuario_table.sql` | Cria tabela `preferencias_usuario` (1:1 com `users`) para idioma, tema e preferências de notificação |
 | `V26__create_notas_fiscais_emitidas_table.sql` | Cria tabela `notas_fiscais_emitidas` para persistir a última NFSE emitida por paciente/competência |
 | `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
+| `V28__create_avaliacoes_posturais_table.sql` | Cria tabela `avaliacoes_posturais` (simetrógrafo virtual): landmarks em `JSONB`, soft delete e índice parcial de unicidade `(avaliacao_fisioterapeutica_id, vista) WHERE ativo = true` |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -1376,6 +1381,7 @@ O projeto possui testes unitários, de controller e de integração organizados 
 | `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
 | `NotaFiscalEmitidaRepositoryTest` | JPA (`@DataJpaTest`) | 3 |
 | `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 4 |
+| `AvaliacaoPosturalRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
 | `PacienteControllerTest` | Controller (`@WebMvcTest`) | 22 |
 | `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
 | `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
