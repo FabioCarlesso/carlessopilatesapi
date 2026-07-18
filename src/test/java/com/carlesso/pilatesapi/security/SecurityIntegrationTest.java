@@ -178,6 +178,11 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void avaliacoesPosturais_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/avaliacoes-posturais/1")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void rotaProtegida_comTokenInvalido_deveRetornar401() throws Exception {
         mvc.perform(get("/pacientes").header(HttpHeaders.AUTHORIZATION, "Bearer token-invalido"))
                 .andExpect(status().isUnauthorized());
