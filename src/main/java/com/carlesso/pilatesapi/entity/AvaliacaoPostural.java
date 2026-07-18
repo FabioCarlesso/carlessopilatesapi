@@ -39,6 +39,21 @@ public class AvaliacaoPostural {
     @Column(precision = 10, scale = 4)
     private BigDecimal calibracaoCmPorUnidade;
 
+    /**
+     * Razão largura/altura da foto, usada para converter as coordenadas normalizadas
+     * em ângulos fiéis. Quando nula, os ângulos são calculados sobre as coordenadas
+     * normalizadas puras (equivalente a uma imagem quadrada).
+     */
+    @Column(precision = 6, scale = 4)
+    private BigDecimal proporcaoImagem;
+
+    /**
+     * Content type da foto enviada; serve como marcador de "foto presente" para a API.
+     * Os bytes (coluna {@code foto}) são mapeados na issue de upload da foto.
+     */
+    @Column(length = 100)
+    private String fotoContentType;
+
     @Column(columnDefinition = "TEXT")
     private String observacoes;
 
@@ -107,6 +122,22 @@ public class AvaliacaoPostural {
 
     public void setCalibracaoCmPorUnidade(BigDecimal calibracaoCmPorUnidade) {
         this.calibracaoCmPorUnidade = calibracaoCmPorUnidade;
+    }
+
+    public BigDecimal getProporcaoImagem() {
+        return proporcaoImagem;
+    }
+
+    public void setProporcaoImagem(BigDecimal proporcaoImagem) {
+        this.proporcaoImagem = proporcaoImagem;
+    }
+
+    public String getFotoContentType() {
+        return fotoContentType;
+    }
+
+    public void setFotoContentType(String fotoContentType) {
+        this.fotoContentType = fotoContentType;
     }
 
     public String getObservacoes() {

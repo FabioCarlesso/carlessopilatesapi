@@ -52,6 +52,7 @@ src/
 │   │   │   ├── AulaController.java          # /aulas
 │   │   │   ├── AnamneseController.java      # /anamneses
 │   │   │   ├── AvaliacaoFisioterapeuticaController.java # /avaliacoes-fisioterapeuticas
+│   │   │   ├── AvaliacaoPosturalController.java        # /avaliacoes-posturais (simetrógrafo virtual)
 │   │   │   ├── PlanoTratamentoController.java          # /planos-tratamento
 │   │   │   ├── AuthController.java          # /auth/login e recuperação de senha
 │   │   │   ├── UserController.java          # /users/me e CRUD administrativo de usuários
@@ -282,6 +283,17 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/avaliacoes-fisioterapeuticas/{id}` | Buscar avaliação fisioterapêutica por ID |
 | `GET` | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente |
 | `PUT` | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar dados da avaliação fisioterapêutica |
+
+### Análises Posturais (simetrógrafo virtual)
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/avaliacoes-posturais` | Criar análise postural (status `RASCUNHO`) para uma avaliação e vista |
+| `GET` | `/avaliacoes-posturais/{id}` | Buscar análise por ID (com métricas calculadas) |
+| `GET` | `/avaliacoes-posturais/avaliacao-fisioterapeutica/{avaliacaoId}` | Listar análises ativas da avaliação |
+| `PUT` | `/avaliacoes-posturais/{id}` | Atualizar landmarks, linha de prumo, calibração e observações (apenas `RASCUNHO`) |
+| `PATCH` | `/avaliacoes-posturais/{id}/concluir` | Concluir análise (exige pontos obrigatórios completos e foto) |
+| `PATCH` | `/avaliacoes-posturais/{id}/cancelar` | Cancelar análise (exclusão lógica) |
 
 ### Planos de Tratamento
 
@@ -612,6 +624,82 @@ Todos os campos são opcionais. Apenas os campos enviados serão atualizados.
 ```
 
 > Campos obrigatórios: `pacienteId`, `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`. `escalaDor` deve estar entre 0 e 10.
+
+### POST /avaliacoes-posturais — corpo da requisição
+
+```json
+{
+  "avaliacaoFisioterapeuticaId": 1,
+  "vista": "FRENTE"
+}
+```
+
+> `vista`: `FRENTE`, `COSTAS`, `LADO_DIREITO` ou `LADO_ESQUERDO`. A análise nasce em `RASCUNHO` e cada avaliação admite no máximo **uma análise ativa por vista** (duplicata retorna `409`).
+
+### PUT /avaliacoes-posturais/{id} — corpo da requisição
+
+```json
+{
+  "linhaPrumoX": 0.502,
+  "calibracaoCmPorUnidade": null,
+  "proporcaoImagem": 0.75,
+  "observacoes": "Elevação de ombro D compatível com queixa funcional.",
+  "landmarks": [
+    { "codigo": "OLHO_ESQ", "x": 0.462, "y": 0.118 },
+    { "codigo": "OLHO_DIR", "x": 0.543, "y": 0.121 },
+    { "codigo": "OMBRO_ESQ", "x": 0.401, "y": 0.232 },
+    { "codigo": "OMBRO_DIR", "x": 0.603, "y": 0.247 }
+  ]
+}
+```
+
+Coordenadas são **normalizadas (0 a 1)** relativas à imagem; valores fora do intervalo retornam `400`. Os códigos válidos dependem da vista — código de outra vista retorna `422`:
+
+| Vista | Códigos aceitos |
+|---|---|
+| `FRENTE` / `COSTAS` | `OLHO_ESQ`, `OLHO_DIR`, `OMBRO_ESQ`, `OMBRO_DIR`, `QUADRIL_ESQ`, `QUADRIL_DIR`, `JOELHO_ESQ`, `JOELHO_DIR`, `TORNOZELO_ESQ`, `TORNOZELO_DIR` |
+| `LADO_DIREITO` / `LADO_ESQUERDO` | `ORELHA`, `OMBRO`, `QUADRIL`, `JOELHO`, `TORNOZELO` |
+
+### Resposta padrão de análise postural (200/201)
+
+```json
+{
+  "id": 10,
+  "avaliacaoFisioterapeuticaId": 1,
+  "vista": "FRENTE",
+  "status": "RASCUNHO",
+  "linhaPrumoX": 0.502,
+  "calibracaoCmPorUnidade": null,
+  "proporcaoImagem": 0.75,
+  "observacoes": "Elevação de ombro D compatível com queixa funcional.",
+  "temFoto": true,
+  "landmarks": [
+    { "codigo": "OLHO_ESQ", "x": 0.462, "y": 0.118 },
+    { "codigo": "OLHO_DIR", "x": 0.543, "y": 0.121 }
+  ],
+  "metricas": {
+    "inclinacaoCabecaGraus": 3.80,
+    "desnivelOmbrosGraus": 2.30,
+    "desnivelQuadrilGraus": null,
+    "desnivelJoelhosGraus": null,
+    "desvioPrumoNormalizado": 0.0120,
+    "desvioPrumoCm": null
+  },
+  "dataCriacao": "2026-07-20T10:00:00",
+  "dataAtualizacao": null
+}
+```
+
+Regras do bloco `metricas`:
+
+- É **somente leitura**: as métricas nunca são aceitas em requisições e são recalculadas a cada `PUT`.
+- Métricas cujos pontos ainda não foram marcados vêm `null` (vistas laterais não têm pares, então saem sem desníveis).
+- Os ângulos vêm da reta entre os dois pontos (`atan2` sobre as coordenadas normalizadas), no intervalo `(-90, 90]`; positivo indica o ponto da direita da imagem mais baixo, `0` indica pontos nivelados.
+- `proporcaoImagem` (largura/altura) corrige a distorção dos eixos em fotos não quadradas; sem ela o cálculo assume imagem quadrada.
+- `desvioPrumoNormalizado` é a distância horizontal entre a linha de prumo e a referência do tronco (ponto médio dos acrômios nas vistas frontais, acrômio nas laterais).
+- `desvioPrumoCm` **só aparece quando há `calibracaoCmPorUnidade`**; sem calibração, a API responde apenas ângulos e o desvio normalizado.
+
+Ciclo de vida: `RASCUNHO` aceita marcação parcial; `concluir` exige todos os pontos da vista e a foto enviada (senão `422`); análise `CONCLUIDA` é imutável (novo `PUT`/`concluir` retorna `422`) e `cancelar` faz exclusão lógica, liberando a vista para uma nova análise.
 
 ### PUT /users/me/preferencias — corpo da requisição
 
@@ -944,6 +1032,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V26__create_notas_fiscais_emitidas_table.sql` | Cria tabela `notas_fiscais_emitidas` para persistir a última NFSE emitida por paciente/competência |
 | `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
 | `V28__create_avaliacoes_posturais_table.sql` | Cria tabela `avaliacoes_posturais` (simetrógrafo virtual): landmarks em `JSONB`, soft delete e índice parcial de unicidade `(avaliacao_fisioterapeutica_id, vista) WHERE ativo = true` |
+| `V29__add_foto_and_proporcao_to_avaliacoes_posturais.sql` | Adiciona `foto`/`foto_content_type` (MVP em `bytea`, upload em issue própria) e `proporcao_imagem` — razão largura/altura usada para calcular ângulos fiéis sobre coordenadas normalizadas |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -1169,6 +1258,26 @@ curl -s -X POST http://localhost:8080/avaliacoes-fisioterapeuticas \
   }' | jq
 
 curl -s http://localhost:8080/avaliacoes-fisioterapeuticas/paciente/1 \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Análise postural: criar, marcar pontos (métricas voltam calculadas) e concluir
+curl -s -X POST http://localhost:8080/avaliacoes-posturais \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{ "avaliacaoFisioterapeuticaId": 1, "vista": "FRENTE" }' | jq
+
+curl -s -X PUT http://localhost:8080/avaliacoes-posturais/10 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "linhaPrumoX": 0.502,
+    "landmarks": [
+      { "codigo": "OMBRO_ESQ", "x": 0.401, "y": 0.232 },
+      { "codigo": "OMBRO_DIR", "x": 0.603, "y": 0.247 }
+    ]
+  }' | jq '.metricas'
+
+curl -s -X PATCH http://localhost:8080/avaliacoes-posturais/10/concluir \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
