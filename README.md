@@ -689,8 +689,8 @@ Resposta (`200`):
 Regras:
 
 - Apenas análises em `RASCUNHO` aceitam foto; um novo envio **substitui** a anterior. Em análise `CONCLUIDA` retorna `422` (cancele a análise e crie outra).
-- Arquivo que não é JPEG/PNG (mesmo renomeado) ou corrompido retorna `400`; acima de 2 MB retorna `413`.
-- Largura e altura em pixels são extraídas no upload e persistidas junto do binário.
+- Arquivo que não é JPEG/PNG (mesmo renomeado) ou corrompido retorna `400`; acima de 2 MB retorna `413`; acima de **10000 px** por lado retorna `400` (proteção contra decompression bomb).
+- Largura e altura em pixels são extraídas apenas do header da imagem (sem decodificar os pixels) e persistidas junto do binário.
 
 O `GET /avaliacoes-posturais/{id}/foto` devolve o binário com `Content-Type` do upload e `Content-Disposition: inline; filename="avaliacao-postural-{id}.jpg"` (`.png` quando PNG); análise sem foto retorna `404`. O binário fica em tabela própria (`avaliacoes_posturais_fotos`), fora das listagens e buscas da análise.
 

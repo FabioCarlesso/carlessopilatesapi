@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,6 +63,8 @@ class AvaliacaoPosturalServiceTest {
     void setUp() {
         service = new AvaliacaoPosturalService(
                 avaliacaoPosturalRepository, avaliacaoFisioterapeuticaRepository, new ObjectMapper(), fotoStorage);
+        // apontamos o "self" para a própria instância para que enviarFoto() delegue ao substituirFoto().
+        service.setSelf(service);
     }
 
     private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica() {
@@ -463,6 +467,36 @@ class AvaliacaoPosturalServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("2 MB");
         verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_acimaDaDimensaoMaxima_deveLancarIllegalArgumentSemDecodificar() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        // 10001x1: header declara largura acima do teto com um arquivo minúsculo
+        byte[] conteudo = imagem("png", AvaliacaoPosturalService.DIMENSAO_MAXIMA_PX + 1, 1);
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart(conteudo)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dimensão máxima");
+        verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_comColisaoDeUploadsConcorrentes_deveRepetirComoSubstituicao() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        devolverAnaliseSalva();
+        byte[] conteudo = imagem("jpg", 1080, 1440);
+        when(fotoStorage.salvar(eq(10L), any(), eq("image/jpeg"), eq(1080), eq(1440)))
+                .thenThrow(new DataIntegrityViolationException("constraint única violada"))
+                .thenReturn(new FotoArmazenada(
+                        conteudo, "image/jpeg", conteudo.length, 1080, 1440, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        var response = service.enviarFoto(10L, multipart(conteudo));
+
+        assertThat(response.contentType()).isEqualTo("image/jpeg");
+        verify(fotoStorage, times(2)).salvar(eq(10L), any(), eq("image/jpeg"), eq(1080), eq(1440));
     }
 
     @Test

@@ -116,7 +116,7 @@ public class AvaliacaoPosturalController {
     @Operation(
             summary = "Enviar ou substituir a foto da análise postural",
             description =
-                    "Recebe multipart/form-data com o campo 'foto' (JPEG ou PNG, máx. 2 MB, formato validado pelo conteúdo). Só análises em RASCUNHO aceitam foto; um novo envio substitui a anterior.")
+                    "Recebe multipart/form-data com o campo 'foto' (JPEG ou PNG, máx. 2 MB e 10000 px por lado, formato validado pelo conteúdo). Só análises em RASCUNHO aceitam foto; um novo envio substitui a anterior.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Foto gravada, metadados retornados"),
         @ApiResponse(responseCode = "400", description = "Arquivo ausente, corrompido ou que não é JPEG/PNG"),
