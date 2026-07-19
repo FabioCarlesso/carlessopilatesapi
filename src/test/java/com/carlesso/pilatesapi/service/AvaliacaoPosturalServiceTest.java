@@ -3,8 +3,11 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
@@ -21,17 +24,26 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
+import com.carlesso.pilatesapi.storage.FotoArmazenada;
+import com.carlesso.pilatesapi.storage.FotoStorage;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class AvaliacaoPosturalServiceTest {
@@ -42,12 +54,17 @@ class AvaliacaoPosturalServiceTest {
     @Mock
     private AvaliacaoFisioterapeuticaRepository avaliacaoFisioterapeuticaRepository;
 
+    @Mock
+    private FotoStorage fotoStorage;
+
     private AvaliacaoPosturalService service;
 
     @BeforeEach
     void setUp() {
         service = new AvaliacaoPosturalService(
-                avaliacaoPosturalRepository, avaliacaoFisioterapeuticaRepository, new ObjectMapper());
+                avaliacaoPosturalRepository, avaliacaoFisioterapeuticaRepository, new ObjectMapper(), fotoStorage);
+        // apontamos o "self" para a própria instância para que enviarFoto() delegue ao substituirFoto().
+        service.setSelf(service);
     }
 
     private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica() {
@@ -356,6 +373,177 @@ class AvaliacaoPosturalServiceTest {
         assertThat(analise.isAtivo()).isFalse();
         assertThat(analise.getDataAtualizacao()).isNotNull();
         verify(avaliacaoPosturalRepository).save(analise);
+    }
+
+    @Test
+    void enviarFoto_comJpegEmRascunho_devePersistirEAtualizarMarcador() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        devolverAnaliseSalva();
+        byte[] conteudo = imagem("jpg", 1080, 1440);
+        when(fotoStorage.salvar(eq(10L), any(), eq("image/jpeg"), eq(1080), eq(1440)))
+                .thenReturn(new FotoArmazenada(
+                        conteudo, "image/jpeg", conteudo.length, 1080, 1440, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        var response = service.enviarFoto(10L, multipart(conteudo));
+
+        assertThat(response.avaliacaoPosturalId()).isEqualTo(10L);
+        assertThat(response.contentType()).isEqualTo("image/jpeg");
+        assertThat(response.tamanhoBytes()).isEqualTo(conteudo.length);
+        assertThat(response.larguraPx()).isEqualTo(1080);
+        assertThat(response.alturaPx()).isEqualTo(1440);
+        assertThat(response.dataCriacao()).isNotNull();
+        assertThat(analise.getFotoContentType()).isEqualTo("image/jpeg");
+        assertThat(analise.getDataAtualizacao()).isNotNull();
+        verify(avaliacaoPosturalRepository).save(analise);
+    }
+
+    @Test
+    void enviarFoto_detectaFormatoPeloConteudoENaoPelaExtensao() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        devolverAnaliseSalva();
+        byte[] conteudo = imagem("png", 800, 600);
+        when(fotoStorage.salvar(eq(10L), any(), eq("image/png"), eq(800), eq(600)))
+                .thenReturn(new FotoArmazenada(
+                        conteudo, "image/png", conteudo.length, 800, 600, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        // PNG enviado com nome .jpg e Content-Type de JPEG: valem os magic bytes
+        var response = service.enviarFoto(10L, multipart(conteudo));
+
+        assertThat(response.contentType()).isEqualTo("image/png");
+        assertThat(analise.getFotoContentType()).isEqualTo("image/png");
+    }
+
+    @Test
+    void enviarFoto_emAnaliseConcluida_deveLancarBusinessException() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.CONCLUIDA);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart(imagem("jpg", 100, 100))))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não pode ser substituída");
+        verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_comAnaliseInexistenteOuCancelada_deveLancarResourceNotFound() {
+        when(avaliacaoPosturalRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.enviarFoto(99L, multipart(imagem("jpg", 100, 100))))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void enviarFoto_comArquivoQueNaoEImagem_deveLancarIllegalArgument() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart("isto não é uma imagem".getBytes())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("JPEG ou PNG");
+        verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_comConteudoCorrompido_deveLancarIllegalArgument() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        byte[] soMagicBytes = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00, 0x01, 0x02};
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart(soMagicBytes)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inválido ou corrompido");
+        verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_acimaDoTamanhoMaximo_deveLancarBusinessException() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        byte[] excedente = new byte[(int) AvaliacaoPosturalService.TAMANHO_MAXIMO_FOTO_BYTES + 1];
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart(excedente)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("2 MB");
+        verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_acimaDaDimensaoMaxima_deveLancarIllegalArgumentSemDecodificar() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        // 10001x1: header declara largura acima do teto com um arquivo minúsculo
+        byte[] conteudo = imagem("png", AvaliacaoPosturalService.DIMENSAO_MAXIMA_PX + 1, 1);
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart(conteudo)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dimensão máxima");
+        verifyNoInteractions(fotoStorage);
+    }
+
+    @Test
+    void enviarFoto_comColisaoDeUploadsConcorrentes_deveRepetirComoSubstituicao() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        devolverAnaliseSalva();
+        byte[] conteudo = imagem("jpg", 1080, 1440);
+        when(fotoStorage.salvar(eq(10L), any(), eq("image/jpeg"), eq(1080), eq(1440)))
+                .thenThrow(new DataIntegrityViolationException("constraint única violada"))
+                .thenReturn(new FotoArmazenada(
+                        conteudo, "image/jpeg", conteudo.length, 1080, 1440, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        var response = service.enviarFoto(10L, multipart(conteudo));
+
+        assertThat(response.contentType()).isEqualTo("image/jpeg");
+        verify(fotoStorage, times(2)).salvar(eq(10L), any(), eq("image/jpeg"), eq(1080), eq(1440));
+    }
+
+    @Test
+    void enviarFoto_semArquivo_deveLancarIllegalArgument() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+
+        assertThatThrownBy(() -> service.enviarFoto(10L, multipart(new byte[0])))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("obrigatória");
+    }
+
+    @Test
+    void buscarFoto_comFotoPresente_deveDevolverBinarioEMetadados() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.CONCLUIDA);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        FotoArmazenada foto = new FotoArmazenada(
+                new byte[] {1, 2, 3}, "image/jpeg", 3, 1080, 1440, LocalDateTime.of(2026, 7, 20, 10, 5));
+        when(fotoStorage.recuperar(10L)).thenReturn(Optional.of(foto));
+
+        assertThat(service.buscarFoto(10L)).isEqualTo(foto);
+    }
+
+    @Test
+    void buscarFoto_semFoto_deveLancarResourceNotFound() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        when(fotoStorage.recuperar(10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.buscarFoto(10L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("sem foto");
+    }
+
+    private byte[] imagem(String formato, int largura, int altura) {
+        try {
+            BufferedImage imagem = new BufferedImage(largura, altura, BufferedImage.TYPE_INT_RGB);
+            ByteArrayOutputStream saida = new ByteArrayOutputStream();
+            ImageIO.write(imagem, formato, saida);
+            return saida.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private MockMultipartFile multipart(byte[] conteudo) {
+        return new MockMultipartFile("foto", "foto.jpg", "image/jpeg", conteudo);
     }
 
     private String landmarksCompletosLaterais() {

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalFotoResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
@@ -20,6 +21,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AvaliacaoPosturalService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
+import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,7 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -275,5 +279,93 @@ class AvaliacaoPosturalControllerTest {
         when(service.cancelar(99L)).thenThrow(new ResourceNotFoundException("Análise postural não encontrada: 99"));
 
         mvc.perform(patch("/avaliacoes-posturais/99/cancelar")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void enviarFoto_comMultipartValido_deveRetornar200ComMetadados() throws Exception {
+        when(service.enviarFoto(eq(10L), any()))
+                .thenReturn(new AvaliacaoPosturalFotoResponseDTO(
+                        10L, "image/jpeg", 412034, 1080, 1440, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto").file(arquivoFoto()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avaliacaoPosturalId").value(10))
+                .andExpect(jsonPath("$.contentType").value("image/jpeg"))
+                .andExpect(jsonPath("$.tamanhoBytes").value(412034))
+                .andExpect(jsonPath("$.larguraPx").value(1080))
+                .andExpect(jsonPath("$.alturaPx").value(1440))
+                .andExpect(jsonPath("$.dataCriacao").exists());
+    }
+
+    @Test
+    void enviarFoto_semCampoFoto_deveRetornar400() throws Exception {
+        mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void enviarFoto_comFormatoInvalido_deveRetornar400() throws Exception {
+        when(service.enviarFoto(eq(10L), any()))
+                .thenThrow(new IllegalArgumentException("Formato de foto não suportado: envie JPEG ou PNG"));
+
+        mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto").file(arquivoFoto()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Formato de foto não suportado: envie JPEG ou PNG"));
+    }
+
+    @Test
+    void enviarFoto_emAnaliseConcluida_deveRetornar422() throws Exception {
+        when(service.enviarFoto(eq(10L), any()))
+                .thenThrow(
+                        new BusinessException(
+                                "Foto de análise postural concluída não pode ser substituída; cancele a análise e crie outra: 10"));
+
+        mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto").file(arquivoFoto()))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void enviarFoto_comAnaliseInexistente_deveRetornar404() throws Exception {
+        when(service.enviarFoto(eq(99L), any()))
+                .thenThrow(new ResourceNotFoundException("Análise postural não encontrada: 99"));
+
+        mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/99/foto").file(arquivoFoto()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void baixarFoto_deveRetornarBinarioComHeaders() throws Exception {
+        byte[] conteudo = {1, 2, 3};
+        when(service.buscarFoto(10L))
+                .thenReturn(new FotoArmazenada(
+                        conteudo, "image/jpeg", 3, 1080, 1440, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        mvc.perform(get("/avaliacoes-posturais/10/foto"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/jpeg"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"avaliacao-postural-10.jpg\""))
+                .andExpect(content().bytes(conteudo));
+    }
+
+    @Test
+    void baixarFoto_dePng_deveUsarExtensaoPngNoFilename() throws Exception {
+        when(service.buscarFoto(10L))
+                .thenReturn(new FotoArmazenada(
+                        new byte[] {1}, "image/png", 1, 800, 600, LocalDateTime.of(2026, 7, 20, 10, 5)));
+
+        mvc.perform(get("/avaliacoes-posturais/10/foto"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"avaliacao-postural-10.png\""));
+    }
+
+    @Test
+    void baixarFoto_semFoto_deveRetornar404() throws Exception {
+        when(service.buscarFoto(10L)).thenThrow(new ResourceNotFoundException("Análise postural sem foto: 10"));
+
+        mvc.perform(get("/avaliacoes-posturais/10/foto")).andExpect(status().isNotFound());
+    }
+
+    private MockMultipartFile arquivoFoto() {
+        return new MockMultipartFile("foto", "foto.jpg", MediaType.IMAGE_JPEG_VALUE, new byte[] {1, 2, 3});
     }
 }

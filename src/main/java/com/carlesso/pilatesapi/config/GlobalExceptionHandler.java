@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -50,6 +51,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     static final String ERRO_CORPO_ILEGIVEL = "Corpo da requisição inválido ou malformado";
     static final String ERRO_INTERNO = "Erro interno do servidor";
     static final String ERRO_ROTA = "Rota não encontrada";
+    static final String ERRO_UPLOAD_EXCEDIDO = "Arquivo excede o tamanho máximo permitido de 2 MB";
     static final String MENSAGEM_CAMPO_PADRAO = "valor inválido";
 
     @ExceptionHandler({ResourceNotFoundException.class, EntityNotFoundException.class})
@@ -164,6 +166,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(ex, Map.of("erro", ERRO_CORPO_ILEGIVEL), headers, status, request);
+    }
+
+    /** Multipart acima de spring.servlet.multipart.max-file-size/max-request-size (413). */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return handleExceptionInternal(ex, Map.of("erro", ERRO_UPLOAD_EXCEDIDO), headers, status, request);
     }
 
     @Override

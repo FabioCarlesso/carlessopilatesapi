@@ -292,6 +292,8 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/avaliacoes-posturais/{id}` | Buscar análise por ID (com métricas calculadas) |
 | `GET` | `/avaliacoes-posturais/avaliacao-fisioterapeutica/{avaliacaoId}` | Listar análises ativas da avaliação |
 | `PUT` | `/avaliacoes-posturais/{id}` | Atualizar landmarks, linha de prumo, calibração e observações (apenas `RASCUNHO`) |
+| `PUT` | `/avaliacoes-posturais/{id}/foto` | Enviar/substituir a foto da análise (multipart, JPEG/PNG até 2 MB, apenas `RASCUNHO`) |
+| `GET` | `/avaliacoes-posturais/{id}/foto` | Recuperar o binário da foto da análise |
 | `PATCH` | `/avaliacoes-posturais/{id}/concluir` | Concluir análise (exige pontos obrigatórios completos e foto) |
 | `PATCH` | `/avaliacoes-posturais/{id}/cancelar` | Cancelar análise (exclusão lógica) |
 
@@ -659,6 +661,38 @@ Coordenadas são **normalizadas (0 a 1)** relativas à imagem; valores fora do i
 |---|---|
 | `FRENTE` / `COSTAS` | `OLHO_ESQ`, `OLHO_DIR`, `OMBRO_ESQ`, `OMBRO_DIR`, `QUADRIL_ESQ`, `QUADRIL_DIR`, `JOELHO_ESQ`, `JOELHO_DIR`, `TORNOZELO_ESQ`, `TORNOZELO_DIR` |
 | `LADO_DIREITO` / `LADO_ESQUERDO` | `ORELHA`, `OMBRO`, `QUADRIL`, `JOELHO`, `TORNOZELO` |
+
+### PUT /avaliacoes-posturais/{id}/foto — upload da foto
+
+Requisição `multipart/form-data` com o campo `foto` (JPEG ou PNG, máx. **2 MB**; o formato é validado pelos *magic bytes* do conteúdo, não pela extensão):
+
+```
+PUT /avaliacoes-posturais/10/foto
+Content-Type: multipart/form-data
+
+foto: <arquivo JPEG ou PNG>
+```
+
+Resposta (`200`):
+
+```json
+{
+  "avaliacaoPosturalId": 10,
+  "contentType": "image/jpeg",
+  "tamanhoBytes": 412034,
+  "larguraPx": 1080,
+  "alturaPx": 1440,
+  "dataCriacao": "2026-07-20T10:05:00"
+}
+```
+
+Regras:
+
+- Apenas análises em `RASCUNHO` aceitam foto; um novo envio **substitui** a anterior. Em análise `CONCLUIDA` retorna `422` (cancele a análise e crie outra).
+- Arquivo que não é JPEG/PNG (mesmo renomeado) ou corrompido retorna `400`; acima de 2 MB retorna `413`; acima de **10000 px** por lado retorna `400` (proteção contra decompression bomb).
+- Largura e altura em pixels são extraídas apenas do header da imagem (sem decodificar os pixels) e persistidas junto do binário.
+
+O `GET /avaliacoes-posturais/{id}/foto` devolve o binário com `Content-Type` do upload e `Content-Disposition: inline; filename="avaliacao-postural-{id}.jpg"` (`.png` quando PNG); análise sem foto retorna `404`. O binário fica em tabela própria (`avaliacoes_posturais_fotos`), fora das listagens e buscas da análise.
 
 ### Resposta padrão de análise postural (200/201)
 
