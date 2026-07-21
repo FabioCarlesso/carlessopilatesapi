@@ -79,6 +79,95 @@ class MaskingTest(unittest.TestCase):
         self.assertEqual(imp.short_name(""), "***")
 
 
+class NormalizacaoTest(unittest.TestCase):
+    def test_only_digits(self):
+        self.assertEqual(imp.only_digits("111.222.333-44"), "11122233344")
+        self.assertIsNone(imp.only_digits("---"))
+        self.assertIsNone(imp.only_digits(None))
+
+    def test_normalize_email(self):
+        self.assertEqual(imp.normalize_email("  Ana@Email.COM "), "ana@email.com")
+        self.assertIsNone(imp.normalize_email("   "))
+        self.assertIsNone(imp.normalize_email(None))
+
+
+class IndexPacientesTest(unittest.TestCase):
+    def test_indexa_cpf_e_email_normalizados(self):
+        cpfs, emails = imp.index_pacientes([
+            {"cpf": "111.222.333-44", "email": "Ana@Email.com"},
+            {"cpf": None, "email": None},
+        ])
+        self.assertEqual(cpfs, {"11122233344"})
+        self.assertEqual(emails, {"ana@email.com"})
+
+
+class MotivoDuplicadoTest(unittest.TestCase):
+    def test_cpf_ja_cadastrado(self):
+        payload = {"cpf": "11122233344", "email": "novo@email.com"}
+        self.assertEqual(
+            imp.motivo_duplicado(payload, {"11122233344"}, set()), "cpf_ja_cadastrado")
+
+    def test_email_ja_cadastrado_ignora_caixa(self):
+        payload = {"cpf": None, "email": "Ana@Email.com"}
+        self.assertEqual(
+            imp.motivo_duplicado(payload, set(), {"ana@email.com"}), "email_ja_cadastrado")
+
+    def test_paciente_novo_nao_e_duplicado(self):
+        payload = {"cpf": "99988877766", "email": "novo@email.com"}
+        self.assertIsNone(imp.motivo_duplicado(payload, {"11122233344"}, {"ana@email.com"}))
+
+    def test_sem_cpf_e_sem_email_nao_e_duplicado(self):
+        self.assertIsNone(imp.motivo_duplicado({"cpf": None, "email": None},
+                                               {"11122233344"}, {"ana@email.com"}))
+
+
+class FetchPacientesLocaisTest(unittest.TestCase):
+    """Regressão da issue #76: inativos precisam entrar no set de deduplicação."""
+
+    def setUp(self):
+        self.http_json_original = imp.http_json
+        self.urls = []
+
+    def tearDown(self):
+        imp.http_json = self.http_json_original
+
+    def _stub(self, paginas):
+        def fake(method, url, headers=None, body=None):
+            self.urls.append(url)
+            return 200, paginas.get(url, {"content": [], "last": True})
+        imp.http_json = fake
+
+    def test_busca_ativos_e_inativos(self):
+        base = "http://local"
+        ativos = f"{base}/pacientes?ativo=true&page=0&size={imp.LOCAL_PAGE_SIZE}"
+        inativos = f"{base}/pacientes?ativo=false&page=0&size={imp.LOCAL_PAGE_SIZE}"
+        self._stub({
+            ativos: {"content": [{"cpf": "111", "email": "a@x.com"}], "last": True},
+            inativos: {"content": [{"cpf": "222", "email": "b@x.com"}], "last": True},
+        })
+
+        pacientes = imp.fetch_pacientes_locais(base, "tok")
+
+        self.assertEqual(self.urls, [ativos, inativos])
+        cpfs, emails = imp.index_pacientes(pacientes)
+        self.assertEqual(cpfs, {"111", "222"})
+        self.assertEqual(emails, {"a@x.com", "b@x.com"})
+
+    def test_pagina_ate_o_fim(self):
+        base = "http://local"
+        p0 = f"{base}/pacientes?ativo=true&page=0&size={imp.LOCAL_PAGE_SIZE}"
+        p1 = f"{base}/pacientes?ativo=true&page=1&size={imp.LOCAL_PAGE_SIZE}"
+        self._stub({
+            p0: {"content": [{"cpf": "111"}], "last": False},
+            p1: {"content": [{"cpf": "222"}], "last": True},
+        })
+
+        pacientes = imp.fetch_pacientes_locais(base, "tok")
+
+        self.assertEqual(len(pacientes), 2)
+        self.assertIn(p1, self.urls)
+
+
 class ParseDataTest(unittest.TestCase):
     def test_none(self):
         v, err = imp.parse_data_nascimento(None)

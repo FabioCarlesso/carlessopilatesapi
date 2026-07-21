@@ -17,10 +17,13 @@ Uso:
     export LOCAL_PASSWORD="..."
     python3 scripts/import_seufisio.py [--dry-run]
 
---dry-run: imprime payloads mascarados (CPF/e-mail ofuscados) sem POSTar.
+--dry-run: imprime payloads mascarados (CPF/e-mail ofuscados) sem POSTar. Quando
+LOCAL_EMAIL/LOCAL_PASSWORD estão disponíveis, o dry-run também carrega os
+pacientes já cadastrados e mostra o delta real que seria importado.
 
-Idempotência: antes de criar, busca todos os CPFs já cadastrados na API local
-e pula os duplicados. Re-rodar não cria duplicatas.
+Idempotência: antes de criar, busca todos os pacientes já cadastrados na API
+local — ativos **e** inativos — e pula quem já existe por CPF ou por e-mail
+(ambos têm unicidade parcial no banco). Re-rodar não cria duplicatas.
 
 Segurança:
 - Tokens lidos apenas de variáveis de ambiente; nunca commitar credenciais.
@@ -35,6 +38,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections import Counter
 from datetime import datetime
 
 DESCRIPTION = "Importa pacientes do seufisio.com.br para a API local."
@@ -65,6 +69,18 @@ def http_json(method, url, headers=None, body=None):
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         return e.code, raw
+
+
+def only_digits(value):
+    if not value:
+        return None
+    return re.sub(r"\D", "", value) or None
+
+
+def normalize_email(value):
+    if not value:
+        return None
+    return value.strip().lower() or None
 
 
 def mask_cpf(cpf):
@@ -152,25 +168,54 @@ def fetch_seufisio(headers, cid):
     return body, None
 
 
-def fetch_existing_cpfs(base_url, token):
+def fetch_pacientes_locais(base_url, token):
+    """Todos os pacientes da API local, em duas passadas: ativos e inativos.
+
+    `GET /pacientes` sem `ativo` retorna apenas ativos, então os inativos
+    precisam de uma segunda passada — sem isso o CPF de um paciente inativo
+    fica fora do set de deduplicação e o POST volta 409 (issue #76).
+    """
+    pacientes = []
+    for ativo in ("true", "false"):
+        page = 0
+        while True:
+            url = f"{base_url}/pacientes?ativo={ativo}&page={page}&size={LOCAL_PAGE_SIZE}"
+            status, body = http_json(
+                "GET", url,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if status != 200 or not isinstance(body, dict):
+                raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
+            content = body.get("content") or []
+            pacientes.extend(content)
+            if body.get("last", True) or not content:
+                break
+            page += 1
+    return pacientes
+
+
+def index_pacientes(pacientes):
+    """Sets normalizados de CPFs e e-mails já cadastrados localmente."""
     cpfs = set()
-    page = 0
-    while True:
-        url = f"{base_url}/pacientes?ativo=true&page={page}&size={LOCAL_PAGE_SIZE}"
-        status, body = http_json(
-            "GET", url,
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        if status != 200 or not isinstance(body, dict):
-            raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
-        for p in body.get("content") or []:
-            cpf = p.get("cpf")
-            if cpf:
-                cpfs.add(cpf)
-        if body.get("last", True) or not body.get("content"):
-            break
-        page += 1
-    return cpfs
+    emails = set()
+    for p in pacientes:
+        cpf = only_digits(p.get("cpf"))
+        if cpf:
+            cpfs.add(cpf)
+        email = normalize_email(p.get("email"))
+        if email:
+            emails.add(email)
+    return cpfs, emails
+
+
+def motivo_duplicado(payload, cpfs, emails):
+    """Motivo pelo qual o paciente já existe localmente, ou None se é novo."""
+    if payload.get("cpf") and payload["cpf"] in cpfs:
+        return "cpf_ja_cadastrado"
+    email = normalize_email(payload.get("email"))
+    if email and email in emails:
+        return "email_ja_cadastrado"
+    return None
 
 
 def map_to_paciente(c):
@@ -179,18 +224,14 @@ def map_to_paciente(c):
         return None, "sem nome"
 
     email = (c.get("email") or "").strip() or None
-    cpf_raw = c.get("cpf")
-    cpf = re.sub(r"\D", "", cpf_raw) if cpf_raw else None
-    cpf = cpf or None
+    cpf = only_digits(c.get("cpf"))
     telefone = (c.get("telefone") or "").strip() or None
 
     data_nascimento, data_err = parse_data_nascimento(c.get("data_nascimento"))
     if data_err:
         return None, data_err
 
-    cep_raw = c.get("cep")
-    cep = re.sub(r"\D", "", cep_raw) if cep_raw else None
-    cep = cep or None
+    cep = only_digits(c.get("cep"))
     endereco_campos = {
         "logradouro": c.get("endereco"),
         "numero": c.get("endereco_numero"),
@@ -220,6 +261,19 @@ def masked_payload(payload):
         "dataNascimento": payload.get("dataNascimento"),
         "endereco": "(presente)" if payload.get("endereco") else None,
     }
+
+
+def print_relatorio(total, ok, skips, fails, rotulo_ok="importados"):
+    """Resumo final: total processado / criados / ignorados / falhas, por motivo."""
+    print("\n=== Resumo ===")
+    print(f"total processado : {total}")
+    print(f"{rotulo_ok:<17}: {ok}")
+    print(f"ignorados        : {sum(skips.values())}")
+    for motivo, qtd in sorted(skips.items()):
+        print(f"  - {motivo}: {qtd}")
+    print(f"falhas           : {sum(fails.values())}")
+    for motivo, qtd in sorted(fails.items()):
+        print(f"  - {motivo}: {qtd}")
 
 
 def post_paciente(base_url, token, payload):
@@ -257,6 +311,7 @@ def main():
                  "(headers `setfisio` e `x-version-app` capturados no DevTools)")
     if not args.dry_run and (not local_email or not local_password):
         sys.exit("LOCAL_EMAIL e LOCAL_PASSWORD obrigatórias (use --dry-run para testar mapeamento)")
+    tem_credenciais_locais = bool(local_email and local_password)
 
     sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
 
@@ -264,40 +319,54 @@ def main():
     clientes = list_seufisio(sf_headers)
     print(f"      {len(clientes)} clientes encontrados")
 
+    total = len(clientes)
+    skips = Counter()
+    fails = Counter()
+
     print("[2/4] Buscando detalhes ...")
     detalhes = []
     for c in clientes:
         cid = c.get("id") if isinstance(c, dict) else None
         if cid is None:
-            print("      [skip] item sem id na listagem")
+            fails["listagem_sem_id"] += 1
+            print("      [fail] item sem id na listagem")
             continue
         full, err = fetch_seufisio(sf_headers, cid)
         if err:
-            print(f"      [skip {cid}] {err}")
+            fails["detalhe_indisponivel"] += 1
+            print(f"      [fail seufisio_id={cid}] {err}")
             continue
         detalhes.append(full)
         time.sleep(RATE_LIMIT_SECONDS)
 
     local_token = None
     cpfs_existentes = set()
-    if not args.dry_run:
+    emails_existentes = set()
+    if not args.dry_run or tem_credenciais_locais:
         local_token = login_local(base_url, local_email, local_password)
-        print("[3/4] Carregando CPFs já cadastrados (idempotência) ...")
-        cpfs_existentes = fetch_existing_cpfs(base_url, local_token)
-        print(f"      {len(cpfs_existentes)} CPFs já presentes — serão pulados")
+        print("[3/4] Carregando pacientes já cadastrados (ativos + inativos) ...")
+        locais = fetch_pacientes_locais(base_url, local_token)
+        cpfs_existentes, emails_existentes = index_pacientes(locais)
+        print(f"      {len(locais)} pacientes locais — "
+              f"{len(cpfs_existentes)} CPFs e {len(emails_existentes)} e-mails para deduplicação")
     else:
-        print("[3/4] Dry-run: pulando login e checagem de duplicatas")
+        print("[3/4] Dry-run sem LOCAL_EMAIL/LOCAL_PASSWORD: duplicatas não serão detectadas")
 
     print(f"[4/4] {'Simulando' if args.dry_run else 'Enviando'} POST /pacientes ...")
-    ok = fail = skip_dup = 0
+    ok = 0
     for c in detalhes:
         seufisio_id = c.get("id") if isinstance(c, dict) else None
-        payload, skip = map_to_paciente(c)
-        if skip:
-            print(f"      [skip seufisio_id={seufisio_id}] {skip}")
+        payload, invalido = map_to_paciente(c)
+        if invalido:
+            skips["invalido"] += 1
+            print(f"      [skip seufisio_id={seufisio_id}] {invalido}")
             continue
-        if payload["cpf"] and payload["cpf"] in cpfs_existentes:
-            skip_dup += 1
+
+        duplicado = motivo_duplicado(payload, cpfs_existentes, emails_existentes)
+        if duplicado:
+            skips[duplicado] += 1
+            print(f"      [skip seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])} "
+                  f"email={mask_email(payload['email'])}] {duplicado}")
             continue
 
         if args.dry_run:
@@ -307,28 +376,34 @@ def main():
 
         status, body = post_paciente(base_url, local_token, payload)
         if status == 409:
-            skip_dup += 1
+            # Rede de segurança: unicidade que o dedup proativo não pegou.
+            skips["conflito_409"] += 1
+            print(f"      [skip seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])} "
+                  f"email={mask_email(payload['email'])}] conflito_409")
             continue
         if status != 201 or not isinstance(body, dict):
-            fail += 1
+            fails[f"post_status_{status}"] += 1
             print(f"      [fail seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])}] {status}")
             continue
         novo_id = body.get("id")
         if novo_id is None:
-            fail += 1
+            fails["post_sem_id"] += 1
             print(f"      [fail seufisio_id={seufisio_id}] resposta sem id")
             continue
         ok += 1
         if payload["cpf"]:
             cpfs_existentes.add(payload["cpf"])
+        email = normalize_email(payload["email"])
+        if email:
+            emails_existentes.add(email)
 
         if c.get("situacao") != SITUACAO_ATIVO:
             inat_status, _ = patch_inativar(base_url, local_token, novo_id)
             if inat_status != 204:
                 print(f"      [warn inativar id={novo_id}] {inat_status}")
 
-    print(f"Concluído: ok={ok} fail={fail} skip_duplicado={skip_dup}")
-    if fail:
+    print_relatorio(total, ok, skips, fails)
+    if sum(fails.values()):
         sys.exit(1)
 
 

@@ -1103,13 +1103,25 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 
 ---
 
-## Importação de pacientes a partir do seufisio
+## Importação a partir do seufisio
 
-Para popular o ambiente com a base real de clientes vinda do `seufisio.com.br`, use `scripts/import_seufisio.py`. O script:
+Enquanto a empresa não desliga o `seufisio.com.br`, os dois scripts abaixo trazem a **carga delta** (o que surgiu de novo desde a última execução) para a API. Ambos são **idempotentes** e feitos para rodar quantas vezes forem necessárias, apontando `LOCAL_API_URL` para o ambiente local **ou** para a produção.
+
+Ordem obrigatória: **pacientes primeiro**, evoluções depois (a evolução precisa do paciente já cadastrado).
+
+| Script | O que traz | Chave de idempotência |
+|---|---|---|
+| `scripts/import_seufisio.py` | Clientes → `POST /pacientes` | CPF **ou** e-mail já cadastrado |
+| `scripts/import_evolucoes_seufisio.py` | Prontuários → `SessaoPilates` REALIZADA + `EvolucaoSessao` | paciente + data + horário da sessão |
+
+### Pacientes
+
+`scripts/import_seufisio.py`:
 
 1. Consulta `GET /api/cliente?per_page=500` no seufisio com o Bearer token capturado do navegador (DevTools → aba Network → header `authorization` da requisição da listagem).
 2. Para cada cliente, busca o detalhe em `GET /api/cliente/{id}`, mapeando para o contrato de `POST /pacientes`.
-3. Faz login na API local (`/auth/login`), carrega todos os CPFs já cadastrados (idempotência: re-rodar não duplica) e cria apenas os pacientes novos em lote. Pacientes com `situacao != 2` no seufisio são marcados como inativos via `PATCH /pacientes/{id}/inativar` após o cadastro.
+3. Faz login na API local (`/auth/login`) e carrega os pacientes já cadastrados — **ativos e inativos**, em duas passadas de `GET /pacientes?ativo=true|false`. Pula quem já existe por **CPF ou e-mail** (as duas colunas têm unicidade parcial) e cria apenas os novos. Pacientes com `situacao != 2` no seufisio são marcados como inativos via `PATCH /pacientes/{id}/inativar` após o cadastro.
+4. Ao final imprime o resumo: total processado / importados / ignorados por motivo / falhas por motivo. O exit code é ≠ 0 apenas em falha real (registro ignorado não é falha).
 
 **Pré-requisitos:**
 
@@ -1134,22 +1146,57 @@ LOCAL_PASSWORD="senha1234"
 ```bash
 set -a; source scripts/.env; set +a
 
-# Validar mapeamento sem gravar (recomendado antes da carga real)
+# Validar mapeamento sem gravar (recomendado antes da carga real).
+# Com LOCAL_EMAIL/LOCAL_PASSWORD preenchidos, o dry-run já mostra o delta real.
 python3 scripts/import_seufisio.py --dry-run
 
-# Importação de fato (idempotente: pula CPFs já cadastrados)
+# Importação de fato (idempotente: pula CPF/e-mail já cadastrados)
 python3 scripts/import_seufisio.py
 ```
 
-**Testes do script:**
+### Evoluções
+
+`scripts/import_evolucoes_seufisio.py` traz os prontuários do seufisio. Cada prontuário preenchido vira uma `SessaoPilates` **REALIZADA** mais a `EvolucaoSessao` correspondente (a relação é 1:1).
+
+1. Faz login na API, carrega os pacientes locais (ativos e inativos) e resolve cada cliente do seufisio por **CPF**; sem CPF, cai para o nome normalizado (sem acentos, minúsculo) e **só aceita correspondência única** — nomes ambíguos são registrados e pulados, nunca chutados.
+2. Busca os prontuários em `GET /api/cliente/{id}/prontuarios?rowsPerPage=200&page=N` (paginado via `last_page`).
+3. Converte o HTML do campo `prontuario` em texto puro, que vai para `observacoesFisioterapeuta`. Linhas sem prontuário preenchido (atendimento sem evolução) são ignoradas.
+4. Carrega as sessões já cadastradas (`GET /sessoes/paciente/{id}`) e pula os atendimentos cuja chave `data + horário` já existe — é isso que torna a reexecução segura.
+5. Para cada evolução nova: `POST /sessoes` → `PATCH /sessoes/{id}/realizar` → `POST /evolucoes-sessao`, usando a data/hora original (`prontuario_preenchido_em` quando presente, senão a data/hora do atendimento).
+
+Detalhes operacionais:
+
+- **Pacientes inativos** são reativados temporariamente (`PATCH /pacientes/{id}/ativar`) porque `POST /sessoes` e `GET /sessoes/paciente/{id}` só aceitam pacientes ativos; a reinativação acontece no `finally`, mesmo se algo falhar no meio. Se o `inativar` falhar, o log avisa para reverter à mão.
+- Se a evolução falhar depois da sessão criada, a **sessão órfã** é registrada no log (`[orfa ...]`) para reprocesso manual.
+- O tipo da sessão criada é `PILATES` por padrão; use `SEUFISIO_TIPO_SESSAO=FISIOTERAPIA` para mudar.
 
 ```bash
-cd scripts && python3 -m unittest test_import_seufisio -v
+set -a; source scripts/.env; set +a
+
+# Simular (não grava nada; imprime só o tamanho do texto clínico, nunca o conteúdo)
+python3 scripts/import_evolucoes_seufisio.py --dry-run
+
+# Um cliente só, para conferir o resultado antes da carga completa
+python3 scripts/import_evolucoes_seufisio.py --cliente-id 8
+
+# Carga completa
+python3 scripts/import_evolucoes_seufisio.py
+
+# Delta a partir de uma data (execuções recorrentes)
+python3 scripts/import_evolucoes_seufisio.py --desde 2026-07-01
 ```
 
-> O token JWT do seufisio expira (~2 dias). Se demorar para rodar, capture um novo no DevTools.
+> A base de atendimentos é grande (ordem de dezenas de milhares no total). Prefira `--desde` nas execuções recorrentes e `--limite-clientes` / `--cliente-id` ao validar mudanças.
+
+**Testes dos scripts:**
+
+```bash
+cd scripts && python3 -m unittest discover -p 'test_*.py' -v
+```
+
+> O token JWT do seufisio expira (~2 dias). Se demorar para rodar, capture um novo no DevTools. O header `x-version-app` é obrigatório: sem ele a API do seufisio responde `426 Upgrade Required`.
 >
-> **Segurança**: o `.gitignore` está configurado para nunca versionar dumps (`scripts/*.json`, `scripts/*.csv`) nem variáveis locais (`scripts/.env`). Não commitar tokens nem dados de pacientes em hipótese alguma. Logs e `--dry-run` mascaram CPF/e-mail/nome para não vazar PII via stdout/CI.
+> **Segurança**: o `.gitignore` está configurado para nunca versionar dumps (`scripts/*.json`, `scripts/*.csv`) nem variáveis locais (`scripts/.env`). Não commitar tokens nem dados de pacientes em hipótese alguma. Logs e `--dry-run` mascaram CPF/e-mail/nome e nunca imprimem o texto clínico das evoluções.
 
 ---
 
