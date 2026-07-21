@@ -1188,6 +1188,64 @@ python3 scripts/import_evolucoes_seufisio.py --desde 2026-07-01
 
 > A base de atendimentos é grande (ordem de dezenas de milhares no total). Prefira `--desde` nas execuções recorrentes e `--limite-clientes` / `--cliente-id` ao validar mudanças.
 
+### Carga da produção (runbook de go-live)
+
+**A produção é populada pelos mesmos scripts, apontando `LOCAL_API_URL` para a API de produção — não por dump do banco de desenvolvimento.** O seufisio é a fonte da verdade enquanto não for desligado, e os scripts são idempotentes, então a carga inicial da produção é apenas a primeira execução do processo recorrente.
+
+> **Por que não `pg_dump`/`pg_restore` do ambiente de desenvolvimento:** o perfil `dev` roda o Flyway com `classpath:db/migration,classpath:db/seed`, então o `flyway_schema_history` do banco dev registra as seeds `V7` (profissionais de teste) e `V12` (usuários de desenvolvimento com senha compartilhada). O perfil `prod` resolve apenas `classpath:db/migration` — restaurado em produção, o Flyway **falha na validação** por não encontrar essas migrações. Recuperar exigiria editar o `flyway_schema_history` à mão, apagar os usuários de dev junto com suas dependências (`preferencias_usuario`, `password_reset_tokens`) antes de subir o app — porque o `InitialAdminBootstrap` lança exceção se existir usuário com o e-mail do admin inicial sem nenhum `ADMIN` ativo — e ainda tratar os profissionais fake. Pela API nada disso acontece: a produção sobe limpa e o admin real é criado a partir de `APP_INITIAL_ADMIN_*`.
+>
+> O custo dessa escolha é tempo: cada evolução são três requisições mais o rate limit, então a carga completa leva **de uma a duas horas**. Rode em `tmux`/`nohup`, de preferência na própria VPS (latência menor). Um `pg_restore` levaria segundos, mas com toda a higiene descrita acima.
+>
+> Esse raciocínio só vale enquanto **todo dado relevante estiver no seufisio**. Se em algum momento passarem a existir registros criados apenas no sistema novo, o dump volta a ser necessário.
+
+**1. Conferir o ambiente da VPS** antes de subir o app (`.env.prod`): `JWT_SECRET` forte, `APP_INITIAL_ADMIN_EMAIL`, `APP_INITIAL_ADMIN_PASSWORD`, `CORS_ALLOWED_ORIGINS` e as variáveis `SMTP_*`/`APP_EMAIL_*`.
+
+**2. Subir a produção e validar que ela está de pé** (Swagger é desabilitado em produção, então use `curl`):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+curl -fsS http://localhost:8080/actuator/health
+```
+
+**3. Apontar os scripts para a produção**, usando o admin real criado pelo bootstrap:
+
+```bash
+# scripts/.env — token do seufisio capturado no DevTools na hora da execução
+SEUFISIO_TOKEN="eyJ0eXAi..."
+SEUFISIO_CLINICA_ID="..."
+SEUFISIO_VERSION_APP="..."
+LOCAL_API_URL="https://api.carlessopilates.com.br"
+LOCAL_EMAIL="<admin real de produção>"
+LOCAL_PASSWORD="<senha do admin real>"
+```
+
+**4. Simular, depois carregar** — pacientes primeiro, evoluções depois:
+
+```bash
+set -a; source scripts/.env; set +a
+
+python3 scripts/import_seufisio.py --dry-run
+python3 scripts/import_seufisio.py
+
+python3 scripts/import_evolucoes_seufisio.py --cliente-id <um-cliente> --dry-run
+python3 scripts/import_evolucoes_seufisio.py --cliente-id <um-cliente>   # conferir o resultado
+nohup python3 scripts/import_evolucoes_seufisio.py > import-evolucoes.log 2>&1 &
+```
+
+**5. Conferir** o resumo final de cada script (importados / ignorados / falhas por motivo) e comparar as contagens com o seufisio:
+
+```sql
+SELECT count(*) FILTER (WHERE ativo) AS ativos,
+       count(*) FILTER (WHERE NOT ativo) AS inativos FROM pacientes;
+SELECT count(*) FROM evolucoes_sessao;
+-- Nenhum paciente pode ter ficado reativado por engano pela importação de evoluções:
+SELECT count(*) FROM pacientes WHERE NOT ativo;
+```
+
+Smoke test autenticado: login, `GET /pacientes` e a ficha de um paciente com evoluções.
+
+**6. Corte final.** Enquanto o seufisio seguir em uso, repita os passos 4 e 5 periodicamente com `--desde` para trazer só o delta. Como os scripts são idempotentes, rodar de novo não duplica nada — a última execução antes do desligamento do seufisio é o corte definitivo.
+
 **Testes dos scripts:**
 
 ```bash

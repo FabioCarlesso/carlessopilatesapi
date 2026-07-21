@@ -989,3 +989,5 @@ Perfil `dev` (`application-dev.properties`): `spring.flyway.locations=classpath:
 Perfil `prod` (`application-prod.properties`): `spring.flyway.locations=classpath:db/migration`
 
 No perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o admin inicial usando `APP_INITIAL_ADMIN_EMAIL` e `APP_INITIAL_ADMIN_PASSWORD`; sem senha configurada, o startup falha. Em dev, o seed `V12` cobre os usuários de teste.
+
+**Consequência para migração de dados:** um dump do banco dev **não** pode ser restaurado em produção. O `flyway_schema_history` do dev registra as seeds `V7` e `V12`, que o perfil `prod` não resolve — o Flyway falha na validação da subida. Por isso a produção é populada pelos scripts de importação apontando para a API (`LOCAL_API_URL`), e não por `pg_dump`/`pg_restore`. O runbook de go-live está em [`README.md` → Importação a partir do seufisio → Carga da produção](../README.md#carga-da-produção-runbook-de-go-live).
