@@ -167,6 +167,43 @@ class FetchPacientesLocaisTest(unittest.TestCase):
         self.assertEqual(len(pacientes), 2)
         self.assertIn(p1, self.urls)
 
+    def test_pagina_ate_o_fim_no_formato_do_spring_boot_34(self):
+        """A API responde `{content, page}` sem `last` — conferido em runtime."""
+        base = "http://local"
+        p0 = f"{base}/pacientes?ativo=true&page=0&size={imp.LOCAL_PAGE_SIZE}"
+        p1 = f"{base}/pacientes?ativo=true&page=1&size={imp.LOCAL_PAGE_SIZE}"
+        self._stub({
+            p0: {"content": [{"cpf": "111"}],
+                 "page": {"size": 200, "number": 0, "totalElements": 2, "totalPages": 2}},
+            p1: {"content": [{"cpf": "222"}],
+                 "page": {"size": 200, "number": 1, "totalElements": 2, "totalPages": 2}},
+        })
+
+        pacientes = imp.fetch_pacientes_locais(base, "tok")
+
+        self.assertEqual(len(pacientes), 2)
+        self.assertIn(p1, self.urls)
+
+
+class PaginaFinalTest(unittest.TestCase):
+    def test_formato_antigo_usa_last(self):
+        self.assertTrue(imp.pagina_final({"last": True}, [1]))
+        self.assertFalse(imp.pagina_final({"last": False}, [1]))
+
+    def test_formato_spring_boot_34_usa_page(self):
+        meio = {"page": {"number": 0, "totalPages": 3}}
+        fim = {"page": {"number": 2, "totalPages": 3}}
+        self.assertFalse(imp.pagina_final(meio, [1]))
+        self.assertTrue(imp.pagina_final(fim, [1]))
+
+    def test_pagina_unica(self):
+        self.assertTrue(imp.pagina_final({"page": {"number": 0, "totalPages": 1}}, [1]))
+
+    def test_formato_desconhecido_segue_enquanto_a_pagina_vem_cheia(self):
+        cheia = [None] * imp.LOCAL_PAGE_SIZE
+        self.assertFalse(imp.pagina_final({}, cheia))
+        self.assertTrue(imp.pagina_final({}, [None]))
+
 
 class ParseDataTest(unittest.TestCase):
     def test_none(self):

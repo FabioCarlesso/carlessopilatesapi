@@ -168,6 +168,24 @@ def fetch_seufisio(headers, cid):
     return body, None
 
 
+def pagina_final(body, content):
+    """Se esta é a última página, nos dois formatos de `Page` do Spring.
+
+    O Spring Boot 3.4 serializa `Page` como `{content, page: {size, number,
+    totalElements, totalPages}}` — **sem** o `last` do formato antigo. Lê-lo
+    com default `True` encerraria o laço na primeira página e deduplicaria
+    contra um set incompleto, que é exatamente a causa dos 409 da issue #76.
+    """
+    if isinstance(body.get("last"), bool):
+        return body["last"]
+    page = body.get("page")
+    if isinstance(page, dict) and isinstance(page.get("totalPages"), int):
+        return page.get("number", 0) >= page["totalPages"] - 1
+    # Formato desconhecido: segue enquanto as páginas vierem cheias, em vez
+    # de parar cedo e correr o risco de perder pacientes da deduplicação.
+    return len(content) < LOCAL_PAGE_SIZE
+
+
 def fetch_pacientes_locais(base_url, token):
     """Todos os pacientes da API local, em duas passadas: ativos e inativos.
 
@@ -188,7 +206,7 @@ def fetch_pacientes_locais(base_url, token):
                 raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
             content = body.get("content") or []
             pacientes.extend(content)
-            if body.get("last", True) or not content:
+            if not content or pagina_final(body, content):
                 break
             page += 1
     return pacientes
