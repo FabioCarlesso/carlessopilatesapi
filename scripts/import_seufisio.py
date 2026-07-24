@@ -36,6 +36,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -51,6 +52,22 @@ BROWSER_UA = (
     "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
 )
 DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
+SIGLAS_UF = frozenset((
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
+    "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
+    "SP", "SE", "TO",
+))
+NOMES_UF = {
+    "acre": "AC", "alagoas": "AL", "amapa": "AP", "amazonas": "AM",
+    "bahia": "BA", "ceara": "CE", "distrito federal": "DF",
+    "espirito santo": "ES", "goias": "GO", "maranhao": "MA",
+    "mato grosso": "MT", "mato grosso do sul": "MS", "minas gerais": "MG",
+    "para": "PA", "paraiba": "PB", "parana": "PR", "pernambuco": "PE",
+    "piaui": "PI", "rio de janeiro": "RJ", "rio grande do norte": "RN",
+    "rio grande do sul": "RS", "rondonia": "RO", "roraima": "RR",
+    "santa catarina": "SC", "sao paulo": "SP", "sergipe": "SE",
+    "tocantins": "TO",
+}
 
 
 def http_json(method, url, headers=None, body=None):
@@ -121,6 +138,54 @@ def parse_data_nascimento(value):
         except ValueError:
             continue
     return None, f"data_nascimento em formato não reconhecido: {txt!r}"
+
+
+def normalizar_nome(nome):
+    """Nome sem acentos, em minúsculas e com espaços colapsados."""
+    if not nome:
+        return None
+    sem_acento = unicodedata.normalize("NFKD", nome)
+    sem_acento = "".join(c for c in sem_acento if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", sem_acento).strip().lower() or None
+
+
+def chave_fraca(payload):
+    """Chave de último recurso para quem não tem CPF nem e-mail.
+
+    34 dos 112 clientes do seufisio não têm nenhum dos dois. Sem uma chave
+    para eles, `motivo_duplicado` nunca acusa duplicata e cada execução
+    recria o paciente — o oposto da idempotência que a carga delta exige.
+    Nome + data de nascimento é o que resta; nomes iguais com a mesma data
+    de nascimento são tratados como a mesma pessoa.
+    """
+    nome = normalizar_nome(payload.get("nome"))
+    if not nome:
+        return None
+    return nome, payload.get("dataNascimento") or ""
+
+
+def normalizar_uf(valor):
+    """Sigla de 2 letras a partir da sigla ou do nome do estado por extenso.
+
+    O seufisio mistura os dois formatos (`PR` e `Paraná`) e a coluna `uf` é
+    `VARCHAR(2)`: mandar o nome por extenso faz o Postgres recusar a linha
+    inteira por truncamento, e a API responde o **mesmo 409 genérico** de um
+    registro duplicado. O paciente ficava de fora contabilizado como
+    `conflito_409`, ou seja, perdido com motivo errado no relatório.
+
+    Devolve None quando não reconhece o valor — melhor importar o paciente
+    sem a UF do que recusá-lo por causa de um campo de endereço.
+    """
+    if not valor:
+        return None
+    txt = re.sub(r"\s+", " ", str(valor)).strip()
+    if not txt:
+        return None
+    if txt.upper() in SIGLAS_UF:
+        return txt.upper()
+    sem_acento = unicodedata.normalize("NFKD", txt.lower())
+    sem_acento = "".join(c for c in sem_acento if not unicodedata.combining(c))
+    return NOMES_UF.get(sem_acento)
 
 
 def seufisio_headers(token, clinica_id, version_app):
@@ -230,7 +295,7 @@ def fetch_pacientes_locais(base_url, token):
 
 
 def index_pacientes(pacientes):
-    """Sets normalizados de CPFs e e-mails já cadastrados localmente.
+    """CPFs, e-mails e chaves fracas já cadastrados localmente.
 
     O e-mail é normalizado para minúsculas de propósito, ainda que o índice
     parcial da V23 (`ON pacientes (email) WHERE email IS NOT NULL`) não use
@@ -239,6 +304,7 @@ def index_pacientes(pacientes):
     """
     cpfs = set()
     emails = set()
+    fracas = set()
     for p in pacientes:
         cpf = only_digits(p.get("cpf"))
         if cpf:
@@ -246,16 +312,24 @@ def index_pacientes(pacientes):
         email = normalize_email(p.get("email"))
         if email:
             emails.add(email)
-    return cpfs, emails
+        if not cpf and not email:
+            chave = chave_fraca({"nome": p.get("nome"), "dataNascimento": p.get("dataNascimento")})
+            if chave:
+                fracas.add(chave)
+    return cpfs, emails, fracas
 
 
-def motivo_duplicado(payload, cpfs, emails):
+def motivo_duplicado(payload, cpfs, emails, fracas=frozenset()):
     """Motivo pelo qual o paciente já existe localmente, ou None se é novo."""
     if payload.get("cpf") and payload["cpf"] in cpfs:
         return "cpf_ja_cadastrado"
     email = normalize_email(payload.get("email"))
     if email and email in emails:
         return "email_ja_cadastrado"
+    if not payload.get("cpf") and not email:
+        chave = chave_fraca(payload)
+        if chave and chave in fracas:
+            return "nome_data_nascimento_ja_cadastrado"
     return None
 
 
@@ -278,7 +352,7 @@ def map_to_paciente(c):
         "numero": c.get("endereco_numero"),
         "bairro": c.get("bairro"),
         "cidade": c.get("cidade"),
-        "uf": c.get("uf"),
+        "uf": normalizar_uf(c.get("uf")),
         "cep": cep,
     }
     endereco = endereco_campos if any(endereco_campos.values()) else None
@@ -383,13 +457,15 @@ def main():
     local_token = None
     cpfs_existentes = set()
     emails_existentes = set()
+    fracas_existentes = set()
     if not args.dry_run or tem_credenciais_locais:
         local_token = login_local(base_url, local_email, local_password)
         print("[3/4] Carregando pacientes já cadastrados (ativos + inativos) ...")
         locais = fetch_pacientes_locais(base_url, local_token)
-        cpfs_existentes, emails_existentes = index_pacientes(locais)
-        print(f"      {len(locais)} pacientes locais — "
-              f"{len(cpfs_existentes)} CPFs e {len(emails_existentes)} e-mails para deduplicação")
+        cpfs_existentes, emails_existentes, fracas_existentes = index_pacientes(locais)
+        print(f"      {len(locais)} pacientes locais — {len(cpfs_existentes)} CPFs, "
+              f"{len(emails_existentes)} e-mails e {len(fracas_existentes)} "
+              f"nome+nascimento (sem CPF/e-mail) para deduplicação")
     else:
         print("[3/4] Dry-run sem LOCAL_EMAIL/LOCAL_PASSWORD: duplicatas não serão detectadas")
 
@@ -403,7 +479,12 @@ def main():
             print(f"      [skip seufisio_id={seufisio_id}] {invalido}")
             continue
 
-        duplicado = motivo_duplicado(payload, cpfs_existentes, emails_existentes)
+        if (c.get("uf") or "").strip() and not (payload.get("endereco") or {}).get("uf"):
+            print(f"      [warn seufisio_id={seufisio_id}] uf {c.get('uf')!r} não reconhecida; "
+                  f"paciente segue sem UF")
+
+        duplicado = motivo_duplicado(payload, cpfs_existentes, emails_existentes,
+                                     fracas_existentes)
         if duplicado:
             skips[duplicado] += 1
             print(f"      [skip seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])} "
@@ -437,6 +518,10 @@ def main():
         email = normalize_email(payload["email"])
         if email:
             emails_existentes.add(email)
+        if not payload["cpf"] and not email:
+            chave = chave_fraca(payload)
+            if chave:
+                fracas_existentes.add(chave)
 
         if c.get("situacao") != SITUACAO_ATIVO:
             inat_status, _ = patch_inativar(base_url, local_token, novo_id)

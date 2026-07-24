@@ -93,12 +93,25 @@ class NormalizacaoTest(unittest.TestCase):
 
 class IndexPacientesTest(unittest.TestCase):
     def test_indexa_cpf_e_email_normalizados(self):
-        cpfs, emails = imp.index_pacientes([
+        cpfs, emails, fracas = imp.index_pacientes([
             {"cpf": "111.222.333-44", "email": "Ana@Email.com"},
             {"cpf": None, "email": None},
         ])
         self.assertEqual(cpfs, {"11122233344"})
         self.assertEqual(emails, {"ana@email.com"})
+
+    def test_indexa_chave_fraca_de_quem_nao_tem_cpf_nem_email(self):
+        _, _, fracas = imp.index_pacientes([
+            {"cpf": None, "email": None, "nome": "Ana Silva", "dataNascimento": "1980-01-02"},
+            {"cpf": "111", "email": None, "nome": "Com Cpf", "dataNascimento": "1980-01-02"},
+        ])
+        self.assertEqual(fracas, {("ana silva", "1980-01-02")})
+
+    def test_chave_fraca_sem_data_de_nascimento(self):
+        _, _, fracas = imp.index_pacientes([
+            {"cpf": None, "email": None, "nome": "Só Nome", "dataNascimento": None},
+        ])
+        self.assertEqual(fracas, {("so nome", "")})
 
 
 class MotivoDuplicadoTest(unittest.TestCase):
@@ -116,9 +129,32 @@ class MotivoDuplicadoTest(unittest.TestCase):
         payload = {"cpf": "99988877766", "email": "novo@email.com"}
         self.assertIsNone(imp.motivo_duplicado(payload, {"11122233344"}, {"ana@email.com"}))
 
-    def test_sem_cpf_e_sem_email_nao_e_duplicado(self):
-        self.assertIsNone(imp.motivo_duplicado({"cpf": None, "email": None},
-                                               {"11122233344"}, {"ana@email.com"}))
+    def test_sem_cpf_e_sem_email_usa_nome_e_nascimento(self):
+        """Sem a chave fraca, esses pacientes eram recriados a cada execução."""
+        payload = {"cpf": None, "email": None, "nome": "Ana Silva",
+                   "dataNascimento": "1980-01-02"}
+        self.assertEqual(
+            imp.motivo_duplicado(payload, set(), set(), {("ana silva", "1980-01-02")}),
+            "nome_data_nascimento_ja_cadastrado")
+
+    def test_chave_fraca_ignora_acento_e_caixa(self):
+        payload = {"cpf": None, "email": None, "nome": "  ANTÔNIO   josé ",
+                   "dataNascimento": "1980-01-02"}
+        self.assertEqual(
+            imp.motivo_duplicado(payload, set(), set(), {("antonio jose", "1980-01-02")}),
+            "nome_data_nascimento_ja_cadastrado")
+
+    def test_mesma_pessoa_com_nascimento_diferente_nao_e_duplicado(self):
+        payload = {"cpf": None, "email": None, "nome": "Ana Silva",
+                   "dataNascimento": "1990-05-05"}
+        self.assertIsNone(
+            imp.motivo_duplicado(payload, set(), set(), {("ana silva", "1980-01-02")}))
+
+    def test_chave_fraca_nao_se_aplica_a_quem_tem_cpf(self):
+        payload = {"cpf": "99988877766", "email": None, "nome": "Ana Silva",
+                   "dataNascimento": "1980-01-02"}
+        self.assertIsNone(
+            imp.motivo_duplicado(payload, set(), set(), {("ana silva", "1980-01-02")}))
 
 
 class FetchPacientesLocaisTest(unittest.TestCase):
@@ -149,7 +185,7 @@ class FetchPacientesLocaisTest(unittest.TestCase):
         pacientes = imp.fetch_pacientes_locais(base, "tok")
 
         self.assertEqual(self.urls, [ativos, inativos])
-        cpfs, emails = imp.index_pacientes(pacientes)
+        cpfs, emails, _ = imp.index_pacientes(pacientes)
         self.assertEqual(cpfs, {"111", "222"})
         self.assertEqual(emails, {"a@x.com", "b@x.com"})
 
@@ -183,6 +219,38 @@ class FetchPacientesLocaisTest(unittest.TestCase):
 
         self.assertEqual(len(pacientes), 2)
         self.assertIn(p1, self.urls)
+
+
+class NormalizarUfTest(unittest.TestCase):
+    """Regressão: `uf` por extenso estourava o VARCHAR(2) e virava 409."""
+
+    def test_sigla_e_mantida_em_maiuscula(self):
+        self.assertEqual(imp.normalizar_uf("pr"), "PR")
+        self.assertEqual(imp.normalizar_uf(" SC "), "SC")
+
+    def test_nome_por_extenso_vira_sigla(self):
+        self.assertEqual(imp.normalizar_uf("Paraná"), "PR")
+        self.assertEqual(imp.normalizar_uf("Parana"), "PR")
+        self.assertEqual(imp.normalizar_uf("SÃO PAULO"), "SP")
+        self.assertEqual(imp.normalizar_uf("rio grande do sul"), "RS")
+
+    def test_vazio_vira_none(self):
+        self.assertIsNone(imp.normalizar_uf(None))
+        self.assertIsNone(imp.normalizar_uf("   "))
+
+    def test_desconhecida_vira_none_em_vez_de_estourar_a_coluna(self):
+        self.assertIsNone(imp.normalizar_uf("Californialândia"))
+
+    def test_map_to_paciente_normaliza_a_uf(self):
+        payload, err = imp.map_to_paciente({"nome": "Ana", "uf": "Paraná"})
+        self.assertIsNone(err)
+        self.assertEqual(payload["endereco"]["uf"], "PR")
+
+    def test_map_to_paciente_nunca_manda_uf_maior_que_dois_chars(self):
+        for valor in ("Paraná", "Parana", "PR", "Desconhecida", None):
+            payload, _ = imp.map_to_paciente({"nome": "Ana", "cidade": "Curitiba", "uf": valor})
+            uf = (payload.get("endereco") or {}).get("uf")
+            self.assertTrue(uf is None or len(uf) == 2, f"uf inválida para {valor!r}: {uf!r}")
 
 
 class ListSeufisioTest(unittest.TestCase):
