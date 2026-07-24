@@ -195,7 +195,13 @@ def fetch_pacientes_locais(base_url, token):
 
 
 def index_pacientes(pacientes):
-    """Sets normalizados de CPFs e e-mails já cadastrados localmente."""
+    """Sets normalizados de CPFs e e-mails já cadastrados localmente.
+
+    O e-mail é normalizado para minúsculas de propósito, ainda que o índice
+    parcial da V23 (`ON pacientes (email) WHERE email IS NOT NULL`) não use
+    `lower()`: o banco aceitaria `Ana@x.com` ao lado de `ana@x.com`, mas é a
+    mesma pessoa e o script prefere pular a criar a duplicata.
+    """
     cpfs = set()
     emails = set()
     for p in pacientes:

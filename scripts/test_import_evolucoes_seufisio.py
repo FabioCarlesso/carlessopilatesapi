@@ -189,19 +189,108 @@ class FetchProntuariosTest(HttpStubTest):
 
 class SessoesExistentesTest(HttpStubTest):
     def test_normaliza_chaves(self):
-        self.stub([(200, [{"data": "2026-07-21", "horario": "18:00"},
-                          {"data": "2026-07-22", "horario": None}])])
+        self.stub([(200, [{"id": 1, "status": "REALIZADA",
+                           "data": "2026-07-21", "horario": "18:00"},
+                          {"id": 2, "status": "REALIZADA",
+                           "data": "2026-07-22", "horario": None}])])
 
-        chaves, erro = imp.sessoes_existentes("http://local", "tok", 1)
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
 
         self.assertIsNone(erro)
-        self.assertEqual(chaves, {"2026-07-21T18:00", "2026-07-22T00:00"})
+        self.assertEqual(set(por_chave), {"2026-07-21T18:00", "2026-07-22T00:00"})
+        self.assertEqual([s["id"] for s in por_chave["2026-07-21T18:00"]], [1])
+
+    def test_mesma_chave_acumula_as_sessoes(self):
+        """Sem horário, os atendimentos do dia colapsam na mesma chave."""
+        self.stub([(200, [{"id": 1, "status": "REALIZADA",
+                           "data": "2026-07-21", "horario": None},
+                          {"id": 2, "status": "REALIZADA",
+                           "data": "2026-07-21", "horario": None}])])
+
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
+
+        self.assertIsNone(erro)
+        self.assertEqual([s["id"] for s in por_chave["2026-07-21T00:00"]], [1, 2])
+
+    def test_ignora_canceladas(self):
+        self.stub([(200, [{"id": 1, "status": "CANCELADA",
+                           "data": "2026-07-21", "horario": "18:00"}])])
+
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
+
+        self.assertIsNone(erro)
+        self.assertEqual(por_chave, {})
 
     def test_404_retorna_erro(self):
         self.stub([(404, "não encontrado")])
-        chaves, erro = imp.sessoes_existentes("http://local", "tok", 1)
-        self.assertIsNone(chaves)
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
+        self.assertIsNone(por_chave)
         self.assertIn("404", erro)
+
+
+class EvolucaoExisteTest(HttpStubTest):
+    def test_200_indica_que_ja_existe(self):
+        self.stub([(200, {"id": 77})])
+        existe, erro = imp.evolucao_existe("http://local", "tok", 55)
+        self.assertTrue(existe)
+        self.assertIsNone(erro)
+        self.assertEqual(self.chamadas[0][1], "http://local/evolucoes-sessao/sessao/55")
+
+    def test_404_indica_sessao_sem_evolucao(self):
+        self.stub([(404, "não encontrada")])
+        existe, erro = imp.evolucao_existe("http://local", "tok", 55)
+        self.assertFalse(existe)
+        self.assertIsNone(erro)
+
+    def test_outro_status_e_erro(self):
+        self.stub([(500, "boom")])
+        existe, erro = imp.evolucao_existe("http://local", "tok", 55)
+        self.assertIsNone(existe)
+        self.assertIn("500", erro)
+
+
+class CompletarEvolucaoTest(HttpStubTest):
+    EVOLUCAO = {"data": "2026-07-21", "horario": "18:00:00",
+                "dataHoraRegistro": "2026-07-21T18:00:00", "texto": "evolução"}
+
+    def test_sessao_realizada_recebe_apenas_a_evolucao(self):
+        self.stub([(201, {"id": 77})])
+        fails = Counter()
+
+        criou = imp.completar_evolucao("http://local", "tok",
+                                       {"id": 55, "status": "REALIZADA"},
+                                       self.EVOLUCAO, fails, "rotulo")
+
+        self.assertTrue(criou)
+        self.assertFalse(fails)
+        self.assertEqual([(m, u) for m, u, _ in self.chamadas],
+                         [("POST", "http://local/evolucoes-sessao")])
+
+    def test_sessao_agendada_e_realizada_antes(self):
+        """`PATCH realizar` só aceita AGENDADA — daí a checagem de status."""
+        self.stub([(200, {"id": 55}), (201, {"id": 77})])
+        fails = Counter()
+
+        criou = imp.completar_evolucao("http://local", "tok",
+                                       {"id": 55, "status": "AGENDADA"},
+                                       self.EVOLUCAO, fails, "rotulo")
+
+        self.assertTrue(criou)
+        self.assertEqual([(m, u) for m, u, _ in self.chamadas], [
+            ("PATCH", "http://local/sessoes/55/realizar"),
+            ("POST", "http://local/evolucoes-sessao"),
+        ])
+
+    def test_falha_na_evolucao_e_contabilizada(self):
+        self.stub([(422, "inválido")])
+        fails = Counter()
+
+        criou = imp.completar_evolucao("http://local", "tok",
+                                       {"id": 55, "status": "REALIZADA"},
+                                       self.EVOLUCAO, fails, "rotulo")
+
+        self.assertFalse(criou)
+        self.assertEqual(fails["post_evolucao_422"], 1)
 
 
 class ImportarEvolucaoTest(HttpStubTest):
@@ -272,10 +361,25 @@ class ProcessarClienteTest(HttpStubTest):
              "prontuario_preenchido_em": None},
         ]
 
+    def sessao(self, sessao_id, data, horario, status="REALIZADA"):
+        return {"id": sessao_id, "status": status, "data": data, "horario": horario}
+
+    def linhas_sem_horario(self):
+        """Dois atendimentos no mesmo dia, ambos sem `hora_atendimento`."""
+        return [
+            {"atendimento_id": 1, "data_atendimento": "2026-07-20",
+             "hora_atendimento": "", "prontuario": "<p>manha</p>",
+             "prontuario_preenchido_em": None},
+            {"atendimento_id": 2, "data_atendimento": "2026-07-20",
+             "hora_atendimento": "", "prontuario": "<p>tarde</p>",
+             "prontuario_preenchido_em": None},
+        ]
+
     def test_pula_sessao_existente_e_cria_apenas_a_nova(self):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [{"data": "2026-07-20", "horario": "18:00"}]),  # sessões existentes
+            (200, [self.sessao(50, "2026-07-20", "18:00")]),  # sessões existentes
+            (200, {"id": 70}),                                # sessão 50 já tem evolução
             (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),
         ])
         skips, fails = Counter(), Counter()
@@ -290,8 +394,11 @@ class ProcessarClienteTest(HttpStubTest):
     def test_reexecucao_nao_duplica(self):
         """Idempotência: com tudo já cadastrado, nada é criado."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
-        self.stub([(200, [{"data": "2026-07-20", "horario": "18:00"},
-                          {"data": "2026-07-21", "horario": "19:00"}])])
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", "18:00"),
+                   self.sessao(51, "2026-07-21", "19:00")]),
+            (200, {"id": 70}), (200, {"id": 71}),  # ambas já com evolução
+        ])
         skips, fails = Counter(), Counter()
 
         criadas = imp.processar_cliente(self.cfg(), paciente, self.linhas(), skips, fails)
@@ -299,6 +406,107 @@ class ProcessarClienteTest(HttpStubTest):
         self.assertEqual(criadas, 0)
         self.assertEqual(skips["sessao_ja_existe"], 2)
         self.assertFalse(fails)
+
+    def test_dois_atendimentos_sem_horario_no_mesmo_dia_sao_importados(self):
+        """Sem horário a chave colapsa; o 2º atendimento não pode ser perdido."""
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, []),
+            (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),
+            (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(), paciente,
+                                        self.linhas_sem_horario(), skips, fails)
+
+        self.assertEqual(criadas, 2)
+        self.assertFalse(skips)
+        self.assertFalse(fails)
+
+    def test_reexecucao_com_dois_atendimentos_sem_horario_nao_duplica(self):
+        """As duas sessões do dia são consumidas uma a uma, não a mesma duas vezes."""
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", None),
+                   self.sessao(51, "2026-07-20", None)]),
+            (200, {"id": 70}), (200, {"id": 71}),
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(), paciente,
+                                        self.linhas_sem_horario(), skips, fails)
+
+        self.assertEqual(criadas, 0)
+        self.assertEqual(skips["sessao_ja_existe"], 2)
+        self.assertFalse(fails)
+
+    def test_sessao_orfa_e_completada_na_reexecucao(self):
+        """Execução interrompida deixou a sessão sem evolução: a próxima conserta."""
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", "18:00")]),
+            (404, "sem evolução"),   # sessão 50 é órfã
+            (201, {"id": 77}),       # evolução criada só para ela
+            (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),  # 2026-07-21
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(), paciente, self.linhas(), skips, fails)
+
+        self.assertEqual(criadas, 2)
+        self.assertEqual(skips["sessao_ja_existe"], 0)
+        self.assertFalse(fails)
+        # A sessão órfã recebeu a evolução sem uma nova sessão ser criada.
+        self.assertEqual(self.chamadas[2][2]["sessaoId"], 50)
+
+    def test_sessao_orfa_agendada_e_realizada_antes_da_evolucao(self):
+        """`PATCH realizar` falhou antes: a sessão ficou AGENDADA e sem evolução."""
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", "18:00", status="AGENDADA")]),
+            (404, "sem evolução"),
+            (200, {"id": 50}),       # PATCH realizar
+            (201, {"id": 77}),       # POST evolução
+            (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(), paciente, self.linhas(), skips, fails)
+
+        self.assertEqual(criadas, 2)
+        self.assertFalse(fails)
+        self.assertEqual(self.chamadas[2][1], "http://local/sessoes/50/realizar")
+
+    def test_sessao_cancelada_nao_bloqueia_a_importacao(self):
+        """CANCELADA não recebe evolução; o atendimento vira uma sessão nova."""
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", "18:00", status="CANCELADA")]),
+            (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),
+            (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(), paciente, self.linhas(), skips, fails)
+
+        self.assertEqual(criadas, 2)
+        self.assertEqual(skips["sessao_ja_existe"], 0)
+        self.assertFalse(fails)
+
+    def test_falha_ao_consultar_evolucao_nao_cria_sessao_duplicada(self):
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", "18:00")]),
+            (500, "boom"),
+            (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(), paciente, self.linhas(), skips, fails)
+
+        self.assertEqual(criadas, 1)
+        self.assertEqual(fails["evolucao_existe"], 1)
 
     def test_paciente_inativo_e_reativado_e_reinativado(self):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": False}
@@ -342,6 +550,35 @@ class ProcessarClienteTest(HttpStubTest):
 
         self.assertEqual(criadas, 2)
         self.assertEqual([m for m, _, _ in self.chamadas], ["GET"])
+
+    def test_dry_run_com_sessao_orfa_apenas_consulta(self):
+        paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
+        self.stub([
+            (200, [self.sessao(50, "2026-07-20", "18:00")]),
+            (404, "sem evolução"),
+        ])
+        skips, fails = Counter(), Counter()
+
+        criadas = imp.processar_cliente(self.cfg(dry_run=True), paciente,
+                                        self.linhas(), skips, fails)
+
+        self.assertEqual(criadas, 2)
+        self.assertEqual([m for m, _, _ in self.chamadas], ["GET", "GET"])
+
+
+class ValidarTipoSessaoTest(unittest.TestCase):
+    def test_tipos_do_enum_sao_aceitos(self):
+        self.assertIsNone(imp.validar_tipo_sessao("PILATES"))
+        self.assertIsNone(imp.validar_tipo_sessao("FISIOTERAPIA"))
+
+    def test_caixa_errada_e_rejeitada(self):
+        """A API compara com o enum; 'pilates' quebraria todos os POST /sessoes."""
+        erro = imp.validar_tipo_sessao("pilates")
+        self.assertIn("SEUFISIO_TIPO_SESSAO", erro)
+        self.assertIn("PILATES", erro)
+
+    def test_valor_desconhecido_e_rejeitado(self):
+        self.assertIsNotNone(imp.validar_tipo_sessao("MASSAGEM"))
 
 
 class ParseArgsTest(unittest.TestCase):

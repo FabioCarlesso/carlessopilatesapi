@@ -1161,14 +1161,15 @@ python3 scripts/import_seufisio.py
 1. Faz login na API, carrega os pacientes locais (ativos e inativos) e resolve cada cliente do seufisio por **CPF**; sem CPF, cai para o nome normalizado (sem acentos, minúsculo) e **só aceita correspondência única** — nomes ambíguos são registrados e pulados, nunca chutados.
 2. Busca os prontuários em `GET /api/cliente/{id}/prontuarios?rowsPerPage=200&page=N` (paginado via `last_page`).
 3. Converte o HTML do campo `prontuario` em texto puro, que vai para `observacoesFisioterapeuta`. Linhas sem prontuário preenchido (atendimento sem evolução) são ignoradas.
-4. Carrega as sessões já cadastradas (`GET /sessoes/paciente/{id}`) e pula os atendimentos cuja chave `data + horário` já existe — é isso que torna a reexecução segura.
+4. Carrega as sessões já cadastradas (`GET /sessoes/paciente/{id}`) e casa cada atendimento com uma sessão de mesma chave `data + horário` — é isso que torna a reexecução segura. Quantos atendimentos compartilharem a chave, tantas sessões são consumidas; o excedente vira sessão nova (sem `hora_atendimento` todos os atendimentos do dia caem na mesma chave, e sem isso o segundo seria perdido). Sessões `CANCELADA` ficam de fora da conta: não recebem evolução e não devem bloquear a importação.
 5. Para cada evolução nova: `POST /sessoes` → `PATCH /sessoes/{id}/realizar` → `POST /evolucoes-sessao`, usando a data/hora original (`prontuario_preenchido_em` quando presente, senão a data/hora do atendimento).
+6. Quando a sessão já existe, o script confere se ela tem evolução (`GET /evolucoes-sessao/sessao/{id}`) e **cria só a que faltar** — reativando a sessão via `PATCH realizar` se ela ainda estiver `AGENDADA`.
 
 Detalhes operacionais:
 
 - **Pacientes inativos** são reativados temporariamente (`PATCH /pacientes/{id}/ativar`) porque `POST /sessoes` e `GET /sessoes/paciente/{id}` só aceitam pacientes ativos; a reinativação acontece no `finally`, mesmo se algo falhar no meio. Se o `inativar` falhar, o log avisa para reverter à mão.
-- Se a evolução falhar depois da sessão criada, a **sessão órfã** é registrada no log (`[orfa ...]`) para reprocesso manual.
-- O tipo da sessão criada é `PILATES` por padrão; use `SEUFISIO_TIPO_SESSAO=FISIOTERAPIA` para mudar.
+- Se a evolução falhar depois da sessão criada, a **sessão órfã** é registrada no log (`[orfa ...]`) — e a execução seguinte a completa sozinha (passo 6), sem duplicar a sessão. O mesmo vale para uma sessão criada direto no sistema novo que ainda não tenha evolução.
+- O tipo da sessão criada é `PILATES` por padrão; use `SEUFISIO_TIPO_SESSAO=FISIOTERAPIA` para mudar. Um valor fora do enum `TipoSessao` aborta o script logo no início, antes de qualquer chamada.
 
 ```bash
 set -a; source scripts/.env; set +a

@@ -27,8 +27,13 @@ paginado (`last_page`). Campos usados de cada linha:
 
 Idempotência: a chave é `paciente + data + horário`. Antes de criar, o script
 carrega as sessões já existentes do paciente (`GET /sessoes/paciente/{id}`) e
-pula os atendimentos que já viraram sessão. Re-rodar não duplica — é o modo de
-operação esperado enquanto o seufisio seguir em uso (carga delta recorrente).
+casa cada atendimento com uma delas — quantos atendimentos compartilharem a
+chave, tantas sessões são consumidas; o excedente vira sessão nova. Para a
+sessão já existente o script confere se ela tem evolução
+(`GET /evolucoes-sessao/sessao/{id}`) e cria só a que faltar, de modo que uma
+execução interrompida no meio se conserta na próxima. Re-rodar não duplica — é
+o modo de operação esperado enquanto o seufisio seguir em uso (carga delta
+recorrente).
 
 Pacientes inativos: `POST /sessoes` e `GET /sessoes/paciente/{id}` só aceitam
 pacientes ativos, então o script reativa temporariamente e reinativa ao final
@@ -70,6 +75,7 @@ from import_seufisio import (  # noqa: E402  (precisa do sys.path acima)
 DESCRIPTION = "Importa evoluções (prontuários) do seufisio.com.br para a API carlessopilatesapi."
 PRONTUARIOS_PAGE_SIZE = 200
 TIPO_SESSAO_PADRAO = "PILATES"
+TIPOS_SESSAO_VALIDOS = ("PILATES", "FISIOTERAPIA")  # enum TipoSessao da API
 TAGS_QUEBRA_LINHA = {
     "br", "p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6",
 }
@@ -105,6 +111,14 @@ def html_para_texto(html):
     linhas = [linha.strip() for linha in texto.splitlines()]
     texto = re.sub(r"\n{3,}", "\n\n", "\n".join(linhas)).strip()
     return texto or None
+
+
+def validar_tipo_sessao(tipo):
+    """Mensagem de erro quando o tipo não existe no enum da API, ou None."""
+    if tipo in TIPOS_SESSAO_VALIDOS:
+        return None
+    return (f"SEUFISIO_TIPO_SESSAO inválido: {tipo!r} — "
+            f"use um de {', '.join(TIPOS_SESSAO_VALIDOS)}")
 
 
 def normalizar_nome(nome):
@@ -199,14 +213,41 @@ def map_to_evolucao(linha, desde=None):
 
 
 def sessoes_existentes(base_url, token, paciente_id):
-    """(chaves, erro) — chaves `data+horário` das sessões já cadastradas."""
+    """(por_chave, erro) — sessões já cadastradas agrupadas por `data+horário`.
+
+    Cada chave aponta para a *lista* de sessões com aquela data/horário, não
+    para uma só: sem `hora_atendimento` todos os atendimentos do dia colapsam
+    na mesma chave, e tratá-la como única faria o script pular os demais como
+    se já tivessem sido importados.
+
+    Sessões CANCELADA ficam de fora — não recebem evolução e, contadas aqui,
+    bloqueariam a importação de um atendimento legítimo no mesmo horário.
+    """
     status, body = http_json(
         "GET", f"{base_url}/sessoes/paciente/{paciente_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     if status != 200 or not isinstance(body, list):
         return None, f"GET /sessoes/paciente/{paciente_id} -> {status}"
-    return {chave_sessao(s.get("data"), s.get("horario")) for s in body}, None
+    por_chave = defaultdict(list)
+    for s in body:
+        if s.get("status") == "CANCELADA":
+            continue
+        por_chave[chave_sessao(s.get("data"), s.get("horario"))].append(s)
+    return dict(por_chave), None
+
+
+def evolucao_existe(base_url, token, sessao_id):
+    """(existe, erro) — se a sessão já tem evolução registrada (relação 1:1)."""
+    status, _ = http_json(
+        "GET", f"{base_url}/evolucoes-sessao/sessao/{sessao_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    if status == 200:
+        return True, None
+    if status == 404:
+        return False, None
+    return None, f"GET /evolucoes-sessao/sessao/{sessao_id} -> {status}"
 
 
 def patch_paciente(base_url, token, paciente_id, acao):
@@ -259,8 +300,8 @@ def importar_evolucao(base_url, token, paciente_id, tipo, evolucao, fails, rotul
     sessao_id = body["id"]
     status, _ = patch_realizar(base_url, token, sessao_id)
     if status != 200:
-        # A sessão fica AGENDADA; a próxima execução a reconhece pela chave e
-        # não duplica, mas a evolução precisa ser criada manualmente.
+        # A sessão fica AGENDADA; a próxima execução a reconhece pela chave,
+        # não duplica e completa o que faltou (ver `completar_evolucao`).
         fails[f"patch_realizar_{status}"] += 1
         print(f"      [fail {rotulo} sessao_id={sessao_id}] PATCH realizar -> {status}")
         return False
@@ -270,6 +311,32 @@ def importar_evolucao(base_url, token, paciente_id, tipo, evolucao, fails, rotul
         fails[f"post_evolucao_{status}"] += 1
         print(f"      [orfa {rotulo} sessao_id={sessao_id} data={evolucao['data']}] "
               f"POST /evolucoes-sessao -> {status} (sessão criada sem evolução)")
+        return False
+    return True
+
+
+def completar_evolucao(base_url, token, sessao, evolucao, fails, rotulo):
+    """Cria a evolução que falta numa sessão que já existe.
+
+    Cobre a sessão órfã de uma execução interrompida (sessão criada, evolução
+    não) e a sessão criada direto no sistema novo: em ambos os casos a chave
+    bate, e sem este caminho a evolução nunca seria importada.
+    """
+    sessao_id = sessao["id"]
+    if sessao.get("status") == "AGENDADA":
+        # `PATCH realizar` só aceita AGENDADA; numa sessão já REALIZADA a
+        # transição volta 400 e abortaria a criação da evolução.
+        status, _ = patch_realizar(base_url, token, sessao_id)
+        if status != 200:
+            fails[f"patch_realizar_{status}"] += 1
+            print(f"      [fail {rotulo} sessao_id={sessao_id}] PATCH realizar -> {status}")
+            return False
+
+    status, _ = post_evolucao(base_url, token, sessao_id, evolucao)
+    if status != 201:
+        fails[f"post_evolucao_{status}"] += 1
+        print(f"      [fail {rotulo} sessao_id={sessao_id} data={evolucao['data']}] "
+              f"POST /evolucoes-sessao -> {status} (sessão existente sem evolução)")
         return False
     return True
 
@@ -304,34 +371,58 @@ def processar_cliente(cfg, paciente, linhas, skips, fails):
         if inativo and cfg["dry_run"]:
             # `GET /sessoes/paciente/{id}` responde 404 para inativos; na carga
             # real o paciente é reativado antes, aqui não há o que consultar.
-            chaves, erro = set(), None
+            existentes, erro = {}, None
             print(f"      [dry-run {rotulo}] paciente inativo: seria reativado "
                   f"temporariamente; sessões existentes não verificadas")
         else:
-            chaves, erro = sessoes_existentes(base_url, token, paciente_id)
+            existentes, erro = sessoes_existentes(base_url, token, paciente_id)
         if erro:
             fails["sessoes_existentes"] += 1
             print(f"      [fail {rotulo}] {erro}")
             return 0
 
         criadas = 0
+        # Quantos atendimentos desta execução já consumiram cada chave: o
+        # n-ésimo atendimento casa com a n-ésima sessão existente e, quando as
+        # sessões acabam, vira uma nova — é o que faz dois atendimentos no
+        # mesmo dia sem horário serem importados sem duplicar na reexecução.
+        consumidas = Counter()
         for evolucao in pendentes:
             chave = chave_sessao(evolucao["data"], evolucao["horario"])
-            if chave in chaves:
-                skips["sessao_ja_existe"] += 1
+            candidatas = existentes.get(chave) or []
+            indice = consumidas[chave]
+            consumidas[chave] += 1
+
+            if indice < len(candidatas):
+                sessao = candidatas[indice]
+                tem_evolucao, erro = evolucao_existe(base_url, token, sessao["id"])
+                if erro:
+                    fails["evolucao_existe"] += 1
+                    print(f"      [fail {rotulo}] {erro}")
+                    continue
+                if tem_evolucao:
+                    skips["sessao_ja_existe"] += 1
+                    continue
+                if cfg["dry_run"]:
+                    print(f"      [dry-run {rotulo}] sessao_id={sessao['id']} "
+                          f"{evolucao['data']} sem evolução: seria completada "
+                          f"(texto={len(evolucao['texto'])} chars)")
+                    criadas += 1
+                    continue
+                if completar_evolucao(base_url, token, sessao, evolucao, fails, rotulo):
+                    criadas += 1
+                time.sleep(RATE_LIMIT_SECONDS)
                 continue
 
             if cfg["dry_run"]:
                 print(f"      [dry-run {rotulo}] {evolucao['data']} "
                       f"{evolucao['horario'] or '--:--'} texto={len(evolucao['texto'])} chars")
                 criadas += 1
-                chaves.add(chave)
                 continue
 
             if importar_evolucao(base_url, token, paciente_id, cfg["tipo"],
                                  evolucao, fails, rotulo):
                 criadas += 1
-                chaves.add(chave)
             time.sleep(RATE_LIMIT_SECONDS)
         return criadas
     finally:
@@ -380,6 +471,11 @@ def main():
     if not local_email or not local_password:
         sys.exit("LOCAL_EMAIL e LOCAL_PASSWORD obrigatórias — mesmo em --dry-run, "
                  "para comparar com as sessões já cadastradas")
+    erro_tipo = validar_tipo_sessao(tipo)
+    if erro_tipo:
+        # Sem esta checagem o valor inválido só falharia no primeiro POST
+        # /sessoes — depois de toda a listagem e paginação, e em 100% das linhas.
+        sys.exit(erro_tipo)
 
     sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
 
