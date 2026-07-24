@@ -17,10 +17,13 @@ Uso:
     export LOCAL_PASSWORD="..."
     python3 scripts/import_seufisio.py [--dry-run]
 
---dry-run: imprime payloads mascarados (CPF/e-mail ofuscados) sem POSTar.
+--dry-run: imprime payloads mascarados (CPF/e-mail ofuscados) sem POSTar. Quando
+LOCAL_EMAIL/LOCAL_PASSWORD estão disponíveis, o dry-run também carrega os
+pacientes já cadastrados e mostra o delta real que seria importado.
 
-Idempotência: antes de criar, busca todos os CPFs já cadastrados na API local
-e pula os duplicados. Re-rodar não cria duplicatas.
+Idempotência: antes de criar, busca todos os pacientes já cadastrados na API
+local — ativos **e** inativos — e pula quem já existe por CPF ou por e-mail
+(ambos têm unicidade parcial no banco). Re-rodar não cria duplicatas.
 
 Segurança:
 - Tokens lidos apenas de variáveis de ambiente; nunca commitar credenciais.
@@ -33,8 +36,10 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.request
+from collections import Counter
 from datetime import datetime
 
 DESCRIPTION = "Importa pacientes do seufisio.com.br para a API local."
@@ -47,6 +52,22 @@ BROWSER_UA = (
     "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
 )
 DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
+SIGLAS_UF = frozenset((
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
+    "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
+    "SP", "SE", "TO",
+))
+NOMES_UF = {
+    "acre": "AC", "alagoas": "AL", "amapa": "AP", "amazonas": "AM",
+    "bahia": "BA", "ceara": "CE", "distrito federal": "DF",
+    "espirito santo": "ES", "goias": "GO", "maranhao": "MA",
+    "mato grosso": "MT", "mato grosso do sul": "MS", "minas gerais": "MG",
+    "para": "PA", "paraiba": "PB", "parana": "PR", "pernambuco": "PE",
+    "piaui": "PI", "rio de janeiro": "RJ", "rio grande do norte": "RN",
+    "rio grande do sul": "RS", "rondonia": "RO", "roraima": "RR",
+    "santa catarina": "SC", "sao paulo": "SP", "sergipe": "SE",
+    "tocantins": "TO",
+}
 
 
 def http_json(method, url, headers=None, body=None):
@@ -65,6 +86,18 @@ def http_json(method, url, headers=None, body=None):
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         return e.code, raw
+
+
+def only_digits(value):
+    if not value:
+        return None
+    return re.sub(r"\D", "", value) or None
+
+
+def normalize_email(value):
+    if not value:
+        return None
+    return value.strip().lower() or None
 
 
 def mask_cpf(cpf):
@@ -107,6 +140,54 @@ def parse_data_nascimento(value):
     return None, f"data_nascimento em formato não reconhecido: {txt!r}"
 
 
+def normalizar_nome(nome):
+    """Nome sem acentos, em minúsculas e com espaços colapsados."""
+    if not nome:
+        return None
+    sem_acento = unicodedata.normalize("NFKD", nome)
+    sem_acento = "".join(c for c in sem_acento if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", sem_acento).strip().lower() or None
+
+
+def chave_fraca(payload):
+    """Chave de último recurso para quem não tem CPF nem e-mail.
+
+    34 dos 112 clientes do seufisio não têm nenhum dos dois. Sem uma chave
+    para eles, `motivo_duplicado` nunca acusa duplicata e cada execução
+    recria o paciente — o oposto da idempotência que a carga delta exige.
+    Nome + data de nascimento é o que resta; nomes iguais com a mesma data
+    de nascimento são tratados como a mesma pessoa.
+    """
+    nome = normalizar_nome(payload.get("nome"))
+    if not nome:
+        return None
+    return nome, payload.get("dataNascimento") or ""
+
+
+def normalizar_uf(valor):
+    """Sigla de 2 letras a partir da sigla ou do nome do estado por extenso.
+
+    O seufisio mistura os dois formatos (`PR` e `Paraná`) e a coluna `uf` é
+    `VARCHAR(2)`: mandar o nome por extenso faz o Postgres recusar a linha
+    inteira por truncamento, e a API responde o **mesmo 409 genérico** de um
+    registro duplicado. O paciente ficava de fora contabilizado como
+    `conflito_409`, ou seja, perdido com motivo errado no relatório.
+
+    Devolve None quando não reconhece o valor — melhor importar o paciente
+    sem a UF do que recusá-lo por causa de um campo de endereço.
+    """
+    if not valor:
+        return None
+    txt = re.sub(r"\s+", " ", str(valor)).strip()
+    if not txt:
+        return None
+    if txt.upper() in SIGLAS_UF:
+        return txt.upper()
+    sem_acento = unicodedata.normalize("NFKD", txt.lower())
+    sem_acento = "".join(c for c in sem_acento if not unicodedata.combining(c))
+    return NOMES_UF.get(sem_acento)
+
+
 def seufisio_headers(token, clinica_id, version_app):
     return {
         "Authorization": f"Bearer {token}",
@@ -133,13 +214,30 @@ def login_local(base_url, email, password):
 
 
 def list_seufisio(headers):
-    status, body = http_json(
-        "GET", f"{SEUFISIO_BASE}/cliente?per_page=500",
-        headers=headers,
-    )
-    if status != 200 or not isinstance(body, dict):
-        raise SystemExit(f"Listagem seufisio falhou ({status}): {body}")
-    return body.get("data") or []
+    """Todos os clientes do seufisio — ativos e inativos — seguindo `last_page`.
+
+    A API **ignora** `per_page`/`rowsPerPage` e sempre devolve 50 por página
+    (conferido em runtime: `per_page=50`, `last_page=3` para `total=112`).
+    O `?per_page=500` de antes trazia só a primeira página, o que explica o
+    `ok=47 fail=3` da issue #76: eram os 50 primeiros dos 112 clientes.
+
+    `?rowsPerPage=all` responde uma lista plana e sem paginação, mas só com
+    os clientes **ativos** — os inativos ficariam de fora da importação.
+    """
+    clientes = []
+    page = 1
+    while True:
+        status, body = http_json(
+            "GET", f"{SEUFISIO_BASE}/cliente?page={page}",
+            headers=headers,
+        )
+        if status != 200 or not isinstance(body, dict):
+            raise SystemExit(f"Listagem seufisio falhou ({status}): {body}")
+        clientes.extend(body.get("data") or [])
+        if page >= (body.get("last_page") or 1):
+            return clientes
+        page += 1
+        time.sleep(RATE_LIMIT_SECONDS)
 
 
 def fetch_seufisio(headers, cid):
@@ -152,25 +250,87 @@ def fetch_seufisio(headers, cid):
     return body, None
 
 
-def fetch_existing_cpfs(base_url, token):
+def pagina_final(body, content):
+    """Se esta é a última página, nos dois formatos de `Page` do Spring.
+
+    O Spring Boot 3.4 serializa `Page` como `{content, page: {size, number,
+    totalElements, totalPages}}` — **sem** o `last` do formato antigo. Lê-lo
+    com default `True` encerraria o laço na primeira página e deduplicaria
+    contra um set incompleto, que é exatamente a causa dos 409 da issue #76.
+    """
+    if isinstance(body.get("last"), bool):
+        return body["last"]
+    page = body.get("page")
+    if isinstance(page, dict) and isinstance(page.get("totalPages"), int):
+        return page.get("number", 0) >= page["totalPages"] - 1
+    # Formato desconhecido: segue enquanto as páginas vierem cheias, em vez
+    # de parar cedo e correr o risco de perder pacientes da deduplicação.
+    return len(content) < LOCAL_PAGE_SIZE
+
+
+def fetch_pacientes_locais(base_url, token):
+    """Todos os pacientes da API local, em duas passadas: ativos e inativos.
+
+    `GET /pacientes` sem `ativo` retorna apenas ativos, então os inativos
+    precisam de uma segunda passada — sem isso o CPF de um paciente inativo
+    fica fora do set de deduplicação e o POST volta 409 (issue #76).
+    """
+    pacientes = []
+    for ativo in ("true", "false"):
+        page = 0
+        while True:
+            url = f"{base_url}/pacientes?ativo={ativo}&page={page}&size={LOCAL_PAGE_SIZE}"
+            status, body = http_json(
+                "GET", url,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if status != 200 or not isinstance(body, dict):
+                raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
+            content = body.get("content") or []
+            pacientes.extend(content)
+            if not content or pagina_final(body, content):
+                break
+            page += 1
+    return pacientes
+
+
+def index_pacientes(pacientes):
+    """CPFs, e-mails e chaves fracas já cadastrados localmente.
+
+    O e-mail é normalizado para minúsculas de propósito, ainda que o índice
+    parcial da V23 (`ON pacientes (email) WHERE email IS NOT NULL`) não use
+    `lower()`: o banco aceitaria `Ana@x.com` ao lado de `ana@x.com`, mas é a
+    mesma pessoa e o script prefere pular a criar a duplicata.
+    """
     cpfs = set()
-    page = 0
-    while True:
-        url = f"{base_url}/pacientes?ativo=true&page={page}&size={LOCAL_PAGE_SIZE}"
-        status, body = http_json(
-            "GET", url,
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        if status != 200 or not isinstance(body, dict):
-            raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
-        for p in body.get("content") or []:
-            cpf = p.get("cpf")
-            if cpf:
-                cpfs.add(cpf)
-        if body.get("last", True) or not body.get("content"):
-            break
-        page += 1
-    return cpfs
+    emails = set()
+    fracas = set()
+    for p in pacientes:
+        cpf = only_digits(p.get("cpf"))
+        if cpf:
+            cpfs.add(cpf)
+        email = normalize_email(p.get("email"))
+        if email:
+            emails.add(email)
+        if not cpf and not email:
+            chave = chave_fraca({"nome": p.get("nome"), "dataNascimento": p.get("dataNascimento")})
+            if chave:
+                fracas.add(chave)
+    return cpfs, emails, fracas
+
+
+def motivo_duplicado(payload, cpfs, emails, fracas=frozenset()):
+    """Motivo pelo qual o paciente já existe localmente, ou None se é novo."""
+    if payload.get("cpf") and payload["cpf"] in cpfs:
+        return "cpf_ja_cadastrado"
+    email = normalize_email(payload.get("email"))
+    if email and email in emails:
+        return "email_ja_cadastrado"
+    if not payload.get("cpf") and not email:
+        chave = chave_fraca(payload)
+        if chave and chave in fracas:
+            return "nome_data_nascimento_ja_cadastrado"
+    return None
 
 
 def map_to_paciente(c):
@@ -179,24 +339,20 @@ def map_to_paciente(c):
         return None, "sem nome"
 
     email = (c.get("email") or "").strip() or None
-    cpf_raw = c.get("cpf")
-    cpf = re.sub(r"\D", "", cpf_raw) if cpf_raw else None
-    cpf = cpf or None
+    cpf = only_digits(c.get("cpf"))
     telefone = (c.get("telefone") or "").strip() or None
 
     data_nascimento, data_err = parse_data_nascimento(c.get("data_nascimento"))
     if data_err:
         return None, data_err
 
-    cep_raw = c.get("cep")
-    cep = re.sub(r"\D", "", cep_raw) if cep_raw else None
-    cep = cep or None
+    cep = only_digits(c.get("cep"))
     endereco_campos = {
         "logradouro": c.get("endereco"),
         "numero": c.get("endereco_numero"),
         "bairro": c.get("bairro"),
         "cidade": c.get("cidade"),
-        "uf": c.get("uf"),
+        "uf": normalizar_uf(c.get("uf")),
         "cep": cep,
     }
     endereco = endereco_campos if any(endereco_campos.values()) else None
@@ -220,6 +376,19 @@ def masked_payload(payload):
         "dataNascimento": payload.get("dataNascimento"),
         "endereco": "(presente)" if payload.get("endereco") else None,
     }
+
+
+def print_relatorio(total, ok, skips, fails, rotulo_ok="importados"):
+    """Resumo final: total processado / criados / ignorados / falhas, por motivo."""
+    print("\n=== Resumo ===")
+    print(f"total processado : {total}")
+    print(f"{rotulo_ok:<17}: {ok}")
+    print(f"ignorados        : {sum(skips.values())}")
+    for motivo, qtd in sorted(skips.items()):
+        print(f"  - {motivo}: {qtd}")
+    print(f"falhas           : {sum(fails.values())}")
+    for motivo, qtd in sorted(fails.items()):
+        print(f"  - {motivo}: {qtd}")
 
 
 def post_paciente(base_url, token, payload):
@@ -257,6 +426,7 @@ def main():
                  "(headers `setfisio` e `x-version-app` capturados no DevTools)")
     if not args.dry_run and (not local_email or not local_password):
         sys.exit("LOCAL_EMAIL e LOCAL_PASSWORD obrigatórias (use --dry-run para testar mapeamento)")
+    tem_credenciais_locais = bool(local_email and local_password)
 
     sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
 
@@ -264,40 +434,61 @@ def main():
     clientes = list_seufisio(sf_headers)
     print(f"      {len(clientes)} clientes encontrados")
 
+    total = len(clientes)
+    skips = Counter()
+    fails = Counter()
+
     print("[2/4] Buscando detalhes ...")
     detalhes = []
     for c in clientes:
         cid = c.get("id") if isinstance(c, dict) else None
         if cid is None:
-            print("      [skip] item sem id na listagem")
+            fails["listagem_sem_id"] += 1
+            print("      [fail] item sem id na listagem")
             continue
         full, err = fetch_seufisio(sf_headers, cid)
         if err:
-            print(f"      [skip {cid}] {err}")
+            fails["detalhe_indisponivel"] += 1
+            print(f"      [fail seufisio_id={cid}] {err}")
             continue
         detalhes.append(full)
         time.sleep(RATE_LIMIT_SECONDS)
 
     local_token = None
     cpfs_existentes = set()
-    if not args.dry_run:
+    emails_existentes = set()
+    fracas_existentes = set()
+    if not args.dry_run or tem_credenciais_locais:
         local_token = login_local(base_url, local_email, local_password)
-        print("[3/4] Carregando CPFs já cadastrados (idempotência) ...")
-        cpfs_existentes = fetch_existing_cpfs(base_url, local_token)
-        print(f"      {len(cpfs_existentes)} CPFs já presentes — serão pulados")
+        print("[3/4] Carregando pacientes já cadastrados (ativos + inativos) ...")
+        locais = fetch_pacientes_locais(base_url, local_token)
+        cpfs_existentes, emails_existentes, fracas_existentes = index_pacientes(locais)
+        print(f"      {len(locais)} pacientes locais — {len(cpfs_existentes)} CPFs, "
+              f"{len(emails_existentes)} e-mails e {len(fracas_existentes)} "
+              f"nome+nascimento (sem CPF/e-mail) para deduplicação")
     else:
-        print("[3/4] Dry-run: pulando login e checagem de duplicatas")
+        print("[3/4] Dry-run sem LOCAL_EMAIL/LOCAL_PASSWORD: duplicatas não serão detectadas")
 
     print(f"[4/4] {'Simulando' if args.dry_run else 'Enviando'} POST /pacientes ...")
-    ok = fail = skip_dup = 0
+    ok = 0
     for c in detalhes:
         seufisio_id = c.get("id") if isinstance(c, dict) else None
-        payload, skip = map_to_paciente(c)
-        if skip:
-            print(f"      [skip seufisio_id={seufisio_id}] {skip}")
+        payload, invalido = map_to_paciente(c)
+        if invalido:
+            skips["invalido"] += 1
+            print(f"      [skip seufisio_id={seufisio_id}] {invalido}")
             continue
-        if payload["cpf"] and payload["cpf"] in cpfs_existentes:
-            skip_dup += 1
+
+        if (c.get("uf") or "").strip() and not (payload.get("endereco") or {}).get("uf"):
+            print(f"      [warn seufisio_id={seufisio_id}] uf {c.get('uf')!r} não reconhecida; "
+                  f"paciente segue sem UF")
+
+        duplicado = motivo_duplicado(payload, cpfs_existentes, emails_existentes,
+                                     fracas_existentes)
+        if duplicado:
+            skips[duplicado] += 1
+            print(f"      [skip seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])} "
+                  f"email={mask_email(payload['email'])}] {duplicado}")
             continue
 
         if args.dry_run:
@@ -307,28 +498,38 @@ def main():
 
         status, body = post_paciente(base_url, local_token, payload)
         if status == 409:
-            skip_dup += 1
+            # Rede de segurança: unicidade que o dedup proativo não pegou.
+            skips["conflito_409"] += 1
+            print(f"      [skip seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])} "
+                  f"email={mask_email(payload['email'])}] conflito_409")
             continue
         if status != 201 or not isinstance(body, dict):
-            fail += 1
+            fails[f"post_status_{status}"] += 1
             print(f"      [fail seufisio_id={seufisio_id} cpf={mask_cpf(payload['cpf'])}] {status}")
             continue
         novo_id = body.get("id")
         if novo_id is None:
-            fail += 1
+            fails["post_sem_id"] += 1
             print(f"      [fail seufisio_id={seufisio_id}] resposta sem id")
             continue
         ok += 1
         if payload["cpf"]:
             cpfs_existentes.add(payload["cpf"])
+        email = normalize_email(payload["email"])
+        if email:
+            emails_existentes.add(email)
+        if not payload["cpf"] and not email:
+            chave = chave_fraca(payload)
+            if chave:
+                fracas_existentes.add(chave)
 
         if c.get("situacao") != SITUACAO_ATIVO:
             inat_status, _ = patch_inativar(base_url, local_token, novo_id)
             if inat_status != 204:
                 print(f"      [warn inativar id={novo_id}] {inat_status}")
 
-    print(f"Concluído: ok={ok} fail={fail} skip_duplicado={skip_dup}")
-    if fail:
+    print_relatorio(total, ok, skips, fails)
+    if sum(fails.values()):
         sys.exit(1)
 
 
