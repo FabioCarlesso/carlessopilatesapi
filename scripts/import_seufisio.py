@@ -149,13 +149,30 @@ def login_local(base_url, email, password):
 
 
 def list_seufisio(headers):
-    status, body = http_json(
-        "GET", f"{SEUFISIO_BASE}/cliente?per_page=500",
-        headers=headers,
-    )
-    if status != 200 or not isinstance(body, dict):
-        raise SystemExit(f"Listagem seufisio falhou ({status}): {body}")
-    return body.get("data") or []
+    """Todos os clientes do seufisio — ativos e inativos — seguindo `last_page`.
+
+    A API **ignora** `per_page`/`rowsPerPage` e sempre devolve 50 por página
+    (conferido em runtime: `per_page=50`, `last_page=3` para `total=112`).
+    O `?per_page=500` de antes trazia só a primeira página, o que explica o
+    `ok=47 fail=3` da issue #76: eram os 50 primeiros dos 112 clientes.
+
+    `?rowsPerPage=all` responde uma lista plana e sem paginação, mas só com
+    os clientes **ativos** — os inativos ficariam de fora da importação.
+    """
+    clientes = []
+    page = 1
+    while True:
+        status, body = http_json(
+            "GET", f"{SEUFISIO_BASE}/cliente?page={page}",
+            headers=headers,
+        )
+        if status != 200 or not isinstance(body, dict):
+            raise SystemExit(f"Listagem seufisio falhou ({status}): {body}")
+        clientes.extend(body.get("data") or [])
+        if page >= (body.get("last_page") or 1):
+            return clientes
+        page += 1
+        time.sleep(RATE_LIMIT_SECONDS)
 
 
 def fetch_seufisio(headers, cid):

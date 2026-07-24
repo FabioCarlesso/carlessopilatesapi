@@ -185,6 +185,53 @@ class FetchPacientesLocaisTest(unittest.TestCase):
         self.assertIn(p1, self.urls)
 
 
+class ListSeufisioTest(unittest.TestCase):
+    """Regressão: a API devolve 50 por página e ignora `per_page`."""
+
+    def setUp(self):
+        self.http_json_original = imp.http_json
+        self.urls = []
+
+    def tearDown(self):
+        imp.http_json = self.http_json_original
+
+    def _stub(self, paginas):
+        def fake(method, url, headers=None, body=None):
+            self.urls.append(url)
+            return 200, paginas[url]
+        imp.http_json = fake
+
+    def test_percorre_todas_as_paginas(self):
+        p1 = f"{imp.SEUFISIO_BASE}/cliente?page=1"
+        p2 = f"{imp.SEUFISIO_BASE}/cliente?page=2"
+        p3 = f"{imp.SEUFISIO_BASE}/cliente?page=3"
+        self._stub({
+            p1: {"data": [{"id": 1}], "last_page": 3, "total": 3},
+            p2: {"data": [{"id": 2}], "last_page": 3, "total": 3},
+            p3: {"data": [{"id": 3}], "last_page": 3, "total": 3},
+        })
+
+        clientes = imp.list_seufisio({})
+
+        self.assertEqual([c["id"] for c in clientes], [1, 2, 3])
+        self.assertEqual(self.urls, [p1, p2, p3])
+
+    def test_pagina_unica(self):
+        p1 = f"{imp.SEUFISIO_BASE}/cliente?page=1"
+        self._stub({p1: {"data": [{"id": 1}], "last_page": 1, "total": 1}})
+
+        self.assertEqual(len(imp.list_seufisio({})), 1)
+        self.assertEqual(self.urls, [p1])
+
+    def test_erro_encerra_o_script(self):
+        def fake(method, url, headers=None, body=None):
+            return 401, "não autorizado"
+        imp.http_json = fake
+
+        with self.assertRaises(SystemExit):
+            imp.list_seufisio({})
+
+
 class PaginaFinalTest(unittest.TestCase):
     def test_formato_antigo_usa_last(self):
         self.assertTrue(imp.pagina_final({"last": True}, [1]))
