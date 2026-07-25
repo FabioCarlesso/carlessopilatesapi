@@ -2,12 +2,55 @@
 """Testes unitários para scripts/import_seufisio.py — apenas stdlib (unittest)."""
 
 import os
+import socket
 import sys
 import unittest
+import urllib.error
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import import_seufisio as imp
+
+
+class HttpJsonTest(unittest.TestCase):
+    """Uma conexão travada não pode derrubar a carga inteira."""
+
+    def setUp(self):
+        self.original = imp.urllib.request.urlopen
+
+    def tearDown(self):
+        imp.urllib.request.urlopen = self.original
+
+    def _urlopen_levanta(self, exc):
+        def fake(req, timeout=None):
+            raise exc
+        imp.urllib.request.urlopen = fake
+
+    def test_socket_timeout_vira_status_zero(self):
+        self._urlopen_levanta(socket.timeout("timed out"))
+        status, body = imp.http_json("POST", "http://x/sessoes")
+        self.assertEqual(status, 0)
+        self.assertIn("conexao_indisponivel", body)
+
+    def test_urlerror_vira_status_zero(self):
+        self._urlopen_levanta(urllib.error.URLError("connection refused"))
+        status, body = imp.http_json("GET", "http://x/pacientes")
+        self.assertEqual(status, 0)
+        self.assertIn("conexao_indisponivel", body)
+
+    def test_connection_reset_vira_status_zero(self):
+        self._urlopen_levanta(ConnectionResetError("reset by peer"))
+        status, body = imp.http_json("GET", "http://x/pacientes")
+        self.assertEqual(status, 0)
+
+    def test_httperror_continua_devolvendo_o_codigo_real(self):
+        import io
+        def fake(req, timeout=None):
+            raise urllib.error.HTTPError("http://x", 409, "Conflict", {}, io.BytesIO(b"duplicado"))
+        imp.urllib.request.urlopen = fake
+        status, body = imp.http_json("POST", "http://x/pacientes")
+        self.assertEqual(status, 409)
+        self.assertEqual(body, "duplicado")
 
 
 class MapToPacienteTest(unittest.TestCase):

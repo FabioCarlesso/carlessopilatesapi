@@ -34,6 +34,7 @@ import argparse
 import json
 import os
 import re
+import socket
 import sys
 import time
 import unicodedata
@@ -86,6 +87,13 @@ def http_json(method, url, headers=None, body=None):
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         return e.code, raw
+    except (socket.timeout, urllib.error.URLError, ConnectionError) as e:
+        # Conexão travada/recusada (comum contra API remota que engasga sob
+        # carga). Vira status 0 — o chamador conta como falha daquele cliente
+        # em vez de deixar a exceção derrubar a carga inteira. Como os scripts
+        # são idempotentes, a próxima passada retoma e cria só o que faltou.
+        motivo = e.reason if isinstance(e, urllib.error.URLError) else e
+        return 0, f"conexao_indisponivel: {motivo}"
 
 
 def only_digits(value):
