@@ -16,8 +16,7 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
             """
             SELECT e FROM EvolucaoSessao e
             JOIN FETCH e.sessao s
-            JOIN s.paciente pac
-            WHERE e.id = :id AND pac.ativo = true
+            WHERE e.id = :id
             """)
     Optional<EvolucaoSessao> findByIdComSessao(@Param("id") Long id);
 
@@ -25,8 +24,7 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
             """
             SELECT e FROM EvolucaoSessao e
             JOIN FETCH e.sessao s
-            JOIN s.paciente pac
-            WHERE s.id = :sessaoId AND pac.ativo = true
+            WHERE s.id = :sessaoId
             """)
     Optional<EvolucaoSessao> findBySessaoId(@Param("sessaoId") Long sessaoId);
 }

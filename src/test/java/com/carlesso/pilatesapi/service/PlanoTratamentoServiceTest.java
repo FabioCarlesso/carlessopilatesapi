@@ -154,7 +154,7 @@ class PlanoTratamentoServiceTest {
     @Test
     void listarPorPaciente_deveRetornarPlanosDoPaciente() {
         Paciente p = paciente();
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
         when(planoTratamentoRepository.findAtivosByPacienteOrdenados(1L)).thenReturn(List.of(plano(p)));
 
         List<PlanoTratamentoResponseDTO> response = service.listarPorPaciente(1L);
@@ -166,7 +166,7 @@ class PlanoTratamentoServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteAtivoSemPlanos_deveRetornarListaVazia() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
         when(planoTratamentoRepository.findAtivosByPacienteOrdenados(1L)).thenReturn(List.of());
 
         List<PlanoTratamentoResponseDTO> response = service.listarPorPaciente(1L);
@@ -176,7 +176,7 @@ class PlanoTratamentoServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)

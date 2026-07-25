@@ -253,7 +253,7 @@ class SessaoPilatesServiceTest {
     @Test
     void listarPorPaciente_deveRetornarSessoesDoPaciente() {
         Paciente p = paciente();
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
         when(sessaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of(sessao(p)));
 
         List<SessaoPilatesResponseDTO> response = service.listarPorPaciente(1L);
@@ -265,7 +265,7 @@ class SessaoPilatesServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteAtiveSemSessoes_deveRetornarListaVazia() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
         when(sessaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of());
 
         List<SessaoPilatesResponseDTO> response = service.listarPorPaciente(1L);
@@ -275,7 +275,7 @@ class SessaoPilatesServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -364,9 +364,7 @@ class SessaoPilatesServiceTest {
     }
 
     @Test
-    void realizar_comPacienteInativo_deveLancarResourceNotFoundExceptionSemAtualizar() {
-        // findByIdComPaciente filtra por paciente.ativo=true; quando paciente está inativo,
-        // a query retorna empty mesmo se a sessão existir no banco. UPDATE não deve rodar.
+    void realizar_comSessaoInexistente_naoDeveAtualizar() {
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.realizar(1L)).isInstanceOf(ResourceNotFoundException.class);

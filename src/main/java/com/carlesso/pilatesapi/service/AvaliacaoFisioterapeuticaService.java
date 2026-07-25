@@ -58,10 +58,10 @@ public class AvaliacaoFisioterapeuticaService {
 
     @Transactional(readOnly = true)
     public List<AvaliacaoFisioterapeuticaResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return avaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId).stream()
+        return avaliacaoRepository.findByPacienteOrdenadas(pacienteId).stream()
                 .map(AvaliacaoFisioterapeuticaResponseDTO::from)
                 .toList();
     }
@@ -92,7 +92,7 @@ public class AvaliacaoFisioterapeuticaService {
 
     private AvaliacaoFisioterapeutica encontrar(Long id) {
         return avaliacaoRepository
-                .findAtivaById(id)
+                .findByIdComPaciente(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: " + id));
     }
 }

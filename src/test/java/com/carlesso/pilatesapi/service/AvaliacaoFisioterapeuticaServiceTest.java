@@ -147,7 +147,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void buscarPorId_quandoExistente_deveRetornarResponseDTO() {
-        when(avaliacaoRepository.findAtivaById(1L)).thenReturn(Optional.of(avaliacao(paciente())));
+        when(avaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(avaliacao(paciente())));
 
         AvaliacaoFisioterapeuticaResponseDTO response = service.buscarPorId(1L);
 
@@ -157,7 +157,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void buscarPorId_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+        when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -167,8 +167,8 @@ class AvaliacaoFisioterapeuticaServiceTest {
     @Test
     void listarPorPaciente_deveRetornarAvaliacoesDoPaciente() {
         Paciente p = paciente();
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(avaliacaoRepository.findAtivasByPacienteOrdenadas(1L)).thenReturn(List.of(avaliacao(p)));
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(avaliacaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of(avaliacao(p)));
 
         List<AvaliacaoFisioterapeuticaResponseDTO> response = service.listarPorPaciente(1L);
 
@@ -179,8 +179,8 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteAtivoSemAvaliacoes_deveRetornarListaVazia() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(avaliacaoRepository.findAtivasByPacienteOrdenadas(1L)).thenReturn(List.of());
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(avaliacaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of());
 
         List<AvaliacaoFisioterapeuticaResponseDTO> response = service.listarPorPaciente(1L);
 
@@ -189,7 +189,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -199,7 +199,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
     @Test
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         AvaliacaoFisioterapeutica a = avaliacao(paciente());
-        when(avaliacaoRepository.findAtivaById(1L)).thenReturn(Optional.of(a));
+        when(avaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(a));
         when(avaliacaoRepository.save(a)).thenReturn(a);
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
@@ -228,7 +228,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
 
     @Test
     void atualizar_comAvaliacaoInexistente_deveLancarResourceNotFoundException() {
-        when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+        when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
                 null, null, null, null, null, null, null, null, null, null, null, null, null);

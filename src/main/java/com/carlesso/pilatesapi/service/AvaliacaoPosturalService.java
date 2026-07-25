@@ -96,6 +96,11 @@ public class AvaliacaoPosturalService {
     public AvaliacaoPosturalResponseDTO criar(AvaliacaoPosturalRequestDTO dto) {
         AvaliacaoFisioterapeutica avaliacaoFisioterapeutica = encontrarAvaliacao(dto.avaliacaoFisioterapeuticaId());
 
+        if (!avaliacaoFisioterapeutica.getPaciente().isAtivo()) {
+            throw new BusinessException("Paciente inativo não aceita novos registros clínicos: "
+                    + avaliacaoFisioterapeutica.getPaciente().getId());
+        }
+
         if (avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
                 dto.avaliacaoFisioterapeuticaId(), dto.vista())) {
             throw new ConflictException("Avaliação já possui análise postural ativa da vista " + dto.vista());
@@ -296,7 +301,7 @@ public class AvaliacaoPosturalService {
 
     private AvaliacaoFisioterapeutica encontrarAvaliacao(Long avaliacaoFisioterapeuticaId) {
         return avaliacaoFisioterapeuticaRepository
-                .findAtivaById(avaliacaoFisioterapeuticaId)
+                .findByIdComPaciente(avaliacaoFisioterapeuticaId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Avaliação fisioterapêutica não encontrada: " + avaliacaoFisioterapeuticaId));
     }

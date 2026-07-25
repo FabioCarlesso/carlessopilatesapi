@@ -6,9 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AnamneseRepository extends JpaRepository<Anamnese, Long> {
 
-    Optional<Anamnese> findByIdAndPacienteAtivoTrue(Long id);
-
-    Optional<Anamnese> findByPacienteIdAndPacienteAtivoTrue(Long pacienteId);
+    Optional<Anamnese> findByPacienteId(Long pacienteId);
 
     boolean existsByPacienteId(Long pacienteId);
 }

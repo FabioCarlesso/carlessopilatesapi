@@ -67,12 +67,23 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void findByIdComPaciente_quandoPacienteInativo_deveRetornarVazio() {
+    void findByIdComPaciente_quandoPacienteInativo_deveRetornarSessao() {
         SessaoPilates sessao = entityManager.persist(sessao(persistirPaciente("inativo.repository@email.com", false)));
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(repository.findByIdComPaciente(sessao.getId())).isEmpty();
+        assertThat(repository.findByIdComPaciente(sessao.getId())).isPresent();
+    }
+
+    @Test
+    void findByPacienteOrdenadas_quandoPacienteInativo_deveRetornarHistorico() {
+        Paciente paciente = persistirPaciente("historico.repository@email.com", false);
+        entityManager.persist(sessao(paciente));
+        entityManager.persist(sessao(paciente));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findByPacienteOrdenadas(paciente.getId())).hasSize(2);
     }
 
     private Paciente persistirPaciente(String email, boolean ativo) {

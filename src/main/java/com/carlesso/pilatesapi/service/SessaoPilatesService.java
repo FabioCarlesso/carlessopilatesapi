@@ -89,7 +89,7 @@ public class SessaoPilatesService {
 
     @Transactional(readOnly = true)
     public List<SessaoPilatesResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
         return sessaoRepository.findByPacienteOrdenadas(pacienteId).stream()

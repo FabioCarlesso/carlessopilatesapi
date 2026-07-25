@@ -58,7 +58,7 @@ public class ReavaliacaoService {
 
         if (dto.avaliacaoFisioterapeuticaId() != null) {
             AvaliacaoFisioterapeutica avaliacao = avaliacaoRepository
-                    .findAtivaById(dto.avaliacaoFisioterapeuticaId())
+                    .findByIdComPaciente(dto.avaliacaoFisioterapeuticaId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Avaliação fisioterapêutica não encontrada: " + dto.avaliacaoFisioterapeuticaId()));
             if (!avaliacao.getPaciente().getId().equals(paciente.getId())) {
@@ -88,10 +88,10 @@ public class ReavaliacaoService {
 
     @Transactional(readOnly = true)
     public List<ReavaliacaoResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return reavaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId).stream()
+        return reavaliacaoRepository.findByPacienteOrdenadas(pacienteId).stream()
                 .map(ReavaliacaoResponseDTO::from)
                 .toList();
     }
@@ -118,7 +118,7 @@ public class ReavaliacaoService {
 
     private Reavaliacao encontrar(Long id) {
         return reavaliacaoRepository
-                .findAtivaById(id)
+                .findByIdComPaciente(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reavaliação não encontrada: " + id));
     }
 }

@@ -151,7 +151,7 @@ class NotaFiscalEmitidaServiceTest {
 
     @Test
     void listarPorPaciente_pacienteInexistente_deveLancar404() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(false);
+        when(pacienteRepository.existsById(1L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(1L)).isInstanceOf(ResourceNotFoundException.class);
     }

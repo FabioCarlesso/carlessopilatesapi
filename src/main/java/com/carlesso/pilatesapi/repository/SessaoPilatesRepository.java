@@ -18,7 +18,7 @@ public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Lo
             JOIN FETCH s.paciente pac
             LEFT JOIN FETCH s.profissional
             LEFT JOIN FETCH s.planoTratamento
-            WHERE s.id = :id AND pac.ativo = true
+            WHERE s.id = :id
             """)
     Optional<SessaoPilates> findByIdComPaciente(@Param("id") Long id);
 
@@ -45,7 +45,7 @@ public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Lo
             JOIN FETCH s.paciente pac
             LEFT JOIN FETCH s.profissional
             LEFT JOIN FETCH s.planoTratamento
-            WHERE pac.id = :pacienteId AND pac.ativo = true
+            WHERE pac.id = :pacienteId
             ORDER BY s.data DESC, s.id DESC
             """)
     List<SessaoPilates> findByPacienteOrdenadas(@Param("pacienteId") Long pacienteId);

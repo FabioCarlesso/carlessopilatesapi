@@ -103,7 +103,7 @@ public class NotaFiscalEmitidaService {
 
     @Transactional(readOnly = true)
     public List<NotaFiscalEmitidaResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
         return repository.findByPacienteIdOrderByCompetenciaDesc(pacienteId).stream()

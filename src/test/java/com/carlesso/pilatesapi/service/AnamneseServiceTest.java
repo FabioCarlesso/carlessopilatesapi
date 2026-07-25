@@ -178,7 +178,7 @@ class AnamneseServiceTest {
     @Test
     void buscarPorId_quandoExistente_deveRetornarResponseDTO() {
         Anamnese a = anamnese(paciente());
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
 
         AnamneseResponseDTO response = service.buscarPorId(1L);
 
@@ -188,7 +188,7 @@ class AnamneseServiceTest {
 
     @Test
     void buscarPorId_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(anamneseRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -196,14 +196,14 @@ class AnamneseServiceTest {
     }
 
     @Test
-    void buscarPorId_quandoPacienteInativo_deveLancarResourceNotFoundException() {
+    void buscarPorId_quandoPacienteInativo_deveRetornarAnamnese() {
         Anamnese a = anamnese(pacienteInativo());
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
+
+        AnamneseResponseDTO response = service.buscarPorId(1L);
 
         assertThat(a.getPaciente().isAtivo()).isFalse();
-        assertThatThrownBy(() -> service.buscarPorId(1L))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("1");
+        assertThat(response.pacienteId()).isEqualTo(1L);
     }
 
     // -------------------------------------------------------------------------
@@ -213,8 +213,8 @@ class AnamneseServiceTest {
     @Test
     void buscarPorPaciente_quandoExistente_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(anamneseRepository.findByPacienteIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(anamnese(p)));
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(anamneseRepository.findByPacienteId(1L)).thenReturn(Optional.of(anamnese(p)));
 
         AnamneseResponseDTO response = service.buscarPorPaciente(1L);
 
@@ -224,7 +224,7 @@ class AnamneseServiceTest {
 
     @Test
     void buscarPorPaciente_quandoPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.buscarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -232,18 +232,19 @@ class AnamneseServiceTest {
     }
 
     @Test
-    void buscarPorPaciente_quandoPacienteInativo_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(false);
+    void buscarPorPaciente_quandoPacienteInativo_deveRetornarAnamnese() {
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(anamneseRepository.findByPacienteId(1L)).thenReturn(Optional.of(anamnese(pacienteInativo())));
 
-        assertThatThrownBy(() -> service.buscarPorPaciente(1L))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("1");
+        AnamneseResponseDTO response = service.buscarPorPaciente(1L);
+
+        assertThat(response.pacienteId()).isEqualTo(1L);
     }
 
     @Test
     void buscarPorPaciente_quandoAnamneseNaoEncontrada_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(anamneseRepository.findByPacienteIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(anamneseRepository.findByPacienteId(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorPaciente(1L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -257,7 +258,7 @@ class AnamneseServiceTest {
     @Test
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         Anamnese a = anamnese(paciente());
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
 
         var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null);
         AnamneseResponseDTO response = service.atualizar(1L, dto);
@@ -270,7 +271,7 @@ class AnamneseServiceTest {
 
     @Test
     void atualizar_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(anamneseRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null);
 
@@ -281,7 +282,7 @@ class AnamneseServiceTest {
 
     @Test
     void atualizar_comQueixaPrincipalEmBranco_deveLancarIllegalArgumentException() {
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(anamnese(paciente())));
+        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(anamnese(paciente())));
 
         var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null);
 
@@ -292,7 +293,7 @@ class AnamneseServiceTest {
 
     @Test
     void atualizar_comObjetivosEmBranco_deveLancarIllegalArgumentException() {
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(anamnese(paciente())));
+        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(anamnese(paciente())));
 
         var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null);
 
@@ -304,7 +305,7 @@ class AnamneseServiceTest {
     @Test
     void atualizar_comTodosOsCampos_deveAtualizarTudo() {
         Anamnese a = anamnese(paciente());
-        when(anamneseRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
 
         var dto = new AnamneseUpdateDTO(
                 "Dor cervical",
