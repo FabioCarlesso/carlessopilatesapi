@@ -41,7 +41,8 @@ public class AvaliacaoPosturalController {
         @ApiResponse(responseCode = "201", description = "Análise criada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
         @ApiResponse(responseCode = "404", description = "Avaliação fisioterapêutica não encontrada"),
-        @ApiResponse(responseCode = "409", description = "Já existe análise ativa dessa vista na avaliação")
+        @ApiResponse(responseCode = "409", description = "Já existe análise ativa dessa vista na avaliação"),
+        @ApiResponse(responseCode = "422", description = "Paciente inativo não aceita novos registros clínicos")
     })
     @PostMapping
     public ResponseEntity<AvaliacaoPosturalResponseDTO> criar(

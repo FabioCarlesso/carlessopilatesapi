@@ -15,6 +15,7 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -45,8 +46,9 @@ public class SessaoPilatesService {
     @Transactional
     public SessaoPilatesResponseDTO criar(SessaoPilatesRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         SessaoPilates sessao = new SessaoPilates();
         sessao.setPaciente(paciente);
@@ -89,7 +91,7 @@ public class SessaoPilatesService {
 
     @Transactional(readOnly = true)
     public List<SessaoPilatesResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
         return sessaoRepository.findByPacienteOrdenadas(pacienteId).stream()

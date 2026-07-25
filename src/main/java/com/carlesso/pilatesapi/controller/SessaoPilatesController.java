@@ -39,7 +39,8 @@ public class SessaoPilatesController {
                 description = "Paciente, profissional ou plano de tratamento não encontrado"),
         @ApiResponse(
                 responseCode = "422",
-                description = "Profissional inativo ou plano de tratamento incompatível com o paciente")
+                description =
+                        "Paciente inativo não aceita novos registros clínicos, profissional inativo ou plano de tratamento incompatível")
     })
     @PostMapping
     public ResponseEntity<SessaoPilatesResponseDTO> criar(

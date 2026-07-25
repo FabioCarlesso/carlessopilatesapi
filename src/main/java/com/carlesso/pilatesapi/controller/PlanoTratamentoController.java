@@ -33,7 +33,8 @@ public class PlanoTratamentoController {
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Plano de tratamento criado com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado"),
+        @ApiResponse(responseCode = "422", description = "Paciente inativo não aceita novos registros clínicos")
     })
     @PostMapping
     public ResponseEntity<PlanoTratamentoResponseDTO> criar(

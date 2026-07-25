@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,9 @@ public class AnamneseService {
     @Transactional
     public AnamneseResponseDTO criar(AnamneseRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         if (anamneseRepository.existsByPacienteId(dto.pacienteId())) {
             throw new ConflictException("Paciente já possui anamnese cadastrada: " + dto.pacienteId());
@@ -63,11 +65,11 @@ public class AnamneseService {
 
     @Transactional(readOnly = true)
     public AnamneseResponseDTO buscarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
         Anamnese anamnese = anamneseRepository
-                .findByPacienteIdAndPacienteAtivoTrue(pacienteId)
+                .findByPacienteId(pacienteId)
                 .orElseThrow(
                         () -> new ResourceNotFoundException("Anamnese não encontrada para o paciente: " + pacienteId));
         return AnamneseResponseDTO.from(anamnese);
@@ -97,7 +99,7 @@ public class AnamneseService {
 
     private Anamnese encontrar(Long id) {
         return anamneseRepository
-                .findByIdAndPacienteAtivoTrue(id)
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Anamnese não encontrada: " + id));
     }
 

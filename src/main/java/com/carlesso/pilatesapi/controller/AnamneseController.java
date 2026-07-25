@@ -33,7 +33,8 @@ public class AnamneseController {
         @ApiResponse(responseCode = "201", description = "Anamnese criada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
         @ApiResponse(responseCode = "404", description = "Paciente não encontrado"),
-        @ApiResponse(responseCode = "409", description = "Paciente já possui anamnese cadastrada")
+        @ApiResponse(responseCode = "409", description = "Paciente já possui anamnese cadastrada"),
+        @ApiResponse(responseCode = "422", description = "Paciente inativo não aceita novos registros clínicos")
     })
     @PostMapping
     public ResponseEntity<AnamneseResponseDTO> criar(

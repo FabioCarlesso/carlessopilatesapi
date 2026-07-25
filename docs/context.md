@@ -654,36 +654,36 @@ CPF não pode ser alterado após o cadastro.
 
 ### Anamnese
 - Cada paciente possui no máximo uma anamnese principal (regra de unicidade por `paciente_id`)
-- Criar anamnese para paciente inexistente ou inativo retorna `404`
+- Criar anamnese para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Tentar criar segunda anamnese para o mesmo paciente retorna `409`
 - Campos obrigatórios: `queixaPrincipal` e `objetivos`
-- Consultas e atualizações de anamnese filtram `paciente.ativo = true`
+- Consultas e atualizações de anamnese não filtram por `paciente.ativo`: o histórico de paciente inativo continua legível e editável (ver *Leitura do histórico clínico de paciente inativo*)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `queixaPrincipal` e `objetivos` não aceitam strings em branco quando enviados
 - `dataAtualizacao` é registrada automaticamente em cada atualização
 
 ### Avaliação Fisioterapêutica
 - Um paciente pode possuir múltiplas avaliações fisioterapêuticas para manter histórico clínico
-- Criar avaliação para paciente inexistente ou inativo retorna `404`
+- Criar avaliação para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Campos obrigatórios: `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`
 - `escalaDor` aceita apenas valores inteiros de 0 a 10
-- Consultas por ID e por paciente filtram `paciente.ativo = true`
+- Consultas por ID e por paciente não filtram por `paciente.ativo`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; campos textuais obrigatórios não aceitam strings em branco quando enviados
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Plano de Tratamento
 - Um paciente pode possuir múltiplos planos de tratamento para manter histórico clínico
-- Criar plano de tratamento para paciente inexistente ou inativo retorna `404`
+- Criar plano de tratamento para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
 - `dataFimPrevista`, quando informada, não pode ser anterior a `dataInicio`
 - `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
-- Consultas por ID e por paciente filtram `plano.ativo = true` e `paciente.ativo = true`
+- Consultas por ID e por paciente filtram `plano.ativo = true` (soft delete do próprio plano), mas não por `paciente.ativo`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca `ativo = false` e preserva o histórico clínico
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Sessões de Pilates/Fisioterapia
 - Um paciente pode possuir múltiplas sessões para manter histórico clínico
-- Criar sessão para paciente inexistente ou inativo retorna `404`
+- Criar sessão para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Campos obrigatórios: `pacienteId`, `tipo` e `data`
 - `tipo` aceita `PILATES` ou `FISIOTERAPIA`
 - `status` padrão é `AGENDADA`; mudanças de status devem usar `PATCH /sessoes/{id}/realizar` ou `PATCH /sessoes/{id}/cancelar`
@@ -697,24 +697,32 @@ CPF não pode ser alterado após o cadastro.
 
 ### Evolução de Sessão
 - Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)
-- Criar evolução para sessão inexistente retorna `404`
+- Criar evolução para sessão inexistente retorna `404`; para sessão de paciente inativo retorna `422`
 - Tentar criar segunda evolução para a mesma sessão retorna `409`
 - Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
 - `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
-- Consultas e atualizações de evolução filtram `sessao.paciente.ativo = true`
+- Consultas e atualizações de evolução não filtram por `sessao.paciente.ativo`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
 ### Reavaliações
 - Um paciente pode possuir múltiplas reavaliações periódicas para comparação com avaliações anteriores e acompanhamento da evolução clínica
-- Criar reavaliação para paciente inexistente ou inativo retorna `404`
+- Criar reavaliação para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Campos obrigatórios: `pacienteId` e `dataReavaliacao`
 - `avaliacaoFisioterapeuticaId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir, estar ativo quando aplicável e pertencer ao mesmo `pacienteId` da reavaliação
-- Consultas por ID e por paciente filtram `paciente.ativo = true`
+- Consultas por ID e por paciente não filtram por `paciente.ativo`
 - Listagem por paciente retorna reavaliações ordenadas por `dataReavaliacao DESC, id DESC`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+
+### Leitura do histórico clínico de paciente inativo
+- `ativo = false` em paciente significa **ex-aluno**, não registro apagado: todo o prontuário dele continua consultável
+- As consultas por paciente (`/sessoes`, `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/planos-tratamento`, `/reavaliacoes`, `/evolucoes-sessao`, `/api/nfse-emitidas`) validam apenas a **existência** do paciente (`existsById`); `404 Paciente não encontrado` significa que o id não existe
+- Registro ausente para paciente existente usa mensagem própria (ex.: `Anamnese não encontrada para o paciente: {id}`), nunca `Paciente não encontrado`
+- **Criar** novo registro clínico continua exigindo paciente ativo, e os oito pontos de criação respondem igual: `404` quando o paciente não existe, `422` quando existe mas está inativo. A regra fica em `util/PacienteGuard.exigirAtivo`, chamada por sessão, anamnese, avaliação, plano de tratamento, reavaliação, NFSE, evolução e análise postural
+- **Atualizar** registro já existente de paciente inativo é permitido — consequência direta de o registro voltar a ser visível
+- Os filtros por `paciente.ativo` permanecem nas consultas **financeiras/operacionais** (aulas, dashboard, relatórios de pagamento e de NFSE), onde excluir ex-alunos é intencional
 
 ### Preferências do usuário
 - Cada usuário possui no máximo um registro de preferências (constraint `UNIQUE user_id`)

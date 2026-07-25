@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoRequestDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoResponseDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoUpdateDTO;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
@@ -133,6 +134,18 @@ class EvolucaoSessaoControllerTest {
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+    }
+
+    @Test
+    void criar_comPacienteInativo_deveRetornar422() throws Exception {
+        when(service.criar(any()))
+                .thenThrow(new BusinessException("Paciente inativo não aceita novos registros clínicos: 1"));
+
+        mvc.perform(post("/evolucoes-sessao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(requestDTO())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").value("Paciente inativo não aceita novos registros clínicos: 1"));
     }
 
     @Test

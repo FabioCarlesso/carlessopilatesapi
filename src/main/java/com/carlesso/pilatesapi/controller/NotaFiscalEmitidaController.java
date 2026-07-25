@@ -37,7 +37,9 @@ public class NotaFiscalEmitidaController {
         @ApiResponse(responseCode = "200", description = "NFSE registrada ou atualizada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos ou competência fora do formato"),
         @ApiResponse(responseCode = "404", description = "Paciente não encontrado"),
-        @ApiResponse(responseCode = "422", description = "Valor informado inválido")
+        @ApiResponse(
+                responseCode = "422",
+                description = "Valor informado inválido ou paciente inativo não aceita novos registros clínicos")
     })
     @PostMapping
     public ResponseEntity<NotaFiscalEmitidaResponseDTO> registrar(@RequestBody @Valid NotaFiscalEmitidaRequestDTO dto) {

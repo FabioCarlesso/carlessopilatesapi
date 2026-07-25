@@ -18,6 +18,7 @@ import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.carlesso.pilatesapi.storage.FotoStorage;
 import com.carlesso.pilatesapi.util.MetricasPosturaisCalculator;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -95,6 +96,8 @@ public class AvaliacaoPosturalService {
     @Transactional
     public AvaliacaoPosturalResponseDTO criar(AvaliacaoPosturalRequestDTO dto) {
         AvaliacaoFisioterapeutica avaliacaoFisioterapeutica = encontrarAvaliacao(dto.avaliacaoFisioterapeuticaId());
+
+        PacienteGuard.exigirAtivo(avaliacaoFisioterapeutica.getPaciente());
 
         if (avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
                 dto.avaliacaoFisioterapeuticaId(), dto.vista())) {
@@ -296,7 +299,7 @@ public class AvaliacaoPosturalService {
 
     private AvaliacaoFisioterapeutica encontrarAvaliacao(Long avaliacaoFisioterapeuticaId) {
         return avaliacaoFisioterapeuticaRepository
-                .findAtivaById(avaliacaoFisioterapeuticaId)
+                .findByIdComPaciente(avaliacaoFisioterapeuticaId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Avaliação fisioterapêutica não encontrada: " + avaliacaoFisioterapeuticaId));
     }

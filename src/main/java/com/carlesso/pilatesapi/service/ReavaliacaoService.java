@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -40,8 +41,9 @@ public class ReavaliacaoService {
     @Transactional
     public ReavaliacaoResponseDTO criar(ReavaliacaoRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         Reavaliacao reavaliacao = new Reavaliacao();
         reavaliacao.setPaciente(paciente);
@@ -58,7 +60,7 @@ public class ReavaliacaoService {
 
         if (dto.avaliacaoFisioterapeuticaId() != null) {
             AvaliacaoFisioterapeutica avaliacao = avaliacaoRepository
-                    .findAtivaById(dto.avaliacaoFisioterapeuticaId())
+                    .findByIdComPaciente(dto.avaliacaoFisioterapeuticaId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Avaliação fisioterapêutica não encontrada: " + dto.avaliacaoFisioterapeuticaId()));
             if (!avaliacao.getPaciente().getId().equals(paciente.getId())) {
@@ -88,10 +90,10 @@ public class ReavaliacaoService {
 
     @Transactional(readOnly = true)
     public List<ReavaliacaoResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return reavaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId).stream()
+        return reavaliacaoRepository.findByPacienteOrdenadas(pacienteId).stream()
                 .map(ReavaliacaoResponseDTO::from)
                 .toList();
     }
@@ -118,7 +120,7 @@ public class ReavaliacaoService {
 
     private Reavaliacao encontrar(Long id) {
         return reavaliacaoRepository
-                .findAtivaById(id)
+                .findByIdComPaciente(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reavaliação não encontrada: " + id));
     }
 }

@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,9 @@ public class AvaliacaoFisioterapeuticaService {
     @Transactional
     public AvaliacaoFisioterapeuticaResponseDTO criar(AvaliacaoFisioterapeuticaRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         AvaliacaoFisioterapeutica avaliacao = new AvaliacaoFisioterapeutica();
         avaliacao.setPaciente(paciente);
@@ -58,10 +60,10 @@ public class AvaliacaoFisioterapeuticaService {
 
     @Transactional(readOnly = true)
     public List<AvaliacaoFisioterapeuticaResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return avaliacaoRepository.findAtivasByPacienteOrdenadas(pacienteId).stream()
+        return avaliacaoRepository.findByPacienteOrdenadas(pacienteId).stream()
                 .map(AvaliacaoFisioterapeuticaResponseDTO::from)
                 .toList();
     }
@@ -92,7 +94,7 @@ public class AvaliacaoFisioterapeuticaService {
 
     private AvaliacaoFisioterapeutica encontrar(Long id) {
         return avaliacaoRepository
-                .findAtivaById(id)
+                .findByIdComPaciente(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: " + id));
     }
 }

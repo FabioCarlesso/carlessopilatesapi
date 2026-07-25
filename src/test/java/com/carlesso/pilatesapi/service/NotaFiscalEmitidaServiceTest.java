@@ -47,7 +47,7 @@ class NotaFiscalEmitidaServiceTest {
     @Test
     void registrar_quandoNaoExiste_deveCriarNota() {
         Paciente paciente = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
         when(repository.findByPacienteIdAndCompetencia(1L, LocalDate.of(2026, 4, 1)))
                 .thenReturn(Optional.empty());
         when(repository.save(any(NotaFiscalEmitida.class))).thenAnswer(inv -> {
@@ -87,7 +87,7 @@ class NotaFiscalEmitidaServiceTest {
         existente.setDataEmissao(LocalDate.of(2026, 4, 5));
         existente.setDataCriacao(LocalDateTime.of(2026, 4, 5, 10, 0));
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
         when(repository.findByPacienteIdAndCompetencia(1L, LocalDate.of(2026, 4, 1)))
                 .thenReturn(Optional.of(existente));
         when(repository.save(any(NotaFiscalEmitida.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -104,8 +104,21 @@ class NotaFiscalEmitidaServiceTest {
     }
 
     @Test
+    void registrar_pacienteInativo_deveLancarErroDeNegocio() {
+        Paciente inativo = paciente();
+        inativo.setAtivo(false);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+
+        var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1", LocalDate.of(2026, 4, 15), null, null);
+
+        assertThatThrownBy(() -> service.registrar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+    }
+
+    @Test
     void registrar_pacienteInexistente_deveLancar404() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.empty());
 
         var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1", LocalDate.of(2026, 4, 15), null, null);
 
@@ -116,7 +129,7 @@ class NotaFiscalEmitidaServiceTest {
 
     @Test
     void registrar_valorNegativo_deveLancarErroDeNegocio() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
 
         var dto = new NotaFiscalEmitidaRequestDTO(
                 1L, "04/2026", "NF-1", LocalDate.of(2026, 4, 15), new BigDecimal("-1.00"), null);
@@ -128,7 +141,7 @@ class NotaFiscalEmitidaServiceTest {
 
     @Test
     void registrar_dataEmissaoFutura_deveLancarErroDeNegocio() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
 
         var dto = new NotaFiscalEmitidaRequestDTO(
                 1L, "04/2026", "NF-1", LocalDate.now().plusDays(1), new BigDecimal("250.00"), null);
@@ -140,7 +153,7 @@ class NotaFiscalEmitidaServiceTest {
 
     @Test
     void registrar_competenciaInvalida_deveLancarErro() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
 
         var dto = new NotaFiscalEmitidaRequestDTO(1L, "13/2026", "NF-1", LocalDate.of(2026, 4, 15), null, null);
 
@@ -151,7 +164,7 @@ class NotaFiscalEmitidaServiceTest {
 
     @Test
     void listarPorPaciente_pacienteInexistente_deveLancar404() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(false);
+        when(pacienteRepository.existsById(1L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(1L)).isInstanceOf(ResourceNotFoundException.class);
     }

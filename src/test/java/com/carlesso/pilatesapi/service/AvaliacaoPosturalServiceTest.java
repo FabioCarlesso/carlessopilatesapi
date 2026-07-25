@@ -113,7 +113,7 @@ class AvaliacaoPosturalServiceTest {
 
     @Test
     void criar_comAvaliacaoValida_deveNascerEmRascunho() {
-        when(avaliacaoFisioterapeuticaRepository.findAtivaById(1L))
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
                 .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
         when(avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
                         1L, VistaPostural.FRENTE))
@@ -130,8 +130,21 @@ class AvaliacaoPosturalServiceTest {
     }
 
     @Test
-    void criar_comAvaliacaoInexistenteOuPacienteInativo_deveLancarResourceNotFound() {
-        when(avaliacaoFisioterapeuticaRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        AvaliacaoFisioterapeutica avaliacao = avaliacaoFisioterapeutica();
+        avaliacao.getPaciente().setAtivo(false);
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(avaliacao));
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+
+        verify(avaliacaoPosturalRepository, never()).save(any());
+    }
+
+    @Test
+    void criar_comAvaliacaoInexistente_deveLancarResourceNotFound() {
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(99L, VistaPostural.FRENTE)))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -142,7 +155,7 @@ class AvaliacaoPosturalServiceTest {
 
     @Test
     void criar_comVistaJaAtivaNaAvaliacao_deveLancarConflict() {
-        when(avaliacaoFisioterapeuticaRepository.findAtivaById(1L))
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
                 .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
         when(avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
                         1L, VistaPostural.FRENTE))
@@ -166,7 +179,7 @@ class AvaliacaoPosturalServiceTest {
 
     @Test
     void listarPorAvaliacaoFisioterapeutica_comAvaliacaoInexistente_deveLancarResourceNotFound() {
-        when(avaliacaoFisioterapeuticaRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.listarPorAvaliacaoFisioterapeutica(99L))
                 .isInstanceOf(ResourceNotFoundException.class);

@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -113,7 +114,7 @@ class ReavaliacaoServiceTest {
     @Test
     void criar_comPacienteValido_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacao(p));
 
         ReavaliacaoResponseDTO response = service.criar(requestDTO());
@@ -126,8 +127,21 @@ class ReavaliacaoServiceTest {
     }
 
     @Test
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        Paciente inativo = paciente();
+        inativo.setAtivo(false);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+
+        assertThatThrownBy(() -> service.criar(requestDTO()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+
+        verify(reavaliacaoRepository, never()).save(any());
+    }
+
+    @Test
     void criar_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
                 99L, null, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
@@ -147,8 +161,8 @@ class ReavaliacaoServiceTest {
         Reavaliacao reavaliacaoComVinculo = reavaliacao(p);
         reavaliacaoComVinculo.setAvaliacaoFisioterapeutica(avaliacao);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
-        when(avaliacaoRepository.findAtivaById(2L)).thenReturn(Optional.of(avaliacao));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(avaliacaoRepository.findByIdComPaciente(2L)).thenReturn(Optional.of(avaliacao));
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComVinculo);
 
         var dto = new ReavaliacaoRequestDTO(
@@ -169,7 +183,7 @@ class ReavaliacaoServiceTest {
         Reavaliacao reavaliacaoComPlano = reavaliacao(p);
         reavaliacaoComPlano.setPlanoTratamento(plano);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComPlano);
 
@@ -184,8 +198,8 @@ class ReavaliacaoServiceTest {
     @Test
     void criar_comAvaliacaoFisioterapeuticaInexistente_deveLancarResourceNotFoundException() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
-        when(avaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
                 1L, 99L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
@@ -202,8 +216,8 @@ class ReavaliacaoServiceTest {
         avaliacao.setPaciente(outroPaciente());
         setFieldId(avaliacao, AvaliacaoFisioterapeutica.class, 2L);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
-        when(avaliacaoRepository.findAtivaById(2L)).thenReturn(Optional.of(avaliacao));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(avaliacaoRepository.findByIdComPaciente(2L)).thenReturn(Optional.of(avaliacao));
 
         var dto = new ReavaliacaoRequestDTO(
                 1L, 2L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
@@ -220,7 +234,7 @@ class ReavaliacaoServiceTest {
         plano.setPaciente(outroPaciente());
         setFieldId(plano, PlanoTratamento.class, 3L);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
 
         var dto = new ReavaliacaoRequestDTO(
@@ -233,7 +247,7 @@ class ReavaliacaoServiceTest {
 
     @Test
     void buscarPorId_quandoExistente_deveRetornarResponseDTO() {
-        when(reavaliacaoRepository.findAtivaById(1L)).thenReturn(Optional.of(reavaliacao(paciente())));
+        when(reavaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(reavaliacao(paciente())));
 
         ReavaliacaoResponseDTO response = service.buscarPorId(1L);
 
@@ -243,7 +257,7 @@ class ReavaliacaoServiceTest {
 
     @Test
     void buscarPorId_quandoNaoExistente_deveLancarResourceNotFoundException() {
-        when(reavaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+        when(reavaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorId(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -253,8 +267,8 @@ class ReavaliacaoServiceTest {
     @Test
     void listarPorPaciente_deveRetornarReavaliacoesDoPaciente() {
         Paciente p = paciente();
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(reavaliacaoRepository.findAtivasByPacienteOrdenadas(1L)).thenReturn(List.of(reavaliacao(p)));
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(reavaliacaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of(reavaliacao(p)));
 
         List<ReavaliacaoResponseDTO> response = service.listarPorPaciente(1L);
 
@@ -265,8 +279,8 @@ class ReavaliacaoServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteAtivoSemReavaliacoes_deveRetornarListaVazia() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
-        when(reavaliacaoRepository.findAtivasByPacienteOrdenadas(1L)).thenReturn(List.of());
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(reavaliacaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of());
 
         List<ReavaliacaoResponseDTO> response = service.listarPorPaciente(1L);
 
@@ -275,7 +289,7 @@ class ReavaliacaoServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -285,7 +299,7 @@ class ReavaliacaoServiceTest {
     @Test
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         Reavaliacao r = reavaliacao(paciente());
-        when(reavaliacaoRepository.findAtivaById(1L)).thenReturn(Optional.of(r));
+        when(reavaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(r));
         when(reavaliacaoRepository.save(r)).thenReturn(r);
 
         var dto = new ReavaliacaoUpdateDTO(
@@ -302,7 +316,7 @@ class ReavaliacaoServiceTest {
 
     @Test
     void atualizar_comReavaliacaoInexistente_deveLancarResourceNotFoundException() {
-        when(reavaliacaoRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+        when(reavaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoUpdateDTO(null, null, null, null, null, null, null, null, null, null);
 

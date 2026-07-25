@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +12,7 @@ import com.carlesso.pilatesapi.dto.PlanoTratamentoResponseDTO;
 import com.carlesso.pilatesapi.dto.PlanoTratamentoUpdateDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
@@ -97,7 +99,7 @@ class PlanoTratamentoServiceTest {
     @Test
     void criar_comPacienteValido_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(planoTratamentoRepository.save(any(PlanoTratamento.class))).thenReturn(plano(p));
 
         PlanoTratamentoResponseDTO response = service.criar(requestDTO());
@@ -111,8 +113,21 @@ class PlanoTratamentoServiceTest {
     }
 
     @Test
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        Paciente inativo = paciente();
+        inativo.setAtivo(false);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+
+        assertThatThrownBy(() -> service.criar(requestDTO()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+
+        verify(planoTratamentoRepository, never()).save(any());
+    }
+
+    @Test
     void criar_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new PlanoTratamentoRequestDTO(
                 99L, LocalDate.of(2026, 5, 1), null, "Objetivos", null, null, null, null, null);
@@ -154,7 +169,7 @@ class PlanoTratamentoServiceTest {
     @Test
     void listarPorPaciente_deveRetornarPlanosDoPaciente() {
         Paciente p = paciente();
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
         when(planoTratamentoRepository.findAtivosByPacienteOrdenados(1L)).thenReturn(List.of(plano(p)));
 
         List<PlanoTratamentoResponseDTO> response = service.listarPorPaciente(1L);
@@ -166,7 +181,7 @@ class PlanoTratamentoServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteAtivoSemPlanos_deveRetornarListaVazia() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(1L)).thenReturn(true);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
         when(planoTratamentoRepository.findAtivosByPacienteOrdenados(1L)).thenReturn(List.of());
 
         List<PlanoTratamentoResponseDTO> response = service.listarPorPaciente(1L);
@@ -176,7 +191,7 @@ class PlanoTratamentoServiceTest {
 
     @Test
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.existsByIdAndAtivoTrue(99L)).thenReturn(false);
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.listarPorPaciente(99L))
                 .isInstanceOf(ResourceNotFoundException.class)

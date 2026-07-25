@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.CompetenciaUtils;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -68,8 +69,9 @@ public class NotaFiscalEmitidaService {
     @Transactional
     public NotaFiscalEmitidaResponseDTO upsert(NotaFiscalEmitidaRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         YearMonth periodo = CompetenciaUtils.parse(dto.competencia());
         LocalDate competencia = periodo.atDay(1);
@@ -103,7 +105,7 @@ public class NotaFiscalEmitidaService {
 
     @Transactional(readOnly = true)
     public List<NotaFiscalEmitidaResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
         return repository.findByPacienteIdOrderByCompetenciaDesc(pacienteId).stream()

@@ -1167,7 +1167,7 @@ python3 scripts/import_seufisio.py
 
 Detalhes operacionais:
 
-- **Pacientes inativos** são reativados temporariamente (`PATCH /pacientes/{id}/ativar`) porque `POST /sessoes` e `GET /sessoes/paciente/{id}` só aceitam pacientes ativos; a reinativação acontece no `finally`, mesmo se algo falhar no meio. Se o `inativar` falhar, o log avisa para reverter à mão.
+- **Pacientes inativos** são reativados temporariamente (`PATCH /pacientes/{id}/ativar`) porque `POST /sessoes` e `POST /evolucoes-sessao` só aceitam pacientes ativos; a reinativação acontece no `finally`, mesmo se algo falhar no meio. Se o `inativar` falhar, o log avisa para reverter à mão. A leitura (`GET /sessoes/paciente/{id}`) não exige mais reativação.
 - Se a evolução falhar depois da sessão criada, a **sessão órfã** é registrada no log (`[orfa ...]`) — e a execução seguinte a completa sozinha (passo 6), sem duplicar a sessão. O mesmo vale para uma sessão criada direto no sistema novo que ainda não tenha evolução.
 - O tipo da sessão criada é `PILATES` por padrão; use `SEUFISIO_TIPO_SESSAO=FISIOTERAPIA` para mudar. Um valor fora do enum `TipoSessao` aborta o script logo no início, antes de qualquer chamada.
 
@@ -1522,7 +1522,7 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 - `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
 - `NotaAnteriorEmitida` é baseada nas NFSEs emitidas persistidas: `true` quando há nota registrada para o paciente em competência anterior à consultada
 - Registros sem nome, CPF/CNPJ, valor positivo ou data de pagamento retornam erro de regra de negócio (`422`)
-- As NFSEs emitidas são persistidas por `(paciente, competência)` via `POST /api/nfse-emitidas`; o registro é idempotente (atualiza a nota existente da competência) e exige paciente ativo
+- As NFSEs emitidas são persistidas por `(paciente, competência)` via `POST /api/nfse-emitidas`; o registro é idempotente (atualiza a nota existente da competência) e exige paciente ativo (`422` se inativo)
 
 ### Geração de Aulas
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento
@@ -1533,19 +1533,19 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 
 ### Avaliações Fisioterapêuticas
 - Um paciente pode ter múltiplas avaliações fisioterapêuticas para manter histórico clínico
-- Criar avaliação para paciente inexistente ou inativo retorna `404`
+- Criar avaliação para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Campos obrigatórios: `dataAvaliacao`, `queixaFuncional`, `escalaDor` e `diagnosticoFisioterapeutico`
 - `escalaDor` aceita valores inteiros de 0 a 10
-- Consultas e atualizações filtram avaliações vinculadas a pacientes ativos
+- Consultas e atualizações não filtram por paciente ativo: o histórico de ex-aluno continua acessível
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 
 ### Planos de Tratamento
 - Um paciente pode ter múltiplos planos de tratamento para manter histórico clínico
-- Criar plano para paciente inexistente ou inativo retorna `404`
+- Criar plano para paciente inexistente retorna `404`; para paciente inativo retorna `422`
 - Campos obrigatórios: `pacienteId`, `dataInicio` e `objetivosTratamento`
 - `dataFimPrevista`, quando informada, não pode ser anterior a `dataInicio`
 - `numeroSessoesPrevistas` aceita apenas valores positivos quando informado
-- Consultas e atualizações filtram planos ativos vinculados a pacientes ativos
+- Consultas e atualizações filtram apenas planos ativos (soft delete do plano), independentemente de o paciente estar ativo
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca o plano como inativo e preserva o histórico no banco
 
@@ -1559,12 +1559,19 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 
 ### Evoluções de Sessão
 - Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)
-- Criar evolução para sessão inexistente retorna `404`
+- Criar evolução para sessão inexistente retorna `404`; para sessão de paciente inativo retorna `422`
 - Tentar criar segunda evolução para a mesma sessão retorna `409`
 - Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
 - `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
-- Consultas e atualizações filtram sessões de pacientes ativos
+- Consultas e atualizações não filtram por paciente ativo
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
+
+### Histórico clínico de paciente inativo
+- `ativo = false` marca um **ex-aluno**, não um registro apagado: todo o prontuário dele continua consultável pela API
+- As consultas por paciente (`/sessoes`, `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/planos-tratamento`, `/reavaliacoes`, `/evolucoes-sessao`, `/api/nfse-emitidas`) validam somente se o paciente existe; `404 Paciente não encontrado` passa a significar que o id realmente não existe
+- Quando o paciente existe mas o registro não, a mensagem é específica do recurso (ex.: `Anamnese não encontrada para o paciente: {id}`)
+- **Criar** registro clínico novo continua exigindo paciente ativo, com resposta uniforme nos oito endpoints de criação: `404` quando o paciente não existe e `422` quando existe mas está inativo (regra centralizada em `util/PacienteGuard`); **atualizar** registro existente de paciente inativo é permitido
+- Consultas financeiras/operacionais (aulas, dashboard, relatório de pagamento e relatório de NFSE) continuam ignorando pacientes inativos
 
 ### Recuperação de senha (esqueci minha senha)
 - `POST /auth/forgot-password` recebe `email` e sempre retorna `200` com resposta genérica, mesmo se o e-mail não existir ou pertencer a um usuário inativo, para evitar enumeração de usuários

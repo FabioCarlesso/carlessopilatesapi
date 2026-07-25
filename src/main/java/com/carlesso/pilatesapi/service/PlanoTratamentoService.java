@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,8 +32,9 @@ public class PlanoTratamentoService {
         validarPeriodo(dto.dataInicio(), dto.dataFimPrevista());
 
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         PlanoTratamento plano = new PlanoTratamento();
         plano.setPaciente(paciente);
@@ -55,7 +57,7 @@ public class PlanoTratamentoService {
 
     @Transactional(readOnly = true)
     public List<PlanoTratamentoResponseDTO> listarPorPaciente(Long pacienteId) {
-        if (!pacienteRepository.existsByIdAndAtivoTrue(pacienteId)) {
+        if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
         return planoTratamentoRepository.findAtivosByPacienteOrdenados(pacienteId).stream()
