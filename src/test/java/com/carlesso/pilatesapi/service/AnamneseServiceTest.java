@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +12,7 @@ import com.carlesso.pilatesapi.dto.AnamneseResponseDTO;
 import com.carlesso.pilatesapi.dto.AnamneseUpdateDTO;
 import com.carlesso.pilatesapi.entity.Anamnese;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AnamneseRepository;
@@ -115,7 +117,7 @@ class AnamneseServiceTest {
     @Test
     void criar_comPacienteValido_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(anamneseRepository.existsByPacienteId(1L)).thenReturn(false);
         when(anamneseRepository.saveAndFlush(any(Anamnese.class))).thenReturn(anamnese(p));
 
@@ -131,7 +133,7 @@ class AnamneseServiceTest {
 
     @Test
     void criar_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new AnamneseRequestDTO(99L, "Dor", null, null, null, null, null, null, null, "Objetivo", null);
 
@@ -141,17 +143,19 @@ class AnamneseServiceTest {
     }
 
     @Test
-    void criar_comPacienteInativo_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.empty());
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(pacienteInativo()));
 
         assertThatThrownBy(() -> service.criar(requestDTO()))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("1");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+
+        verify(anamneseRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void criar_quandoPacienteJaPossuiAnamnese_deveLancarConflictException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
         when(anamneseRepository.existsByPacienteId(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.criar(requestDTO()))
@@ -161,7 +165,7 @@ class AnamneseServiceTest {
 
     @Test
     void criar_quandoConstraintUnicaFalha_deveLancarConflictException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(paciente()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
         when(anamneseRepository.existsByPacienteId(1L)).thenReturn(false);
         when(anamneseRepository.saveAndFlush(any(Anamnese.class)))
                 .thenThrow(new DataIntegrityViolationException("violação unique"));

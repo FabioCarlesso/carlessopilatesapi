@@ -115,7 +115,7 @@ class SessaoPilatesServiceTest {
     @Test
     void criar_comPacienteValido_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(sessaoRepository.save(any(SessaoPilates.class))).thenReturn(sessao(p));
 
         SessaoPilatesResponseDTO response = service.criar(requestDTO());
@@ -130,8 +130,21 @@ class SessaoPilatesServiceTest {
     }
 
     @Test
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        Paciente inativo = paciente();
+        inativo.setAtivo(false);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+
+        assertThatThrownBy(() -> service.criar(requestDTO()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+
+        verify(sessaoRepository, never()).save(any());
+    }
+
+    @Test
     void criar_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new SessaoPilatesRequestDTO(
                 99L, null, null, TipoSessao.PILATES, LocalDate.of(2026, 5, 10), null, null, null, null);
@@ -144,7 +157,7 @@ class SessaoPilatesServiceTest {
     @Test
     void criar_comProfissionalInexistente_deveLancarResourceNotFoundException() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(profissionalRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new SessaoPilatesRequestDTO(
@@ -162,7 +175,7 @@ class SessaoPilatesServiceTest {
         prof.setAtivo(false);
         setId(prof, Profissional.class, 2L);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(profissionalRepository.findById(2L)).thenReturn(Optional.of(prof));
 
         var dto = new SessaoPilatesRequestDTO(
@@ -176,7 +189,7 @@ class SessaoPilatesServiceTest {
     @Test
     void criar_comPlanoTratamentoInexistente_deveLancarResourceNotFoundException() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(planoTratamentoRepository.findAtivoById(99L)).thenReturn(Optional.empty());
 
         var dto = new SessaoPilatesRequestDTO(
@@ -196,7 +209,7 @@ class SessaoPilatesServiceTest {
 
         PlanoTratamento plano = planoTratamento(outroPaciente);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(pacienteSessao));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(pacienteSessao));
         when(planoTratamentoRepository.findAtivoById(10L)).thenReturn(Optional.of(plano));
 
         var dto = new SessaoPilatesRequestDTO(
@@ -217,7 +230,7 @@ class SessaoPilatesServiceTest {
         SessaoPilates s = sessao(p);
         s.setProfissional(prof);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(profissionalRepository.findById(2L)).thenReturn(Optional.of(prof));
         when(sessaoRepository.save(any(SessaoPilates.class))).thenReturn(s);
 

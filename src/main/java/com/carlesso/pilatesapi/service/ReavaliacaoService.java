@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -40,8 +41,9 @@ public class ReavaliacaoService {
     @Transactional
     public ReavaliacaoResponseDTO criar(ReavaliacaoRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         Reavaliacao reavaliacao = new Reavaliacao();
         reavaliacao.setPaciente(paciente);

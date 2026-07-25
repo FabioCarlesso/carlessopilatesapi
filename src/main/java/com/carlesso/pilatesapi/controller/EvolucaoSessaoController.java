@@ -33,7 +33,8 @@ public class EvolucaoSessaoController {
         @ApiResponse(responseCode = "201", description = "Evolução registrada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
         @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
-        @ApiResponse(responseCode = "409", description = "Sessão já possui evolução registrada")
+        @ApiResponse(responseCode = "409", description = "Sessão já possui evolução registrada"),
+        @ApiResponse(responseCode = "422", description = "Paciente inativo não aceita novos registros clínicos")
     })
     @PostMapping
     public ResponseEntity<EvolucaoSessaoResponseDTO> criar(

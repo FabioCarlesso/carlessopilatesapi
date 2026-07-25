@@ -5,11 +5,11 @@ import com.carlesso.pilatesapi.dto.EvolucaoSessaoResponseDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoUpdateDTO;
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
-import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +32,7 @@ public class EvolucaoSessaoService {
                 .findByIdComPaciente(dto.sessaoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sessão não encontrada: " + dto.sessaoId()));
 
-        if (!sessao.getPaciente().isAtivo()) {
-            throw new BusinessException("Paciente inativo não aceita novos registros clínicos: "
-                    + sessao.getPaciente().getId());
-        }
+        PacienteGuard.exigirAtivo(sessao.getPaciente());
 
         if (evolucaoRepository.existsBySessaoId(dto.sessaoId())) {
             throw new ConflictException("Sessão já possui evolução registrada: " + dto.sessaoId());

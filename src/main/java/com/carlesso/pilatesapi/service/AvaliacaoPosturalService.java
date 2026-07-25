@@ -18,6 +18,7 @@ import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.carlesso.pilatesapi.storage.FotoStorage;
 import com.carlesso.pilatesapi.util.MetricasPosturaisCalculator;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -96,10 +97,7 @@ public class AvaliacaoPosturalService {
     public AvaliacaoPosturalResponseDTO criar(AvaliacaoPosturalRequestDTO dto) {
         AvaliacaoFisioterapeutica avaliacaoFisioterapeutica = encontrarAvaliacao(dto.avaliacaoFisioterapeuticaId());
 
-        if (!avaliacaoFisioterapeutica.getPaciente().isAtivo()) {
-            throw new BusinessException("Paciente inativo não aceita novos registros clínicos: "
-                    + avaliacaoFisioterapeutica.getPaciente().getId());
-        }
+        PacienteGuard.exigirAtivo(avaliacaoFisioterapeutica.getPaciente());
 
         if (avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
                 dto.avaliacaoFisioterapeuticaId(), dto.vista())) {

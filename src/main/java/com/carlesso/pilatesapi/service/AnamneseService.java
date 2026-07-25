@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,9 @@ public class AnamneseService {
     @Transactional
     public AnamneseResponseDTO criar(AnamneseRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         if (anamneseRepository.existsByPacienteId(dto.pacienteId())) {
             throw new ConflictException("Paciente já possui anamnese cadastrada: " + dto.pacienteId());

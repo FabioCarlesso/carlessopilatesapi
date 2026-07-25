@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,9 @@ public class AvaliacaoFisioterapeuticaService {
     @Transactional
     public AvaliacaoFisioterapeuticaResponseDTO criar(AvaliacaoFisioterapeuticaRequestDTO dto) {
         Paciente paciente = pacienteRepository
-                .findByIdAndAtivoTrue(dto.pacienteId())
+                .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         AvaliacaoFisioterapeutica avaliacao = new AvaliacaoFisioterapeutica();
         avaliacao.setPaciente(paciente);

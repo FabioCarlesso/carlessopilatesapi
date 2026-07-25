@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -113,7 +114,7 @@ class ReavaliacaoServiceTest {
     @Test
     void criar_comPacienteValido_deveRetornarResponseDTO() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacao(p));
 
         ReavaliacaoResponseDTO response = service.criar(requestDTO());
@@ -126,8 +127,21 @@ class ReavaliacaoServiceTest {
     }
 
     @Test
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        Paciente inativo = paciente();
+        inativo.setAtivo(false);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+
+        assertThatThrownBy(() -> service.criar(requestDTO()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+
+        verify(reavaliacaoRepository, never()).save(any());
+    }
+
+    @Test
     void criar_comPacienteInexistente_deveLancarResourceNotFoundException() {
-        when(pacienteRepository.findByIdAndAtivoTrue(99L)).thenReturn(Optional.empty());
+        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
                 99L, null, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
@@ -147,7 +161,7 @@ class ReavaliacaoServiceTest {
         Reavaliacao reavaliacaoComVinculo = reavaliacao(p);
         reavaliacaoComVinculo.setAvaliacaoFisioterapeutica(avaliacao);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(avaliacaoRepository.findByIdComPaciente(2L)).thenReturn(Optional.of(avaliacao));
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComVinculo);
 
@@ -169,7 +183,7 @@ class ReavaliacaoServiceTest {
         Reavaliacao reavaliacaoComPlano = reavaliacao(p);
         reavaliacaoComPlano.setPlanoTratamento(plano);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComPlano);
 
@@ -184,7 +198,7 @@ class ReavaliacaoServiceTest {
     @Test
     void criar_comAvaliacaoFisioterapeuticaInexistente_deveLancarResourceNotFoundException() {
         Paciente p = paciente();
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
@@ -202,7 +216,7 @@ class ReavaliacaoServiceTest {
         avaliacao.setPaciente(outroPaciente());
         setFieldId(avaliacao, AvaliacaoFisioterapeutica.class, 2L);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(avaliacaoRepository.findByIdComPaciente(2L)).thenReturn(Optional.of(avaliacao));
 
         var dto = new ReavaliacaoRequestDTO(
@@ -220,7 +234,7 @@ class ReavaliacaoServiceTest {
         plano.setPaciente(outroPaciente());
         setFieldId(plano, PlanoTratamento.class, 3L);
 
-        when(pacienteRepository.findByIdAndAtivoTrue(1L)).thenReturn(Optional.of(p));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(p));
         when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
 
         var dto = new ReavaliacaoRequestDTO(
