@@ -314,6 +314,7 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `POST` | `/evolucoes-sessao` | Registrar evolução clínica de uma sessão |
 | `GET` | `/evolucoes-sessao/{id}` | Buscar evolução por ID |
 | `GET` | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução pela sessão vinculada |
+| `GET` | `/evolucoes-sessao/paciente/{pacienteId}` | Listar evoluções do paciente, da sessão mais recente para a mais antiga |
 | `PUT` | `/evolucoes-sessao/{id}` | Atualizar dados da evolução |
 
 ### Relatórios

@@ -566,6 +566,7 @@ Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha sen
 | POST | `/evolucoes-sessao` | Criar evolução para uma sessão | 201 / 400 / 404 / 409 |
 | GET | `/evolucoes-sessao/{id}` | Buscar evolução por ID | 200 / 404 |
 | GET | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução por sessão | 200 / 404 |
+| GET | `/evolucoes-sessao/paciente/{pacienteId}` | Listar evoluções do paciente (ordenadas da sessão mais recente para a mais antiga) | 200 / 404 |
 | PUT | `/evolucoes-sessao/{id}` | Atualizar evolução (atualização parcial) | 200 / 400 / 404 |
 | POST | `/reavaliacoes` | Criar reavaliação periódica para um paciente | 201 / 400 / 404 / 422 |
 | GET | `/reavaliacoes/{id}` | Buscar reavaliação por ID | 200 / 404 |
@@ -702,6 +703,9 @@ CPF não pode ser alterado após o cadastro.
 - Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
 - `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
 - Consultas e atualizações de evolução não filtram por `sessao.paciente.ativo`
+- `GET /evolucoes-sessao/paciente/{pacienteId}` devolve o histórico completo do paciente em uma única chamada, ordenado por `sessao.data DESC`, `sessao.horario DESC NULLS LAST`, `sessao.id DESC`
+- Paciente existente sem nenhuma evolução recebe `200` com lista vazia; apenas paciente inexistente retorna `404`
+- A listagem não é paginada: o maior paciente da base (381 evoluções) devolve ~324 KB. Aceitável para o uso atual (uso interno, uma clínica); se o volume crescer, abrir issue de paginação
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização

@@ -19,9 +19,11 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
+import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +39,9 @@ class EvolucaoSessaoServiceTest {
 
     @Mock
     private SessaoPilatesRepository sessaoRepository;
+
+    @Mock
+    private PacienteRepository pacienteRepository;
 
     @InjectMocks
     private EvolucaoSessaoService service;
@@ -204,6 +209,46 @@ class EvolucaoSessaoServiceTest {
         assertThatThrownBy(() -> service.buscarPorSessao(1L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Evolução não encontrada para a sessão");
+    }
+
+    @Test
+    void listarPorPaciente_comEvolucoes_devePreservarAOrdemDoRepositorio() {
+        Paciente p = paciente();
+        SessaoPilates recente = sessao(p);
+        SessaoPilates antiga = sessao(p);
+        antiga.setData(LocalDate.of(2026, 4, 20));
+        setId(antiga, SessaoPilates.class, 2L);
+        EvolucaoSessao evolucaoAntiga = evolucao(antiga);
+        setId(evolucaoAntiga, EvolucaoSessao.class, 2L);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(evolucaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of(evolucao(recente), evolucaoAntiga));
+
+        List<EvolucaoSessaoResponseDTO> response = service.listarPorPaciente(1L);
+
+        assertThat(response).hasSize(2);
+        assertThat(response.getFirst().sessaoId()).isEqualTo(1L);
+        assertThat(response.getFirst().dorAntes()).isEqualTo(5);
+        assertThat(response.getFirst().exerciciosRealizados()).isEqualTo("Reformer, Cadillac");
+        assertThat(response.get(1).sessaoId()).isEqualTo(2L);
+    }
+
+    @Test
+    void listarPorPaciente_semEvolucoes_deveRetornarListaVazia() {
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(evolucaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of());
+
+        assertThat(service.listarPorPaciente(1L)).isEmpty();
+    }
+
+    @Test
+    void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.listarPorPaciente(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+
+        verify(evolucaoRepository, never()).findByPacienteOrdenadas(any());
     }
 
     @Test
