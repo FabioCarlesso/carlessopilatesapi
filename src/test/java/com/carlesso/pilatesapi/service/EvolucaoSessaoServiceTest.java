@@ -212,7 +212,7 @@ class EvolucaoSessaoServiceTest {
     }
 
     @Test
-    void listarPorPaciente_comEvolucoes_deveRetornarListaOrdenada() {
+    void listarPorPaciente_comEvolucoes_devePreservarAOrdemDoRepositorio() {
         Paciente p = paciente();
         SessaoPilates recente = sessao(p);
         SessaoPilates antiga = sessao(p);

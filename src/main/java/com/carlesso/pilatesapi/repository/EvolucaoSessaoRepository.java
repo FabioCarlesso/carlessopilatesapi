@@ -29,9 +29,10 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
             """)
     Optional<EvolucaoSessao> findBySessaoId(@Param("sessaoId") Long sessaoId);
 
-    // O JOIN FETCH da sessão é obrigatório: EvolucaoSessaoResponseDTO.from lê
-    // e.getSessao().getId() e a associação é LAZY — sem o fetch, uma lista com
-    // centenas de evoluções dispararia um select por item.
+    // O join com a sessão já é necessário para o ORDER BY; usá-lo como FETCH sai
+    // de graça e deixa a sessão inicializada, evitando um select por evolução
+    // caso EvolucaoSessaoResponseDTO passe a ler outro campo da sessão (hoje lê
+    // só getSessao().getId(), que o proxy LAZY resolve pela FK sem inicializar).
     // A ordenação é pela sessão (e não por dataHoraRegistro) porque é a sessão
     // que define a posição na linha do tempo; `horario` desempata sessões do
     // mesmo dia e `id` garante ordem estável quando não há horário.

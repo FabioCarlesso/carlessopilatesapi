@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -73,6 +74,24 @@ class EvolucaoSessaoRepositoryTest extends PostgresTestcontainerSupport {
         assertThat(repository.findByPacienteOrdenadas(paciente.getId()))
                 .extracting(evolucao -> evolucao.getSessao().getId())
                 .containsExactly(tarde, manha, semHorario, diaAnterior);
+    }
+
+    /**
+     * Amarra o {@code JOIN FETCH} da query: sem ele o mapeamento para DTO ainda
+     * funcionaria (o proxy resolve {@code getId()} pela FK), mas qualquer campo
+     * adicional da sessão custaria um select por evolução.
+     */
+    @Test
+    void findByPacienteOrdenadas_deveTrazerASessaoJaInicializada() {
+        Paciente paciente = persistirPaciente("fetch.evolucao@email.com", true);
+        persistirEvolucao(paciente, LocalDate.of(2026, 5, 10), LocalTime.of(9, 0));
+        persistirEvolucao(paciente, LocalDate.of(2026, 5, 11), LocalTime.of(9, 0));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findByPacienteOrdenadas(paciente.getId()))
+                .allSatisfy(evolucao -> assertThat(Hibernate.isInitialized(evolucao.getSessao()))
+                        .isTrue());
     }
 
     @Test
