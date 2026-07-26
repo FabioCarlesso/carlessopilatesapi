@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -67,6 +68,20 @@ public class EvolucaoSessaoController {
     public ResponseEntity<EvolucaoSessaoResponseDTO> buscarPorSessao(
             @Parameter(description = "ID da sessão", required = true) @PathVariable Long sessaoId) {
         return ResponseEntity.ok(service.buscarPorSessao(sessaoId));
+    }
+
+    @Operation(
+            summary = "Listar evoluções por paciente",
+            description =
+                    "Retorna todas as evoluções clínicas do paciente, da sessão mais recente para a mais antiga. Paciente sem evoluções recebe uma lista vazia.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Evoluções encontradas"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+    })
+    @GetMapping("/paciente/{pacienteId}")
+    public ResponseEntity<List<EvolucaoSessaoResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId) {
+        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
     }
 
     @Operation(

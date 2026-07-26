@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import com.carlesso.pilatesapi.service.EvolucaoSessaoService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -196,6 +198,51 @@ class EvolucaoSessaoControllerTest {
         mvc.perform(get("/evolucoes-sessao/sessao/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.erro").value("Evolução não encontrada para a sessão: 99"));
+    }
+
+    @Test
+    void listarPorPaciente_quandoExistemEvolucoes_deveRetornar200() throws Exception {
+        var anterior = new EvolucaoSessaoResponseDTO(
+                2L,
+                2L,
+                LocalDateTime.of(2026, 4, 20, 9, 0),
+                "Mat Pilates",
+                null,
+                null,
+                7,
+                4,
+                "Relatou cansaço",
+                null,
+                null,
+                null,
+                LocalDateTime.of(2026, 4, 20, 9, 0),
+                null);
+        when(service.listarPorPaciente(1L)).thenReturn(List.of(responseDTO(), anterior));
+
+        mvc.perform(get("/evolucoes-sessao/paciente/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].sessaoId").value(1))
+                .andExpect(jsonPath("$[0].exerciciosRealizados").value("Reformer, Cadillac"))
+                .andExpect(jsonPath("$[1].sessaoId").value(2));
+    }
+
+    @Test
+    void listarPorPaciente_semEvolucoes_deveRetornar200ComListaVazia() throws Exception {
+        when(service.listarPorPaciente(1L)).thenReturn(List.of());
+
+        mvc.perform(get("/evolucoes-sessao/paciente/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void listarPorPaciente_comPacienteInexistente_deveRetornar404() throws Exception {
+        when(service.listarPorPaciente(99L)).thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
+
+        mvc.perform(get("/evolucoes-sessao/paciente/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
     }
 
     @Test

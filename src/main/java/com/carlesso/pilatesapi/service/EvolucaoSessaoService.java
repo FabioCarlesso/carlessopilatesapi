@@ -8,9 +8,11 @@ import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
+import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,11 +21,15 @@ public class EvolucaoSessaoService {
 
     private final EvolucaoSessaoRepository evolucaoRepository;
     private final SessaoPilatesRepository sessaoRepository;
+    private final PacienteRepository pacienteRepository;
 
     public EvolucaoSessaoService(
-            EvolucaoSessaoRepository evolucaoRepository, SessaoPilatesRepository sessaoRepository) {
+            EvolucaoSessaoRepository evolucaoRepository,
+            SessaoPilatesRepository sessaoRepository,
+            PacienteRepository pacienteRepository) {
         this.evolucaoRepository = evolucaoRepository;
         this.sessaoRepository = sessaoRepository;
+        this.pacienteRepository = pacienteRepository;
     }
 
     @Transactional
@@ -68,6 +74,16 @@ public class EvolucaoSessaoService {
                 .findBySessaoId(sessaoId)
                 .map(EvolucaoSessaoResponseDTO::from)
                 .orElseThrow(() -> new ResourceNotFoundException("Evolução não encontrada para a sessão: " + sessaoId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EvolucaoSessaoResponseDTO> listarPorPaciente(Long pacienteId) {
+        if (!pacienteRepository.existsById(pacienteId)) {
+            throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
+        }
+        return evolucaoRepository.findByPacienteOrdenadas(pacienteId).stream()
+                .map(EvolucaoSessaoResponseDTO::from)
+                .toList();
     }
 
     @Transactional
