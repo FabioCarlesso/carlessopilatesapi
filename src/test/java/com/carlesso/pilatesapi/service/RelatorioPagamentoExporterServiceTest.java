@@ -123,12 +123,24 @@ class RelatorioPagamentoExporterServiceTest {
                 .isEqualTo("-");
     }
 
+    @Test
+    void exportarPdf_quandoNaoHaAulas_deveGerarPdfComMensagem() {
+        var profissional = new ProfissionalResumoDTO(
+                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), "350544-F");
+        var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
+        var resumo = new ResumoFinanceiroDTO(0L, 0L, BigDecimal.ZERO, BigDecimal.ZERO);
+        var vazio = new ProfissionalPagamentoRelatorioDTO(
+                profissional, periodo, resumo, List.of(), List.of(), LocalDateTime.of(2025, 3, 1, 10, 0));
+
+        byte[] pdf = service.exportarPdf(vazio);
+
+        assertThat(pdf).isNotEmpty();
+        assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
+    }
+
     private String textoDoPdf(byte[] pdf) throws Exception {
-        PdfReader reader = new PdfReader(pdf);
-        try {
+        try (PdfReader reader = new PdfReader(pdf)) {
             return new PdfTextExtractor(reader).getTextFromPage(1);
-        } finally {
-            reader.close();
         }
     }
 
@@ -146,20 +158,5 @@ class RelatorioPagamentoExporterServiceTest {
             }
             throw new AssertionError("Rótulo não encontrado na aba Resumo: " + chave);
         }
-    }
-
-    @Test
-    void exportarPdf_quandoNaoHaAulas_deveGerarPdfComMensagem() {
-        var profissional = new ProfissionalResumoDTO(
-                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), "350544-F");
-        var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
-        var resumo = new ResumoFinanceiroDTO(0L, 0L, BigDecimal.ZERO, BigDecimal.ZERO);
-        var vazio = new ProfissionalPagamentoRelatorioDTO(
-                profissional, periodo, resumo, List.of(), List.of(), LocalDateTime.of(2025, 3, 1, 10, 0));
-
-        byte[] pdf = service.exportarPdf(vazio);
-
-        assertThat(pdf).isNotEmpty();
-        assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
     }
 }
