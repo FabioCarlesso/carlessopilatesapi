@@ -12,4 +12,5 @@ public record ProfissionalRequestDTO(
         String telefone,
         @NotNull TipoContrato tipoContrato,
         @NotNull @DecimalMin("0.01") @DecimalMax("100.00") BigDecimal percentualPagamentoAula,
-        @NotNull LocalDate dataInicio) {}
+        @NotNull LocalDate dataInicio,
+        @Size(max = 30) String numeroRegistro) {}

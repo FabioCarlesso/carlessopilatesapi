@@ -2,6 +2,8 @@ package com.carlesso.pilatesapi.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.carlesso.pilatesapi.dto.ProfissionalRequestDTO;
+import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
@@ -72,6 +74,40 @@ class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
         assertThat(ativos.getTotalElements()).isEqualTo(2);
         assertThat(inativos.getTotalElements()).isEqualTo(1);
         assertThat(ativos.getTotalElements() + inativos.getTotalElements()).isEqualTo(3);
+    }
+
+    @Test
+    void cadastrar_devePersistirELerNumeroRegistro() {
+        var criado = service.cadastrar(new ProfissionalRequestDTO(
+                "Carla Dias",
+                "carla@email.com",
+                "55566677788",
+                "11988887777",
+                TipoContrato.PJ,
+                new BigDecimal("42.00"),
+                LocalDate.of(2025, 3, 1),
+                "350544-F"));
+
+        assertThat(criado.numeroRegistro()).isEqualTo("350544-F");
+        assertThat(service.buscarPorId(criado.id()).numeroRegistro()).isEqualTo("350544-F");
+    }
+
+    @Test
+    void atualizar_devePersistirNovoNumeroRegistro() {
+        var criado = service.cadastrar(new ProfissionalRequestDTO(
+                "Carla Dias",
+                "carla@email.com",
+                "55566677788",
+                "11988887777",
+                TipoContrato.PJ,
+                new BigDecimal("42.00"),
+                LocalDate.of(2025, 3, 1),
+                null));
+        assertThat(criado.numeroRegistro()).isNull();
+
+        service.atualizar(criado.id(), new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO"));
+
+        assertThat(service.buscarPorId(criado.id()).numeroRegistro()).isEqualTo("123456-TO");
     }
 
     @Test

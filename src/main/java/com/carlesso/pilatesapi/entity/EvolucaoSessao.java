@@ -15,6 +15,18 @@ public class EvolucaoSessao {
     @JoinColumn(name = "sessao_id", nullable = false, unique = true)
     private SessaoPilates sessao;
 
+    // Snapshot do profissional no momento do registro — colunas simples, e não @ManyToOne:
+    // o prontuário precisa preservar quem assinou a evolução e sob qual número de registro,
+    // independente de alterações posteriores no cadastro do profissional.
+    @Column(name = "profissional_id")
+    private Long profissionalId;
+
+    @Column(name = "profissional_nome")
+    private String profissionalNome;
+
+    @Column(name = "profissional_numero_registro", length = 30)
+    private String profissionalNumeroRegistro;
+
     @Column(nullable = false)
     private LocalDateTime dataHoraRegistro;
 
@@ -65,6 +77,30 @@ public class EvolucaoSessao {
 
     public void setSessao(SessaoPilates sessao) {
         this.sessao = sessao;
+    }
+
+    public Long getProfissionalId() {
+        return profissionalId;
+    }
+
+    public void setProfissionalId(Long profissionalId) {
+        this.profissionalId = profissionalId;
+    }
+
+    public String getProfissionalNome() {
+        return profissionalNome;
+    }
+
+    public void setProfissionalNome(String profissionalNome) {
+        this.profissionalNome = profissionalNome;
+    }
+
+    public String getProfissionalNumeroRegistro() {
+        return profissionalNumeroRegistro;
+    }
+
+    public void setProfissionalNumeroRegistro(String profissionalNumeroRegistro) {
+        this.profissionalNumeroRegistro = profissionalNumeroRegistro;
     }
 
     public LocalDateTime getDataHoraRegistro() {

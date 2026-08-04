@@ -24,8 +24,8 @@ class RelatorioPagamentoExporterServiceTest {
     private final RelatorioPagamentoExporterService service = new RelatorioPagamentoExporterService();
 
     private ProfissionalPagamentoRelatorioDTO relatorio() {
-        var profissional =
-                new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"));
+        var profissional = new ProfissionalResumoDTO(
+                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), "350544-F");
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(2L, 1L, new BigDecimal("200.00"), new BigDecimal("22.50"));
         var pagamento = new PagamentoResumoDTO(
@@ -94,8 +94,8 @@ class RelatorioPagamentoExporterServiceTest {
 
     @Test
     void exportarPdf_quandoNaoHaAulas_deveGerarPdfComMensagem() {
-        var profissional =
-                new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"));
+        var profissional = new ProfissionalResumoDTO(
+                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), "350544-F");
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(0L, 0L, BigDecimal.ZERO, BigDecimal.ZERO);
         var vazio = new ProfissionalPagamentoRelatorioDTO(

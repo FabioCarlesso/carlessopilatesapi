@@ -50,6 +50,9 @@ class EvolucaoSessaoControllerTest {
         return new EvolucaoSessaoResponseDTO(
                 1L,
                 1L,
+                7L,
+                "Paula Mendes",
+                "350544-F",
                 LocalDateTime.of(2026, 5, 10, 10, 30),
                 "Reformer, Cadillac",
                 "Reformer",
@@ -92,7 +95,10 @@ class EvolucaoSessaoControllerTest {
                 .andExpect(jsonPath("$.sessaoId").value(1))
                 .andExpect(jsonPath("$.dorAntes").value(5))
                 .andExpect(jsonPath("$.dorDepois").value(2))
-                .andExpect(jsonPath("$.respostaPaciente").value("Boa evolução"));
+                .andExpect(jsonPath("$.respostaPaciente").value("Boa evolução"))
+                .andExpect(jsonPath("$.profissionalId").value(7))
+                .andExpect(jsonPath("$.profissionalNome").value("Paula Mendes"))
+                .andExpect(jsonPath("$.profissionalNumeroRegistro").value("350544-F"));
     }
 
     @Test
@@ -205,6 +211,9 @@ class EvolucaoSessaoControllerTest {
         var anterior = new EvolucaoSessaoResponseDTO(
                 2L,
                 2L,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 4, 20, 9, 0),
                 "Mat Pilates",
                 null,
@@ -250,6 +259,9 @@ class EvolucaoSessaoControllerTest {
         var updated = new EvolucaoSessaoResponseDTO(
                 1L,
                 1L,
+                7L,
+                "Paula Mendes",
+                "350544-F",
                 LocalDateTime.of(2026, 5, 10, 10, 30),
                 "Reformer, Chair",
                 "Reformer",

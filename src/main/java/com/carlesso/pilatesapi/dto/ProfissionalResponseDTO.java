@@ -14,7 +14,8 @@ public record ProfissionalResponseDTO(
         TipoContrato tipoContrato,
         BigDecimal percentualPagamentoAula,
         LocalDate dataInicio,
-        boolean ativo) {
+        boolean ativo,
+        String numeroRegistro) {
     public static ProfissionalResponseDTO from(Profissional profissional) {
         return new ProfissionalResponseDTO(
                 profissional.getId(),
@@ -25,6 +26,7 @@ public record ProfissionalResponseDTO(
                 profissional.getTipoContrato(),
                 profissional.getPercentualPagamentoAula(),
                 profissional.getDataInicio(),
-                profissional.isAtivo());
+                profissional.isAtivo(),
+                profissional.getNumeroRegistro());
     }
 }
