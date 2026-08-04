@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.dto.EvolucaoSessaoResponseDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoUpdateDTO;
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
@@ -25,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -55,9 +57,22 @@ class EvolucaoSessaoServiceTest {
         return p;
     }
 
+    private Profissional profissional() {
+        Profissional p = new Profissional();
+        p.setId(7L);
+        p.setNome("Paula Mendes");
+        p.setNumeroRegistro("350544-F");
+        return p;
+    }
+
     private SessaoPilates sessao(Paciente paciente) {
+        return sessao(paciente, profissional());
+    }
+
+    private SessaoPilates sessao(Paciente paciente, Profissional profissional) {
         SessaoPilates s = new SessaoPilates();
         s.setPaciente(paciente);
+        s.setProfissional(profissional);
         s.setTipo(TipoSessao.PILATES);
         s.setStatus(StatusSessao.REALIZADA);
         s.setData(LocalDate.of(2026, 5, 10));
@@ -69,6 +84,11 @@ class EvolucaoSessaoServiceTest {
     private EvolucaoSessao evolucao(SessaoPilates sessao) {
         EvolucaoSessao e = new EvolucaoSessao();
         e.setSessao(sessao);
+        if (sessao.getProfissional() != null) {
+            e.setProfissionalId(sessao.getProfissional().getId());
+            e.setProfissionalNome(sessao.getProfissional().getNome());
+            e.setProfissionalNumeroRegistro(sessao.getProfissional().getNumeroRegistro());
+        }
         e.setDataHoraRegistro(LocalDateTime.of(2026, 5, 10, 10, 30));
         e.setExerciciosRealizados("Reformer, Cadillac");
         e.setEquipamentosUtilizados("Reformer");
@@ -137,6 +157,55 @@ class EvolucaoSessaoServiceTest {
     }
 
     @Test
+    void criar_deveCongelarOSnapshotDoProfissionalDaSessao() {
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(evolucaoRepository.existsBySessaoId(1L)).thenReturn(false);
+        when(evolucaoRepository.save(any(EvolucaoSessao.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EvolucaoSessaoResponseDTO response = service.criar(requestDTO());
+
+        assertThat(response.profissionalId()).isEqualTo(7L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.profissionalNumeroRegistro()).isEqualTo("350544-F");
+    }
+
+    @Test
+    void criar_comSessaoSemProfissional_deveDeixarOSnapshotNulo() {
+        SessaoPilates s = sessao(paciente(), null);
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(evolucaoRepository.existsBySessaoId(1L)).thenReturn(false);
+        when(evolucaoRepository.save(any(EvolucaoSessao.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EvolucaoSessaoResponseDTO response = service.criar(requestDTO());
+
+        assertThat(response.profissionalId()).isNull();
+        assertThat(response.profissionalNome()).isNull();
+        assertThat(response.profissionalNumeroRegistro()).isNull();
+    }
+
+    @Test
+    void criar_alterarCadastroDepois_naoDeveAlterarOSnapshotJaGravado() {
+        Profissional prof = profissional();
+        SessaoPilates s = sessao(paciente(), prof);
+        var salva = new AtomicReference<EvolucaoSessao>();
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(evolucaoRepository.existsBySessaoId(1L)).thenReturn(false);
+        when(evolucaoRepository.save(any(EvolucaoSessao.class))).thenAnswer(invocation -> {
+            salva.set(invocation.getArgument(0));
+            return invocation.getArgument(0);
+        });
+
+        service.criar(requestDTO());
+
+        prof.setNumeroRegistro("999999-X");
+        prof.setNome("Paula Mendes Silva");
+
+        assertThat(salva.get().getProfissionalNumeroRegistro()).isEqualTo("350544-F");
+        assertThat(salva.get().getProfissionalNome()).isEqualTo("Paula Mendes");
+    }
+
+    @Test
     void criar_comSessaoInexistente_deveLancarResourceNotFoundException() {
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
@@ -169,6 +238,9 @@ class EvolucaoSessaoServiceTest {
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.exerciciosRealizados()).isEqualTo("Reformer, Cadillac");
+        assertThat(response.profissionalId()).isEqualTo(7L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.profissionalNumeroRegistro()).isEqualTo("350544-F");
     }
 
     @Test
@@ -190,6 +262,9 @@ class EvolucaoSessaoServiceTest {
 
         assertThat(response.sessaoId()).isEqualTo(1L);
         assertThat(response.dorAntes()).isEqualTo(5);
+        assertThat(response.profissionalId()).isEqualTo(7L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.profissionalNumeroRegistro()).isEqualTo("350544-F");
     }
 
     @Test
@@ -215,7 +290,9 @@ class EvolucaoSessaoServiceTest {
     void listarPorPaciente_comEvolucoes_devePreservarAOrdemDoRepositorio() {
         Paciente p = paciente();
         SessaoPilates recente = sessao(p);
-        SessaoPilates antiga = sessao(p);
+        // A antiga não tem profissional vinculado: garante que o snapshot é mapeado
+        // item a item, e não copiado de um valor constante da lista.
+        SessaoPilates antiga = sessao(p, null);
         antiga.setData(LocalDate.of(2026, 4, 20));
         setId(antiga, SessaoPilates.class, 2L);
         EvolucaoSessao evolucaoAntiga = evolucao(antiga);
@@ -229,7 +306,13 @@ class EvolucaoSessaoServiceTest {
         assertThat(response.getFirst().sessaoId()).isEqualTo(1L);
         assertThat(response.getFirst().dorAntes()).isEqualTo(5);
         assertThat(response.getFirst().exerciciosRealizados()).isEqualTo("Reformer, Cadillac");
+        assertThat(response.getFirst().profissionalId()).isEqualTo(7L);
+        assertThat(response.getFirst().profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.getFirst().profissionalNumeroRegistro()).isEqualTo("350544-F");
         assertThat(response.get(1).sessaoId()).isEqualTo(2L);
+        assertThat(response.get(1).profissionalId()).isNull();
+        assertThat(response.get(1).profissionalNome()).isNull();
+        assertThat(response.get(1).profissionalNumeroRegistro()).isNull();
     }
 
     @Test
@@ -269,6 +352,26 @@ class EvolucaoSessaoServiceTest {
         assertThat(response.dorDepois()).isEqualTo(1);
         assertThat(response.respostaPaciente()).isEqualTo("Melhorou muito");
         assertThat(response.dataAtualizacao()).isNotNull();
+    }
+
+    @Test
+    void atualizar_naoDeveAlterarOSnapshotDoProfissional() {
+        SessaoPilates s = sessao(paciente());
+        EvolucaoSessao e = evolucao(s);
+        when(evolucaoRepository.findByIdComSessao(1L)).thenReturn(Optional.of(e));
+        when(evolucaoRepository.save(e)).thenReturn(e);
+
+        // Depois da criação o cadastro do profissional mudou; a evolução não acompanha.
+        s.getProfissional().setNome("Outro Nome");
+        s.getProfissional().setNumeroRegistro("999999-X");
+
+        var dto = new EvolucaoSessaoUpdateDTO(null, "Reformer, Chair", null, null, null, null, null, null, null, null);
+
+        EvolucaoSessaoResponseDTO response = service.atualizar(1L, dto);
+
+        assertThat(response.profissionalId()).isEqualTo(7L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.profissionalNumeroRegistro()).isEqualTo("350544-F");
     }
 
     @Test

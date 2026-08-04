@@ -53,19 +53,25 @@ class ProfissionalServiceTest {
         p.setTipoContrato(TipoContrato.PJ);
         p.setPercentualPagamentoAula(new BigDecimal("45.00"));
         p.setDataInicio(LocalDate.of(2024, 1, 15));
+        p.setNumeroRegistro("350544-F");
         return p;
     }
 
-    @Test
-    void cadastrar_deveRetornarProfissionalCriado() {
-        var dto = new ProfissionalRequestDTO(
+    private ProfissionalRequestDTO requestDTO(String numeroRegistro) {
+        return new ProfissionalRequestDTO(
                 "Paula Mendes",
                 "paula@email.com",
                 "12345678900",
                 "11999999999",
                 TipoContrato.PJ,
                 new BigDecimal("45.00"),
-                LocalDate.of(2024, 1, 15));
+                LocalDate.of(2024, 1, 15),
+                numeroRegistro);
+    }
+
+    @Test
+    void cadastrar_deveRetornarProfissionalCriado() {
+        var dto = requestDTO("350544-F");
         when(repository.existsByEmail(dto.email())).thenReturn(false);
         when(repository.existsByCpf(dto.cpf())).thenReturn(false);
         when(repository.save(any(Profissional.class))).thenReturn(profissional());
@@ -74,19 +80,37 @@ class ProfissionalServiceTest {
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.percentualPagamentoAula()).isEqualByComparingTo("45.00");
+        assertThat(response.numeroRegistro()).isEqualTo("350544-F");
         verify(repository).save(any(Profissional.class));
     }
 
     @Test
+    void cadastrar_deveNormalizarNumeroRegistroEmBrancoParaNull() {
+        var dto = requestDTO("   ");
+        when(repository.existsByEmail(dto.email())).thenReturn(false);
+        when(repository.existsByCpf(dto.cpf())).thenReturn(false);
+        when(repository.save(any(Profissional.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProfissionalResponseDTO response = service.cadastrar(dto);
+
+        assertThat(response.numeroRegistro()).isNull();
+    }
+
+    @Test
+    void cadastrar_semNumeroRegistro_devePersistirNull() {
+        var dto = requestDTO(null);
+        when(repository.existsByEmail(dto.email())).thenReturn(false);
+        when(repository.existsByCpf(dto.cpf())).thenReturn(false);
+        when(repository.save(any(Profissional.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProfissionalResponseDTO response = service.cadastrar(dto);
+
+        assertThat(response.numeroRegistro()).isNull();
+    }
+
+    @Test
     void cadastrar_emailDuplicado_deveLancarConflito() {
-        var dto = new ProfissionalRequestDTO(
-                "Paula Mendes",
-                "paula@email.com",
-                "12345678900",
-                "11999999999",
-                TipoContrato.PJ,
-                new BigDecimal("45.00"),
-                LocalDate.of(2024, 1, 15));
+        var dto = requestDTO("350544-F");
         when(repository.existsByEmail(dto.email())).thenReturn(true);
 
         assertThatThrownBy(() -> service.cadastrar(dto))
@@ -96,14 +120,7 @@ class ProfissionalServiceTest {
 
     @Test
     void cadastrar_cpfDuplicado_deveLancarConflito() {
-        var dto = new ProfissionalRequestDTO(
-                "Paula Mendes",
-                "paula@email.com",
-                "12345678900",
-                "11999999999",
-                TipoContrato.PJ,
-                new BigDecimal("45.00"),
-                LocalDate.of(2024, 1, 15));
+        var dto = requestDTO("350544-F");
         when(repository.existsByEmail(dto.email())).thenReturn(false);
         when(repository.existsByCpf(dto.cpf())).thenReturn(true);
 
@@ -141,10 +158,30 @@ class ProfissionalServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
 
         var response = service.atualizar(
-                1L, new ProfissionalUpdateDTO("Novo Nome", null, null, null, new BigDecimal("50.00"), null));
+                1L, new ProfissionalUpdateDTO("Novo Nome", null, null, null, new BigDecimal("50.00"), null, null));
 
         assertThat(response.nome()).isEqualTo("Novo Nome");
         assertThat(response.percentualPagamentoAula()).isEqualByComparingTo("50.00");
+        assertThat(response.numeroRegistro()).isEqualTo("350544-F");
+    }
+
+    @Test
+    void atualizar_deveAtualizarNumeroRegistro() {
+        when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
+
+        var response =
+                service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO"));
+
+        assertThat(response.numeroRegistro()).isEqualTo("123456-TO");
+    }
+
+    @Test
+    void atualizar_comNumeroRegistroEmBranco_deveLimparOCampo() {
+        when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
+
+        var response = service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "  "));
+
+        assertThat(response.numeroRegistro()).isNull();
     }
 
     @Test
@@ -210,6 +247,7 @@ class ProfissionalServiceTest {
 
         assertThat(relatorio.profissional().id()).isEqualTo(1L);
         assertThat(relatorio.profissional().nome()).isEqualTo("Paula Mendes");
+        assertThat(relatorio.profissional().numeroRegistro()).isEqualTo("350544-F");
         assertThat(relatorio.periodo().inicio()).isEqualTo(LocalDate.of(2025, 2, 1));
         assertThat(relatorio.periodo().fim()).isEqualTo(LocalDate.of(2025, 2, 28));
         assertThat(relatorio.resumo().totalAulas()).isEqualTo(2);

@@ -29,7 +29,9 @@ public class EvolucaoSessaoController {
     @Operation(
             summary = "Registrar evolução de sessão",
             description =
-                    "Registra a evolução clínica de uma sessão de Pilates ou Fisioterapia. Cada sessão admite apenas uma evolução.")
+                    "Registra a evolução clínica de uma sessão de Pilates ou Fisioterapia. Cada sessão admite apenas uma evolução. "
+                            + "Grava um snapshot imutável do profissional da sessão (profissionalId, profissionalNome e profissionalNumeroRegistro): "
+                            + "alterações posteriores no cadastro do profissional não reescrevem evoluções já registradas.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Evolução registrada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
@@ -86,7 +88,8 @@ public class EvolucaoSessaoController {
 
     @Operation(
             summary = "Atualizar evolução",
-            description = "Atualiza os dados da evolução clínica. Apenas os campos enviados serão alterados.")
+            description = "Atualiza os dados da evolução clínica. Apenas os campos enviados serão alterados. "
+                    + "O snapshot do profissional gravado na criação é preservado.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Evolução atualizada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos"),

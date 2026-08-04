@@ -375,6 +375,7 @@ Tabela: `profissionais`
 | `nome` | `VARCHAR(255)` | NOT NULL | Nome completo |
 | `email` | `VARCHAR(255)` | NOT NULL, UNIQUE | Endereço de e-mail |
 | `cpf` | `VARCHAR(14)` | NOT NULL, UNIQUE | CPF do profissional |
+| `numero_registro` | `VARCHAR(30)` | — | Número de registro no conselho profissional (ex.: `350544-F`) |
 | `telefone` | `VARCHAR` | — | Telefone de contato |
 | `tipo_contrato` | `VARCHAR(30)` | NOT NULL | `CLT` / `PJ` / `AUTONOMO` |
 | `percentual_pagamento_aula` | `NUMERIC(5,2)` | NOT NULL | Percentual por aula ministrada |
@@ -625,11 +626,14 @@ GET /pacientes?ativo=false
   "telefone": "(11) 98888-1111",
   "tipoContrato": "PJ",
   "percentualPagamentoAula": 45.00,
-  "dataInicio": "2024-01-15"
+  "dataInicio": "2024-01-15",
+  "numeroRegistro": "350544-F"
 }
 ```
 
 > Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`
+>
+> `numeroRegistro` é opcional (máx. 30 caracteres) e aceita o formato de qualquer conselho — CREFITO, CREF etc. Não há validação de formato.
 
 **Códigos de resposta:**
 
@@ -715,7 +719,8 @@ Retorna aulas realizadas no período e o total devido ao profissional. O contrat
     "nome": "Paula Mendes",
     "cpf": "12345678900",
     "tipoContrato": "PJ",
-    "percentualPagamentoAula": 45.00
+    "percentualPagamentoAula": 45.00,
+    "numeroRegistro": "350544-F"
   },
   "periodo": {
     "inicio": "2025-02-01",

@@ -22,6 +22,9 @@ public class Profissional {
     @Column(nullable = false, unique = true)
     private String cpf;
 
+    @Column(length = 30)
+    private String numeroRegistro;
+
     private String telefone;
 
     @Enumerated(EnumType.STRING)
@@ -69,6 +72,14 @@ public class Profissional {
 
     public void setCpf(String cpf) {
         this.cpf = cpf;
+    }
+
+    public String getNumeroRegistro() {
+        return numeroRegistro;
+    }
+
+    public void setNumeroRegistro(String numeroRegistro) {
+        this.numeroRegistro = numeroRegistro;
     }
 
     public String getTelefone() {

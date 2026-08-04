@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.dto.EvolucaoSessaoRequestDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoResponseDTO;
 import com.carlesso.pilatesapi.dto.EvolucaoSessaoUpdateDTO;
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
+import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
@@ -46,6 +47,13 @@ public class EvolucaoSessaoService {
 
         EvolucaoSessao evolucao = new EvolucaoSessao();
         evolucao.setSessao(sessao);
+        // Snapshot imutável: `findByIdComPaciente` já traz o profissional via LEFT JOIN FETCH.
+        Profissional profissional = sessao.getProfissional();
+        if (profissional != null) {
+            evolucao.setProfissionalId(profissional.getId());
+            evolucao.setProfissionalNome(profissional.getNome());
+            evolucao.setProfissionalNumeroRegistro(profissional.getNumeroRegistro());
+        }
         evolucao.setDataHoraRegistro(dto.dataHoraRegistro());
         evolucao.setExerciciosRealizados(dto.exerciciosRealizados());
         evolucao.setEquipamentosUtilizados(dto.equipamentosUtilizados());

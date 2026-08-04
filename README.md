@@ -317,6 +317,12 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 | `GET` | `/evolucoes-sessao/paciente/{pacienteId}` | Listar evoluções do paciente, da sessão mais recente para a mais antiga |
 | `PUT` | `/evolucoes-sessao/{id}` | Atualizar dados da evolução |
 
+A resposta traz `profissionalId`, `profissionalNome` e `profissionalNumeroRegistro`: um **snapshot** do profissional
+da sessão, congelado no momento do registro. Editar depois o cadastro do profissional não reescreve as evoluções já
+gravadas, e o `PUT` acima preserva os três campos. Sessões sem profissional vinculado geram evolução com os três
+campos `null`. Evoluções anteriores à migration `V32` têm `profissionalNumeroRegistro` `null`, já que o dado não
+existia à época do registro.
+
 ### Relatórios
 
 | Método | Endpoint | Descrição |
@@ -375,7 +381,8 @@ A resposta do endpoint `GET /profissionais/{id}/relatorio-pagamento` é estrutur
     "nome": "Paula Mendes",
     "cpf": "12345678900",
     "tipoContrato": "PJ",
-    "percentualPagamentoAula": 45.00
+    "percentualPagamentoAula": 45.00,
+    "numeroRegistro": "350544-F"
   },
   "periodo": {
     "inicio": "2025-02-01",
@@ -423,6 +430,8 @@ Os endpoints `GET /profissionais/{id}/relatorio-pagamento/pdf` e `GET /profissio
 |---|---|---|
 | `/relatorio-pagamento/pdf` | `application/pdf` | `attachment; filename="relatorio-pagamento-profissional-{id}-{inicio}-{fim}.pdf"` |
 | `/relatorio-pagamento/xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | `attachment; filename="relatorio-pagamento-profissional-{id}-{inicio}-{fim}.xlsx"` |
+
+Os dois formatos trazem o mesmo cabeçalho de identificação do JSON — incluindo `Número de registro`, exibido como `-` quando o profissional não tem o campo preenchido.
 
 O XLSX possui três abas: `Resumo`, `Pagamentos` e `Aulas`. O PDF apresenta as mesmas informações em layout único, com tabelas para pagamentos e aulas.
 
@@ -1090,6 +1099,8 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
 | `V28__create_avaliacoes_posturais_table.sql` | Cria tabela `avaliacoes_posturais` (simetrógrafo virtual): landmarks em `JSONB`, soft delete e índice parcial de unicidade `(avaliacao_fisioterapeutica_id, vista) WHERE ativo = true` |
 | `V29__add_foto_and_proporcao_to_avaliacoes_posturais.sql` | Adiciona `foto`/`foto_content_type` (MVP em `bytea`, upload em issue própria) e `proporcao_imagem` — razão largura/altura usada para calcular ângulos fiéis sobre coordenadas normalizadas |
+| `V31__add_numero_registro_to_profissionais.sql` | Adiciona `numero_registro` (nullable) em `profissionais` — número no conselho profissional (CREFITO, CREF etc.) |
+| `V32__add_profissional_snapshot_to_evolucoes_sessao.sql` | Adiciona o snapshot `profissional_id`/`profissional_nome`/`profissional_numero_registro` em `evolucoes_sessao`, com índice na FK e backfill best-effort a partir da sessão |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 

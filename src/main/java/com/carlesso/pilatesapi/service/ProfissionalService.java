@@ -62,6 +62,7 @@ public class ProfissionalService {
         profissional.setTipoContrato(dto.tipoContrato());
         profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
         profissional.setDataInicio(dto.dataInicio());
+        profissional.setNumeroRegistro(normalizar(dto.numeroRegistro()));
         return ProfissionalResponseDTO.from(repository.save(profissional));
     }
 
@@ -93,7 +94,16 @@ public class ProfissionalService {
         if (dto.percentualPagamentoAula() != null)
             profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
         if (dto.dataInicio() != null) profissional.setDataInicio(dto.dataInicio());
+        if (dto.numeroRegistro() != null) profissional.setNumeroRegistro(normalizar(dto.numeroRegistro()));
         return ProfissionalResponseDTO.from(profissional);
+    }
+
+    /** String vazia ou em branco vira {@code null}: "sem registro informado" tem uma representação só. */
+    private String normalizar(String numeroRegistro) {
+        if (numeroRegistro == null || numeroRegistro.isBlank()) {
+            return null;
+        }
+        return numeroRegistro.trim();
     }
 
     @Transactional

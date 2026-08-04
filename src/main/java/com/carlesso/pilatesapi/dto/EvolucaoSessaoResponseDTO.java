@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 public record EvolucaoSessaoResponseDTO(
         Long id,
         Long sessaoId,
+        Long profissionalId,
+        String profissionalNome,
+        String profissionalNumeroRegistro,
         LocalDateTime dataHoraRegistro,
         String exerciciosRealizados,
         String equipamentosUtilizados,
@@ -22,6 +25,9 @@ public record EvolucaoSessaoResponseDTO(
         return new EvolucaoSessaoResponseDTO(
                 e.getId(),
                 e.getSessao().getId(),
+                e.getProfissionalId(),
+                e.getProfissionalNome(),
+                e.getProfissionalNumeroRegistro(),
                 e.getDataHoraRegistro(),
                 e.getExerciciosRealizados(),
                 e.getEquipamentosUtilizados(),

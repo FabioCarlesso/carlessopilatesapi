@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -72,19 +73,25 @@ class ProfissionalControllerTest {
                 TipoContrato.PJ,
                 new BigDecimal("45.00"),
                 LocalDate.of(2024, 1, 15),
-                true);
+                true,
+                "350544-F");
     }
 
-    @Test
-    void cadastrar_deveRetornar201() throws Exception {
-        var request = new ProfissionalRequestDTO(
+    private ProfissionalRequestDTO request(String numeroRegistro) {
+        return new ProfissionalRequestDTO(
                 "Paula Mendes",
                 "paula@email.com",
                 "12345678900",
                 "11999999999",
                 TipoContrato.PJ,
                 new BigDecimal("45.00"),
-                LocalDate.of(2024, 1, 15));
+                LocalDate.of(2024, 1, 15),
+                numeroRegistro);
+    }
+
+    @Test
+    void cadastrar_deveRetornar201() throws Exception {
+        var request = request("350544-F");
         when(service.cadastrar(any())).thenReturn(response());
 
         mvc.perform(post("/profissionais")
@@ -93,19 +100,48 @@ class ProfissionalControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.nome").value("Paula Mendes"))
-                .andExpect(jsonPath("$.tipoContrato").value("PJ"));
+                .andExpect(jsonPath("$.tipoContrato").value("PJ"))
+                .andExpect(jsonPath("$.numeroRegistro").value("350544-F"));
+    }
+
+    @Test
+    void cadastrar_semNumeroRegistro_deveRetornar201ComCampoNulo() throws Exception {
+        var request = request(null);
+        when(service.cadastrar(any()))
+                .thenReturn(new ProfissionalResponseDTO(
+                        1L,
+                        "Paula Mendes",
+                        "paula@email.com",
+                        "12345678900",
+                        "11999999999",
+                        TipoContrato.PJ,
+                        new BigDecimal("45.00"),
+                        LocalDate.of(2024, 1, 15),
+                        true,
+                        null));
+
+        mvc.perform(post("/profissionais")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.numeroRegistro").isEmpty());
+    }
+
+    @Test
+    void cadastrar_numeroRegistroAcimaDoLimite_deveRetornar400() throws Exception {
+        var request = request("X".repeat(31));
+
+        mvc.perform(post("/profissionais")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).cadastrar(any());
     }
 
     @Test
     void cadastrar_emailDuplicado_deveRetornar409() throws Exception {
-        var request = new ProfissionalRequestDTO(
-                "Paula Mendes",
-                "paula@email.com",
-                "12345678900",
-                "11999999999",
-                TipoContrato.PJ,
-                new BigDecimal("45.00"),
-                LocalDate.of(2024, 1, 15));
+        var request = request("350544-F");
         when(service.cadastrar(any())).thenThrow(new ConflictException("E-mail já cadastrado: paula@email.com"));
 
         mvc.perform(post("/profissionais")
@@ -171,7 +207,7 @@ class ProfissionalControllerTest {
 
     @Test
     void atualizar_deveRetornar200() throws Exception {
-        var update = new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null);
+        var update = new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null, "123456-TO");
         when(service.atualizar(eq(1L), any()))
                 .thenReturn(new ProfissionalResponseDTO(
                         1L,
@@ -182,13 +218,27 @@ class ProfissionalControllerTest {
                         TipoContrato.PJ,
                         new BigDecimal("45.00"),
                         LocalDate.of(2024, 1, 15),
-                        true));
+                        true,
+                        "123456-TO"));
 
         mvc.perform(put("/profissionais/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(update)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nome").value("Novo Nome"));
+                .andExpect(jsonPath("$.nome").value("Novo Nome"))
+                .andExpect(jsonPath("$.numeroRegistro").value("123456-TO"));
+    }
+
+    @Test
+    void atualizar_numeroRegistroAcimaDoLimite_deveRetornar400() throws Exception {
+        var update = new ProfissionalUpdateDTO(null, null, null, null, null, null, "X".repeat(31));
+
+        mvc.perform(put("/profissionais/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(update)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).atualizar(any(), any());
     }
 
     @Test
@@ -199,7 +249,7 @@ class ProfissionalControllerTest {
         mvc.perform(put("/profissionais/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(
-                                new ProfissionalUpdateDTO("Nome", null, null, null, null, null))))
+                                new ProfissionalUpdateDTO("Nome", null, null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 
@@ -240,8 +290,8 @@ class ProfissionalControllerTest {
     }
 
     private ProfissionalPagamentoRelatorioDTO relatorio() {
-        var profissional =
-                new ProfissionalResumoDTO(1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"));
+        var profissional = new ProfissionalResumoDTO(
+                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), "350544-F");
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(2L, 1L, new BigDecimal("200.00"), new BigDecimal("22.50"));
         var pagamento = new PagamentoResumoDTO(
@@ -273,6 +323,7 @@ class ProfissionalControllerTest {
                 .andExpect(jsonPath("$.profissional.id").value(1))
                 .andExpect(jsonPath("$.profissional.nome").value("Paula Mendes"))
                 .andExpect(jsonPath("$.profissional.tipoContrato").value("PJ"))
+                .andExpect(jsonPath("$.profissional.numeroRegistro").value("350544-F"))
                 .andExpect(jsonPath("$.periodo.inicio").value("2025-02-01"))
                 .andExpect(jsonPath("$.periodo.fim").value("2025-02-28"))
                 .andExpect(jsonPath("$.resumo.totalAulas").value(2))
