@@ -431,6 +431,8 @@ Os endpoints `GET /profissionais/{id}/relatorio-pagamento/pdf` e `GET /profissio
 | `/relatorio-pagamento/pdf` | `application/pdf` | `attachment; filename="relatorio-pagamento-profissional-{id}-{inicio}-{fim}.pdf"` |
 | `/relatorio-pagamento/xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | `attachment; filename="relatorio-pagamento-profissional-{id}-{inicio}-{fim}.xlsx"` |
 
+Os dois formatos trazem o mesmo cabeçalho de identificação do JSON — incluindo `Número de registro`, exibido como `-` quando o profissional não tem o campo preenchido.
+
 O XLSX possui três abas: `Resumo`, `Pagamentos` e `Aulas`. O PDF apresenta as mesmas informações em layout único, com tabelas para pagamentos e aulas.
 
 ### Resumo do dashboard — contrato JSON

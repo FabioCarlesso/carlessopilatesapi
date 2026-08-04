@@ -52,6 +52,7 @@ public class RelatorioPagamentoExporterService {
 
             document.add(linha("Profissional: ", relatorio.profissional().nome(), textoFont));
             document.add(linha("CPF: ", relatorio.profissional().cpf(), textoFont));
+            document.add(linha("Número de registro: ", relatorio.profissional().numeroRegistro(), textoFont));
             document.add(linha(
                     "Tipo de contrato: ",
                     relatorio.profissional().tipoContrato().name(),
@@ -211,6 +212,8 @@ public class RelatorioPagamentoExporterService {
                 sheet, rowIndex, "Profissional", relatorio.profissional().nome());
         rowIndex = adicionarLinhaChaveValor(
                 sheet, rowIndex, "CPF", relatorio.profissional().cpf());
+        rowIndex = adicionarLinhaChaveValor(
+                sheet, rowIndex, "Número de registro", relatorio.profissional().numeroRegistro());
         rowIndex = adicionarLinhaChaveValor(
                 sheet,
                 rowIndex,

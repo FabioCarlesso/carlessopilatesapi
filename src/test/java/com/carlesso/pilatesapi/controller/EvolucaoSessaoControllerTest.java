@@ -193,7 +193,9 @@ class EvolucaoSessaoControllerTest {
         mvc.perform(get("/evolucoes-sessao/sessao/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sessaoId").value(1))
-                .andExpect(jsonPath("$.dorAntes").value(5));
+                .andExpect(jsonPath("$.dorAntes").value(5))
+                .andExpect(jsonPath("$.profissionalNome").value("Paula Mendes"))
+                .andExpect(jsonPath("$.profissionalNumeroRegistro").value("350544-F"));
     }
 
     @Test
@@ -233,7 +235,12 @@ class EvolucaoSessaoControllerTest {
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].sessaoId").value(1))
                 .andExpect(jsonPath("$[0].exerciciosRealizados").value("Reformer, Cadillac"))
-                .andExpect(jsonPath("$[1].sessaoId").value(2));
+                .andExpect(jsonPath("$[0].profissionalId").value(7))
+                .andExpect(jsonPath("$[0].profissionalNome").value("Paula Mendes"))
+                .andExpect(jsonPath("$[0].profissionalNumeroRegistro").value("350544-F"))
+                .andExpect(jsonPath("$[1].sessaoId").value(2))
+                .andExpect(jsonPath("$[1].profissionalId").isEmpty())
+                .andExpect(jsonPath("$[1].profissionalNumeroRegistro").isEmpty());
     }
 
     @Test

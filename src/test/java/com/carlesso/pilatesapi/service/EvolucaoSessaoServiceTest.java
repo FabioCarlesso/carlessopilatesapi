@@ -238,6 +238,9 @@ class EvolucaoSessaoServiceTest {
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.exerciciosRealizados()).isEqualTo("Reformer, Cadillac");
+        assertThat(response.profissionalId()).isEqualTo(7L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.profissionalNumeroRegistro()).isEqualTo("350544-F");
     }
 
     @Test
@@ -259,6 +262,9 @@ class EvolucaoSessaoServiceTest {
 
         assertThat(response.sessaoId()).isEqualTo(1L);
         assertThat(response.dorAntes()).isEqualTo(5);
+        assertThat(response.profissionalId()).isEqualTo(7L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.profissionalNumeroRegistro()).isEqualTo("350544-F");
     }
 
     @Test
@@ -284,7 +290,9 @@ class EvolucaoSessaoServiceTest {
     void listarPorPaciente_comEvolucoes_devePreservarAOrdemDoRepositorio() {
         Paciente p = paciente();
         SessaoPilates recente = sessao(p);
-        SessaoPilates antiga = sessao(p);
+        // A antiga não tem profissional vinculado: garante que o snapshot é mapeado
+        // item a item, e não copiado de um valor constante da lista.
+        SessaoPilates antiga = sessao(p, null);
         antiga.setData(LocalDate.of(2026, 4, 20));
         setId(antiga, SessaoPilates.class, 2L);
         EvolucaoSessao evolucaoAntiga = evolucao(antiga);
@@ -298,7 +306,13 @@ class EvolucaoSessaoServiceTest {
         assertThat(response.getFirst().sessaoId()).isEqualTo(1L);
         assertThat(response.getFirst().dorAntes()).isEqualTo(5);
         assertThat(response.getFirst().exerciciosRealizados()).isEqualTo("Reformer, Cadillac");
+        assertThat(response.getFirst().profissionalId()).isEqualTo(7L);
+        assertThat(response.getFirst().profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.getFirst().profissionalNumeroRegistro()).isEqualTo("350544-F");
         assertThat(response.get(1).sessaoId()).isEqualTo(2L);
+        assertThat(response.get(1).profissionalId()).isNull();
+        assertThat(response.get(1).profissionalNome()).isNull();
+        assertThat(response.get(1).profissionalNumeroRegistro()).isNull();
     }
 
     @Test

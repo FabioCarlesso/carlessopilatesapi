@@ -9,11 +9,16 @@ import com.carlesso.pilatesapi.dto.ProfissionalPagamentoRelatorioDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalResumoDTO;
 import com.carlesso.pilatesapi.dto.ResumoFinanceiroDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.parser.PdfTextExtractor;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -24,8 +29,12 @@ class RelatorioPagamentoExporterServiceTest {
     private final RelatorioPagamentoExporterService service = new RelatorioPagamentoExporterService();
 
     private ProfissionalPagamentoRelatorioDTO relatorio() {
+        return relatorio("350544-F");
+    }
+
+    private ProfissionalPagamentoRelatorioDTO relatorio(String numeroRegistro) {
         var profissional = new ProfissionalResumoDTO(
-                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), "350544-F");
+                1L, "Paula Mendes", "12345678900", TipoContrato.PJ, new BigDecimal("45.00"), numeroRegistro);
         var periodo = new PeriodoDTO(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
         var resumo = new ResumoFinanceiroDTO(2L, 1L, new BigDecimal("200.00"), new BigDecimal("22.50"));
         var pagamento = new PagamentoResumoDTO(
@@ -89,6 +98,53 @@ class RelatorioPagamentoExporterServiceTest {
             assertThat(pagamentos.getRow(0).getCell(5).getStringCellValue()).isEqualTo("Total profissional");
             assertThat(pagamentos.getRow(1).getCell(0).getNumericCellValue()).isEqualTo(5d);
             assertThat(pagamentos.getRow(1).getCell(5).getNumericCellValue()).isEqualTo(22.50d);
+        }
+    }
+
+    @Test
+    void exportarPdf_deveIncluirNumeroRegistroDoProfissional() throws Exception {
+        assertThat(textoDoPdf(service.exportarPdf(relatorio()))).contains("Número de registro: 350544-F");
+    }
+
+    @Test
+    void exportarPdf_semNumeroRegistro_deveExibirTraco() throws Exception {
+        assertThat(textoDoPdf(service.exportarPdf(relatorio(null)))).contains("Número de registro: -");
+    }
+
+    @Test
+    void exportarXlsx_deveIncluirNumeroRegistroNoResumo() throws Exception {
+        assertThat(valorDoResumo(service.exportarXlsx(relatorio()), "Número de registro"))
+                .isEqualTo("350544-F");
+    }
+
+    @Test
+    void exportarXlsx_semNumeroRegistro_deveExibirTraco() throws Exception {
+        assertThat(valorDoResumo(service.exportarXlsx(relatorio(null)), "Número de registro"))
+                .isEqualTo("-");
+    }
+
+    private String textoDoPdf(byte[] pdf) throws Exception {
+        PdfReader reader = new PdfReader(pdf);
+        try {
+            return new PdfTextExtractor(reader).getTextFromPage(1);
+        } finally {
+            reader.close();
+        }
+    }
+
+    /** Procura a linha chave/valor pelo rótulo na aba Resumo, sem depender do índice da linha. */
+    private String valorDoResumo(byte[] xlsx, String chave) throws Exception {
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(xlsx))) {
+            Sheet resumo = workbook.getSheet("Resumo");
+            for (Row row : resumo) {
+                Cell rotulo = row.getCell(0);
+                if (rotulo != null
+                        && rotulo.getCellType() == CellType.STRING
+                        && chave.equals(rotulo.getStringCellValue())) {
+                    return row.getCell(1).getStringCellValue();
+                }
+            }
+            throw new AssertionError("Rótulo não encontrado na aba Resumo: " + chave);
         }
     }
 
