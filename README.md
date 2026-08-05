@@ -567,11 +567,14 @@ Resposta (`200 OK`):
   "telefone": "(11) 98888-1111",
   "tipoContrato": "PJ",
   "percentualPagamentoAula": 45.00,
-  "dataInicio": "2024-01-15"
+  "dataInicio": "2024-01-15",
+  "numeroRegistro": "350544-F"
 }
 ```
 
 > Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`
+>
+> `numeroRegistro` é opcional (máx. 30 caracteres), sem validação de formato — acomoda CREFITO, CREF e outros conselhos. No `PUT /profissionais/{id}`, enviá-lo como string vazia limpa o campo; omitir mantém o valor atual.
 
 ### PUT /pacientes/{id} — corpo da requisição
 
@@ -1161,6 +1164,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
 | `V28__create_avaliacoes_posturais_table.sql` | Cria tabela `avaliacoes_posturais` (simetrógrafo virtual): landmarks em `JSONB`, soft delete e índice parcial de unicidade `(avaliacao_fisioterapeutica_id, vista) WHERE ativo = true` |
 | `V29__add_foto_and_proporcao_to_avaliacoes_posturais.sql` | Adiciona `foto`/`foto_content_type` (MVP em `bytea`, upload em issue própria) e `proporcao_imagem` — razão largura/altura usada para calcular ângulos fiéis sobre coordenadas normalizadas |
+| `V30__create_avaliacoes_posturais_fotos_table.sql` | Move a foto da análise postural para a tabela própria `avaliacoes_posturais_fotos` (o `bytea` fora da tabela principal mantém listagens e buscas sem carregar o binário) e remove a coluna `foto` criada na `V29`; `foto_content_type` permanece como marcador barato de "foto presente" |
 | `V31__add_numero_registro_to_profissionais.sql` | Adiciona `numero_registro` (nullable) em `profissionais` — número no conselho profissional (CREFITO, CREF etc.) |
 | `V32__add_profissional_snapshot_to_evolucoes_sessao.sql` | Adiciona o snapshot `profissional_id`/`profissional_nome`/`profissional_numero_registro` em `evolucoes_sessao`, com índice na FK e backfill best-effort a partir da sessão |
 

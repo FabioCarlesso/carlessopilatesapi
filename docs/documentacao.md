@@ -689,6 +689,8 @@ GET /profissionais?ativo=false
 | **Rota** | `/profissionais/{id}` |
 | **Descrição** | Atualiza os dados de um profissional. Apenas os campos enviados serão alterados. |
 
+> Para **limpar** o `numeroRegistro`, envie string vazia (`""`); omitir o campo — ou enviá-lo como `null` — mantém o valor atual. É a única forma de apagar o dado, e vale a atenção em formulários: um input vazio enviado como `""` limpa o campo.
+
 | Código | Situação |
 |---|---|
 | `200` | Profissional atualizado com sucesso |
