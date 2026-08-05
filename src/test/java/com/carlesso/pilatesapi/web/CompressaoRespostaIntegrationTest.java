@@ -13,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPInputStream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,6 +44,8 @@ class CompressaoRespostaIntegrationTest {
 
     private static final int MIN_RESPONSE_SIZE = 1024;
 
+    private static final String EMAIL_LOGIN = "compressao@email.com";
+
     private final HttpClient client = HttpClient.newHttpClient();
 
     @LocalServerPort
@@ -53,6 +56,18 @@ class CompressaoRespostaIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    /**
+     * Limpeza explícita: o contexto Spring (e com ele o H2, que usa
+     * {@code DB_CLOSE_DELAY=-1}) é reaproveitado por outras classes da suíte, então um
+     * usuário deixado para trás vaza para elas. {@code @Transactional} não resolveria —
+     * com {@code RANDOM_PORT} a requisição roda em outra thread e não participa da
+     * transação do teste, logo o rollback automático não alcança o que o servidor gravou.
+     */
+    @AfterEach
+    void removerUsuarioDeTeste() {
+        userRepository.findByEmail(EMAIL_LOGIN).ifPresent(userRepository::delete);
+    }
 
     @Test
     void respostaGrandeComAcceptEncodingGzip_deveVirComprimida() throws Exception {
@@ -111,7 +126,7 @@ class CompressaoRespostaIntegrationTest {
     void loginChunkedAbaixoDoLimiar_aindaAssimEComprimido() throws Exception {
         User user = new User();
         user.setName("Usuário Teste");
-        user.setEmail("compressao@email.com");
+        user.setEmail(EMAIL_LOGIN);
         user.setPassword(passwordEncoder.encode("senha1234"));
         user.setRole(Role.USER);
         user.setAtivo(true);
@@ -119,8 +134,8 @@ class CompressaoRespostaIntegrationTest {
 
         String payload =
                 """
-                {"email": "compressao@email.com", "password": "senha1234"}
-                """;
+                {"email": "%s", "password": "senha1234"}
+                """.formatted(EMAIL_LOGIN);
 
         HttpRequest requisicao = HttpRequest.newBuilder(uri("/auth/login"))
                 .header("Content-Type", "application/json")
