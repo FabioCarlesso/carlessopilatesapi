@@ -705,7 +705,10 @@ CPF não pode ser alterado após o cadastro.
 - Consultas e atualizações de evolução não filtram por `sessao.paciente.ativo`
 - `GET /evolucoes-sessao/paciente/{pacienteId}` devolve o histórico completo do paciente em uma única chamada, ordenado por `sessao.data DESC`, `sessao.horario DESC NULLS LAST`, `sessao.id DESC`
 - Paciente existente sem nenhuma evolução recebe `200` com lista vazia; apenas paciente inexistente retorna `404`
-- A listagem não é paginada: o maior paciente da base (381 evoluções) devolve ~324 KB. Aceitável para o uso atual (uso interno, uma clínica); se o volume crescer, abrir issue de paginação
+- **A listagem não é paginada — decisão tomada na #158**, com base na medição da base real em 2026-08-05: 90 pacientes com evolução (de 112 cadastrados), 5.697 evoluções no total; apenas 2 pacientes acima de 300 e 76 abaixo de 100 (mediana 35, média 63, máximo 384). A maior resposta é de 332 KB crus, que caem para **50 KB sob gzip** (razão de 6,5× a 8×). Paginar quebraria o contrato e arrastaria junto endpoint de série e filtros server-side, para economizar dezenas de KB
+- O custo dominante da tela é DOM, não rede: renderizar 384 evoluções custa ~1 s a mais que renderizar 4 (2,2 s contra 1,2 s até o DOM estabilizar, em `ng serve`; 4.658 elementos no `<main>`). A solução é virtual scroll no frontend, que não exige mudança de contrato
+- **Gatilho para revisitar a paginação** — basta um destes: (1) algum paciente ultrapassar **1.000 evoluções** (no ritmo atual de ~90 evoluções/ano dos pacientes mais assíduos, são ~7 anos); (2) a maior resposta gzipada passar de **150 KB**; (3) a aplicação passar a atender **mais de uma clínica**. Enquanto nenhum ocorrer, a listagem completa em uma chamada é a opção de menor atrito
+- A decisão pressupõe a compressão gzip da #157 ativa; sem ela a maior resposta volta a trafegar 332 KB crus
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
