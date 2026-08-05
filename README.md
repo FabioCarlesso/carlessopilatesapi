@@ -1084,22 +1084,27 @@ A [decisão de não paginar essa listagem](docs/context.md) pressupõe a compres
 Decisões por trás dos valores:
 
 - **XLSX fora da lista** — `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` já é um zip; recomprimir gasta CPU sem reduzir bytes. Vale o mesmo para as fotos das análises posturais.
-- **CSV dentro** — `text/csv` é texto repetitivo e comprime bem; o navegador descomprime antes de salvar o arquivo, então o download continua íntegro.
-- **`min-response-size=1024`** — declara a intenção de não comprimir corpo pequeno, mas veja a ressalva abaixo antes de contar com ela.
+- **CSV dentro** — `text/csv` é texto repetitivo e comprime bem, e o navegador descomprime antes de salvar o arquivo. É o único caso em que o `min-response-size` realmente decide (ver abaixo): CSV pequeno sai sem compressão.
+- **`min-response-size=1024`** — abaixo disso o overhead do gzip custa mais do que economiza. Vale entender **onde** ele age; veja abaixo.
 
-### O `min-response-size` não age como parece
+### Onde o `min-response-size` age (e onde não age)
 
-O Tomcat só consulta esse limiar quando conhece o tamanho da resposta de antemão — isto é, quando há `Content-Length`. Todo JSON produzido pelos controllers do Spring MVC sai em `Transfer-Encoding: chunked`, de tamanho desconhecido, e nesse caso o conector comprime **independentemente do limiar**. Na prática, hoje, nenhuma resposta desta API chega a ser avaliada pelo limiar:
+O Tomcat só consulta esse limiar quando conhece o tamanho da resposta de antemão — isto é, quando há `Content-Length`. Respostas em `Transfer-Encoding: chunked` são comprimidas **independentemente do limiar**, e é o caso de todo JSON produzido pelos controllers do Spring MVC. Medido em 05/08/2026:
 
-| Resposta | `Content-Type` | Comprimida? | Por quê |
+| Resposta | `Content-Length`? | Comprimida? | Por quê |
 |---|---|---|---|
-| JSON dos controllers | `application/json` (chunked) | Sim, sempre | tamanho desconhecido; limiar ignorado |
-| `POST /auth/login` (367 bytes) | `application/json` (chunked) | Sim | idem — ver BREACH abaixo |
-| `GET /pacientes/3` (176 bytes) | `application/json` (chunked) | Sim | idem |
-| XLSX do relatório | `…spreadsheetml.sheet` | Não | mime-type fora da lista |
-| Actuator | `application/vnd.spring-boot.actuator.v3+json` | Não | mime-type fora da lista |
+| JSON dos controllers | não (chunked) | Sim, sempre | tamanho desconhecido; limiar ignorado |
+| `POST /auth/login` (367 bytes) | não (chunked) | Sim | idem — ver BREACH abaixo |
+| `GET /pacientes/3` (176 bytes crus) | não (chunked) | Sim | idem |
+| Assets do Swagger UI (`swagger-ui.css`) | não (chunked) | Sim — 23,8 KB transferidos | idem, e aqui o ganho é grande |
+| CSV do relatório NFSe (99 bytes) | **sim** | **Não** | tamanho conhecido e abaixo do limiar |
+| XLSX do relatório (4.991 bytes) | sim | Não | mime-type fora da lista |
+| Actuator | não (chunked) | Não | mime-type fora da lista |
 
-Ou seja: **quem decide de fato é a lista de mime-types**, não o limiar. A propriedade foi mantida porque continua correta como intenção e passa a valer para qualquer endpoint futuro que declare `Content-Length` (o exportador XLSX já faz isso, via `contentLength()`), mas não conte com ela para proteger respostas pequenas de JSON.
+Duas conclusões práticas:
+
+1. **Para o JSON da API, o limiar é inerte** — quem decide é a lista de mime-types. Não conte com `min-response-size` para manter respostas pequenas de JSON sem compressão.
+2. **O CSV é a exceção**, e é justamente ali que o limiar faz o que promete: o export de NFSe devolve `byte[]` com `Content-Length`, então um CSV pequeno passa sem compressão e um acima de 1 KB é comprimido.
 
 **Sobre o BREACH:** o ataque explora compressão em uma resposta que contém um segredo e reflete entrada do atacante, e depende de o atacante conseguir fazer o navegador da vítima repetir requisições autenticadas enquanto observa o tamanho das respostas. Aqui as pré-condições não existem: a API é stateless com token **Bearer**, sem credencial ambiente (nenhum cookie de sessão), então uma página de terceiros não consegue emitir requisições autenticadas em nome da vítima — e `/auth/login` exige a senha no corpo, ou seja, quem consegue disparar a requisição já tem as credenciais. Por isso a compressão foi mantida também em `/auth/**`, em vez de um filtro de exclusão por rota (que o conector do Tomcat, aliás, não oferece nativamente).
 
