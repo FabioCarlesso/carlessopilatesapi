@@ -567,11 +567,14 @@ Resposta (`200 OK`):
   "telefone": "(11) 98888-1111",
   "tipoContrato": "PJ",
   "percentualPagamentoAula": 45.00,
-  "dataInicio": "2024-01-15"
+  "dataInicio": "2024-01-15",
+  "numeroRegistro": "350544-F"
 }
 ```
 
 > Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula`, `dataInicio`
+>
+> `numeroRegistro` é opcional (máx. 30 caracteres), sem validação de formato — acomoda CREFITO, CREF e outros conselhos. No `PUT /profissionais/{id}`, enviá-lo como string vazia limpa o campo; omitir mantém o valor atual.
 
 ### PUT /pacientes/{id} — corpo da requisição
 
@@ -1062,6 +1065,68 @@ O formato de saída é controlado por perfil em `src/main/resources/logback-spri
 
 ---
 
+## Compressão de respostas (gzip)
+
+O Tomcat embarcado comprime as respostas para clientes que enviam `Accept-Encoding: gzip` — o que inclui qualquer navegador. Configuração em `src/main/resources/application.properties`, válida para todos os perfis:
+
+| Propriedade | Valor |
+|---|---|
+| `server.compression.enabled` | `true` |
+| `server.compression.mime-types` | `application/json,text/plain,text/csv,text/css,text/html,application/javascript` |
+| `server.compression.min-response-size` | `1024` (bytes) |
+
+O ganho está nas listagens grandes de texto clínico. Medido na base real em 05/08/2026, no paciente com mais registros (384 evoluções):
+
+```
+GET /evolucoes-sessao/paciente/3   sem gzip: 329.192 bytes
+                                   com gzip:  41.316 bytes   (8,0×)
+```
+
+A [decisão de não paginar essa listagem](docs/context.md) pressupõe a compressão ligada.
+
+Decisões por trás dos valores:
+
+- **XLSX fora da lista** — `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` já é um zip; recomprimir gasta CPU sem reduzir bytes. Vale o mesmo para as fotos das análises posturais.
+- **CSV dentro** — `text/csv` é texto repetitivo e comprime bem, e o navegador descomprime antes de salvar o arquivo. É o único caso em que o `min-response-size` realmente decide (ver abaixo): CSV pequeno sai sem compressão.
+- **`min-response-size=1024`** — abaixo disso o overhead do gzip custa mais do que economiza. Vale entender **onde** ele age; veja abaixo.
+
+### Onde o `min-response-size` age (e onde não age)
+
+O Tomcat só consulta esse limiar quando conhece o tamanho da resposta de antemão — isto é, quando há `Content-Length`. Respostas em `Transfer-Encoding: chunked` são comprimidas **independentemente do limiar**, e é o caso de todo JSON produzido pelos controllers do Spring MVC. Medido em 05/08/2026:
+
+| Resposta | `Content-Length`? | Comprimida? | Por quê |
+|---|---|---|---|
+| JSON dos controllers | não (chunked) | Sim, sempre | tamanho desconhecido; limiar ignorado |
+| `POST /auth/login` (367 bytes) | não (chunked) | Sim | idem — ver BREACH abaixo |
+| `GET /pacientes/3` (176 bytes crus) | não (chunked) | Sim | idem |
+| Assets do Swagger UI (`swagger-ui.css`) | não (chunked) | Sim — 23,8 KB transferidos | idem, e aqui o ganho é grande |
+| CSV do relatório NFSe (99 bytes) | **sim** | **Não** | tamanho conhecido e abaixo do limiar |
+| XLSX do relatório (4.991 bytes) | sim | Não | mime-type fora da lista |
+| Actuator | não (chunked) | Não | mime-type fora da lista |
+
+Duas conclusões práticas:
+
+1. **Para o JSON da API, o limiar é inerte** — quem decide é a lista de mime-types. Não conte com `min-response-size` para manter respostas pequenas de JSON sem compressão.
+2. **O CSV é a exceção**, e é justamente ali que o limiar faz o que promete: o export de NFSe devolve `byte[]` com `Content-Length`, então um CSV pequeno passa sem compressão e um acima de 1 KB é comprimido.
+
+**Sobre o BREACH:** o ataque explora compressão em uma resposta que contém um segredo e reflete entrada do atacante, e depende de o atacante conseguir fazer o navegador da vítima repetir requisições autenticadas enquanto observa o tamanho das respostas. Aqui as pré-condições não existem: a API é stateless com token **Bearer**, sem credencial ambiente (nenhum cookie de sessão), então uma página de terceiros não consegue emitir requisições autenticadas em nome da vítima — e `/auth/login` exige a senha no corpo, ou seja, quem consegue disparar a requisição já tem as credenciais. Por isso a compressão foi mantida também em `/auth/**`, em vez de um filtro de exclusão por rota (que o conector do Tomcat, aliás, não oferece nativamente).
+
+Nada disso altera contrato REST: descomprimido, o corpo é byte a byte o mesmo de antes. Do lado do frontend Angular não há mudança — o navegador negocia e descomprime de forma transparente ao `HttpClient`.
+
+> **Se um dia entrar um proxy reverso na frente da aplicação** (nginx/Traefik terminando o TLS de `api.carlessopilates.com.br`), confira a configuração dele: nginx com `gzip on` repassa sem recomprimir uma resposta que já chega com `Content-Encoding`, então não há trabalho duplicado — mas comprimir só em uma das camadas mantém a configuração em um lugar só. A topologia de produção não está versionada neste repositório.
+
+Verificação rápida com a aplicação de pé:
+
+```bash
+# tamanho transferido com e sem compressão
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Accept-Encoding: gzip' \
+  -o /dev/null -w 'com gzip: %{size_download}\n' http://localhost:8080/evolucoes-sessao/paciente/3
+curl -s -H "Authorization: Bearer $TOKEN" \
+  -o /dev/null -w 'sem gzip: %{size_download}\n' http://localhost:8080/evolucoes-sessao/paciente/3
+```
+
+---
+
 ## Migrações de banco (Flyway)
 
 O projeto utiliza **Flyway** para versionamento e execução automática das migrações. As migrações são divididas em dois diretórios:
@@ -1099,6 +1164,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
 | `V28__create_avaliacoes_posturais_table.sql` | Cria tabela `avaliacoes_posturais` (simetrógrafo virtual): landmarks em `JSONB`, soft delete e índice parcial de unicidade `(avaliacao_fisioterapeutica_id, vista) WHERE ativo = true` |
 | `V29__add_foto_and_proporcao_to_avaliacoes_posturais.sql` | Adiciona `foto`/`foto_content_type` (MVP em `bytea`, upload em issue própria) e `proporcao_imagem` — razão largura/altura usada para calcular ângulos fiéis sobre coordenadas normalizadas |
+| `V30__create_avaliacoes_posturais_fotos_table.sql` | Move a foto da análise postural para a tabela própria `avaliacoes_posturais_fotos` (o `bytea` fora da tabela principal mantém listagens e buscas sem carregar o binário) e remove a coluna `foto` criada na `V29`; `foto_content_type` permanece como marcador barato de "foto presente" |
 | `V31__add_numero_registro_to_profissionais.sql` | Adiciona `numero_registro` (nullable) em `profissionais` — número no conselho profissional (CREFITO, CREF etc.) |
 | `V32__add_profissional_snapshot_to_evolucoes_sessao.sql` | Adiciona o snapshot `profissional_id`/`profissional_nome`/`profissional_numero_registro` em `evolucoes_sessao`, com índice na FK e backfill best-effort a partir da sessão |
 
