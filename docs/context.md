@@ -708,7 +708,7 @@ CPF não pode ser alterado após o cadastro.
 - **A listagem não é paginada — decisão tomada na #158**, com base na medição da base real em 2026-08-05: 90 pacientes com evolução (de 112 cadastrados), 5.697 evoluções no total; apenas 2 pacientes acima de 300 e 76 abaixo de 100 (mediana 35, média 63, máximo 384). A maior resposta é de 332 KB crus, que caem para **50 KB sob gzip** (razão de 6,5× a 8×). Paginar quebraria o contrato e arrastaria junto endpoint de série e filtros server-side, para economizar dezenas de KB
 - O custo dominante da tela é DOM, não rede: renderizar 384 evoluções custa ~1 s a mais que renderizar 4 (2,2 s contra 1,2 s até o DOM estabilizar, em `ng serve`; 4.658 elementos no `<main>`). A solução é virtual scroll no frontend, que não exige mudança de contrato
 - **Gatilho para revisitar a paginação** — basta um destes: (1) algum paciente ultrapassar **1.000 evoluções** (no ritmo atual de ~90 evoluções/ano dos pacientes mais assíduos, são ~7 anos); (2) a maior resposta gzipada passar de **150 KB**; (3) a aplicação passar a atender **mais de uma clínica**. Enquanto nenhum ocorrer, a listagem completa em uma chamada é a opção de menor atrito
-- A decisão pressupõe a compressão gzip da #157 ativa; sem ela a maior resposta volta a trafegar 332 KB crus
+- A decisão pressupõe a compressão gzip ativa — habilitada na #157 (`server.compression.*`), com 329.192 → 41.316 bytes medidos; sem ela a maior resposta volta a trafegar 321 KB crus
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
@@ -825,6 +825,9 @@ Em testes, o Spring Boot desabilita o export de métricas por padrão; o `Actuat
 Configurações relevantes:
 
 ```properties
+server.compression.enabled=true
+server.compression.mime-types=application/json,text/plain,text/csv,text/css,text/html,application/javascript
+server.compression.min-response-size=1024
 management.endpoints.web.exposure.include=health,prometheus
 management.endpoint.health.probes.enabled=true
 management.metrics.tags.application=${spring.application.name}
@@ -848,6 +851,12 @@ spring.mail.port=${SMTP_PORT:587}
 spring.mail.username=${SMTP_USERNAME:}
 spring.mail.password=${SMTP_PASSWORD:}
 ```
+
+A compressão gzip (`server.compression.*`) é feita pelo conector do Tomcat embarcado e vale para todos os perfis. Medido na base real em 2026-08-05, a maior listagem (`GET /evolucoes-sessao/paciente/3`, 384 evoluções) cai de 329.192 para 41.316 bytes — 8,0×. Fora dos mime-types configurados ficam o XLSX dos relatórios — já é um zip — e as fotos das análises posturais; `text/csv` entra por ser texto repetitivo. Nenhum contrato muda: descomprimido, o corpo é idêntico byte a byte.
+
+- **`min-response-size` só age em resposta com `Content-Length` e hoje nunca dispara.** O JSON dos controllers sai em `Transfer-Encoding: chunked` e o Tomcat comprime tamanho desconhecido independentemente do limiar — então toda resposta JSON é comprimida, inclusive as pequenas (`GET /pacientes/3`, 176 bytes crus) e `/auth/**` (367 bytes). Quem mantém XLSX, fotos e Actuator fora da compressão é a lista de mime-types, não o limiar (o Actuator responde `application/vnd.spring-boot.actuator.v3+json`)
+- **A compressão em `/auth/**` foi mantida deliberadamente** (decisão da #157). O BREACH exige que o atacante force o navegador da vítima a repetir requisições autenticadas; com token Bearer não há credencial ambiente que permita isso, e o login exige a senha no corpo. O conector do Tomcat também não oferece exclusão por rota, então a alternativa seria um filtro dependente de detalhe de implementação
+- O comportamento é coberto por `web/CompressaoRespostaIntegrationTest`, que precisa de servidor real (`RANDOM_PORT`) porque o `MockMvc` não exercita o conector; por isso a configuração também é espelhada em `src/test/resources/application.properties`, que sombreia o arquivo principal no classpath de teste
 
 Os valores `app.cobranca.*` são vinculados pela classe `config/AppProperties` (Spring `@ConfigurationProperties`), evitando magic numbers e cron expressions hardcoded em código. A paginação usa a propriedade nativa do Spring Data Web, alimentada pela variável de ambiente `APP_PAGINACAO_TAMANHO_PADRAO`. A mesma propriedade `app.email.reset-password-token-ttl-minutos` define tanto a expiração real do token de redefinição quanto o texto exibido no e-mail, evitando divergência entre os dois. O indicador de saúde do Actuator para `mail` (`management.health.mail.enabled=false`) é desabilitado apenas nos perfis `dev` e nos testes, onde normalmente não há um servidor SMTP real disponível; em produção ele permanece ativo para refletir o estado real da conectividade SMTP em `/actuator/health`.
 

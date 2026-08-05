@@ -1062,6 +1062,63 @@ O formato de saída é controlado por perfil em `src/main/resources/logback-spri
 
 ---
 
+## Compressão de respostas (gzip)
+
+O Tomcat embarcado comprime as respostas para clientes que enviam `Accept-Encoding: gzip` — o que inclui qualquer navegador. Configuração em `src/main/resources/application.properties`, válida para todos os perfis:
+
+| Propriedade | Valor |
+|---|---|
+| `server.compression.enabled` | `true` |
+| `server.compression.mime-types` | `application/json,text/plain,text/csv,text/css,text/html,application/javascript` |
+| `server.compression.min-response-size` | `1024` (bytes) |
+
+O ganho está nas listagens grandes de texto clínico. Medido na base real em 05/08/2026, no paciente com mais registros (384 evoluções):
+
+```
+GET /evolucoes-sessao/paciente/3   sem gzip: 329.192 bytes
+                                   com gzip:  41.316 bytes   (8,0×)
+```
+
+A [decisão de não paginar essa listagem](docs/context.md) pressupõe a compressão ligada.
+
+Decisões por trás dos valores:
+
+- **XLSX fora da lista** — `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` já é um zip; recomprimir gasta CPU sem reduzir bytes. Vale o mesmo para as fotos das análises posturais.
+- **CSV dentro** — `text/csv` é texto repetitivo e comprime bem; o navegador descomprime antes de salvar o arquivo, então o download continua íntegro.
+- **`min-response-size=1024`** — declara a intenção de não comprimir corpo pequeno, mas veja a ressalva abaixo antes de contar com ela.
+
+### O `min-response-size` não age como parece
+
+O Tomcat só consulta esse limiar quando conhece o tamanho da resposta de antemão — isto é, quando há `Content-Length`. Todo JSON produzido pelos controllers do Spring MVC sai em `Transfer-Encoding: chunked`, de tamanho desconhecido, e nesse caso o conector comprime **independentemente do limiar**. Na prática, hoje, nenhuma resposta desta API chega a ser avaliada pelo limiar:
+
+| Resposta | `Content-Type` | Comprimida? | Por quê |
+|---|---|---|---|
+| JSON dos controllers | `application/json` (chunked) | Sim, sempre | tamanho desconhecido; limiar ignorado |
+| `POST /auth/login` (367 bytes) | `application/json` (chunked) | Sim | idem — ver BREACH abaixo |
+| `GET /pacientes/3` (176 bytes) | `application/json` (chunked) | Sim | idem |
+| XLSX do relatório | `…spreadsheetml.sheet` | Não | mime-type fora da lista |
+| Actuator | `application/vnd.spring-boot.actuator.v3+json` | Não | mime-type fora da lista |
+
+Ou seja: **quem decide de fato é a lista de mime-types**, não o limiar. A propriedade foi mantida porque continua correta como intenção e passa a valer para qualquer endpoint futuro que declare `Content-Length` (o exportador XLSX já faz isso, via `contentLength()`), mas não conte com ela para proteger respostas pequenas de JSON.
+
+**Sobre o BREACH:** o ataque explora compressão em uma resposta que contém um segredo e reflete entrada do atacante, e depende de o atacante conseguir fazer o navegador da vítima repetir requisições autenticadas enquanto observa o tamanho das respostas. Aqui as pré-condições não existem: a API é stateless com token **Bearer**, sem credencial ambiente (nenhum cookie de sessão), então uma página de terceiros não consegue emitir requisições autenticadas em nome da vítima — e `/auth/login` exige a senha no corpo, ou seja, quem consegue disparar a requisição já tem as credenciais. Por isso a compressão foi mantida também em `/auth/**`, em vez de um filtro de exclusão por rota (que o conector do Tomcat, aliás, não oferece nativamente).
+
+Nada disso altera contrato REST: descomprimido, o corpo é byte a byte o mesmo de antes. Do lado do frontend Angular não há mudança — o navegador negocia e descomprime de forma transparente ao `HttpClient`.
+
+> **Se um dia entrar um proxy reverso na frente da aplicação** (nginx/Traefik terminando o TLS de `api.carlessopilates.com.br`), confira a configuração dele: nginx com `gzip on` repassa sem recomprimir uma resposta que já chega com `Content-Encoding`, então não há trabalho duplicado — mas comprimir só em uma das camadas mantém a configuração em um lugar só. A topologia de produção não está versionada neste repositório.
+
+Verificação rápida com a aplicação de pé:
+
+```bash
+# tamanho transferido com e sem compressão
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Accept-Encoding: gzip' \
+  -o /dev/null -w 'com gzip: %{size_download}\n' http://localhost:8080/evolucoes-sessao/paciente/3
+curl -s -H "Authorization: Bearer $TOKEN" \
+  -o /dev/null -w 'sem gzip: %{size_download}\n' http://localhost:8080/evolucoes-sessao/paciente/3
+```
+
+---
+
 ## Migrações de banco (Flyway)
 
 O projeto utiliza **Flyway** para versionamento e execução automática das migrações. As migrações são divididas em dois diretórios:
