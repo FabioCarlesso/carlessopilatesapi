@@ -2,6 +2,8 @@ package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
+import com.carlesso.pilatesapi.entity.enums.TipoSessao;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -49,4 +51,32 @@ public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Lo
             ORDER BY s.data DESC, s.id DESC
             """)
     List<SessaoPilates> findByPacienteOrdenadas(@Param("pacienteId") Long pacienteId);
+
+    /**
+     * Agenda do estúdio: sessões do período, com os filtros opcionais aplicados
+     * no banco. Diferente das aulas, não há recorte por {@code paciente.ativo} —
+     * sessão é registro clínico e o histórico do ex-aluno continua visível, o
+     * mesmo critério de {@link #findByPacienteOrdenadas}. Sessões sem
+     * {@code horario} vão para o fim do respectivo dia.
+     */
+    @Query(
+            """
+            SELECT s FROM SessaoPilates s
+            JOIN FETCH s.paciente pac
+            LEFT JOIN FETCH s.profissional prof
+            LEFT JOIN FETCH s.planoTratamento
+            WHERE s.data BETWEEN :inicio AND :fim
+              AND (:profissionalId IS NULL OR prof.id = :profissionalId)
+              AND (:pacienteId IS NULL OR pac.id = :pacienteId)
+              AND (:tipo IS NULL OR s.tipo = :tipo)
+              AND (:status IS NULL OR s.status = :status)
+            ORDER BY s.data, s.horario NULLS LAST, s.id
+            """)
+    List<SessaoPilates> findAgendaPorPeriodo(
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim,
+            @Param("profissionalId") Long profissionalId,
+            @Param("pacienteId") Long pacienteId,
+            @Param("tipo") TipoSessao tipo,
+            @Param("status") StatusSessao status);
 }

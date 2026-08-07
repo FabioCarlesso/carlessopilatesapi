@@ -3,6 +3,8 @@ package com.carlesso.pilatesapi.controller;
 import com.carlesso.pilatesapi.dto.SessaoPilatesRequestDTO;
 import com.carlesso.pilatesapi.dto.SessaoPilatesResponseDTO;
 import com.carlesso.pilatesapi.dto.SessaoPilatesUpdateDTO;
+import com.carlesso.pilatesapi.entity.enums.StatusSessao;
+import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.carlesso.pilatesapi.service.SessaoPilatesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,6 +51,36 @@ public class SessaoPilatesController {
         SessaoPilatesResponseDTO response = service.criar(dto);
         var uri = uriBuilder.path("/sessoes/{id}").buildAndExpand(response.id()).toUri();
         return ResponseEntity.created(uri).body(response);
+    }
+
+    @Operation(
+            summary = "Listar sessões por período",
+            description =
+                    """
+                    Agenda do estúdio: todas as sessões entre `inicio` e `fim` (ambos inclusive), ordenadas por data e
+                    horário — sessões sem horário vão para o fim do dia. O período é obrigatório e limitado a 92 dias,
+                    e a resposta a 5000 registros. Os filtros opcionais são combináveis entre si. Por serem registro
+                    clínico, sessões de pacientes inativos continuam aparecendo. Período sem registros retorna lista
+                    vazia.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
+        @ApiResponse(
+                responseCode = "400",
+                description =
+                        "Período ausente, inválido (início posterior ao fim), acima de 92 dias, ou resultado acima de 5000 registros")
+    })
+    @GetMapping
+    public ResponseEntity<List<SessaoPilatesResponseDTO>> listarPorPeriodo(
+            @Parameter(description = "Data inicial do período (inclusive)", required = true) @RequestParam
+                    LocalDate inicio,
+            @Parameter(description = "Data final do período (inclusive)", required = true) @RequestParam LocalDate fim,
+            @Parameter(description = "Filtrar pelo profissional da sessão") @RequestParam(required = false)
+                    Long profissionalId,
+            @Parameter(description = "Filtrar pelo paciente da sessão") @RequestParam(required = false) Long pacienteId,
+            @Parameter(description = "Filtrar por tipo de sessão") @RequestParam(required = false) TipoSessao tipo,
+            @Parameter(description = "Filtrar por status da sessão") @RequestParam(required = false)
+                    StatusSessao status) {
+        return ResponseEntity.ok(service.listarPorPeriodo(inicio, fim, profissionalId, pacienteId, tipo, status));
     }
 
     @Operation(summary = "Buscar sessão por ID")

@@ -535,6 +535,7 @@ Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha sen
 | GET | `/pagamentos/{id}` | Buscar pagamento | 200 / 404 |
 | GET | `/pagamentos/paciente/{id}` | Listar pagamentos | 200 |
 | PATCH | `/pagamentos/{id}/pagar` | Confirmar e gerar aulas; aceita `dataPagamento` opcional no corpo | 200 / 404 / 409 / 422 |
+| GET | `/aulas?inicio={data}&fim={data}&profissionalId={id}&pacienteId={id}&realizada={bool}` | Listar aulas por período (agenda); `inicio`/`fim` obrigatórios, máx. 92 dias | 200 / 400 |
 | GET | `/aulas/{id}` | Buscar aula | 200 / 404 |
 | GET | `/aulas/paciente/{id}` | Listar aulas do paciente | 200 |
 | GET | `/aulas/pagamento/{id}` | Listar aulas do pagamento | 200 |
@@ -556,6 +557,7 @@ Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha sen
 | PUT | `/planos-tratamento/{id}` | Atualizar plano de tratamento (atualização parcial) | 200 / 400 / 404 |
 | DELETE | `/planos-tratamento/{id}` | Inativar plano de tratamento | 204 / 404 |
 | POST | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia | 201 / 400 / 404 / 422 |
+| GET | `/sessoes?inicio={data}&fim={data}&profissionalId={id}&pacienteId={id}&tipo={tipo}&status={status}` | Listar sessões por período (agenda); `inicio`/`fim` obrigatórios, máx. 92 dias | 200 / 400 |
 | GET | `/sessoes/{id}` | Buscar sessão por ID | 200 / 404 |
 | GET | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente | 200 / 404 |
 | PUT | `/sessoes/{id}` | Atualizar sessão (atualização parcial, exceto status) | 200 / 400 / 404 |
@@ -650,8 +652,10 @@ CPF não pode ser alterado após o cadastro.
 - Geradas percorrendo dia a dia entre `periodoInicio` e `periodoFim`
 - Sem duplicatas: ignora datas onde o paciente já tem aula registrada
 - Requer: paciente ativo + pagamento `PAGO`
-- Consultas por ID, paciente, pagamento e relatório filtram `paciente.ativo = true`
+- Consultas por ID, paciente, pagamento, período e relatório filtram `paciente.ativo = true`
 - Uma aula realizada pode ser vinculada ao profissional que ministrou a aula
+- `AulaResponseDTO` expõe `profissionalId` e `profissionalNome`, `null` enquanto a aula não tem profissional vinculado
+- `GET /aulas?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data` e `id`; filtros opcionais `profissionalId`, `pacienteId` e `realizada` são combináveis. A consulta projeta direto no DTO para não arrastar a cadeia EAGER `pagamento → plano → diasSemana`
 
 ### Anamnese
 - Cada paciente possui no máximo uma anamnese principal (regra de unicidade por `paciente_id`)
@@ -695,6 +699,7 @@ CPF não pode ser alterado após o cadastro.
 - A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`; o campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST
 - Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas) e remove a evolução vinculada quando existir
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `GET /sessoes?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data`, `horario` e `id` — sessões sem `horario` no fim do dia; filtros opcionais `profissionalId`, `pacienteId`, `tipo` e `status` são combináveis. Diferente das aulas, não filtra `paciente.ativo`: sessão é registro clínico e o histórico do ex-aluno continua visível
 
 ### Evolução de Sessão
 - Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)

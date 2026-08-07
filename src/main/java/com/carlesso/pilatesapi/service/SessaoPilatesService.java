@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
+import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
@@ -16,6 +17,8 @@ import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.PeriodoGuard;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -97,6 +100,21 @@ public class SessaoPilatesService {
         return sessaoRepository.findByPacienteOrdenadas(pacienteId).stream()
                 .map(SessaoPilatesResponseDTO::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SessaoPilatesResponseDTO> listarPorPeriodo(
+            LocalDate inicio,
+            LocalDate fim,
+            Long profissionalId,
+            Long pacienteId,
+            TipoSessao tipo,
+            StatusSessao status) {
+        PeriodoGuard.exigirPeriodoValido(inicio, fim);
+        List<SessaoPilates> sessoes =
+                sessaoRepository.findAgendaPorPeriodo(inicio, fim, profissionalId, pacienteId, tipo, status);
+        PeriodoGuard.exigirVolumeSuportado(sessoes.size());
+        return sessoes.stream().map(SessaoPilatesResponseDTO::from).toList();
     }
 
     @Transactional

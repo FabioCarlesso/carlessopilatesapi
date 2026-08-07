@@ -24,9 +24,11 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -452,5 +454,51 @@ class SessaoPilatesServiceTest {
         assertThatThrownBy(() -> service.excluir(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    @Test
+    void listarPorPeriodo_deveRepassarFiltrosAoRepositorio() {
+        when(sessaoRepository.findAgendaPorPeriodo(
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 31),
+                        7L,
+                        1L,
+                        TipoSessao.PILATES,
+                        StatusSessao.AGENDADA))
+                .thenReturn(List.of(sessao(paciente())));
+
+        var sessoes = service.listarPorPeriodo(
+                LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), 7L, 1L, TipoSessao.PILATES, StatusSessao.AGENDADA);
+
+        assertThat(sessoes).hasSize(1);
+    }
+
+    @Test
+    void listarPorPeriodo_acimaDoLimiteDeRegistros_deveLancarIllegalArgumentException() {
+        when(sessaoRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA + 1, sessao(paciente())));
+
+        assertThatThrownBy(() -> service.listarPorPeriodo(
+                        LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("5000 registros");
+    }
+
+    @Test
+    void listarPorPeriodo_comPeriodoInvertido_deveLancarIllegalArgumentException() {
+        assertThatThrownBy(() -> service.listarPorPeriodo(
+                        LocalDate.of(2026, 5, 31), LocalDate.of(2026, 5, 1), null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não pode ser maior");
+        verify(sessaoRepository, never()).findAgendaPorPeriodo(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void listarPorPeriodo_acimaDoLimiteDeDias_deveLancarIllegalArgumentException() {
+        assertThatThrownBy(() -> service.listarPorPeriodo(
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 4, 3), null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("92 dias");
+        verify(sessaoRepository, never()).findAgendaPorPeriodo(any(), any(), any(), any(), any(), any());
     }
 }
