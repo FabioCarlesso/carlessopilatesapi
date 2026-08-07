@@ -302,6 +302,9 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 - Período ausente, invertido (`inicio` posterior a `fim`) ou com amplitude acima de **92 dias** retorna `400`. O teto
   existe porque estas rotas não são paginadas: o recorte é o próprio período.
+- Resultado acima de **5000 registros** também retorna `400` — o teto de dias limita a janela, não o volume, e um
+  período curto de um estúdio movimentado ainda pode encher a resposta. Mesmo limite do relatório de pagamento do
+  profissional. Reduza o intervalo ou aplique filtros.
 - Período sem registros retorna `200` com lista vazia — nunca `404`.
 - `GET /aulas` traz apenas aulas de **pacientes ativos**, mesma regra das demais consultas de aulas. `GET /sessoes`
   traz também as de pacientes inativos: sessão é registro clínico e o histórico do ex-aluno continua legível, o mesmo
@@ -1203,6 +1206,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V30__create_avaliacoes_posturais_fotos_table.sql` | Move a foto da análise postural para a tabela própria `avaliacoes_posturais_fotos` (o `bytea` fora da tabela principal mantém listagens e buscas sem carregar o binário) e remove a coluna `foto` criada na `V29`; `foto_content_type` permanece como marcador barato de "foto presente" |
 | `V31__add_numero_registro_to_profissionais.sql` | Adiciona `numero_registro` (nullable) em `profissionais` — número no conselho profissional (CREFITO, CREF etc.) |
 | `V32__add_profissional_snapshot_to_evolucoes_sessao.sql` | Adiciona o snapshot `profissional_id`/`profissional_nome`/`profissional_numero_registro` em `evolucoes_sessao`, com índice na FK e backfill best-effort a partir da sessão |
+| `V33__add_index_on_aulas_data.sql` | Cria `idx_aulas_data` para a agenda por período (`GET /aulas?inicio=&fim=`); a UNIQUE `(paciente_id, data)` não cobre o filtro só por data |
 
 ### Migrations de seed (`db/seed/`) — apenas perfil `dev`
 

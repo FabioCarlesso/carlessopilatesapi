@@ -808,9 +808,27 @@ GET /profissionais/{id}/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-2
 | `PUT` | `/planos-tratamento/{id}` | Atualizar parcialmente um plano de tratamento |
 | `DELETE` | `/planos-tratamento/{id}` | Inativar plano de tratamento |
 
+### 6.5 Sessões de Pilates/Fisioterapia
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia para um paciente |
+| `GET` | `/sessoes` | Listar sessões por período (agenda do estúdio); `inicio`/`fim` obrigatórios (máx. 92 dias) e filtros `profissionalId`, `pacienteId`, `tipo` e `status` |
+| `GET` | `/sessoes/{id}` | Buscar sessão por ID |
+| `GET` | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente |
+| `PUT` | `/sessoes/{id}` | Atualizar parcialmente uma sessão (não altera `status`) |
+| `PATCH` | `/sessoes/{id}/realizar` | Marcar sessão como `REALIZADA` (apenas a partir de `AGENDADA`) |
+| `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`) |
+| `DELETE` | `/sessoes/{id}` | Excluir sessão permanentemente |
+
+As duas rotas de agenda (`GET /aulas` e `GET /sessoes`) exigem período fechado e inclusive nas pontas, recusam com
+`400` período ausente, invertido, acima de 92 dias ou resultado acima de 5000 registros, e devolvem `200` com lista
+vazia quando o período não tem registros. `GET /aulas` traz apenas aulas de pacientes ativos; `GET /sessoes` inclui
+as de pacientes inativos, porque sessão é registro clínico.
+
 Todas as rotas exigem `Authorization: Bearer <accessToken>`.
 
-### 6.5 Relatórios fiscais
+### 6.6 Relatórios fiscais
 
 #### Relatório de emissão de NFSEs
 
@@ -939,24 +957,23 @@ spring.data.web.pageable.default-page-size=${APP_PAGINACAO_TAMANHO_PADRAO:10}
 
 ## 9.1 Migrações de Banco (Flyway)
 
-O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, seguindo a ordem das versões. Os arquivos ficam em `src/main/resources/db/migration/`.
+O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, seguindo a ordem das versões. As migrations
+estruturais ficam em `src/main/resources/db/migration/` e valem para todos os perfis; as de carga inicial ficam em
+`src/main/resources/db/seed/` e só são resolvidas no perfil `dev`.
 
-### Migrações existentes
+### Migrações estruturais (`db/migration/`)
 
 | Versão | Arquivo | Descrição |
 |---|---|---|
 | V1 | `V1__create_pacientes_table.sql` | Cria a tabela `pacientes` com todos os campos, PKs e constraints de unicidade |
-| V2 | `V2__insert_pacientes_teste.sql` | Insere 10 pacientes de teste representando estados diferentes do Brasil |
 | V3 | `V3__create_planos_table.sql` | Cria as tabelas `planos` e `plano_dias_semana` |
 | V4 | `V4__create_pagamentos_table.sql` | Cria a tabela `pagamentos` com constraint `UNIQUE (plano_id, periodo_inicio)` |
 | V5 | `V5__create_aulas_table.sql` | Cria a tabela `aulas` com constraint `UNIQUE (paciente_id, data)` |
 | V6 | `V6__create_profissionais_table.sql` | Cria a tabela `profissionais` com tipo de contrato e percentual por aula |
-| V7 | `V7__insert_profissionais_teste.sql` | Ajusta tipo de `percentual_pagamento_aula` e insere profissionais de teste |
 | V8 | `V8__alter_pacientes_uf_to_varchar.sql` | Altera coluna `uf` da tabela `pacientes` para `VARCHAR(2)` |
 | V9 | `V9__alter_profissionais_percentual_precision.sql` | Ajusta precisão do percentual de pagamento por aula |
 | V10 | `V10__add_profissional_to_aulas.sql` | Vincula profissional às aulas realizadas |
 | V11 | `V11__create_users_table.sql` | Cria a tabela `users` para autenticação e autorização |
-| V12 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários iniciais com perfis `ADMIN` e `USER` |
 | V13 | `V13__add_indexes_on_foreign_keys.sql` | Adiciona índices para chaves estrangeiras e filtros recorrentes |
 | V14 | `V14__create_anamneses_table.sql` | Cria tabela `anamneses` vinculada a pacientes |
 | V15 | `V15__create_avaliacoes_fisioterapeuticas_table.sql` | Cria tabela de avaliações fisioterapêuticas do paciente |
@@ -965,6 +982,34 @@ O **Flyway** executa automaticamente os scripts SQL ao iniciar a aplicação, se
 | V18 | `V18__create_evolucoes_sessao_table.sql` | Cria tabela de evoluções de sessão vinculada a sessões |
 | V19 | `V19__create_reavaliacoes_table.sql` | Cria tabela de reavaliações periódicas vinculada a pacientes, avaliações e planos de tratamento |
 | V20 | `V20__add_ativo_to_users.sql` | Adiciona controle de inativação lógica à tabela `users` |
+| V21 | `V21__insert_admin_inicial.sql` | Mantém a versão Flyway reservada; o admin inicial de produção é criado pela aplicação com `APP_INITIAL_ADMIN_PASSWORD`, sem senha fixa versionada |
+| V22 | `V22__alter_pacientes_email_cpf_nullable.sql` | Torna `email` e `cpf` opcionais (drop NOT NULL e das constraints únicas totais) para suportar importação de pacientes de sistemas externos sem esses dados |
+| V23 | `V23__add_pacientes_email_cpf_partial_unique.sql` | Recria a unicidade de `email`/`cpf` como índice **parcial** (`WHERE col IS NOT NULL`): vários pacientes podem ter o campo nulo, mas valores preenchidos seguem únicos |
+| V24 | `V24__add_token_version_to_users.sql` | Adiciona `token_version` em `users` para invalidar JWTs anteriores após troca/redefinição de senha |
+| V25 | `V25__create_preferencias_usuario_table.sql` | Cria tabela `preferencias_usuario` (1:1 com `users`) para idioma, tema e preferências de notificação |
+| V26 | `V26__create_notas_fiscais_emitidas_table.sql` | Cria tabela `notas_fiscais_emitidas` para persistir a última NFSE emitida por paciente/competência |
+| V27 | `V27__create_password_reset_tokens_table.sql` | Cria tabela `password_reset_tokens` para o fluxo de recuperação de senha; token salvo apenas como hash SHA-256 |
+| V28 | `V28__create_avaliacoes_posturais_table.sql` | Cria tabela `avaliacoes_posturais` (simetrógrafo virtual): landmarks em `JSONB`, soft delete e índice parcial de unicidade `(avaliacao_fisioterapeutica_id, vista) WHERE ativo = true` |
+| V29 | `V29__add_foto_and_proporcao_to_avaliacoes_posturais.sql` | Adiciona `foto`/`foto_content_type` e `proporcao_imagem` — razão largura/altura usada para calcular ângulos fiéis sobre coordenadas normalizadas |
+| V30 | `V30__create_avaliacoes_posturais_fotos_table.sql` | Move a foto para a tabela própria `avaliacoes_posturais_fotos` (o `bytea` fora da tabela principal mantém listagens sem carregar o binário) e remove a coluna `foto` da V29; `foto_content_type` permanece como marcador de "foto presente" |
+| V31 | `V31__add_numero_registro_to_profissionais.sql` | Adiciona `numero_registro` (nullable) em `profissionais` — número no conselho profissional (CREFITO, CREF etc.) |
+| V32 | `V32__add_profissional_snapshot_to_evolucoes_sessao.sql` | Adiciona o snapshot `profissional_id`/`profissional_nome`/`profissional_numero_registro` em `evolucoes_sessao`, com índice na FK e backfill best-effort a partir da sessão |
+| V33 | `V33__add_index_on_aulas_data.sql` | Cria `idx_aulas_data` para a agenda por período (`GET /aulas?inicio=&fim=`); a UNIQUE `(paciente_id, data)` não cobre o filtro apenas por data |
+
+As versões **V2**, **V7** e **V12** não aparecem acima porque não são migrations estruturais — ver a seção seguinte.
+
+### Migrações de seed (`db/seed/`) — apenas perfil `dev`
+
+| Versão | Arquivo | Descrição |
+|---|---|---|
+| V7 | `V7__insert_profissionais_teste.sql` | Ajusta tipo de `percentual_pagamento_aula` e insere 3 profissionais de teste |
+| V12 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários de teste com perfis `ADMIN` e `USER` (senha `senha1234`) |
+
+A seed de pacientes (`V2__insert_pacientes_teste.sql`) foi **removida** em favor da importação a partir de sistemas
+externos via `scripts/import_seufisio.py`. Um ambiente `dev` antigo que ainda tenha esses pacientes só se limpa
+derrubando o volume (`docker compose down -v`).
+
+O perfil `prod` resolve apenas `classpath:db/migration`, então as versões de seed nunca chegam a produção.
 
 Os usuários iniciais da migração `V12` usam a senha `senha1234`; `admin@carlessopilates.com` e `operacional@carlessopilates.com` têm perfil `ADMIN`.
 

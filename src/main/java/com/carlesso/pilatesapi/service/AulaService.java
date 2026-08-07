@@ -70,7 +70,10 @@ public class AulaService {
     public List<AulaResponseDTO> listarPorPeriodo(
             LocalDate inicio, LocalDate fim, Long profissionalId, Long pacienteId, Boolean realizada) {
         PeriodoGuard.exigirPeriodoValido(inicio, fim);
-        return aulaRepository.findAgendaPorPeriodo(inicio, fim, profissionalId, pacienteId, realizada);
+        List<AulaResponseDTO> aulas =
+                aulaRepository.findAgendaPorPeriodo(inicio, fim, profissionalId, pacienteId, realizada);
+        PeriodoGuard.exigirVolumeSuportado(aulas.size());
+        return aulas;
     }
 
     @Transactional(readOnly = true)

@@ -111,9 +111,10 @@ public class SessaoPilatesService {
             TipoSessao tipo,
             StatusSessao status) {
         PeriodoGuard.exigirPeriodoValido(inicio, fim);
-        return sessaoRepository.findAgendaPorPeriodo(inicio, fim, profissionalId, pacienteId, tipo, status).stream()
-                .map(SessaoPilatesResponseDTO::from)
-                .toList();
+        List<SessaoPilates> sessoes =
+                sessaoRepository.findAgendaPorPeriodo(inicio, fim, profissionalId, pacienteId, tipo, status);
+        PeriodoGuard.exigirVolumeSuportado(sessoes.size());
+        return sessoes.stream().map(SessaoPilatesResponseDTO::from).toList();
     }
 
     @Transactional

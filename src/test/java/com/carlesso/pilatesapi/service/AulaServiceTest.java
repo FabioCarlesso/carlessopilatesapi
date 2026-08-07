@@ -21,10 +21,12 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,6 +115,28 @@ class AulaServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("92 dias");
         verifyNoInteractions(aulaRepository);
+    }
+
+    @Test
+    void listarPorPeriodo_acimaDoLimiteDeRegistros_lancaIllegalArgument() {
+        AulaResponseDTO aula = new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), false);
+        when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
+                .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA + 1, aula));
+
+        assertThatThrownBy(() ->
+                        service.listarPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("5000 registros");
+    }
+
+    @Test
+    void listarPorPeriodo_noLimiteExatoDeRegistros_retornaLista() {
+        AulaResponseDTO aula = new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), false);
+        when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
+                .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA, aula));
+
+        assertThat(service.listarPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null))
+                .hasSize(PeriodoGuard.LIMITE_REGISTROS_AGENDA);
     }
 
     @Test

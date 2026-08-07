@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.carlesso.pilatesapi.dto.SessaoPilatesResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
 import com.carlesso.pilatesapi.entity.enums.StatusSessao;
@@ -202,9 +203,13 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
     void findAgendaPorPeriodo_naoGeraConsultaPorLinha() {
         Paciente paciente = persistirPaciente("agenda.nmais1@email.com", true);
         Profissional profissional = entityManager.persist(profissional("agenda.nmais1.profissional@email.com"));
+        // Cada sessão tem plano de tratamento próprio: as três associações do
+        // JOIN FETCH precisam estar preenchidas, senão o ramo nunca materializa
+        // nada e a contagem de statements passaria mesmo com um N+1 latente.
         for (int dia = 1; dia <= 3; dia++) {
             SessaoPilates sessao = sessao(paciente, LocalDate.of(2026, 6, dia), LocalTime.of(9, 0));
             sessao.setProfissional(profissional);
+            sessao.setPlanoTratamento(entityManager.persist(planoTratamento(paciente)));
             entityManager.persist(sessao);
         }
         entityManager.flush();
@@ -220,10 +225,19 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
 
         var sessoes = repository.findAgendaPorPeriodo(
                 LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), null, null, null, null);
-        sessoes.forEach(sessao -> SessaoPilatesResponseDTO.from(sessao).nomeProfissional());
+        var dtos = sessoes.stream().map(SessaoPilatesResponseDTO::from).toList();
 
-        assertThat(sessoes).hasSize(3);
+        assertThat(dtos).hasSize(3).allSatisfy(dto -> assertThat(dto.planoTratamentoId())
+                .isNotNull());
         assertThat(estatisticas.getPrepareStatementCount()).isEqualTo(1);
+    }
+
+    private PlanoTratamento planoTratamento(Paciente paciente) {
+        PlanoTratamento plano = new PlanoTratamento();
+        plano.setPaciente(paciente);
+        plano.setDataInicio(LocalDate.of(2026, 1, 10));
+        plano.setObjetivosTratamento("Ganho de mobilidade lombar");
+        return plano;
     }
 
     private Profissional profissional(String email) {

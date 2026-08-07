@@ -58,14 +58,16 @@ public class SessaoPilatesController {
             description =
                     """
                     Agenda do estúdio: todas as sessões entre `inicio` e `fim` (ambos inclusive), ordenadas por data e
-                    horário — sessões sem horário vão para o fim do dia. O período é obrigatório e limitado a 92 dias.
-                    Os filtros opcionais são combináveis entre si. Por serem registro clínico, sessões de pacientes
-                    inativos continuam aparecendo. Período sem registros retorna lista vazia.""")
+                    horário — sessões sem horário vão para o fim do dia. O período é obrigatório e limitado a 92 dias,
+                    e a resposta a 5000 registros. Os filtros opcionais são combináveis entre si. Por serem registro
+                    clínico, sessões de pacientes inativos continuam aparecendo. Período sem registros retorna lista
+                    vazia.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
         @ApiResponse(
                 responseCode = "400",
-                description = "Período ausente, inválido (início posterior ao fim) ou acima de 92 dias")
+                description =
+                        "Período ausente, inválido (início posterior ao fim), acima de 92 dias, ou resultado acima de 5000 registros")
     })
     @GetMapping
     public ResponseEntity<List<SessaoPilatesResponseDTO>> listarPorPeriodo(
