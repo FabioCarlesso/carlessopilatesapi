@@ -8,3 +8,37 @@ In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the re
 
 If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
 <!-- CODEGRAPH_END -->
+
+## Comandos
+
+| Comando | Quando usar |
+|---|---|
+| `docker compose --env-file .env.dev up --build -d` | Sobe banco e aplicação no perfil dev |
+| `mvn verify` | Suíte completa + Spotless + SpotBugs + gate JaCoCo — o mesmo do job `build-test` da CI |
+| `mvn spotless:apply` | Reformata o código no padrão do projeto; rode antes de commitar |
+| `mvn spring-boot:run` | Aplicação local, exigindo PostgreSQL de pé |
+
+O `mvn verify` exige **Docker** ativo: testes de repositório e integração sobem um PostgreSQL 16 via
+Testcontainers.
+
+## Onde documentar cada mudança
+
+O `README.md` chegou a 1824 linhas porque toda feature nova acrescentava um bloco a ele. Não volte a fazer
+isso. Cada assunto tem um dono:
+
+| Se você mudou… | Documente em |
+|---|---|
+| Uma rota (nova, removida, com parâmetros ou contrato diferente) | `docs/api.md` |
+| Uma regra de negócio, validação ou processo automático | `docs/regras-de-negocio.md` |
+| Estrutura de pacotes, camadas ou tratamento de erros | `docs/arquitetura.md` |
+| Pipeline de CI, testes, cobertura ou ferramental | `docs/desenvolvimento.md` |
+| Docker, perfis, execução local ou variável de ambiente | `docs/deploy.md` |
+| Actuator, métrica, log ou compressão | `docs/operacao.md` |
+| Uma migration Flyway | `docs/banco-de-dados.md` |
+| Os scripts de importação do seufisio | `docs/importacao-seufisio.md` |
+| Uma decisão técnica e o porquê dela | `docs/context.md` |
+| **Como instalar ou rodar o projeto** | `README.md` — e só nesse caso |
+
+Não mantenha à mão o que o repositório ou o OpenAPI já respondem: árvores de arquivos comentadas classe a
+classe, corpos de request/response por rota e catálogos de exemplos `curl` nascem desatualizados e foram
+removidos de propósito.
