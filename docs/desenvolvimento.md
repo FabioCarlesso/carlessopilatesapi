@@ -97,61 +97,20 @@ mvn spotbugs:gui
 
 ## Testes
 
-O projeto possui testes unitários, de controller e de integração organizados por camada:
+As suítes ficam em `src/test/java/com/carlesso/pilatesapi/`, espelhando os pacotes de `main`, e se dividem
+por camada:
 
-| Suíte | Tipo | Testes |
+| Camada | Anotação | O que exercita |
 |---|---|---|
-| `PacienteServiceTest` | Unitário (Mockito) | 12 |
-| `PlanoServiceTest` | Unitário (Mockito) | 9 |
-| `PagamentoServiceTest` | Unitário (Mockito) | 10 |
-| `AulaServiceTest` | Unitário (Mockito) | 14 |
-| `AnamneseServiceTest` | Unitário (Mockito) | 17 |
-| `AvaliacaoFisioterapeuticaServiceTest` | Unitário (Mockito) | 8 |
-| `PlanoTratamentoServiceTest` | Unitário (Mockito) | 13 |
-| `ProfissionalServiceTest` | Unitário (Mockito) | 15 |
-| `RelatorioPagamentoExporterServiceTest` | Unitário | 3 |
-| `RelatorioNfseServiceTest` | Unitário (Mockito) | 5 |
-| `RelatorioNfseExporterServiceTest` | Unitário | 3 |
-| `NotaFiscalEmitidaServiceTest` | Unitário (Mockito) | 6 |
-| `AppPropertiesTest` | Unitário (ApplicationContextRunner) | 3 |
-| `GlobalExceptionHandlerTest` | Unitário | 17 |
-| `PacienteServiceIntegrationTest` | JPA (`@DataJpaTest`) | 4 |
-| `ProfissionalServiceIntegrationTest` | JPA (`@DataJpaTest`) | 5 |
-| `PagamentoServiceAtomicidadeIntegrationTest` | Integração (`@SpringBootTest` + H2) | 1 |
-| `CobrancaSchedulerIntegrationTest` | JPA (`@DataJpaTest`) | 13 |
-| `AulaRepositoryTest` | JPA (`@DataJpaTest`) | 6 |
-| `PagamentoRepositoryTest` | JPA (`@DataJpaTest`) | 1 |
-| `NotaFiscalEmitidaRepositoryTest` | JPA (`@DataJpaTest`) | 3 |
-| `SessaoPilatesRepositoryTest` | JPA (`@DataJpaTest`) | 4 |
-| `AvaliacaoPosturalRepositoryTest` | JPA (`@DataJpaTest`) | 5 |
-| `PacienteControllerTest` | Controller (`@WebMvcTest`) | 22 |
-| `PlanoControllerTest` | Controller (`@WebMvcTest`) | 11 |
-| `PagamentoControllerTest` | Controller (`@WebMvcTest`) | 11 |
-| `AulaControllerTest` | Controller (`@WebMvcTest`) | 10 |
-| `AnamneseControllerTest` | Controller (`@WebMvcTest`) | 14 |
-| `AvaliacaoFisioterapeuticaControllerTest` | Controller (`@WebMvcTest`) | 12 |
-| `PlanoTratamentoControllerTest` | Controller (`@WebMvcTest`) | 18 |
-| `SessaoPilatesControllerTest` | Controller (`@WebMvcTest`) | 21 |
-| `ProfissionalControllerTest` | Controller (`@WebMvcTest`) | 17 |
-| `RelatorioNfseControllerTest` | Controller (`@WebMvcTest`) | 6 |
-| `NotaFiscalEmitidaControllerTest` | Controller (`@WebMvcTest`) | 4 |
-| `DashboardControllerTest` | Controller (`@WebMvcTest`) | 2 |
-| `DashboardServiceTest` | Unitário (Mockito) | 3 |
-| `SessaoPilatesServiceTest` | Unitário (Mockito) | 25 |
-| `EvolucaoSessaoServiceTest` | Unitário (Mockito) | 10 |
-| `EvolucaoSessaoControllerTest` | Controller (`@WebMvcTest`) | 13 |
-| `PreferenciasUsuarioServiceTest` | Unitário (Mockito) | 7 |
-| `PreferenciasUsuarioControllerTest` | Controller (`@WebMvcTest`) | 6 |
-| `PreferenciasUsuarioRepositoryTest` | Repositório (`@DataJpaTest` + H2) | 5 |
-| `PasswordResetServiceTest` | Unitário (Mockito) | 12 |
-| `LoginAttemptServiceTest` | Unitário (sem mocks) | 6 |
-| `AuthControllerTest` | Controller (`@WebMvcTest`) | 9 |
-| `PasswordResetIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2, `EmailSender` mockado) | 6 |
-| `SecurityIntegrationTest` | Integração (`@SpringBootTest` + MockMvc + H2) | 43 |
-| `ActuatorTest` | Integração (`@SpringBootTest`) | 8 |
-| `PilatesApiApplicationTests` | Integração (`@SpringBootTest`) | 1 |
-| `CorrelationIdFilterTest` | Unitário (MockMvc servlet mocks) | 4 |
-| `LogMaskerTest` | Unitário (sem mocks) | 7 |
+| Serviço | `@ExtendWith(MockitoExtension.class)` | Regras de negócio com repositórios mockados, sem contexto Spring |
+| Controller | `@WebMvcTest` | Contrato REST: status, payload e validação, com o service mockado |
+| Repositório | `@DataJpaTest` | Queries e constraints — os que herdam de `support/PostgresTestcontainerSupport` sobem PostgreSQL real |
+| Integração | `@SpringBootTest` | Fluxos ponta a ponta: segurança, scheduler, recuperação de senha e Actuator |
+
+Utilitários sem dependência de Spring (`LogMasker`, `CorrelationIdFilter`) têm testes próprios, sem mocks.
+
+A contagem de testes por suíte não é mantida aqui: `mvn verify` imprime o total por classe e o relatório em
+`target/site/jacoco/index.html` mostra a cobertura real de cada uma.
 
 ### Executar os testes
 

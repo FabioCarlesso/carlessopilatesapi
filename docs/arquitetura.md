@@ -16,16 +16,16 @@ Aplicação Spring Boot em camadas, com pacote raiz `com.carlesso.pilatesapi`.
 | PostgreSQL | 16 |
 | Flyway | (via spring-boot-starter-parent) |
 | springdoc-openapi | 2.8.3 |
-| JJWT | 0.12.6 |
+| JJWT | 0.13.0 |
 | Spring Scheduler | (via spring-boot-starter) |
 | Maven | 3.9 |
 | Docker / Docker Compose | - |
 | OpenPDF | 1.3.34 |
-| Apache POI | 5.4.1 |
+| Apache POI | 5.5.1 |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) |
 | H2 (testes) | (in-memory) |
 | Testcontainers (testes) | (via spring-boot-starter-parent) |
-| JaCoCo (cobertura) | 0.8.13 |
+| JaCoCo (cobertura) | 0.8.15 |
 
 ## Estrutura de pacotes
 
