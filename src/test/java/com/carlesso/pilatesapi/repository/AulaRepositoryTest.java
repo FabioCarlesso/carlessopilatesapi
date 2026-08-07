@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
@@ -17,6 +18,8 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,6 +113,173 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
             assertThat(aula.getValorPagamento()).isEqualByComparingTo("200.00");
             assertThat(aula.getQuantidadeAulasPagamento()).isEqualTo(3L);
         });
+    }
+
+    @Test
+    void findAgendaPorPeriodo_semFiltrosOpcionais_retornaApenasAulasDePacienteAtivo() {
+        var aulas =
+                repository.findAgendaPorPeriodo(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, null, null);
+
+        assertThat(aulas).extracting(AulaResponseDTO::id).containsExactly(aulaAtiva.getId());
+    }
+
+    @Test
+    void findAgendaPorPeriodo_ordenaPorDataEId() {
+        Aula segunda = entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 17)));
+        Aula primeira = entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        var aulas =
+                repository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null);
+
+        assertThat(aulas)
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(aulaAtiva.getId(), primeira.getId(), segunda.getId());
+    }
+
+    @Test
+    void findAgendaPorPeriodo_foraDoIntervalo_retornaVazio() {
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 4, 1), LocalDate.of(2025, 4, 30), null, null, null))
+                .isEmpty();
+    }
+
+    @Test
+    void findAgendaPorPeriodo_intervaloFechadoNasPontas() {
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 3), LocalDate.of(2025, 2, 3), null, null, null))
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(aulaAtiva.getId());
+    }
+
+    @Test
+    void findAgendaPorPeriodo_comProfissional_restringeAoProfissionalInformado() {
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), profissional.getId(), null, null))
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(aulaAtiva.getId());
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 999_999L, null, null))
+                .isEmpty();
+    }
+
+    @Test
+    void findAgendaPorPeriodo_comPaciente_restringeAoPacienteInformado() {
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, pacienteAtivo.getId(), null))
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(aulaAtiva.getId());
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, pacienteInativo.getId(), null))
+                .isEmpty();
+    }
+
+    @Test
+    void findAgendaPorPeriodo_comRealizada_separaRealizadasDePendentes() {
+        Aula pendente = entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, true))
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(aulaAtiva.getId());
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, false))
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(pendente.getId());
+    }
+
+    @Test
+    void findAgendaPorPeriodo_combinaFiltros() {
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 1),
+                        LocalDate.of(2025, 2, 28),
+                        profissional.getId(),
+                        pacienteAtivo.getId(),
+                        true))
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(aulaAtiva.getId());
+
+        assertThat(repository.findAgendaPorPeriodo(
+                        LocalDate.of(2025, 2, 1),
+                        LocalDate.of(2025, 2, 28),
+                        profissional.getId(),
+                        pacienteAtivo.getId(),
+                        false))
+                .isEmpty();
+    }
+
+    @Test
+    void findAgendaPorPeriodo_exponeProfissionalENulosQuandoAulaNaoTemProfissional() {
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        var aulas =
+                repository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null);
+
+        assertThat(aulas)
+                .satisfiesExactly(
+                        comProfissional -> {
+                            assertThat(comProfissional.profissionalId()).isEqualTo(profissional.getId());
+                            assertThat(comProfissional.profissionalNome()).isEqualTo("Paula Mendes");
+                            assertThat(comProfissional.pacienteNome()).isEqualTo("Ana Ativa");
+                            assertThat(comProfissional.pagamentoId()).isEqualTo(pagamentoAtivo.getId());
+                        },
+                        semProfissional -> {
+                            assertThat(semProfissional.profissionalId()).isNull();
+                            assertThat(semProfissional.profissionalNome()).isNull();
+                        });
+    }
+
+    /**
+     * Cada aula tem pagamento e plano próprios: se a consulta materializasse a
+     * entidade, a cadeia EAGER pagamento → plano → diasSemana renderia um select
+     * por linha. Uma única consulta preparada prova que a projeção evita isso.
+     */
+    @Test
+    void findAgendaPorPeriodo_naoGeraConsultaPorLinha() {
+        for (int dia : new int[] {10, 17, 24}) {
+            Plano outroPlano = entityManager.persist(plano(pacienteAtivo));
+            Pagamento outroPagamento =
+                    entityManager.persist(pagamento(pacienteAtivo, outroPlano, LocalDate.of(2025, 2, 1)));
+            entityManager.persist(aula(pacienteAtivo, outroPagamento, LocalDate.of(2025, 2, dia)));
+        }
+        entityManager.flush();
+        entityManager.clear();
+
+        Statistics estatisticas = entityManager
+                .getEntityManager()
+                .getEntityManagerFactory()
+                .unwrap(SessionFactory.class)
+                .getStatistics();
+        estatisticas.setStatisticsEnabled(true);
+        estatisticas.clear();
+
+        var aulas =
+                repository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null);
+
+        assertThat(aulas).hasSize(4);
+        assertThat(estatisticas.getPrepareStatementCount()).isEqualTo(1);
     }
 
     @Test

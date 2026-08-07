@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.repository;
 
+import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import java.math.BigDecimal;
@@ -21,6 +22,44 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
     @Query("SELECT a FROM Aula a WHERE a.pagamento.id = :pagamentoId AND a.paciente.ativo = true ORDER BY a.data")
     List<Aula> findByPagamentoIdOrderByData(@Param("pagamentoId") Long pagamentoId);
+
+    /**
+     * Agenda do estúdio: aulas do período, com os filtros opcionais aplicados no
+     * banco.
+     *
+     * <p>Projeta direto no DTO em vez de devolver entidades porque carregar uma
+     * {@code Aula} arrasta {@code pagamento} → {@code plano} → {@code diasSemana}
+     * (a cadeia é toda EAGER) e a coleção de dias vira um select por plano — um
+     * N+1 numa listagem que só precisa do {@code pagamento.id}. Como
+     * {@code a.pagamento.id} é a própria FK, nem join gera.
+     */
+    @Query(
+            """
+            SELECT new com.carlesso.pilatesapi.dto.AulaResponseDTO(
+                    a.id,
+                    paciente.id,
+                    paciente.nome,
+                    profissional.id,
+                    profissional.nome,
+                    a.pagamento.id,
+                    a.data,
+                    a.realizada)
+            FROM Aula a
+            JOIN a.paciente paciente
+            LEFT JOIN a.profissional profissional
+            WHERE a.data BETWEEN :inicio AND :fim
+              AND paciente.ativo = true
+              AND (:profissionalId IS NULL OR profissional.id = :profissionalId)
+              AND (:pacienteId IS NULL OR paciente.id = :pacienteId)
+              AND (:realizada IS NULL OR a.realizada = :realizada)
+            ORDER BY a.data, a.id
+            """)
+    List<AulaResponseDTO> findAgendaPorPeriodo(
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim,
+            @Param("profissionalId") Long profissionalId,
+            @Param("pacienteId") Long pacienteId,
+            @Param("realizada") Boolean realizada);
 
     @Query(
             """

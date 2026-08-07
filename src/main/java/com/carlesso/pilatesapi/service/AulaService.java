@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,13 @@ public class AulaService {
         return aulaRepository.findByPacienteIdOrderByData(pacienteId).stream()
                 .map(AulaResponseDTO::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AulaResponseDTO> listarPorPeriodo(
+            LocalDate inicio, LocalDate fim, Long profissionalId, Long pacienteId, Boolean realizada) {
+        PeriodoGuard.exigirPeriodoValido(inicio, fim);
+        return aulaRepository.findAgendaPorPeriodo(inicio, fim, profissionalId, pacienteId, realizada);
     }
 
     @Transactional(readOnly = true)

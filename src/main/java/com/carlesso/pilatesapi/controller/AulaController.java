@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,34 @@ public class AulaController {
 
     public AulaController(AulaService service) {
         this.service = service;
+    }
+
+    @Operation(
+            summary = "Listar aulas por período",
+            description =
+                    """
+                    Agenda do estúdio: todas as aulas de pacientes ativos entre `inicio` e `fim` (ambos inclusive),
+                    ordenadas por data. O período é obrigatório e limitado a 92 dias. Os filtros opcionais são
+                    combináveis entre si. Período sem registros retorna lista vazia.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
+        @ApiResponse(
+                responseCode = "400",
+                description = "Período ausente, inválido (início posterior ao fim) ou acima de 92 dias")
+    })
+    @GetMapping
+    public ResponseEntity<List<AulaResponseDTO>> listarPorPeriodo(
+            @Parameter(description = "Data inicial do período (inclusive)", required = true) @RequestParam
+                    LocalDate inicio,
+            @Parameter(description = "Data final do período (inclusive)", required = true) @RequestParam LocalDate fim,
+            @Parameter(description = "Filtrar pelo profissional que ministrou/ministrará a aula")
+                    @RequestParam(required = false)
+                    Long profissionalId,
+            @Parameter(description = "Filtrar pelo paciente da aula") @RequestParam(required = false) Long pacienteId,
+            @Parameter(description = "Filtrar por aulas realizadas (true) ou pendentes (false)")
+                    @RequestParam(required = false)
+                    Boolean realizada) {
+        return ResponseEntity.ok(service.listarPorPeriodo(inicio, fim, profissionalId, pacienteId, realizada));
     }
 
     @Operation(summary = "Buscar aula por ID")

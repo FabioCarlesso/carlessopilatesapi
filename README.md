@@ -270,10 +270,46 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 
 | Método | Endpoint | Descrição |
 |---|---|---|
+| `GET` | `/aulas` | Listar aulas por período (agenda do estúdio); filtros `profissionalId`, `pacienteId` e `realizada` |
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` |
+
+### Sessões de Pilates/Fisioterapia
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia para um paciente |
+| `GET` | `/sessoes` | Listar sessões por período (agenda do estúdio); filtros `profissionalId`, `pacienteId`, `tipo` e `status` |
+| `GET` | `/sessoes/{id}` | Buscar sessão por ID |
+| `GET` | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente |
+| `PUT` | `/sessoes/{id}` | Atualizar sessão (parcial, exceto `status`) |
+| `PATCH` | `/sessoes/{id}/realizar` | Marcar sessão como `REALIZADA` (apenas a partir de `AGENDADA`) |
+| `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`) |
+| `DELETE` | `/sessoes/{id}` | Excluir sessão permanentemente |
+
+### Listagem por período — agenda do estúdio
+
+`GET /aulas` e `GET /sessoes` são as consultas que montam o calendário do estúdio e a agenda de um profissional.
+Ambas exigem `inicio` e `fim` (`YYYY-MM-DD`, período fechado — inclusive nas duas pontas) e aceitam os filtros
+opcionais acima, combináveis entre si:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/aulas?inicio=2025-02-01&fim=2025-02-28&profissionalId=7&realizada=false"
+```
+
+- Período ausente, invertido (`inicio` posterior a `fim`) ou com amplitude acima de **92 dias** retorna `400`. O teto
+  existe porque estas rotas não são paginadas: o recorte é o próprio período.
+- Período sem registros retorna `200` com lista vazia — nunca `404`.
+- `GET /aulas` traz apenas aulas de **pacientes ativos**, mesma regra das demais consultas de aulas. `GET /sessoes`
+  traz também as de pacientes inativos: sessão é registro clínico e o histórico do ex-aluno continua legível, o mesmo
+  critério de `GET /sessoes/paciente/{id}`.
+- Ordenação: aulas por `data` e `id`; sessões por `data`, `horario` e `id`, com as sessões sem `horario` no fim do
+  respectivo dia.
+- `AulaResponseDTO` expõe `profissionalId` e `profissionalNome` (ambos `null` enquanto a aula não tem profissional
+  vinculado) — o calendário usa esses campos para colorir e filtrar por profissional.
 
 ### Avaliações Fisioterapêuticas
 
@@ -1606,8 +1642,9 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 - Aulas geradas com base nos dias da semana do plano e no período do pagamento
 - Sem duplicatas: se a aula do paciente naquela data já existir, ela é ignorada
 - Requer paciente ativo e pagamento confirmado
-- Consultas de aulas por ID, paciente, pagamento e relatório retornam apenas aulas associadas a pacientes ativos
+- Consultas de aulas por ID, paciente, pagamento, período e relatório retornam apenas aulas associadas a pacientes ativos
 - Ao marcar uma aula como realizada, `profissionalId` pode ser informado para alimentar o relatório de pagamento do profissional
+- A listagem por período (`GET /aulas?inicio=&fim=`) exige período fechado de no máximo 92 dias e não é paginada
 
 ### Avaliações Fisioterapêuticas
 - Um paciente pode ter múltiplas avaliações fisioterapêuticas para manter histórico clínico
@@ -1634,6 +1671,7 @@ curl -s "http://localhost:8080/api/nfse-emitidas/paciente/1" \
 - A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`
 - O campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST de sessões
 - Excluir uma sessão remove também a evolução vinculada, quando existir
+- A listagem por período (`GET /sessoes?inicio=&fim=`) exige período fechado de no máximo 92 dias, não é paginada e não filtra por paciente ativo
 
 ### Evoluções de Sessão
 - Cada sessão possui no máximo uma evolução clínica (regra de unicidade por `sessao_id`)

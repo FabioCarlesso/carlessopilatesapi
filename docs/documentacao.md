@@ -792,6 +792,7 @@ GET /profissionais/{id}/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-2
 | `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente |
 | `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` opcional no corpo |
+| `GET` | `/aulas` | Listar aulas por período (agenda do estúdio); `inicio`/`fim` obrigatórios (máx. 92 dias) e filtros `profissionalId`, `pacienteId` e `realizada` |
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |

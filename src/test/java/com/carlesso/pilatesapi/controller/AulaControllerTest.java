@@ -39,7 +39,71 @@ class AulaControllerTest {
     CustomUserDetailsService customUserDetailsService;
 
     private AulaResponseDTO aulaResponse(boolean realizada) {
-        return new AulaResponseDTO(1L, 1L, "Ana", 1L, LocalDate.of(2025, 2, 3), realizada);
+        return new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), realizada);
+    }
+
+    @Test
+    void listarPorPeriodo_retorna200ComProfissionalNoPayload() throws Exception {
+        when(aulaService.listarPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null))
+                .thenReturn(List.of(aulaResponse(true)));
+
+        mockMvc.perform(get("/aulas").param("inicio", "2025-02-01").param("fim", "2025-02-28"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].profissionalId").value(7))
+                .andExpect(jsonPath("$[0].profissionalNome").value("Paula"));
+    }
+
+    @Test
+    void listarPorPeriodo_comFiltrosOpcionais_repassaTodosAoService() throws Exception {
+        when(aulaService.listarPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 7L, 1L, true))
+                .thenReturn(List.of(aulaResponse(true)));
+
+        mockMvc.perform(get("/aulas")
+                        .param("inicio", "2025-02-01")
+                        .param("fim", "2025-02-28")
+                        .param("profissionalId", "7")
+                        .param("pacienteId", "1")
+                        .param("realizada", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void listarPorPeriodo_semRegistros_retorna200ComListaVazia() throws Exception {
+        when(aulaService.listarPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), null, null, null))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/aulas").param("inicio", "2025-02-01").param("fim", "2025-02-28"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void listarPorPeriodo_semPeriodo_retorna400() throws Exception {
+        mockMvc.perform(get("/aulas").param("inicio", "2025-02-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void listarPorPeriodo_inicioPosteriorAoFim_retorna400() throws Exception {
+        when(aulaService.listarPorPeriodo(LocalDate.of(2025, 3, 1), LocalDate.of(2025, 2, 1), null, null, null))
+                .thenThrow(new IllegalArgumentException("Período inicial não pode ser maior que o período final"));
+
+        mockMvc.perform(get("/aulas").param("inicio", "2025-03-01").param("fim", "2025-02-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Período inicial não pode ser maior que o período final"));
+    }
+
+    @Test
+    void listarPorPeriodo_acimaDoLimiteDeDias_retorna400() throws Exception {
+        when(aulaService.listarPorPeriodo(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, null, null))
+                .thenThrow(new IllegalArgumentException("Consulta por período limitada a 92 dias"));
+
+        mockMvc.perform(get("/aulas").param("inicio", "2025-01-01").param("fim", "2025-12-31"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Consulta por período limitada a 92 dias"));
     }
 
     @Test

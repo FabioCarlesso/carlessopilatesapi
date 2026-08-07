@@ -81,6 +81,76 @@ class SessaoPilatesControllerTest {
     }
 
     @Test
+    void listarPorPeriodo_deveRetornar200ComLista() throws Exception {
+        when(service.listarPorPeriodo(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), null, null, null, null))
+                .thenReturn(List.of(responseDTO()));
+
+        mvc.perform(get("/sessoes").param("inicio", "2026-05-01").param("fim", "2026-05-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].data").value("2026-05-10"));
+    }
+
+    @Test
+    void listarPorPeriodo_comFiltrosOpcionais_deveRepassarTodosAoService() throws Exception {
+        when(service.listarPorPeriodo(
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 31),
+                        7L,
+                        1L,
+                        TipoSessao.PILATES,
+                        StatusSessao.AGENDADA))
+                .thenReturn(List.of(responseDTO()));
+
+        mvc.perform(get("/sessoes")
+                        .param("inicio", "2026-05-01")
+                        .param("fim", "2026-05-31")
+                        .param("profissionalId", "7")
+                        .param("pacienteId", "1")
+                        .param("tipo", "PILATES")
+                        .param("status", "AGENDADA"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void listarPorPeriodo_semRegistros_deveRetornar200ComListaVazia() throws Exception {
+        when(service.listarPorPeriodo(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), null, null, null, null))
+                .thenReturn(List.of());
+
+        mvc.perform(get("/sessoes").param("inicio", "2026-05-01").param("fim", "2026-05-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void listarPorPeriodo_semPeriodo_deveRetornar400() throws Exception {
+        mvc.perform(get("/sessoes").param("fim", "2026-05-31"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void listarPorPeriodo_inicioPosteriorAoFim_deveRetornar400() throws Exception {
+        when(service.listarPorPeriodo(LocalDate.of(2026, 5, 31), LocalDate.of(2026, 5, 1), null, null, null, null))
+                .thenThrow(new IllegalArgumentException("Período inicial não pode ser maior que o período final"));
+
+        mvc.perform(get("/sessoes").param("inicio", "2026-05-31").param("fim", "2026-05-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Período inicial não pode ser maior que o período final"));
+    }
+
+    @Test
+    void listarPorPeriodo_acimaDoLimiteDeDias_deveRetornar400() throws Exception {
+        when(service.listarPorPeriodo(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), null, null, null, null))
+                .thenThrow(new IllegalArgumentException("Consulta por período limitada a 92 dias"));
+
+        mvc.perform(get("/sessoes").param("inicio", "2026-01-01").param("fim", "2026-12-31"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value("Consulta por período limitada a 92 dias"));
+    }
+
+    @Test
     void criar_comDadosValidos_deveRetornar201ComHeaderLocation() throws Exception {
         when(service.criar(any())).thenReturn(responseDTO());
 

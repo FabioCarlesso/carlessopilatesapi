@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
+import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
@@ -81,6 +82,47 @@ class AulaServiceTest {
         assertReadOnly("buscarPorId", Long.class);
         assertReadOnly("buscarPorPaciente", Long.class);
         assertReadOnly("buscarPorPagamento", Long.class);
+        assertReadOnly("listarPorPeriodo", LocalDate.class, LocalDate.class, Long.class, Long.class, Boolean.class);
+    }
+
+    @Test
+    void listarPorPeriodo_repassaFiltrosAoRepositorio() {
+        AulaResponseDTO aula =
+                new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), true);
+        when(aulaRepository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 7L, 1L, true))
+                .thenReturn(List.of(aula));
+
+        var aulas = service.listarPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 7L, 1L, true);
+
+        assertThat(aulas).containsExactly(aula);
+    }
+
+    @Test
+    void listarPorPeriodo_periodoInvertido_lancaIllegalArgument() {
+        assertThatThrownBy(() ->
+                        service.listarPorPeriodo(LocalDate.of(2025, 3, 1), LocalDate.of(2025, 2, 1), null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não pode ser maior");
+        verifyNoInteractions(aulaRepository);
+    }
+
+    @Test
+    void listarPorPeriodo_acimaDoLimiteDeDias_lancaIllegalArgument() {
+        assertThatThrownBy(() ->
+                        service.listarPorPeriodo(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 4, 3), null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("92 dias");
+        verifyNoInteractions(aulaRepository);
+    }
+
+    @Test
+    void listarPorPeriodo_noLimiteExatoDeDias_consultaRepositorio() {
+        when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        // 2025-01-01 a 2025-04-02 = 92 dias contando as duas pontas
+        assertThat(service.listarPorPeriodo(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 4, 2), null, null, null))
+                .isEmpty();
     }
 
     @Test
