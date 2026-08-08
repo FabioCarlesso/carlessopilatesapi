@@ -325,6 +325,135 @@ class AulaServiceTest {
                 .hasMessageContaining("Profissional não encontrado: 99");
     }
 
+    @Test
+    void realizarAula_semProfissionalId_preservaProfissionalAtribuido() {
+        Profissional atribuido = profissionalAtivo(1L, "Paula Mendes");
+        Aula aula = aulaPendente();
+        aula.setProfissional(atribuido);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+
+        var response = service.realizarAula(1L);
+
+        assertThat(aula.getProfissional()).isEqualTo(atribuido);
+        assertThat(response.profissionalId()).isEqualTo(1L);
+        assertThat(response.realizada()).isTrue();
+        verifyNoInteractions(profissionalRepository);
+    }
+
+    @Test
+    void realizarAula_comProfissionalId_sobrescreveProfissionalAtribuido() {
+        Aula aula = aulaPendente();
+        aula.setProfissional(profissionalAtivo(1L, "Paula Mendes"));
+        Profissional substituto = profissionalAtivo(2L, "Carla Souza");
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(2L)).thenReturn(Optional.of(substituto));
+
+        var response = service.realizarAula(1L, 2L);
+
+        assertThat(aula.getProfissional()).isEqualTo(substituto);
+        assertThat(response.profissionalId()).isEqualTo(2L);
+        assertThat(response.realizada()).isTrue();
+    }
+
+    @Test
+    void atribuirProfissional_vinculaProfissionalSemRealizarAula() {
+        Aula aula = aulaPendente();
+        Profissional profissional = profissionalAtivo(1L, "Paula Mendes");
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
+
+        var response = service.atribuirProfissional(1L, 1L);
+
+        assertThat(aula.getProfissional()).isEqualTo(profissional);
+        assertThat(response.profissionalId()).isEqualTo(1L);
+        assertThat(response.profissionalNome()).isEqualTo("Paula Mendes");
+        assertThat(response.realizada()).isFalse();
+    }
+
+    @Test
+    void atribuirProfissional_comIdNulo_desvinculaProfissional() {
+        Aula aula = aulaPendente();
+        aula.setProfissional(profissionalAtivo(1L, "Paula Mendes"));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+
+        var response = service.atribuirProfissional(1L, null);
+
+        assertThat(aula.getProfissional()).isNull();
+        assertThat(response.profissionalId()).isNull();
+        assertThat(response.profissionalNome()).isNull();
+        verifyNoInteractions(profissionalRepository);
+    }
+
+    @Test
+    void atribuirProfissional_aulaRealizada_lancaConflictSemAlterarVinculo() {
+        Profissional atribuido = profissionalAtivo(1L, "Paula Mendes");
+        Aula aula = aulaPendente();
+        aula.setProfissional(atribuido);
+        aula.setRealizada(true);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+
+        assertThatThrownBy(() -> service.atribuirProfissional(1L, 2L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Aula já realizada");
+        assertThat(aula.getProfissional()).isEqualTo(atribuido);
+        verifyNoInteractions(profissionalRepository);
+    }
+
+    @Test
+    void atribuirProfissional_profissionalNaoEncontrado_lancaResourceNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aulaPendente()));
+        when(profissionalRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.atribuirProfissional(1L, 99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Profissional não encontrado: 99");
+    }
+
+    @Test
+    void atribuirProfissional_profissionalInativo_lancaExcecao() {
+        Profissional profissional = profissionalAtivo(2L, "Carla Souza");
+        profissional.setAtivo(false);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aulaPendente()));
+        when(profissionalRepository.findById(2L)).thenReturn(Optional.of(profissional));
+
+        assertThatThrownBy(() -> service.atribuirProfissional(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Profissional inativo");
+    }
+
+    @Test
+    void atribuirProfissional_pacienteInativo_lancaResourceNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.atribuirProfissional(1L, 1L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    private Aula aulaPendente() {
+        Aula aula = new Aula();
+        aula.setPaciente(paciente);
+        aula.setPagamento(pagamentoPago);
+        aula.setData(LocalDate.of(2025, 2, 3));
+        return aula;
+    }
+
+    private Profissional profissionalAtivo(Long id, String nome) {
+        Profissional profissional = new Profissional();
+        profissional.setId(id);
+        profissional.setNome(nome);
+        profissional.setTipoContrato(TipoContrato.PJ);
+        profissional.setPercentualPagamentoAula(new BigDecimal("45.00"));
+        profissional.setDataInicio(LocalDate.of(2024, 1, 15));
+        return profissional;
+    }
+
     private void assertReadOnly(String methodName, Class<?>... parameterTypes) throws Exception {
         Method method = AulaService.class.getMethod(methodName, parameterTypes);
         Transactional transactional = method.getAnnotation(Transactional.class);

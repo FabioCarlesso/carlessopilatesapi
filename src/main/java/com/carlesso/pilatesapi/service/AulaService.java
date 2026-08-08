@@ -99,17 +99,36 @@ public class AulaService {
         if (aula.isRealizada()) {
             throw new ConflictException("Aula já foi marcada como realizada");
         }
-        if (profissionalId != null) {
-            Profissional profissional = profissionalRepository
-                    .findById(profissionalId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + profissionalId));
-            if (!profissional.isAtivo()) {
-                throw new BusinessException("Profissional inativo não pode ser vinculado à aula");
-            }
+        Profissional profissional = resolverProfissional(profissionalId);
+        // Sem profissionalId no corpo, o vínculo previamente atribuído é preservado.
+        if (profissional != null) {
             aula.setProfissional(profissional);
         }
         aula.setRealizada(true);
         return AulaResponseDTO.from(aula);
+    }
+
+    @Transactional
+    public AulaResponseDTO atribuirProfissional(Long id, Long profissionalId) {
+        Aula aula = encontrar(id);
+        if (aula.isRealizada()) {
+            throw new ConflictException("Aula já realizada não pode ter o profissional alterado");
+        }
+        aula.setProfissional(resolverProfissional(profissionalId));
+        return AulaResponseDTO.from(aula);
+    }
+
+    private Profissional resolverProfissional(Long profissionalId) {
+        if (profissionalId == null) {
+            return null;
+        }
+        Profissional profissional = profissionalRepository
+                .findById(profissionalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + profissionalId));
+        if (!profissional.isAtivo()) {
+            throw new BusinessException("Profissional inativo não pode ser vinculado à aula");
+        }
+        return profissional;
     }
 
     private Aula encontrar(Long id) {

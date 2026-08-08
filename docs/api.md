@@ -92,6 +92,7 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` |
+| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada |
 
 ## Sessões de Pilates/Fisioterapia
 
