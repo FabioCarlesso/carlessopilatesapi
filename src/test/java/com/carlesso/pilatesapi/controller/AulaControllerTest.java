@@ -2,10 +2,12 @@ package com.carlesso.pilatesapi.controller;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.carlesso.pilatesapi.dto.AulaProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
@@ -13,14 +15,17 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @WebMvcTest(AulaController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -28,6 +33,9 @@ class AulaControllerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @MockitoBean
     AulaService aulaService;
@@ -196,5 +204,92 @@ class AulaControllerTest {
                 .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
 
         mockMvc.perform(patch("/aulas/99/realizar")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void atribuirProfissional_retorna200ComVinculo() throws Exception {
+        when(aulaService.atribuirProfissional(1L, 7L)).thenReturn(aulaResponse(false));
+
+        mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profissionalId").value(7))
+                .andExpect(jsonPath("$.profissionalNome").value("Paula"))
+                .andExpect(jsonPath("$.realizada").value(false));
+    }
+
+    @Test
+    void atribuirProfissional_comProfissionalIdNulo_retorna200SemVinculo() throws Exception {
+        when(aulaService.atribuirProfissional(eq(1L), isNull()))
+                .thenReturn(new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), false));
+
+        mockMvc.perform(patchProfissional("/aulas/1/profissional", null))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profissionalId").doesNotExist())
+                .andExpect(jsonPath("$.profissionalNome").doesNotExist());
+    }
+
+    @Test
+    void atribuirProfissional_semOCampoNoCorpo_retorna400SemChamarService() throws Exception {
+        mockMvc.perform(patch("/aulas/1/profissional")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+
+        verifyNoInteractions(aulaService);
+    }
+
+    @Test
+    void atribuirProfissional_semCorpo_retorna400() throws Exception {
+        mockMvc.perform(patch("/aulas/1/profissional").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(aulaService);
+    }
+
+    @Test
+    void atribuirProfissional_aulaNaoEncontrada_retorna404() throws Exception {
+        when(aulaService.atribuirProfissional(99L, 7L))
+                .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
+
+        mockMvc.perform(patchProfissional("/aulas/99/profissional", 7L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Aula não encontrada: 99"));
+    }
+
+    @Test
+    void atribuirProfissional_profissionalInexistente_retorna404() throws Exception {
+        when(aulaService.atribuirProfissional(1L, 99L))
+                .thenThrow(new ResourceNotFoundException("Profissional não encontrado: 99"));
+
+        mockMvc.perform(patchProfissional("/aulas/1/profissional", 99L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Profissional não encontrado: 99"));
+    }
+
+    @Test
+    void atribuirProfissional_aulaJaRealizada_retorna409() throws Exception {
+        when(aulaService.atribuirProfissional(1L, 7L))
+                .thenThrow(new ConflictException("Aula já realizada não pode ter o profissional alterado"));
+
+        mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void atribuirProfissional_profissionalInativo_retorna422() throws Exception {
+        when(aulaService.atribuirProfissional(1L, 7L))
+                .thenThrow(new BusinessException("Profissional inativo não pode ser vinculado à aula"));
+
+        mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    private MockHttpServletRequestBuilder patchProfissional(String url, Long profissionalId) throws Exception {
+        return patch(url)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AulaProfissionalRequestDTO(profissionalId)));
     }
 }

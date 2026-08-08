@@ -89,6 +89,11 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Consultas por ID, paciente, pagamento, período e relatório filtram `paciente.ativo = true`
 - Ao marcar uma aula como realizada, `profissionalId` pode ser informado para alimentar o relatório de pagamento do profissional
 - `AulaResponseDTO` expõe `profissionalId` e `profissionalNome`, `null` enquanto a aula não tem profissional vinculado
+- `PATCH /aulas/{id}/profissional` atribui o profissional **antes** da realização, viabilizando a agenda futura: aulas geradas pelo pagamento nascem sem profissional e, sem essa rota, o vínculo só existiria retroativamente. Profissional inexistente retorna `404`, inativo retorna `422` — mesmas regras de `realizar`
+- `profissionalId` é obrigatório mas anulável nesse corpo: `null` explícito desvincula, e **omitir o campo retorna `400`**. A distinção existe porque `{}` e `{"profissionalId": null}` chegam iguais ao Java — sem exigir o campo, um corpo montado sem ele apagaria o vínculo em silêncio. Quem desvincula precisa dizer isso explicitamente
+- Aula já realizada retorna `409` nessa rota: depois de realizada, o vínculo alimenta o repasse e só muda por `PATCH /aulas/{id}/realizar`
+- Precedência entre as duas rotas: `realizar` **sem** `profissionalId` preserva o profissional previamente atribuído; **com** `profissionalId` sobrescreve o vínculo
+- Atribuir profissional não altera o relatório de pagamento: ele continua contando só aulas `realizada = true`. Aula apenas atribuída é projeção de agenda, não valor a pagar
 - `GET /aulas?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data` e `id`; filtros opcionais `profissionalId`, `pacienteId` e `realizada` são combináveis. A consulta projeta direto no DTO para não arrastar a cadeia EAGER `pagamento → plano → diasSemana`
 
 ## Anamnese
