@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.AulaProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.service.AulaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -80,7 +81,10 @@ public class AulaController {
         return ResponseEntity.ok(service.buscarPorPagamento(pagamentoId));
     }
 
-    @Operation(summary = "Marcar aula como realizada")
+    @Operation(
+            summary = "Marcar aula como realizada",
+            description =
+                    "Sem `profissionalId`, o profissional já atribuído à aula é preservado; com `profissionalId`, o vínculo é sobrescrito.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Aula marcada como realizada"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
@@ -93,5 +97,26 @@ public class AulaController {
             @Parameter(description = "ID do profissional que ministrou a aula") @RequestParam(required = false)
                     Long profissionalId) {
         return ResponseEntity.ok(service.realizarAula(id, profissionalId));
+    }
+
+    @Operation(
+            summary = "Atribuir profissional à aula",
+            description =
+                    """
+                    Vincula um profissional a uma aula ainda não realizada, viabilizando a agenda futura.
+                    `profissionalId` nulo no corpo desvincula o profissional; omitir o campo é recusado com
+                    `400`, para que um corpo incompleto nunca apague o vínculo em silêncio. Aulas já
+                    realizadas só mudam de profissional por `PATCH /aulas/{id}/realizar`.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Profissional atribuído ou desvinculado"),
+        @ApiResponse(responseCode = "400", description = "Corpo ausente ou sem o campo `profissionalId`"),
+        @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
+        @ApiResponse(responseCode = "409", description = "Aula já realizada"),
+        @ApiResponse(responseCode = "422", description = "Profissional inativo")
+    })
+    @PatchMapping("/{id}/profissional")
+    public ResponseEntity<AulaResponseDTO> atribuirProfissional(
+            @Parameter(description = "ID da aula") @PathVariable Long id, @RequestBody AulaProfissionalRequestDTO dto) {
+        return ResponseEntity.ok(service.atribuirProfissional(id, dto.profissionalId()));
     }
 }
