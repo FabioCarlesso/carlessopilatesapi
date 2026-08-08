@@ -91,8 +91,19 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
-| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` |
-| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada |
+| `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
+| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
+
+### Profissional da aula
+
+As duas rotas acima mexem no mesmo vínculo e **passam `profissionalId` por caminhos diferentes**: `realizar` aceita
+query param, `profissional` exige corpo. A divergência é deliberada — `realizar` é contrato publicado e em uso pelo
+frontend, e o corpo só é obrigatório na rota nova porque lá `null` tem significado próprio:
+
+- `{"profissionalId": 7}` vincula; `{"profissionalId": null}` desvincula.
+- Omitir o campo (`{}`) ou mandar a requisição sem corpo retorna `400`. `{}` e `null` explícito chegam idênticos ao
+  Java, então exigir o campo é o que impede um corpo montado pela metade de apagar o vínculo sem avisar.
+- Em `realizar`, ausência de `profissionalId` **preserva** o profissional já atribuído; presença sobrescreve.
 
 ## Sessões de Pilates/Fisioterapia
 

@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.controller;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -225,6 +226,25 @@ class AulaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.profissionalId").doesNotExist())
                 .andExpect(jsonPath("$.profissionalNome").doesNotExist());
+    }
+
+    @Test
+    void atribuirProfissional_semOCampoNoCorpo_retorna400SemChamarService() throws Exception {
+        mockMvc.perform(patch("/aulas/1/profissional")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+
+        verifyNoInteractions(aulaService);
+    }
+
+    @Test
+    void atribuirProfissional_semCorpo_retorna400() throws Exception {
+        mockMvc.perform(patch("/aulas/1/profissional").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(aulaService);
     }
 
     @Test

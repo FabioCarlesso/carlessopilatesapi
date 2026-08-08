@@ -104,10 +104,12 @@ public class AulaController {
             description =
                     """
                     Vincula um profissional a uma aula ainda não realizada, viabilizando a agenda futura.
-                    `profissionalId` nulo no corpo desvincula o profissional. Aulas já realizadas só mudam
-                    de profissional por `PATCH /aulas/{id}/realizar`.""")
+                    `profissionalId` nulo no corpo desvincula o profissional; omitir o campo é recusado com
+                    `400`, para que um corpo incompleto nunca apague o vínculo em silêncio. Aulas já
+                    realizadas só mudam de profissional por `PATCH /aulas/{id}/realizar`.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Profissional atribuído ou desvinculado"),
+        @ApiResponse(responseCode = "400", description = "Corpo ausente ou sem o campo `profissionalId`"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
         @ApiResponse(responseCode = "409", description = "Aula já realizada"),
         @ApiResponse(responseCode = "422", description = "Profissional inativo")
