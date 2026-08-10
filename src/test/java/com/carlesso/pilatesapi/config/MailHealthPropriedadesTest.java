@@ -2,50 +2,43 @@ package com.carlesso.pilatesapi.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import com.carlesso.pilatesapi.support.ArquivoDePropriedades;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guarda o desligamento do indicador de saúde de mail nos perfis que rodam sem SMTP.
+ * Guarda o desligamento do indicador de saúde de mail enquanto não houver SMTP contratado.
  *
  * <p>O indicador vem ativo por padrão (o starter de mail está no classpath) e, com
  * {@code spring.mail.host} vazio, falha continuamente. Isso derruba o {@code /actuator/health}
  * agregado para {@code DOWN} — o agregado soma todos os indicadores, enquanto liveness e
- * readiness seguem {@code UP} por usarem grupos restritos. Foi exatamente o que aconteceu em
- * produção (#153): dev e test desligavam o indicador, {@code application-prod.properties} não.
+ * readiness seguem {@code UP} por usarem grupos restritos. Foi o que deixou a produção em 503
+ * com o serviço são (#153).
  *
- * <p>A verificação é feita lendo os arquivos do disco porque o {@code application.properties} de
- * teste sombreia o principal no classpath: nenhum teste de contexto consegue observar o valor que
- * o perfil {@code prod} realmente aplica. Mesma razão do {@code CompressaoPropriedadesTest}.
+ * <p>A chave é declarada uma vez no {@code application.properties} principal, valendo para todos
+ * os perfis. O arquivo de teste precisa repeti-la porque sombreia o principal no classpath, e é
+ * essa duplicação obrigatória — a mesma do {@code CompressaoPropriedadesTest} — que este teste
+ * guarda. Por isso a leitura é do disco: pelo classpath só o arquivo de teste seria alcançado.
+ *
+ * <p>Ao contratar SMTP, reative o indicador no perfil desejado e ajuste este teste junto.
+ *
+ * <p>Fora do alcance daqui: a variável de ambiente {@code MANAGEMENT_HEALTH_MAIL_ENABLED}
+ * sobrepõe os dois arquivos e vive na configuração da plataforma de deploy. Contra isso, só um
+ * smoke check pós-deploy no {@code /actuator/health} (ver {@code docs/operacao.md}).
  */
 class MailHealthPropriedadesTest {
 
     private static final String CHAVE = "management.health.mail.enabled";
 
-    private static final List<Path> PERFIS_SEM_SMTP = List.of(
-            Path.of("src/main/resources/application-prod.properties"),
-            Path.of("src/main/resources/application-dev.properties"),
-            Path.of("src/test/resources/application.properties"));
+    private static final Path PRINCIPAL = Path.of("src/main/resources/application.properties");
+    private static final Path TESTE = Path.of("src/test/resources/application.properties");
 
     @Test
-    void perfisSemSmtp_devemDesabilitarOIndicadorDeMail() {
-        assertThat(PERFIS_SEM_SMTP)
-                .allSatisfy(arquivo -> assertThat(propriedades(arquivo).getProperty(CHAVE))
-                        .as("%s deve declarar %s=false enquanto não houver SMTP contratado", arquivo, CHAVE)
-                        .isEqualTo("false"));
-    }
-
-    private static Properties propriedades(Path arquivo) throws IOException {
-        Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(arquivo, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
-        return properties;
+    void arquivosDeConfiguracao_devemDesabilitarOIndicadorDeMail() {
+        assertThat(List.of(PRINCIPAL, TESTE)).allSatisfy(arquivo -> assertThat(
+                        ArquivoDePropriedades.ler(arquivo).getProperty(CHAVE))
+                .as("%s deve declarar %s=false enquanto não houver SMTP contratado", arquivo, CHAVE)
+                .isEqualTo("false"));
     }
 }

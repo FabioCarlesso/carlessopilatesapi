@@ -32,6 +32,16 @@ Os três são públicos (sem autenticação).
 
 **O agregado continua útil — para alertar, não para reiniciar.** É ele que enxerga o banco; o readiness não. Um monitor apontado nele avisa que o serviço perdeu uma dependência, e essa informação não deve virar decisão automática de restart.
 
+### Smoke check pós-deploy
+
+Depois de cada deploy, confira que o agregado responde 200:
+
+```bash
+curl -fsS https://<host>/actuator/health
+```
+
+Parece redundante com o monitor, mas cobre um buraco que nenhum teste alcança: as propriedades do repositório (`management.health.mail.enabled=false`, entre outras) são sobrepostas por variáveis de ambiente do painel da plataforma — `MANAGEMENT_HEALTH_MAIL_ENABLED=true` reativa o indicador de mail e devolve a produção ao `503` da #153. A CI valida os arquivos versionados; a configuração da plataforma vive fora do repositório e só o serviço no ar denuncia a divergência.
+
 ### Métricas (Prometheus / Micrometer)
 
 O endpoint `/actuator/prometheus` expõe métricas no formato de scrape do Prometheus: métricas de JVM (`jvm_memory_used_bytes`, `jvm_gc_*`, threads), de HTTP (`http_server_requests_seconds_*`, com histograma habilitado para percentis de latência e séries por status — base para alertas de 5xx), do pool de conexões e do Hibernate, além dos contadores de negócio abaixo.
