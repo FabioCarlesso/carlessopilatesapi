@@ -277,6 +277,21 @@ Restrição `UNIQUE (paciente_id, competencia)` garante uma única NFSE emitida 
 
 Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha senha" gera um novo registro; tokens não são reutilizados entre solicitações.
 
+### Tabela `bloqueios_agenda`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `data_inicio` | DATE | NOT NULL |
+| `data_fim` | DATE | NOT NULL (inclusiva; igual a `data_inicio` num feriado de um dia) |
+| `hora_inicio` | TIME | — (nula junto com `hora_fim` = dia inteiro) |
+| `hora_fim` | TIME | — |
+| `motivo` | VARCHAR(200) | NOT NULL |
+| `data_criacao` | TIMESTAMP | NOT NULL |
+| `data_atualizacao` | TIMESTAMP | — |
+
+Tabela isolada: sem FK para nenhuma outra entidade e sem constraint impedindo sobreposição. O bloqueio é **informativo** — não participa da geração de aulas nem do agendamento de sessões (decisão da #171) —, então nada o referencia e registrar "feriado" e "manutenção" no mesmo dia é caso de uso, não erro. `hora_inicio`/`hora_fim` já nascem no modelo mesmo sem efeito prático, para que a chegada do horário na aula (#106) não exija nova migration.
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -294,6 +309,7 @@ Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha sen
 | `idx_sessoes_pilates_data` | `sessoes_pilates(data)` | Busca e ordenação de sessões por data |
 | `idx_notas_fiscais_emitidas_paciente` | `notas_fiscais_emitidas(paciente_id)` | Listagem de NFSEs por paciente e lookup do relatório de NFSE |
 | `idx_password_reset_tokens_user_id` | `password_reset_tokens(user_id)` | Suporte a possíveis consultas administrativas/cleanup por usuário |
+| `idx_bloqueios_agenda_periodo` | `bloqueios_agenda(data_inicio, data_fim)` | Única consulta da tabela: interseção com o período de `GET /bloqueios` |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---

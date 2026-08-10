@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -69,6 +70,20 @@ public class SecurityConfig {
                         .requestMatchers("/users/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/admin/**")
+                        .hasRole("ADMIN")
+                        // Cadastro de bloqueios é tela de ADMIN, mas a consulta precisa ficar
+                        // aberta a qualquer usuário autenticado: é ela que alimenta o aviso de
+                        // feriado nas telas de agenda e de sessão, usadas pela recepção.
+                        // Escolha consciente enquanto a modelagem de papéis da #131 não chega —
+                        // a ordem importa, o matcher de leitura precisa vir antes do geral.
+                        // HEAD entra junto: o Spring MVC o resolve pelo handler de GET, mas a
+                        // autorização não faz essa equivalência, e sem citá-lo aqui um HEAD do
+                        // mesmo usuário que acabou de fazer GET cairia na regra de ADMIN e daria 403.
+                        .requestMatchers(HttpMethod.GET, "/bloqueios", "/bloqueios/**")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.HEAD, "/bloqueios", "/bloqueios/**")
+                        .authenticated()
+                        .requestMatchers("/bloqueios", "/bloqueios/**")
                         .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())

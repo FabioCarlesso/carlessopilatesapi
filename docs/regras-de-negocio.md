@@ -101,6 +101,22 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Remarcar para a data que a aula já tem é no-op: retorna `200` sem consultar colisão nem gravar, porque a própria aula ocuparia a data na checagem
 - `Aula` tem locking otimista (`@Version`, coluna `version` da `V34`). As três rotas de escrita — `realizar`, `profissional` e `remarcar` — gravam campos diferentes da mesma linha, e sem versão duas recepcionistas simultâneas se sobrescrevem em silêncio. O caso caro é realizar e remarcar ao mesmo tempo: a aula fica realizada numa data em que não foi ministrada e o erro segue direto para o repasse, que agrupa por `data`. Quem perde a corrida recebe `409` e refaz sobre o estado novo
 - `GET /aulas?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data` e `id`; filtros opcionais `profissionalId`, `pacienteId` e `realizada` são combináveis. A consulta projeta direto no DTO para não arrastar a cadeia EAGER `pagamento → plano → diasSemana`
+- A geração **não** consulta bloqueios de agenda: feriado e manutenção são avisos, não impedimentos (ver *Bloqueios de Agenda*)
+
+## Bloqueios de Agenda
+
+- Registram períodos em que o estúdio não funciona: feriados, manutenção de equipamentos, eventos, férias coletivas
+- **O bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada. A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
+- Consequência assumida: um feriado no meio do mês continua gerando aula, e cabe à recepção decidir entre manter e remarcar (`PATCH /aulas/{id}/remarcar`). O ganho da funcionalidade é enxergar o conflito na agenda em vez de descobri-lo no dia
+- `dataInicio` e `dataFim` são obrigatórias e ambas inclusivas; um feriado de um dia só repete a mesma data nas duas pontas. `dataFim` anterior a `dataInicio` retorna `400`
+- `horaInicio`/`horaFim` são opcionais e **só valem juntas**: as duas ausentes bloqueiam o dia inteiro (`diaInteiro = true` na resposta), as duas presentes bloqueiam a faixa em cada dia do período. Informar apenas uma retorna `400`, assim como `horaFim` não posterior a `horaInicio`
+- Bloqueio com faixa de horário não tem efeito prático enquanto a `Aula` não tiver horário ([#106](https://github.com/FabioCarlesso/carlessopilatesapi/issues/106)); os campos já existem no modelo para não exigir nova migration depois
+- `motivo` é obrigatório, não pode ser vazio ou só espaços e tem no máximo 200 caracteres; espaços nas pontas são aparados antes de persistir
+- Sobreposição é permitida: "feriado" e "manutenção" no mesmo dia são dois registros legítimos, não um erro
+- `GET /bloqueios?inicio=&fim=` retorna os bloqueios que **intersectam** o período (`dataInicio <= fim AND dataFim >= inicio`), inclusive os que começam antes ou terminam depois dele — férias de 20/12 a 05/01 precisam aparecer na consulta de janeiro. Ordenado por `dataInicio` e `id`, reusando o `PeriodoGuard` de aulas e sessões (período obrigatório e fechado), porém com teto de **366 dias** em vez dos 92 da agenda: o cadastro de feriados é conferido para o ano inteiro de uma vez e rende poucos registros por ano, não milhares por trimestre
+- `PUT /bloqueios/{id}` é substituição completa: omitir `horaInicio`/`horaFim` remove a faixa e devolve o bloqueio para dia inteiro
+- `DELETE /bloqueios/{id}` é exclusão física — o bloqueio não é referenciado por nenhum outro registro, então apagar não deixa órfãos e não afeta aulas ou sessões do período
+- Autorização: escrita (`POST`, `PUT`, `DELETE`) exige `ADMIN`; a leitura fica em `authenticated()` porque é ela que alimenta o aviso nas telas de agenda e sessão usadas pela recepção. Escolha consciente enquanto a modelagem de papéis da [#131](https://github.com/FabioCarlesso/carlessopilatesapi/issues/131) não chega
 
 ## Anamnese
 

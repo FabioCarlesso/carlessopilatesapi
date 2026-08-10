@@ -126,6 +126,34 @@ frontend, e o corpo só é obrigatório na rota nova porque lá `null` tem signi
   Java, então exigir o campo é o que impede um corpo montado pela metade de apagar o vínculo sem avisar.
 - Em `realizar`, ausência de `profissionalId` **preserva** o profissional já atribuído; presença sobrescreve.
 
+## Bloqueios de agenda
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/bloqueios` | Cadastrar bloqueio (feriado, manutenção, evento) — exige `ADMIN` |
+| `GET` | `/bloqueios` | Listar bloqueios que intersectam o período (`inicio`, `fim`) |
+| `GET` | `/bloqueios/{id}` | Buscar bloqueio por ID |
+| `PUT` | `/bloqueios/{id}` | Atualizar bloqueio (substituição completa) — exige `ADMIN` |
+| `DELETE` | `/bloqueios/{id}` | Excluir bloqueio permanentemente — exige `ADMIN` |
+
+O bloqueio **avisa, não impede**: nem a geração automática de aulas nem o agendamento de sessões consultam esta
+tabela. `GET /bloqueios` é a consulta que permite ao frontend marcar as datas na agenda e sugerir que não se marque
+nada ali — a decisão continua com quem opera, porque exceções (a turma que treina no feriado) são legítimas.
+
+- `horaInicio`/`horaFim` ausentes bloqueiam o dia inteiro e a resposta traz `diaInteiro: true`; presentes, bloqueiam
+  a faixa em cada dia do período. Mandar só uma das duas retorna `400`, assim como `horaFim` não posterior a
+  `horaInicio` — nesses casos o corpo é `{"erro": ...}`, sem `campos`, por serem regras entre campos.
+- `motivo` ausente, em branco ou acima de 200 caracteres, e `dataInicio`/`dataFim` ausentes, retornam `400` com
+  `campos` apontando o campo culpado.
+- `dataFim` anterior a `dataInicio` retorna `400`; iguais é válido (feriado de um dia).
+- `GET /bloqueios` exige período obrigatório e fechado, como `GET /aulas`, mas com teto de **366 dias** em vez dos 92
+  da agenda: feriados são conferidos para o ano inteiro de uma vez, e o volume que justifica o teto curto da agenda
+  não existe aqui. Retorna também os bloqueios que começam antes de `inicio` ou terminam depois de `fim` — férias
+  coletivas de 20/12 a 05/01 aparecem na consulta de janeiro. Período sem bloqueios retorna `200` com lista vazia.
+- `PUT` substitui o registro inteiro: omitir a faixa de horário devolve o bloqueio para dia inteiro.
+- Escrita exige `ADMIN` (`403` caso contrário); a leitura basta estar autenticado, para que as telas de agenda e de
+  sessão da recepção consigam exibir o aviso.
+
 ## Sessões de Pilates/Fisioterapia
 
 | Método | Endpoint | Descrição |

@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,6 +18,7 @@ import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
+import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
@@ -55,9 +57,15 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Autowired
     private LoginAttemptService loginAttemptService;
 
+    @Autowired
+    private BloqueioAgendaRepository bloqueioAgendaRepository;
+
     @BeforeEach
     void setUp() throws Exception {
         userRepository.deleteAll();
+        // Os testes de bloqueio abaixo criam registros via HTTP, e isso comita: sem limpar, as linhas sobrevivem no
+        // container Postgres compartilhado e vazam para qualquer teste que consulte a tabela depois.
+        bloqueioAgendaRepository.deleteAll();
         // reset in-memory rate limit history between tests
         Field historyField = LoginAttemptService.class.getDeclaredField("history");
         historyField.setAccessible(true);
@@ -520,6 +528,80 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idioma").value("EN_US"))
                 .andExpect(jsonPath("$.tema").value("ESCURO"));
+    }
+
+    @Test
+    void bloqueios_get_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/bloqueios").param("inicio", "2026-09-01").param("fim", "2026-09-30"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void bloqueios_get_comUsuarioComum_deveRetornar200() throws Exception {
+        User user = criarUsuario("bloqueio-leitura@email.com", Role.USER);
+
+        // A consulta é o que alimenta o aviso de feriado na agenda e na tela de sessão:
+        // precisa funcionar para a recepção, não só para o ADMIN que cadastra.
+        mvc.perform(get("/bloqueios")
+                        .param("inicio", "2026-09-01")
+                        .param("fim", "2026-09-30")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void bloqueios_head_comUsuarioComum_deveSeguirOMesmoGet() throws Exception {
+        User user = criarUsuario("bloqueio-head@email.com", Role.USER);
+
+        // O Spring MVC resolve HEAD pelo handler de GET, mas a autorização por URL não faz essa equivalência:
+        // sem HttpMethod.HEAD no matcher de leitura, este HEAD cairia na regra de ADMIN e responderia 403.
+        mvc.perform(head("/bloqueios")
+                        .param("inicio", "2026-09-01")
+                        .param("fim", "2026-09-30")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void bloqueios_post_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("bloqueio-user@email.com", Role.USER);
+
+        mvc.perform(
+                        post("/bloqueios")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataInicio": "2026-09-07", "dataFim": "2026-09-07", "motivo": "Feriado"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+    }
+
+    @Test
+    void bloqueios_post_comAdmin_deveCriarBloqueio() throws Exception {
+        User admin = criarUsuario("bloqueio-admin@email.com", Role.ADMIN);
+
+        mvc.perform(
+                        post("/bloqueios")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataInicio": "2026-09-07", "dataFim": "2026-09-07", "motivo": "Feriado"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists(HttpHeaders.LOCATION))
+                .andExpect(jsonPath("$.motivo").value("Feriado"))
+                .andExpect(jsonPath("$.diaInteiro").value(true));
+    }
+
+    @Test
+    void bloqueios_delete_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("bloqueio-delete@email.com", Role.USER);
+
+        mvc.perform(delete("/bloqueios/1").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
