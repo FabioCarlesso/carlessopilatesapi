@@ -85,6 +85,20 @@ public class ListaEsperaController {
     }
 
     @Operation(
+            summary = "Buscar entrada por ID",
+            description = "Recupera a entrada apontada pelo `Location` devolvido na criação. Entrada já removida "
+                    + "responde `404`, como na listagem.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Entrada encontrada"),
+        @ApiResponse(responseCode = "404", description = "Entrada não encontrada ou já removida")
+    })
+    @GetMapping("/{id}")
+    public ResponseEntity<ListaEsperaResponseDTO> buscar(
+            @Parameter(description = "ID da entrada") @PathVariable Long id) {
+        return ResponseEntity.ok(service.buscarPorId(id));
+    }
+
+    @Operation(
             summary = "Remover da lista de espera",
             description = "Tira a entrada da fila. A remoção é lógica: a entrada some da listagem, mas o registro de "
                     + "quem esperou é preservado para histórico.")

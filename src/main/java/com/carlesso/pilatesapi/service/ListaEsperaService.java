@@ -9,14 +9,18 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.ListaEsperaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ListaEsperaService {
+
+    private static final String DUPLICIDADE = "Paciente já está na lista de espera para esse dia e faixa de horário";
 
     private final ListaEsperaRepository repository;
     private final PacienteRepository pacienteRepository;
@@ -41,7 +45,7 @@ public class ListaEsperaService {
 
         if (repository.existeAtivaParaPacienteNaFaixa(
                 paciente.getId(), dto.diaSemana(), dto.horaInicio(), dto.horaFim())) {
-            throw new ConflictException("Paciente já está na lista de espera para esse dia e faixa de horário");
+            throw new ConflictException(DUPLICIDADE);
         }
 
         ListaEspera entrada = new ListaEspera();
@@ -50,7 +54,20 @@ public class ListaEsperaService {
         entrada.setHoraInicio(dto.horaInicio());
         entrada.setHoraFim(dto.horaFim());
         entrada.setObservacao(normalizar(dto.observacao()));
-        return ListaEsperaResponseDTO.from(repository.save(entrada));
+
+        // A checagem acima não fecha a janela entre o exists e o insert: duas requisições simultâneas passam as duas.
+        // O índice parcial da V37 é a única garantia real, e sem este flush a violação só apareceria no commit, longe
+        // deste catch, escapando como 500. Mesmo padrão de AulaService.remarcar (#170).
+        try {
+            return ListaEsperaResponseDTO.from(repository.saveAndFlush(entrada));
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException(DUPLICIDADE);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public ListaEsperaResponseDTO buscarPorId(Long id) {
+        return ListaEsperaResponseDTO.from(encontrarAtiva(id));
     }
 
     /**
@@ -67,9 +84,9 @@ public class ListaEsperaService {
         if (horaInicio != null) {
             exigirFaixaValida(horaInicio, horaFim);
         }
-        return repository.buscarAtivas(diaSemana, horaInicio, horaFim, pacienteId).stream()
-                .map(ListaEsperaResponseDTO::from)
-                .toList();
+        List<ListaEspera> fila = repository.buscarAtivas(diaSemana, horaInicio, horaFim, pacienteId);
+        exigirVolumeSuportado(fila.size());
+        return fila.stream().map(ListaEsperaResponseDTO::from).toList();
     }
 
     /**
@@ -78,10 +95,13 @@ public class ListaEsperaService {
      */
     @Transactional
     public void remover(Long id) {
-        ListaEspera entrada = repository
+        encontrarAtiva(id).setAtivo(false);
+    }
+
+    private ListaEspera encontrarAtiva(Long id) {
+        return repository
                 .findAtivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Entrada da lista de espera não encontrada: " + id));
-        entrada.setAtivo(false);
     }
 
     /**
@@ -90,6 +110,23 @@ public class ListaEsperaService {
     private void exigirFaixaValida(LocalTime horaInicio, LocalTime horaFim) {
         if (!horaFim.isAfter(horaInicio)) {
             throw new IllegalArgumentException("horaFim deve ser posterior a horaInicio");
+        }
+    }
+
+    /**
+     * Recusa respostas grandes demais para um payload único, como as listagens de agenda.
+     *
+     * <p>Reusa o número de {@link PeriodoGuard#LIMITE_REGISTROS_AGENDA} — o teto é a capacidade de uma resposta sem
+     * paginação, e essa não muda de rota para rota —, mas não o guarda em si: a mensagem dele manda reduzir o
+     * intervalo, e aqui não existe período a reduzir. A checagem vem depois da consulta pelo mesmo motivo documentado
+     * lá: um {@code count} antes dobraria a ida ao banco em toda requisição para proteger o caso raro.
+     *
+     * @throws IllegalArgumentException mapeada para {@code 400} pelo GlobalExceptionHandler
+     */
+    private void exigirVolumeSuportado(int quantidade) {
+        if (quantidade > PeriodoGuard.LIMITE_REGISTROS_AGENDA) {
+            throw new IllegalArgumentException("Lista de espera limitada a " + PeriodoGuard.LIMITE_REGISTROS_AGENDA
+                    + " registros por consulta; aplique filtros");
         }
     }
 

@@ -207,6 +207,27 @@ class ListaEsperaControllerTest {
         mockMvc.perform(get("/lista-espera").param("diaSemana", "SEGUNDA")).andExpect(status().isBadRequest());
     }
 
+    /** O {@code Location} do 201 precisa apontar para algo recuperável — antes desta rota o GET dava 405. */
+    @Test
+    void buscar_naUrlDoLocation_deveRetornar200() throws Exception {
+        when(service.buscarPorId(5L)).thenReturn(entrada(5L));
+
+        mockMvc.perform(get("/lista-espera/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.pacienteNome").value("Ana"));
+    }
+
+    @Test
+    void buscar_removidaOuInexistente_deveRetornar404() throws Exception {
+        when(service.buscarPorId(9L))
+                .thenThrow(new ResourceNotFoundException("Entrada da lista de espera não encontrada: 9"));
+
+        mockMvc.perform(get("/lista-espera/9"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Entrada da lista de espera não encontrada: 9"));
+    }
+
     @Test
     void remover_deveRetornar204() throws Exception {
         mockMvc.perform(delete("/lista-espera/5")).andExpect(status().isNoContent());
