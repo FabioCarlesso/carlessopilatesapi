@@ -309,10 +309,13 @@ class AulaControllerTest {
     }
 
     @Test
-    void remarcar_comDataInvalida_retorna400() throws Exception {
+    void remarcar_comDataInvalida_retorna400SemDetalheDeCampo() throws Exception {
+        // Formato não-ISO quebra na desserialização, antes da Bean Validation: cai no contrato genérico de corpo
+        // malformado, sem `campos`. Diferente de `data` ausente, que chega à validação e aponta o campo.
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"20/02/2025\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.erro").value("Corpo da requisição inválido ou malformado"))
+                .andExpect(jsonPath("$.campos").doesNotExist());
 
         verifyNoInteractions(aulaService);
     }
