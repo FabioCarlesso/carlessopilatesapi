@@ -41,6 +41,8 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V33__add_index_on_aulas_data.sql` | Cria `idx_aulas_data` para a agenda por período (`GET /aulas?inicio=&fim=`); a UNIQUE `(paciente_id, data)` não cobre o filtro só por data |
 | `V34__add_version_to_aulas.sql` | Adiciona `version` (`BIGINT NOT NULL DEFAULT 0`) em `aulas` para locking otimista — a linha ganhou um terceiro escritor concorrente com `PATCH /aulas/{id}/remarcar` |
 | `V35__create_bloqueios_agenda_table.sql` | Cria tabela `bloqueios_agenda` (feriados, manutenção, eventos) com índice `(data_inicio, data_fim)` para a consulta por interseção de período. Sem FK nem constraint de sobreposição: o bloqueio é informativo e dois registros podem cobrir o mesmo dia |
+| `V36__create_lista_espera_table.sql` | Cria tabela `lista_espera` (interessados por dia da semana e faixa de horário) com FK para `pacientes` e índices `(dia_semana, hora_inicio)` e `(paciente_id)`. `data_entrada` é `TIMESTAMP` — a ordem de chegada precisa desempatar inscrições do mesmo dia — e `ativo` sustenta a remoção lógica |
+| `V37__add_unique_lista_espera_ativa.sql` | Cria o índice único **parcial** `lista_espera_ativa_uidx` em `(paciente_id, dia_semana, hora_inicio, hora_fim) WHERE ativo` — fecha a janela entre a checagem de duplicidade e o `INSERT`, que requisições concorrentes atravessavam. O predicado é o que permite reentrar na fila depois da remoção lógica |
 
 ## Migrations de seed (`db/seed/`) — apenas perfil `dev`
 

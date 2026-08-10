@@ -118,6 +118,23 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - `DELETE /bloqueios/{id}` é exclusão física — o bloqueio não é referenciado por nenhum outro registro, então apagar não deixa órfãos e não afeta aulas ou sessões do período
 - Autorização: escrita (`POST`, `PUT`, `DELETE`) exige `ADMIN`; a leitura fica em `authenticated()` porque é ela que alimenta o aviso nas telas de agenda e sessão usadas pela recepção. Escolha consciente enquanto a modelagem de papéis da [#131](https://github.com/FabioCarlesso/carlessopilatesapi/issues/131) não chega
 
+## Lista de Espera
+
+- Registra quem quer entrar num dia da semana e faixa de horário já lotados, para que a recepção tenha a quem chamar quando um cancelamento (`PATCH /sessoes/{id}/cancelar`) abrir vaga. Antes disso o interesse ficava na memória de quem atendeu (#172)
+- **A fila é só cronológica.** `dataEntrada` é gravada pelo servidor na criação e nunca aceita do corpo — é ela que define a posição, e um cliente capaz de escolhê-la conseguiria furar a fila. Não existe prioridade manual
+- A lista é **consultiva, nunca bloqueante**, pelo mesmo critério dos bloqueios de agenda: não impede o cancelamento de uma sessão com interessados e não vira sessão sozinha. O frontend exibe o aviso e chama o `POST /sessoes` existente
+- Inscrição para paciente inexistente retorna `404`; para paciente inativo retorna `422`, como as demais criações de registro
+- Duplicidade é o mesmo paciente, no mesmo dia da semana e na **mesma faixa exata**, ainda ativa: retorna `409`. Faixas apenas sobrepostas (08:00–09:00 e 08:30–09:30) descrevem interesses diferentes e coexistem
+- A garantia da unicidade é o índice parcial `lista_espera_ativa_uidx` (`V37`), não a checagem do service: entre o `SELECT` e o `INSERT` há uma janela que requisições simultâneas atravessam juntas — oito `POST` concorrentes criaram três entradas idênticas antes do índice existir. O service mantém a checagem prévia (mensagem melhor no caso comum) e converte a violação de constraint no mesmo `409`, como `AulaService.remarcar` faz com `(paciente_id, data)`. O índice é **parcial** (`WHERE ativo`) porque a saída da fila é lógica: sem o predicado, quem saísse não conseguiria reentrar na mesma faixa
+- `GET /lista-espera` recusa com `400` acima de **5000 registros**, mesmo teto das agendas de aulas e sessões e pela mesma razão: resposta única, sem paginação. A fila ativa é pequena por natureza, então o limite é rede de segurança, não recorte esperado
+- `GET /lista-espera/{id}` existe para que o `Location` do `201` aponte para algo recuperável; entrada já removida responde `404`, como na listagem
+- `horaFim` precisa ser posterior a `horaInicio` — faixa invertida ou de duração zero retorna `400`
+- A consulta por faixa casa por **interseção**, não por igualdade: quem se inscreveu para 07:30–09:30 aparece na busca por 08:00–09:00, senão a recepção só encontraria quem digitou exatamente a mesma faixa. As pontas são abertas (`horaFim > :horaInicio AND horaInicio < :horaFim`) porque uma inscrição que termina 08:00 não disputa a vaga que começa 08:00
+- Os filtros do `GET` são todos opcionais, mas `horaInicio` e `horaFim` só valem juntas (`400` caso contrário): meia faixa não descreve um interesse consultável
+- A listagem ignora entradas de **paciente inativo**, mesmo recorte das consultas de aula — ex-aluno não deve ser chamado para uma vaga. A busca por id do `DELETE` não aplica esse filtro, senão inativar o paciente deixaria a linha viva sem nenhuma rota capaz de encerrá-la
+- `DELETE /lista-espera/{id}` é remoção **lógica** (`ativo = false`): o contrato HTTP é o que o frontend pediu, mas apagar a linha perderia o registro de quem foi chamado a partir da fila — a única memória de que a espera funcionou. Repetir o `DELETE` retorna `404`
+- Notificar o paciente automaticamente quando abre vaga é fase 2 e depende dos lembretes da [#107](https://github.com/FabioCarlesso/carlessopilatesapi/issues/107); quando existirem, esta entidade é a fonte da notificação
+
 ## Anamnese
 
 - Cada paciente possui no máximo uma anamnese principal (regra de unicidade por `paciente_id`)
