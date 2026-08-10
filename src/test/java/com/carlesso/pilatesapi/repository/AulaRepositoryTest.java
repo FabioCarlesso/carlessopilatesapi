@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @PostgresDataJpaTest
 class AulaRepositoryTest extends PostgresTestcontainerSupport {
@@ -290,6 +292,49 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
             assertThat(row[0]).isEqualTo(pagamentoAtivo.getId());
             assertThat(row[1]).isEqualTo(1L);
         });
+    }
+
+    @Test
+    void remarcarParaDataOcupadaDoPaciente_violaConstraintDeUnicidade() {
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        Aula aula = repository.findById(aulaAtiva.getId()).orElseThrow();
+        aula.setData(LocalDate.of(2025, 2, 10));
+
+        // A constraint (paciente_id, data) também vale no UPDATE: é o que sustenta o catch da remarcação no service.
+        assertThatThrownBy(() -> repository.saveAndFlush(aula)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void remarcarAulaParaOutroMes_passaAContarNoRelatorioDaNovaData() {
+        Aula remarcada = entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+
+        // pagamentoAtivo cobre fevereiro; a aula é remarcada para março e só então realizada. O vínculo com o
+        // pagamento não muda, mas o relatório passa a contá-la em março, porque agrupa por a.data.
+        remarcada.setData(LocalDate.of(2025, 3, 10));
+        remarcada.setProfissional(profissional);
+        remarcada.setRealizada(true);
+        entityManager.flush();
+        entityManager.clear();
+
+        var marco = repository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                profissional.getId(), LocalDate.of(2025, 3, 1), LocalDate.of(2025, 3, 31));
+        var fevereiro = repository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                profissional.getId(), LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
+
+        assertThat(marco)
+                .extracting(AulaRepository.ProfissionalPagamentoAulaProjection::getAulaId)
+                .containsExactly(remarcada.getId());
+        assertThat(marco).singleElement().satisfies(aula -> assertThat(aula.getPagamentoId())
+                .isEqualTo(pagamentoAtivo.getId()));
+        assertThat(fevereiro)
+                .extracting(AulaRepository.ProfissionalPagamentoAulaProjection::getAulaId)
+                .containsExactly(aulaAtiva.getId());
     }
 
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {

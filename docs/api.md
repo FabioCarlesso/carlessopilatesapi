@@ -93,6 +93,19 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
 | `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
+| `PATCH` | `/aulas/{id}/remarcar` | Trocar a data de uma aula ainda não realizada (corpo) |
+
+### Remarcação
+
+`{"data": "2025-02-20"}` move a aula, preservando paciente e `pagamentoId`. A nova data **não** é confrontada com
+`periodoInicio`/`periodoFim` do pagamento e pode estar no passado — a recepção precisa poder remarcar a falta da
+última semana do mês e registrar reposições já ocorridas.
+
+- `409` se a aula já foi realizada, ou se o paciente já tem aula na data de destino (mensagem cita a data).
+- `400` se `data` faltar (`campos.data` no corpo do erro) ou vier em formato não-ISO.
+- Remarcar para a data atual da aula é no-op e retorna `200`.
+- `horario` já existe no contrato mas é recusado com `400` até a [#106](https://github.com/FabioCarlesso/carlessopilatesapi/issues/106)
+  criar o campo na aula: aceitar e descartar em silêncio faria o frontend acreditar que a hora foi gravada.
 
 ### Profissional da aula
 

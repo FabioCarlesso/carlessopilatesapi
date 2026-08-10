@@ -287,6 +287,79 @@ class AulaControllerTest {
                 .andExpect(jsonPath("$.erro").exists());
     }
 
+    @Test
+    void remarcar_retorna200ComNovaData() throws Exception {
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20)))
+                .thenReturn(new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), false));
+
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value("2025-02-20"))
+                .andExpect(jsonPath("$.pagamentoId").value(1))
+                .andExpect(jsonPath("$.realizada").value(false));
+    }
+
+    @Test
+    void remarcar_semData_retorna400ComDetalheDoCampo() throws Exception {
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.data").exists());
+
+        verifyNoInteractions(aulaService);
+    }
+
+    @Test
+    void remarcar_comDataInvalida_retorna400() throws Exception {
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"20/02/2025\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+
+        verifyNoInteractions(aulaService);
+    }
+
+    @Test
+    void remarcar_comHorario_retorna400EnquantoOCampoNaoExiste() throws Exception {
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.horario").exists());
+
+        verifyNoInteractions(aulaService);
+    }
+
+    @Test
+    void remarcar_aulaJaRealizada_retorna409() throws Exception {
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20)))
+                .thenThrow(new ConflictException("Aula já realizada não pode ser remarcada"));
+
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").value("Aula já realizada não pode ser remarcada"));
+    }
+
+    @Test
+    void remarcar_dataOcupada_retorna409ComMensagemExplicita() throws Exception {
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20)))
+                .thenThrow(new ConflictException("Paciente já possui aula na data 2025-02-20"));
+
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").value("Paciente já possui aula na data 2025-02-20"));
+    }
+
+    @Test
+    void remarcar_aulaNaoEncontrada_retorna404() throws Exception {
+        when(aulaService.remarcar(99L, LocalDate.of(2025, 2, 20)))
+                .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
+
+        mockMvc.perform(patchRemarcar("/aulas/99/remarcar", "{\"data\":\"2025-02-20\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.erro").value("Aula não encontrada: 99"));
+    }
+
+    private MockHttpServletRequestBuilder patchRemarcar(String url, String corpo) {
+        return patch(url).contentType(MediaType.APPLICATION_JSON).content(corpo);
+    }
+
     private MockHttpServletRequestBuilder patchProfissional(String url, Long profissionalId) throws Exception {
         return patch(url)
                 .contentType(MediaType.APPLICATION_JSON)
