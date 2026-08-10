@@ -25,9 +25,9 @@ class BloqueioAgendaRepositoryTest extends PostgresTestcontainerSupport {
     TestEntityManager entityManager;
 
     /**
-     * O container Postgres é singleton e compartilhado com os testes que <em>comitam</em> — {@code
-     * SecurityIntegrationTest} cria bloqueios via {@code POST /bloqueios} e essas linhas sobrevivem ao rollback deste
-     * slice. Sem esta limpeza os cenários de interseção passariam ou falhariam conforme a ordem da suíte.
+     * Os cenários abaixo asseram sobre o conteúdo <em>absoluto</em> da tabela, e o container Postgres é singleton,
+     * compartilhado com testes que comitam. Quem cria bloqueios via HTTP já limpa depois de si, mas depender disso
+     * deixaria estes testes reféns da ordem da suíte e da higiene alheia — a garantia fica aqui.
      */
     @BeforeEach
     void limparBloqueios() {
@@ -124,6 +124,19 @@ class BloqueioAgendaRepositoryTest extends PostgresTestcontainerSupport {
         // dataCriacao é preenchida pelo callback @PrePersist (o helper não a define).
         assertThat(salvo.getDataCriacao()).isNotNull();
         assertThat(salvo.getDataAtualizacao()).isNull();
+    }
+
+    @Test
+    void atualizar_preencheDataAtualizacaoPeloCallbackPreUpdate() {
+        persistir(LocalDate.of(2026, 9, 7), LocalDate.of(2026, 9, 7), "Independência");
+        entityManager.clear();
+
+        BloqueioAgenda salvo = repository.findQueIntersectamPeriodo(INICIO, FIM).getFirst();
+        salvo.setMotivo("Independência (confirmado)");
+        entityManager.flush();
+
+        assertThat(salvo.getDataAtualizacao()).isNotNull();
+        assertThat(salvo.getDataAtualizacao()).isAfterOrEqualTo(salvo.getDataCriacao());
     }
 
     private void persistir(LocalDate dataInicio, LocalDate dataFim, String motivo) {

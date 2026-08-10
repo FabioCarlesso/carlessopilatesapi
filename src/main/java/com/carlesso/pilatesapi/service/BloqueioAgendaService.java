@@ -31,12 +31,14 @@ public class BloqueioAgendaService {
     /**
      * Bloqueios que intersectam o período.
      *
-     * <p>Usa o mesmo {@link PeriodoGuard} das listagens de aulas e sessões: a consulta não é paginada e o consumidor é
-     * o mesmo calendário, então o teto de 92 dias e as mensagens de erro seguem idênticos aos de {@code GET /aulas}.
+     * <p>Reusa o {@link PeriodoGuard} das listagens de agenda — mesmas regras de período obrigatório e fechado, mesmas
+     * mensagens de erro —, mas com o teto de {@link PeriodoGuard#LIMITE_DIAS_BLOQUEIOS} dias em vez do trimestre da
+     * agenda: feriados são conferidos para o ano inteiro de uma vez, e o volume que justifica o teto curto de
+     * {@code GET /aulas} não existe aqui.
      */
     @Transactional(readOnly = true)
     public List<BloqueioAgendaResponseDTO> listarPorPeriodo(LocalDate inicio, LocalDate fim) {
-        PeriodoGuard.exigirPeriodoValido(inicio, fim);
+        PeriodoGuard.exigirPeriodoValido(inicio, fim, PeriodoGuard.LIMITE_DIAS_BLOQUEIOS);
         return repository.findQueIntersectamPeriodo(inicio, fim).stream()
                 .map(BloqueioAgendaResponseDTO::from)
                 .toList();

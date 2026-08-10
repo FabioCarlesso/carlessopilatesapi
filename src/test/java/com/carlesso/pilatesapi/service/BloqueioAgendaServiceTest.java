@@ -165,11 +165,26 @@ class BloqueioAgendaServiceTest {
     @Test
     void listarPorPeriodo_acimaDoLimiteDeDias_lancaIllegalArgument() {
         LocalDate inicio = LocalDate.of(2026, 1, 1);
-        LocalDate fim = inicio.plusDays(PeriodoGuard.LIMITE_DIAS_AGENDA);
+        LocalDate fim = inicio.plusDays(PeriodoGuard.LIMITE_DIAS_BLOQUEIOS);
 
         assertThatThrownBy(() -> service.listarPorPeriodo(inicio, fim))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("limitada a " + PeriodoGuard.LIMITE_DIAS_AGENDA + " dias");
+                .hasMessageContaining("limitada a " + PeriodoGuard.LIMITE_DIAS_BLOQUEIOS + " dias");
+        verifyNoInteractions(repository);
+    }
+
+    /**
+     * O teto da agenda (92 dias) obrigaria a tela de cadastro de feriados a paginar o ano em quatro requisições; o
+     * volume que justifica aquele limite não existe aqui.
+     */
+    @Test
+    void listarPorPeriodo_anoInteiro_ehPermitido() {
+        LocalDate inicio = LocalDate.of(2026, 1, 1);
+        LocalDate fim = LocalDate.of(2026, 12, 31);
+        when(repository.findQueIntersectamPeriodo(inicio, fim))
+                .thenReturn(List.of(bloqueio(FERIADO, FERIADO, "Feriado")));
+
+        assertThat(service.listarPorPeriodo(inicio, fim)).hasSize(1);
     }
 
     @Test

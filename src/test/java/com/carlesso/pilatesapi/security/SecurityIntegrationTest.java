@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,6 +18,7 @@ import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
+import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
@@ -55,9 +57,15 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Autowired
     private LoginAttemptService loginAttemptService;
 
+    @Autowired
+    private BloqueioAgendaRepository bloqueioAgendaRepository;
+
     @BeforeEach
     void setUp() throws Exception {
         userRepository.deleteAll();
+        // Os testes de bloqueio abaixo criam registros via HTTP, e isso comita: sem limpar, as linhas sobrevivem no
+        // container Postgres compartilhado e vazam para qualquer teste que consulte a tabela depois.
+        bloqueioAgendaRepository.deleteAll();
         // reset in-memory rate limit history between tests
         Field historyField = LoginAttemptService.class.getDeclaredField("history");
         historyField.setAccessible(true);
@@ -535,6 +543,19 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         // A consulta é o que alimenta o aviso de feriado na agenda e na tela de sessão:
         // precisa funcionar para a recepção, não só para o ADMIN que cadastra.
         mvc.perform(get("/bloqueios")
+                        .param("inicio", "2026-09-01")
+                        .param("fim", "2026-09-30")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void bloqueios_head_comUsuarioComum_deveSeguirOMesmoGet() throws Exception {
+        User user = criarUsuario("bloqueio-head@email.com", Role.USER);
+
+        // O Spring MVC resolve HEAD pelo handler de GET, mas a autorização por URL não faz essa equivalência:
+        // sem HttpMethod.HEAD no matcher de leitura, este HEAD cairia na regra de ADMIN e responderia 403.
+        mvc.perform(head("/bloqueios")
                         .param("inicio", "2026-09-01")
                         .param("fim", "2026-09-30")
                         .header(HttpHeaders.AUTHORIZATION, bearer(user)))

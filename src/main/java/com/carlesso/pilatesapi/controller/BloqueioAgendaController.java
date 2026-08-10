@@ -58,14 +58,14 @@ public class BloqueioAgendaController {
             description =
                     """
                     Retorna os bloqueios que intersectam o período, ordenados por data de início — inclusive os que
-                    começam antes de `inicio` ou terminam depois de `fim`. Mesmas regras de período de `GET /aulas`:
-                    obrigatório, fechado nas duas pontas e limitado a 92 dias. Período sem bloqueios retorna lista
-                    vazia.""")
+                    começam antes de `inicio` ou terminam depois de `fim`. O período é obrigatório e fechado nas duas
+                    pontas, limitado a 366 dias — teto maior que os 92 dias de `GET /aulas` porque feriados são
+                    conferidos para o ano inteiro de uma vez. Período sem bloqueios retorna lista vazia.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
         @ApiResponse(
                 responseCode = "400",
-                description = "Período ausente, invertido (início posterior ao fim) ou acima de 92 dias")
+                description = "Período ausente, invertido (início posterior ao fim) ou acima de 366 dias")
     })
     @GetMapping
     public ResponseEntity<List<BloqueioAgendaResponseDTO>> listarPorPeriodo(

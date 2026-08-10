@@ -17,10 +17,10 @@ import java.time.LocalTime;
  * efeito prático quando a aula ganhar horário (issue #106); os campos já nascem aqui para não exigir nova
  * migration depois.
  */
+// O índice (data_inicio, data_fim) vive só na V35: com ddl-auto=validate o Hibernate não confere índices, então
+// declará-lo aqui não valida nada e ainda criaria uma segunda fonte de verdade para divergir da migration.
 @Entity
-@Table(
-        name = "bloqueios_agenda",
-        indexes = @Index(name = "idx_bloqueios_agenda_periodo", columnList = "data_inicio, data_fim"))
+@Table(name = "bloqueios_agenda")
 public class BloqueioAgenda {
 
     @Id

@@ -146,9 +146,10 @@ nada ali — a decisão continua com quem opera, porque exceções (a turma que 
 - `motivo` ausente, em branco ou acima de 200 caracteres, e `dataInicio`/`dataFim` ausentes, retornam `400` com
   `campos` apontando o campo culpado.
 - `dataFim` anterior a `dataInicio` retorna `400`; iguais é válido (feriado de um dia).
-- `GET /bloqueios` segue as mesmas regras de período de `GET /aulas` (obrigatório, fechado, máximo 92 dias) e retorna
-  também os bloqueios que começam antes de `inicio` ou terminam depois de `fim` — férias coletivas de 20/12 a 05/01
-  aparecem na consulta de janeiro. Período sem bloqueios retorna `200` com lista vazia.
+- `GET /bloqueios` exige período obrigatório e fechado, como `GET /aulas`, mas com teto de **366 dias** em vez dos 92
+  da agenda: feriados são conferidos para o ano inteiro de uma vez, e o volume que justifica o teto curto da agenda
+  não existe aqui. Retorna também os bloqueios que começam antes de `inicio` ou terminam depois de `fim` — férias
+  coletivas de 20/12 a 05/01 aparecem na consulta de janeiro. Período sem bloqueios retorna `200` com lista vazia.
 - `PUT` substitui o registro inteiro: omitir a faixa de horário devolve o bloqueio para dia inteiro.
 - Escrita exige `ADMIN` (`403` caso contrário); a leitura basta estar autenticado, para que as telas de agenda e de
   sessão da recepção consigam exibir o aviso.
