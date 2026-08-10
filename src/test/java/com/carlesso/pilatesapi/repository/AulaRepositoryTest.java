@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 @PostgresDataJpaTest
 class AulaRepositoryTest extends PostgresTestcontainerSupport {
@@ -305,7 +306,27 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
         aula.setData(LocalDate.of(2025, 2, 10));
 
         // A constraint (paciente_id, data) também vale no UPDATE: é o que sustenta o catch da remarcação no service.
+        // Atenção ao alcance desta garantia: a suíte roda com ddl-auto=create-drop e spring.flyway.enabled=false
+        // (src/test/resources/application.properties), então o schema aqui vem da @UniqueConstraint da entidade, não
+        // da migration. Em produção quem cria a constraint é a V5__create_aulas_table.sql — as duas precisam andar
+        // juntas, e mexer numa sem a outra deixa este teste verde com o banco real desprotegido.
         assertThatThrownBy(() -> repository.saveAndFlush(aula)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void remarcarComVersaoDesatualizada_falhaComLockingOtimista() {
+        Aula aula = repository.findById(aulaAtiva.getId()).orElseThrow();
+
+        // Simula outra transação gravando a mesma linha entre a leitura e o flush desta.
+        entityManager
+                .getEntityManager()
+                .createNativeQuery("UPDATE aulas SET version = version + 1 WHERE id = :id")
+                .setParameter("id", aulaAtiva.getId())
+                .executeUpdate();
+
+        aula.setData(LocalDate.of(2025, 2, 20));
+
+        assertThatThrownBy(() -> repository.saveAndFlush(aula)).isInstanceOf(OptimisticLockingFailureException.class);
     }
 
     @Test

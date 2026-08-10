@@ -90,7 +90,9 @@ public class AulaController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Aula marcada como realizada"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
-        @ApiResponse(responseCode = "409", description = "Aula já marcada como realizada"),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Aula já marcada como realizada, ou alterada por outra operação simultânea"),
         @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/realizar")
@@ -113,7 +115,9 @@ public class AulaController {
         @ApiResponse(responseCode = "200", description = "Profissional atribuído ou desvinculado"),
         @ApiResponse(responseCode = "400", description = "Corpo ausente ou sem o campo `profissionalId`"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
-        @ApiResponse(responseCode = "409", description = "Aula já realizada"),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Aula já realizada, ou alterada por outra operação simultânea"),
         @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/profissional")
@@ -137,7 +141,8 @@ public class AulaController {
         @ApiResponse(responseCode = "404", description = "Aula não encontrada"),
         @ApiResponse(
                 responseCode = "409",
-                description = "Aula já realizada, ou paciente já possui aula na data informada")
+                description =
+                        "Aula já realizada, paciente já possui aula na data informada, ou aula alterada por outra operação simultânea")
     })
     @PatchMapping("/{id}/remarcar")
     public ResponseEntity<AulaResponseDTO> remarcar(

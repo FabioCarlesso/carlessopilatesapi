@@ -19,5 +19,13 @@ public record AulaRemarcacaoRequestDTO(
                         example = "2025-02-20",
                         requiredMode = Schema.RequiredMode.REQUIRED)
                 LocalDate data,
-        @Null(message = "horario ainda não é suportado: a aula não possui esse campo") @Schema(description = "Reservado para a #106; enviar qualquer valor retorna 400", example = "null")
+        @Null(message = "horario ainda não é suportado: a aula não possui esse campo")
+                // Sem type/format explícitos o springdoc expande LocalTime no objeto {hour, minute, second, nano}, e
+                // um cliente gerado a partir do schema mandaria esse objeto em vez de "08:00" quando a #106 ativar o
+                // campo. O resto do projeto ainda sofre disso (SessaoPilatesRequestDTO/UpdateDTO) e merece correção
+                // própria — aqui o contrato já nasce certo.
+                @Schema(
+                        type = "string",
+                        format = "time",
+                        description = "Reservado para a #106; enviar qualquer valor retorna 400")
                 LocalTime horario) {}

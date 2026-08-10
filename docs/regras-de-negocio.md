@@ -99,6 +99,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Aula já realizada retorna `409` ao ser remarcada: a partir daí ela alimenta o repasse e mudar a data reescreveria histórico financeiro
 - Colisão com a constraint `(paciente_id, data)` retorna `409` com a data na mensagem. A checagem prévia por `existsByPacienteAndData` não fecha a janela até o `INSERT`, então a violação de constraint também é capturada no `saveAndFlush` e convertida — nunca escapa como erro de banco
 - Remarcar para a data que a aula já tem é no-op: retorna `200` sem consultar colisão nem gravar, porque a própria aula ocuparia a data na checagem
+- `Aula` tem locking otimista (`@Version`, coluna `version` da `V34`). As três rotas de escrita — `realizar`, `profissional` e `remarcar` — gravam campos diferentes da mesma linha, e sem versão duas recepcionistas simultâneas se sobrescrevem em silêncio. O caso caro é realizar e remarcar ao mesmo tempo: a aula fica realizada numa data em que não foi ministrada e o erro segue direto para o repasse, que agrupa por `data`. Quem perde a corrida recebe `409` e refaz sobre o estado novo
 - `GET /aulas?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data` e `id`; filtros opcionais `profissionalId`, `pacienteId` e `realizada` são combináveis. A consulta projeta direto no DTO para não arrastar a cadeia EAGER `pagamento → plano → diasSemana`
 
 ## Anamnese

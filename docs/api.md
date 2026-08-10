@@ -110,6 +110,11 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 - `horario` já existe no contrato mas é recusado com `400` até a [#106](https://github.com/FabioCarlesso/carlessopilatesapi/issues/106)
   criar o campo na aula: aceitar e descartar em silêncio faria o frontend acreditar que a hora foi gravada.
 
+As três rotas de escrita de aula (`realizar`, `profissional` e `remarcar`) usam locking otimista. Se duas
+requisições alterarem a mesma aula ao mesmo tempo, a perdedora recebe `409` com
+`{"erro": "Registro alterado por outra operação simultânea; recarregue e tente novamente"}` — o cliente deve
+recarregar a aula e refazer a ação sobre o estado novo, em vez de repetir a requisição às cegas.
+
 ### Profissional da aula
 
 As duas rotas acima mexem no mesmo vínculo e **passam `profissionalId` por caminhos diferentes**: `realizar` aceita
