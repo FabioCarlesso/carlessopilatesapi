@@ -292,6 +292,21 @@ Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha sen
 
 Tabela isolada: sem FK para nenhuma outra entidade e sem constraint impedindo sobreposição. O bloqueio é **informativo** — não participa da geração de aulas nem do agendamento de sessões (decisão da #171) —, então nada o referencia e registrar "feriado" e "manutenção" no mesmo dia é caso de uso, não erro. `hora_inicio`/`hora_fim` já nascem no modelo mesmo sem efeito prático, para que a chegada do horário na aula (#106) não exija nova migration.
 
+### Tabela `lista_espera`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `paciente_id` | BIGINT | NOT NULL, FK → `pacientes` |
+| `dia_semana` | VARCHAR(20) | NOT NULL (`DayOfWeek` como string) |
+| `hora_inicio` | TIME | NOT NULL |
+| `hora_fim` | TIME | NOT NULL (posterior a `hora_inicio`) |
+| `data_entrada` | TIMESTAMP | NOT NULL, definida pelo servidor |
+| `observacao` | VARCHAR(500) | — |
+| `ativo` | BOOLEAN | NOT NULL, default `true` |
+
+`data_entrada` é `TIMESTAMP` e não `DATE` porque é a **única** fonte de ordem da fila: duas inscrições no mesmo dia precisam de desempate (`id` fecha o empate restante). Ela nunca é lida do corpo da requisição — o `ListaEsperaRequestDTO` sequer tem o campo —, senão o cliente escolheria a própria posição. A saída da fila é lógica (`ativo = false`) e não física, para preservar o registro de quem foi chamado a partir da lista; o contrato HTTP continua sendo `DELETE`, como pediu o frontend (#172).
+
 ### Índices
 
 | Índice | Tabela / Coluna | Motivação |
@@ -310,6 +325,8 @@ Tabela isolada: sem FK para nenhuma outra entidade e sem constraint impedindo so
 | `idx_notas_fiscais_emitidas_paciente` | `notas_fiscais_emitidas(paciente_id)` | Listagem de NFSEs por paciente e lookup do relatório de NFSE |
 | `idx_password_reset_tokens_user_id` | `password_reset_tokens(user_id)` | Suporte a possíveis consultas administrativas/cleanup por usuário |
 | `idx_bloqueios_agenda_periodo` | `bloqueios_agenda(data_inicio, data_fim)` | Única consulta da tabela: interseção com o período de `GET /bloqueios` |
+| `idx_lista_espera_dia_hora` | `lista_espera(dia_semana, hora_inicio)` | Filtro de `GET /lista-espera`: dia da semana + interseção da faixa horária |
+| `idx_lista_espera_paciente` | `lista_espera(paciente_id)` | FK usada pelo filtro `pacienteId` e pelo join que recorta pacientes inativos |
 > **Nota:** colunas `plano_dias_semana(plano_id)`, `pagamentos(plano_id)`, `aulas(paciente_id)` e `anamneses(paciente_id)` **não** possuem índice dedicado porque já são o prefixo esquerdo de índices compostos existentes ou possuem índice automático de constraint `UNIQUE`, que o PostgreSQL pode usar para buscas na coluna isolada.
 
 ---

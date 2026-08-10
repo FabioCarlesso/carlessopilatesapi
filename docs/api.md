@@ -191,6 +191,33 @@ GET /aulas?inicio=2025-02-01&fim=2025-02-28&profissionalId=7&realizada=false
 - `AulaResponseDTO` expõe `profissionalId` e `profissionalNome` (ambos `null` enquanto a aula não tem profissional
   vinculado) — o calendário usa esses campos para colorir e filtrar por profissional.
 
+## Lista de espera
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/lista-espera` | Inscrever paciente num dia da semana e faixa de horário |
+| `GET` | `/lista-espera` | Listar a fila ativa em ordem de chegada; filtros `diaSemana`, `horaInicio`, `horaFim` e `pacienteId` |
+| `DELETE` | `/lista-espera/{id}` | Remover a entrada da fila |
+
+A fila responde a uma pergunta só: quem chamar quando `PATCH /sessoes/{id}/cancelar` abrir uma vaga. Ela não é
+consultada por nenhuma outra rota — não bloqueia o cancelamento nem vira sessão sozinha; o frontend usa
+`GET /lista-espera` para exibir o aviso e depois chama o `POST /sessoes` de sempre.
+
+- `diaSemana` usa o nome em inglês maiúsculo do `DayOfWeek` (`MONDAY`…`SUNDAY`), na query e no corpo. Valor fora
+  desse conjunto retorna `400`.
+- `dataEntrada` é sempre do servidor: mandá-la no corpo não muda nada, e é ela que define a posição na fila. A
+  listagem sai ordenada por `dataEntrada` crescente, com `id` desempatando.
+- Todos os filtros do `GET` são opcionais, mas `horaInicio` e `horaFim` só valem juntas — meia faixa retorna `400`,
+  assim como faixa invertida. A faixa casa por **interseção**: uma busca por 08:00–09:00 encontra quem se inscreveu
+  para 07:30–09:30. As pontas são abertas, então 07:00–08:00 não entra na busca por 08:00–09:00.
+- `pacienteId` ausente ou inexistente retorna `404`; paciente inativo retorna `422`, como nas demais criações de
+  registro. Entradas de paciente inativado somem da listagem, mas continuam removíveis pelo `DELETE`.
+- Inscrever o mesmo paciente no mesmo dia e na **mesma faixa exata** ainda ativa retorna `409`. Faixas apenas
+  sobrepostas (08:00–09:00 e 08:30–09:30) são interesses distintos e convivem.
+- `DELETE` é remoção lógica: a entrada some da listagem e o `DELETE` repetido retorna `404`, mas a linha permanece
+  para o histórico de quem foi chamado a partir da fila.
+- Escrita e leitura exigem apenas usuário autenticado: quem preenche vaga aberta é a recepção.
+
 ## Avaliações Fisioterapêuticas
 
 | Método | Endpoint | Descrição |
