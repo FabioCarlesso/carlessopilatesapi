@@ -4,7 +4,7 @@
 
 Sobe o banco PostgreSQL e a aplicação juntos, sem instalar nada localmente além do Docker.
 
-O container da aplicação roda com usuário não-root (`app`) e possui `HEALTHCHECK` no `/actuator/health/liveness` (estado `healthy` visível em `docker ps`) — o probe de liveness reflete apenas o estado do processo, então indisponibilidade de banco/SMTP não marca o container como `unhealthy`. A memória do container é limitada por `mem_limit` (padrão `1g`, ajustável via `APP_MEM_LIMIT`) e a heap da JVM usa 75% desse limite (`-XX:MaxRAMPercentage=75.0`, ajustável via `JAVA_OPTS`).
+O container da aplicação roda com usuário não-root (`app`) e possui `HEALTHCHECK` no `/actuator/health/liveness` (estado `healthy` visível em `docker ps`) — o probe de liveness reflete apenas o estado do processo, então indisponibilidade de banco/SMTP não marca o container como `unhealthy`. Já o healthcheck da plataforma de hospedagem deve usar `/actuator/health/readiness`, e não o `/actuator/health` agregado ([por quê](operacao.md#qual-endpoint-usar-no-healthcheck-externo)). A memória do container é limitada por `mem_limit` (padrão `1g`, ajustável via `APP_MEM_LIMIT`) e a heap da JVM usa 75% desse limite (`-XX:MaxRAMPercentage=75.0`, ajustável via `JAVA_OPTS`).
 
 O projeto usa o padrão de **override do Docker Compose** para isolar os ambientes:
 
