@@ -14,6 +14,34 @@ O projeto expõe endpoints operacionais do Spring Boot Actuator para acompanhame
 
 `health` e `info` são públicos. Os probes de liveness/readiness (`management.endpoint.health.probes.enabled=true`) refletem apenas o estado do processo e são usados pelo `HEALTHCHECK` do container.
 
+### Qual endpoint usar no healthcheck externo
+
+Use **`/actuator/health/readiness`** no healthcheck da plataforma de hospedagem (o que decide reiniciar ou tirar a instância do balanceador) — nunca o `/actuator/health` agregado.
+
+Os três endpoints respondem perguntas diferentes:
+
+| Endpoint | O que responde | Cobre dependências? |
+|---|---|---|
+| `/actuator/health/liveness` | O processo está vivo? É o que o `HEALTHCHECK` do container usa | Não |
+| `/actuator/health/readiness` | A aplicação terminou de subir e aceita tráfego (`ACCEPTING_TRAFFIC`)? Passa a `REFUSING_TRAFFIC` no shutdown gracioso | Não — os grupos de probe trazem só os estados de disponibilidade do ciclo de vida |
+| `/actuator/health` | Agregado: `db`, `diskSpace`, `ping`, `ssl` e os estados de disponibilidade | Sim — soma **todos** os indicadores e vira `DOWN` (HTTP 503) se qualquer um falhar |
+
+Os três são públicos (sem autenticação).
+
+**Por que o agregado não serve de healthcheck da plataforma:** ele reage a qualquer indicador que entre no classpath. Foi assim que a produção ficou `503 DOWN` com o serviço são (#153) — o indicador de mail falhava por não haver SMTP contratado. Além disso, com o banco fora do ar o agregado não responde `DOWN` de imediato: ele **fica pendurado** até o timeout de conexão, o que estoura o tempo limite do healthcheck. Nos dois casos a plataforma derrubaria uma instância que está atendendo requisições normalmente.
+
+**O agregado continua útil — para alertar, não para reiniciar.** É ele que enxerga o banco; o readiness não. Um monitor apontado nele avisa que o serviço perdeu uma dependência, e essa informação não deve virar decisão automática de restart.
+
+### Smoke check pós-deploy
+
+Depois de cada deploy, confira que o agregado responde 200:
+
+```bash
+curl -fsS https://<host>/actuator/health
+```
+
+Parece redundante com o monitor, mas cobre um buraco que nenhum teste alcança: as propriedades do repositório (`management.health.mail.enabled=false`, entre outras) são sobrepostas por variáveis de ambiente do painel da plataforma — `MANAGEMENT_HEALTH_MAIL_ENABLED=true` reativa o indicador de mail e devolve a produção ao `503` da #153. A CI valida os arquivos versionados; a configuração da plataforma vive fora do repositório e só o serviço no ar denuncia a divergência.
+
 ### Métricas (Prometheus / Micrometer)
 
 O endpoint `/actuator/prometheus` expõe métricas no formato de scrape do Prometheus: métricas de JVM (`jvm_memory_used_bytes`, `jvm_gc_*`, threads), de HTTP (`http_server_requests_seconds_*`, com histograma habilitado para percentis de latência e séries por status — base para alertas de 5xx), do pool de conexões e do Hibernate, além dos contadores de negócio abaixo.

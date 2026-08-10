@@ -2,13 +2,9 @@ package com.carlesso.pilatesapi.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import com.carlesso.pilatesapi.support.ArquivoDePropriedades;
 import java.nio.file.Path;
-import java.util.Properties;
-import java.util.TreeMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,27 +28,19 @@ class CompressaoPropriedadesTest {
     private static final Path TESTE = Path.of("src/test/resources/application.properties");
 
     @Test
-    void configuracaoDeCompressao_deveSerIdenticaNosDoisArquivos() throws IOException {
+    void configuracaoDeCompressao_deveSerIdenticaNosDoisArquivos() {
         assertThat(compressao(TESTE))
                 .as("%s deve espelhar %s nas chaves %s*", TESTE, PRINCIPAL, PREFIXO)
                 .isEqualTo(compressao(PRINCIPAL));
     }
 
     @Test
-    void arquivoPrincipal_deveDeclararAsTresChavesDeCompressao() throws IOException {
+    void arquivoPrincipal_deveDeclararAsTresChavesDeCompressao() {
         assertThat(compressao(PRINCIPAL))
                 .containsOnlyKeys(PREFIXO + "enabled", PREFIXO + "mime-types", PREFIXO + "min-response-size");
     }
 
-    private static TreeMap<String, String> compressao(Path arquivo) throws IOException {
-        Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(arquivo, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
-        TreeMap<String, String> filtradas = new TreeMap<>();
-        properties.stringPropertyNames().stream()
-                .filter(chave -> chave.startsWith(PREFIXO))
-                .forEach(chave -> filtradas.put(chave, properties.getProperty(chave)));
-        return filtradas;
+    private static Map<String, String> compressao(Path arquivo) {
+        return ArquivoDePropriedades.lerComPrefixo(arquivo, PREFIXO);
     }
 }
