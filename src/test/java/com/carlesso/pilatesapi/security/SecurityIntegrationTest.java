@@ -523,6 +523,67 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void bloqueios_get_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/bloqueios").param("inicio", "2026-09-01").param("fim", "2026-09-30"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void bloqueios_get_comUsuarioComum_deveRetornar200() throws Exception {
+        User user = criarUsuario("bloqueio-leitura@email.com", Role.USER);
+
+        // A consulta é o que alimenta o aviso de feriado na agenda e na tela de sessão:
+        // precisa funcionar para a recepção, não só para o ADMIN que cadastra.
+        mvc.perform(get("/bloqueios")
+                        .param("inicio", "2026-09-01")
+                        .param("fim", "2026-09-30")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void bloqueios_post_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("bloqueio-user@email.com", Role.USER);
+
+        mvc.perform(
+                        post("/bloqueios")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataInicio": "2026-09-07", "dataFim": "2026-09-07", "motivo": "Feriado"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+    }
+
+    @Test
+    void bloqueios_post_comAdmin_deveCriarBloqueio() throws Exception {
+        User admin = criarUsuario("bloqueio-admin@email.com", Role.ADMIN);
+
+        mvc.perform(
+                        post("/bloqueios")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataInicio": "2026-09-07", "dataFim": "2026-09-07", "motivo": "Feriado"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists(HttpHeaders.LOCATION))
+                .andExpect(jsonPath("$.motivo").value("Feriado"))
+                .andExpect(jsonPath("$.diaInteiro").value(true));
+    }
+
+    @Test
+    void bloqueios_delete_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("bloqueio-delete@email.com", Role.USER);
+
+        mvc.perform(delete("/bloqueios/1").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void dashboardResumo_semToken_deveRetornar401() throws Exception {
         mvc.perform(get("/dashboard/resumo")).andExpect(status().isUnauthorized());
     }
