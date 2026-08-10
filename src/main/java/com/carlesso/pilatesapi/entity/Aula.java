@@ -31,7 +31,21 @@ public class Aula {
     @Column(nullable = false)
     private boolean realizada = false;
 
+    /**
+     * A aula tem três escritores concorrentes ({@code realizar}, {@code profissional} e {@code remarcar}) e cada um
+     * grava um campo diferente da mesma linha. Sem versão, realizar e remarcar em paralelo se sobrescrevem em
+     * silêncio e a aula acaba marcada como realizada numa data em que não foi ministrada — erro que segue direto
+     * para o repasse do profissional, que agrupa por {@code data}.
+     */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     public Aula() {}
+
+    public Long getVersion() {
+        return version;
+    }
 
     public Long getId() {
         return id;

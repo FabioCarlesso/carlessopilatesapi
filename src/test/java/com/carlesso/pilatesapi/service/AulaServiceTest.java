@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 @ExtendWith(MockitoExtension.class)
@@ -432,6 +433,118 @@ class AulaServiceTest {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.atribuirProfissional(1L, 1L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    @Test
+    void remarcar_alteraDataPreservandoPacienteEPagamento() {
+        Aula aula = aulaPendente();
+        LocalDate novaData = LocalDate.of(2025, 2, 20);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.existsByPacienteAndData(paciente, novaData)).thenReturn(false);
+        when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
+
+        var response = service.remarcar(1L, novaData);
+
+        assertThat(aula.getData()).isEqualTo(novaData);
+        assertThat(response.data()).isEqualTo(novaData);
+        assertThat(aula.getPagamento()).isEqualTo(pagamentoPago);
+        assertThat(aula.getPaciente()).isEqualTo(paciente);
+        assertThat(response.realizada()).isFalse();
+    }
+
+    @Test
+    void remarcar_paraForaDoPeriodoDoPagamento_eAceitoMantendoOPagamento() {
+        Aula aula = aulaPendente();
+        // pagamentoPago cobre 01/02 a 28/02: a decisão de negócio da #170 é não confrontar a nova data com o período.
+        LocalDate foraDoPeriodo = LocalDate.of(2025, 3, 15);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.existsByPacienteAndData(paciente, foraDoPeriodo)).thenReturn(false);
+        when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
+
+        var response = service.remarcar(1L, foraDoPeriodo);
+
+        assertThat(response.data()).isEqualTo(foraDoPeriodo);
+        assertThat(aula.getPagamento()).isEqualTo(pagamentoPago);
+    }
+
+    @Test
+    void remarcar_paraDataPassada_eAceito() {
+        Aula aula = aulaPendente();
+        LocalDate passado = LocalDate.of(2020, 1, 6);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.existsByPacienteAndData(paciente, passado)).thenReturn(false);
+        when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
+
+        assertThat(service.remarcar(1L, passado).data()).isEqualTo(passado);
+    }
+
+    @Test
+    void remarcar_paraAMesmaData_naoChecaColisaoNemPersiste() {
+        Aula aula = aulaPendente();
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+
+        var response = service.remarcar(1L, LocalDate.of(2025, 2, 3));
+
+        assertThat(response.data()).isEqualTo(LocalDate.of(2025, 2, 3));
+        verify(aulaRepository, never()).existsByPacienteAndData(any(), any());
+        verify(aulaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void remarcar_aulaRealizada_lancaConflictSemAlterarData() {
+        Aula aula = aulaPendente();
+        aula.setRealizada(true);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+
+        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 20)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Aula já realizada");
+        assertThat(aula.getData()).isEqualTo(LocalDate.of(2025, 2, 3));
+        verify(aulaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void remarcar_pacienteJaTemAulaNaData_lancaConflictSemAlterarData() {
+        Aula aula = aulaPendente();
+        LocalDate ocupada = LocalDate.of(2025, 2, 5);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.existsByPacienteAndData(paciente, ocupada)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.remarcar(1L, ocupada))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Paciente já possui aula na data 2025-02-05");
+        assertThat(aula.getData()).isEqualTo(LocalDate.of(2025, 2, 3));
+        verify(aulaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void remarcar_violacaoDeConstraintNoFlush_viraConflictEmVezDeErroDeBanco() {
+        Aula aula = aulaPendente();
+        LocalDate novaData = LocalDate.of(2025, 2, 5);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        // Concorrência: outra transação gravou a mesma (paciente, data) entre o exists e o flush.
+        when(aulaRepository.existsByPacienteAndData(paciente, novaData)).thenReturn(false);
+        when(aulaRepository.saveAndFlush(aula)).thenThrow(new DataIntegrityViolationException("violação unique"));
+
+        assertThatThrownBy(() -> service.remarcar(1L, novaData))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Paciente já possui aula na data 2025-02-05");
+    }
+
+    @Test
+    void remarcar_pacienteInativo_lancaResourceNotFound() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 20)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Aula não encontrada: 1");
     }

@@ -93,6 +93,27 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
 | `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
+| `PATCH` | `/aulas/{id}/remarcar` | Trocar a data de uma aula ainda não realizada (corpo) |
+
+### Remarcação
+
+`{"data": "2025-02-20"}` move a aula, preservando paciente e `pagamentoId`. A nova data **não** é confrontada com
+`periodoInicio`/`periodoFim` do pagamento e pode estar no passado — a recepção precisa poder remarcar a falta da
+última semana do mês e registrar reposições já ocorridas.
+
+- `409` se a aula já foi realizada, ou se o paciente já tem aula na data de destino (mensagem cita a data).
+- `400` se `data` for omitida ou vier `null`: o corpo traz `campos.data`, apontando o campo culpado.
+- `400` também se `data` vier em formato não-ISO (`"20/02/2025"`), mas **sem** `campos` — aí o corpo é o genérico
+  `{"erro": "Corpo da requisição inválido ou malformado"}`. A desserialização falha antes da Bean Validation, e esse
+  é o contrato do handler global para corpo malformado em toda a API, não uma particularidade desta rota.
+- Remarcar para a data atual da aula é no-op e retorna `200`.
+- `horario` já existe no contrato mas é recusado com `400` até a [#106](https://github.com/FabioCarlesso/carlessopilatesapi/issues/106)
+  criar o campo na aula: aceitar e descartar em silêncio faria o frontend acreditar que a hora foi gravada.
+
+As três rotas de escrita de aula (`realizar`, `profissional` e `remarcar`) usam locking otimista. Se duas
+requisições alterarem a mesma aula ao mesmo tempo, a perdedora recebe `409` com
+`{"erro": "Registro alterado por outra operação simultânea; recarregue e tente novamente"}` — o cliente deve
+recarregar a aula e refazer a ação sobre o estado novo, em vez de repetir a requisição às cegas.
 
 ### Profissional da aula
 

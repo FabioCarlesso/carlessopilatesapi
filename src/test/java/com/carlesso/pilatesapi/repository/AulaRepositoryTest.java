@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
@@ -24,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 @PostgresDataJpaTest
 class AulaRepositoryTest extends PostgresTestcontainerSupport {
@@ -290,6 +293,69 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
             assertThat(row[0]).isEqualTo(pagamentoAtivo.getId());
             assertThat(row[1]).isEqualTo(1L);
         });
+    }
+
+    @Test
+    void remarcarParaDataOcupadaDoPaciente_violaConstraintDeUnicidade() {
+        entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+        entityManager.clear();
+
+        Aula aula = repository.findById(aulaAtiva.getId()).orElseThrow();
+        aula.setData(LocalDate.of(2025, 2, 10));
+
+        // A constraint (paciente_id, data) também vale no UPDATE: é o que sustenta o catch da remarcação no service.
+        // Atenção ao alcance desta garantia: a suíte roda com ddl-auto=create-drop e spring.flyway.enabled=false
+        // (src/test/resources/application.properties), então o schema aqui vem da @UniqueConstraint da entidade, não
+        // da migration. Em produção quem cria a constraint é a V5__create_aulas_table.sql — as duas precisam andar
+        // juntas, e mexer numa sem a outra deixa este teste verde com o banco real desprotegido.
+        assertThatThrownBy(() -> repository.saveAndFlush(aula)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void remarcarComVersaoDesatualizada_falhaComLockingOtimista() {
+        Aula aula = repository.findById(aulaAtiva.getId()).orElseThrow();
+
+        // Simula outra transação gravando a mesma linha entre a leitura e o flush desta.
+        entityManager
+                .getEntityManager()
+                .createNativeQuery("UPDATE aulas SET version = version + 1 WHERE id = :id")
+                .setParameter("id", aulaAtiva.getId())
+                .executeUpdate();
+
+        aula.setData(LocalDate.of(2025, 2, 20));
+
+        assertThatThrownBy(() -> repository.saveAndFlush(aula)).isInstanceOf(OptimisticLockingFailureException.class);
+    }
+
+    @Test
+    void remarcarAulaParaOutroMes_passaAContarNoRelatorioDaNovaData() {
+        Aula remarcada = entityManager.persist(
+                aulaNaoRealizadaSemProfissional(pacienteAtivo, pagamentoAtivo, LocalDate.of(2025, 2, 10)));
+        entityManager.flush();
+
+        // pagamentoAtivo cobre fevereiro; a aula é remarcada para março e só então realizada. O vínculo com o
+        // pagamento não muda, mas o relatório passa a contá-la em março, porque agrupa por a.data.
+        remarcada.setData(LocalDate.of(2025, 3, 10));
+        remarcada.setProfissional(profissional);
+        remarcada.setRealizada(true);
+        entityManager.flush();
+        entityManager.clear();
+
+        var marco = repository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                profissional.getId(), LocalDate.of(2025, 3, 1), LocalDate.of(2025, 3, 31));
+        var fevereiro = repository.findRelatorioPagamentoByProfissionalIdAndPeriodo(
+                profissional.getId(), LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28));
+
+        assertThat(marco)
+                .extracting(AulaRepository.ProfissionalPagamentoAulaProjection::getAulaId)
+                .containsExactly(remarcada.getId());
+        assertThat(marco).singleElement().satisfies(aula -> assertThat(aula.getPagamentoId())
+                .isEqualTo(pagamentoAtivo.getId()));
+        assertThat(fevereiro)
+                .extracting(AulaRepository.ProfissionalPagamentoAulaProjection::getAulaId)
+                .containsExactly(aulaAtiva.getId());
     }
 
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {

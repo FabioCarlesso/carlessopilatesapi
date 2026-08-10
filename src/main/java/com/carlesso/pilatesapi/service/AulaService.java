@@ -14,6 +14,7 @@ import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -116,6 +117,42 @@ public class AulaService {
         }
         aula.setProfissional(resolverProfissional(profissionalId));
         return AulaResponseDTO.from(aula);
+    }
+
+    /**
+     * Troca a data de uma aula ainda não realizada.
+     *
+     * <p>A nova data não é confrontada com {@code periodoInicio}/{@code periodoFim} do pagamento de origem, e pode
+     * estar no passado: a decisão de negócio da #170 foi deixar a recepção remarcar livremente, inclusive
+     * registrando reposições já ocorridas. O {@code pagamento_id} nunca muda — a aula continua pertencendo ao
+     * pagamento que a gerou, mesmo caindo em outro mês, e é por isso que o repasse do profissional pode contá-la
+     * num período diferente do que a pagou.
+     */
+    @Transactional
+    public AulaResponseDTO remarcar(Long id, LocalDate novaData) {
+        Aula aula = encontrar(id);
+        if (aula.isRealizada()) {
+            throw new ConflictException("Aula já realizada não pode ser remarcada");
+        }
+        if (novaData.equals(aula.getData())) {
+            return AulaResponseDTO.from(aula);
+        }
+        if (aulaRepository.existsByPacienteAndData(aula.getPaciente(), novaData)) {
+            throw new ConflictException(conflitoDeData(novaData));
+        }
+        aula.setData(novaData);
+        // A checagem acima não fecha a janela entre o exists e o update — a constraint (paciente_id, data) é a única
+        // garantia real. Sem este flush a violação só apareceria no commit, longe deste catch, e escaparia como 500.
+        try {
+            aulaRepository.saveAndFlush(aula);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException(conflitoDeData(novaData));
+        }
+        return AulaResponseDTO.from(aula);
+    }
+
+    private String conflitoDeData(LocalDate data) {
+        return "Paciente já possui aula na data " + data;
     }
 
     private Profissional resolverProfissional(Long profissionalId) {

@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
@@ -94,6 +95,14 @@ class GlobalExceptionHandlerTest {
         Map<String, String> response = handler.handleDataIntegrity(new DataIntegrityViolationException("violação"));
 
         assertThat(response).containsEntry("erro", "Violação de integridade: registro duplicado ou constraint violada");
+    }
+
+    @Test
+    void handleOptimisticLocking_retornaMensagemDeConcorrencia() {
+        Map<String, String> response =
+                handler.handleOptimisticLocking(new ObjectOptimisticLockingFailureException(Object.class, 1L));
+
+        assertThat(response).containsEntry("erro", GlobalExceptionHandler.ERRO_CONCORRENCIA);
     }
 
     @Test

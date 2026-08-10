@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -52,6 +53,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     static final String ERRO_INTERNO = "Erro interno do servidor";
     static final String ERRO_ROTA = "Rota não encontrada";
     static final String ERRO_UPLOAD_EXCEDIDO = "Arquivo excede o tamanho máximo permitido de 2 MB";
+    static final String ERRO_CONCORRENCIA =
+            "Registro alterado por outra operação simultânea; recarregue e tente novamente";
     static final String MENSAGEM_CAMPO_PADRAO = "valor inválido";
 
     @ExceptionHandler({ResourceNotFoundException.class, EntityNotFoundException.class})
@@ -94,6 +97,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleDataIntegrity(DataIntegrityViolationException e) {
         return Map.of("erro", "Violação de integridade: registro duplicado ou constraint violada");
+    }
+
+    /**
+     * Locking otimista perdido: outra transação gravou a mesma linha entre a leitura e o flush. É conflito de
+     * concorrência, não erro do servidor — sem este handler cairia na rede de segurança e viraria 500, escondendo do
+     * cliente que basta recarregar e repetir.
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleOptimisticLocking(OptimisticLockingFailureException e) {
+        return Map.of("erro", ERRO_CONCORRENCIA);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)

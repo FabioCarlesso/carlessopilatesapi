@@ -39,6 +39,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V31__add_numero_registro_to_profissionais.sql` | Adiciona `numero_registro` (nullable) em `profissionais` — número no conselho profissional (CREFITO, CREF etc.) |
 | `V32__add_profissional_snapshot_to_evolucoes_sessao.sql` | Adiciona o snapshot `profissional_id`/`profissional_nome`/`profissional_numero_registro` em `evolucoes_sessao`, com índice na FK e backfill best-effort a partir da sessão |
 | `V33__add_index_on_aulas_data.sql` | Cria `idx_aulas_data` para a agenda por período (`GET /aulas?inicio=&fim=`); a UNIQUE `(paciente_id, data)` não cobre o filtro só por data |
+| `V34__add_version_to_aulas.sql` | Adiciona `version` (`BIGINT NOT NULL DEFAULT 0`) em `aulas` para locking otimista — a linha ganhou um terceiro escritor concorrente com `PATCH /aulas/{id}/remarcar` |
 
 ## Migrations de seed (`db/seed/`) — apenas perfil `dev`
 

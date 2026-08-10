@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.AulaProfissionalRequestDTO;
+import com.carlesso.pilatesapi.dto.AulaRemarcacaoRequestDTO;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.service.AulaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -88,7 +90,9 @@ public class AulaController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Aula marcada como realizada"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
-        @ApiResponse(responseCode = "409", description = "Aula já marcada como realizada"),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Aula já marcada como realizada, ou alterada por outra operação simultânea"),
         @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/realizar")
@@ -111,12 +115,39 @@ public class AulaController {
         @ApiResponse(responseCode = "200", description = "Profissional atribuído ou desvinculado"),
         @ApiResponse(responseCode = "400", description = "Corpo ausente ou sem o campo `profissionalId`"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
-        @ApiResponse(responseCode = "409", description = "Aula já realizada"),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Aula já realizada, ou alterada por outra operação simultânea"),
         @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/profissional")
     public ResponseEntity<AulaResponseDTO> atribuirProfissional(
             @Parameter(description = "ID da aula") @PathVariable Long id, @RequestBody AulaProfissionalRequestDTO dto) {
         return ResponseEntity.ok(service.atribuirProfissional(id, dto.profissionalId()));
+    }
+
+    @Operation(
+            summary = "Remarcar aula para outra data",
+            description =
+                    """
+                    Troca a data de uma aula ainda não realizada, preservando o paciente e o pagamento de origem.
+                    A nova data **não** precisa cair dentro de `periodoInicio`/`periodoFim` do pagamento e pode
+                    estar no passado, para que a recepção registre reposições já ocorridas. Remarcar para a data
+                    atual da aula é no-op e retorna `200`. O campo `horario` está reservado para a #106 e por ora
+                    é recusado com `400`.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Aula remarcada"),
+        @ApiResponse(responseCode = "400", description = "`data` ausente ou inválida, ou `horario` informado"),
+        @ApiResponse(responseCode = "404", description = "Aula não encontrada"),
+        @ApiResponse(
+                responseCode = "409",
+                description =
+                        "Aula já realizada, paciente já possui aula na data informada, ou aula alterada por outra operação simultânea")
+    })
+    @PatchMapping("/{id}/remarcar")
+    public ResponseEntity<AulaResponseDTO> remarcar(
+            @Parameter(description = "ID da aula") @PathVariable Long id,
+            @RequestBody @Valid AulaRemarcacaoRequestDTO dto) {
+        return ResponseEntity.ok(service.remarcar(id, dto.data()));
     }
 }
