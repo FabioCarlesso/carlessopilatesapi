@@ -28,7 +28,7 @@
         <!-- Formatação (Spotless) e análise estática (SpotBugs). -->
         <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
         <palantir-java-format.version>2.50.0</palantir-java-format.version>
-        <spotbugs-maven-plugin.version>4.10.3.0</spotbugs-maven-plugin.version>
+        <spotbugs-maven-plugin.version>4.10.4.0</spotbugs-maven-plugin.version>
     </properties>
 
     <dependencies>
