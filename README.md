@@ -23,7 +23,7 @@ evoluções), relatórios de pagamento e de emissão de NFSEs, e um dashboard co
 ## Pré-requisitos
 
 - **Docker** e **Docker Compose** — caminho recomendado, não exige nada instalado localmente
-- **Java 21** e **PostgreSQL 16**, apenas para rodar via Maven sem container
+- **Java 21**, **Maven 3.8.9+** e **PostgreSQL 16**, apenas para rodar via Maven sem container (o `spotbugs-maven-plugin` recusa versões anteriores do Maven, como a 3.6.3 dos repositórios do Ubuntu)
 - Docker também é necessário para a suíte de testes: parte dela sobe um PostgreSQL via Testcontainers
 
 ## Como rodar
