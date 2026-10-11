@@ -14,11 +14,13 @@ no schema.
 
 | Método | Endpoint | Acesso | Descrição |
 |---|---|---|---|
-| `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna JWT. Retorna `429` após 5 tentativas falhas em 15 min |
+| `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna `accessToken` (JWT, 15 min por padrão) e `refreshToken` (opaco, 7 dias por padrão). Retorna `429` após 5 tentativas falhas em 15 min |
+| `POST` | `/auth/refresh` | Público | Recebe `refreshToken` e devolve um novo par `accessToken` + `refreshToken` (mesmo corpo do login); o token apresentado deixa de valer. Retorna `401` para token inválido, expirado, revogado, já utilizado (o reuso revoga toda a sessão daquele login) ou emitido antes da última troca de senha |
+| `POST` | `/auth/logout` | Público | Recebe `refreshToken` e o revoga. Sempre `204`, mesmo para token desconhecido ou já revogado. O `accessToken` em uso segue válido até expirar |
 | `POST` | `/auth/forgot-password` | Público | Solicita redefinição de senha por e-mail. Sempre retorna `200` com mensagem genérica, mesmo se o e-mail não existir (evita enumeração de usuários). Retorna `429` após 5 solicitações em 15 min para o mesmo e-mail |
 | `POST` | `/auth/reset-password` | Público | Redefine a senha a partir de `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para token inválido, expirado, já utilizado ou confirmação divergente |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |
-| `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Tokens emitidos antes da troca deixam de autorizar rotas protegidas |
+| `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Access e refresh tokens emitidos antes da troca deixam de valer |
 | `GET` | `/users/me/preferencias` | Autenticado | Retorna as preferências do usuário autenticado (idioma, tema e notificações). Usuário sem preferências salvas recebe os valores padrão |
 | `PUT` | `/users/me/preferencias` | Autenticado | Atualiza as preferências do usuário autenticado. Valida `idioma` (`PT_BR`, `EN_US`, `ES_ES`) e `tema` (`CLARO`, `ESCURO`); valores inválidos retornam `400` |
 | `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
@@ -29,7 +31,7 @@ no schema.
 | `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
-As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos, expirados ou emitidos antes da última troca/redefinição de senha retornam `401 Unauthorized`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.
+As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos, expirados ou emitidos antes da última troca/redefinição de senha retornam `401 Unauthorized` — ao receber `401` por expiração, o cliente chama `POST /auth/refresh` e repete a requisição com o novo `accessToken`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
 

@@ -18,6 +18,7 @@ public class BusinessMetrics {
     private final Counter pagamentosConfirmados;
     private final Counter loginsBloqueados;
     private final Counter emailsResetEnviados;
+    private final Counter refreshTokensReusados;
 
     public BusinessMetrics(MeterRegistry registry) {
         this.cobrancasGeradas = Counter.builder("pilates.cobrancas.geradas")
@@ -34,6 +35,9 @@ public class BusinessMetrics {
                 .register(registry);
         this.emailsResetEnviados = Counter.builder("pilates.emails.reset.enviados")
                 .description("E-mails de redefinição de senha enviados")
+                .register(registry);
+        this.refreshTokensReusados = Counter.builder("pilates.refresh.tokens.reusados")
+                .description("Refresh tokens já rotacionados reapresentados (família revogada)")
                 .register(registry);
     }
 
@@ -55,5 +59,9 @@ public class BusinessMetrics {
 
     public void registrarEmailResetEnviado() {
         emailsResetEnviados.increment();
+    }
+
+    public void registrarRefreshTokenReusado() {
+        refreshTokensReusados.increment();
     }
 }

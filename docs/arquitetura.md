@@ -42,7 +42,8 @@ src/
 │   │   │                 # VistaPostural, StatusAvaliacaoPostural, Role
 │   │   ├── dto/          # Records de request e response
 │   │   ├── exception/    # ResourceNotFoundException (404), ConflictException (409),
-│   │   │                 # BusinessException (422), TooManyRequestsException (429)
+│   │   │                 # BusinessException (422), TooManyRequestsException (429),
+│   │   │                 # UnauthorizedException (401)
 │   │   ├── security/     # JwtAuthenticationFilter — valida o Bearer token por requisição
 │   │   ├── email/        # EmailSender e implementações (SMTP), templates transacionais
 │   │   ├── storage/      # Persistência do binário das fotos de análise postural
@@ -81,6 +82,7 @@ semanticamente correto:
 | `ResourceNotFoundException` | `404 Not Found` | Recurso solicitado não existe (ex.: paciente, plano, pagamento ou aula não encontrada) |
 | `ConflictException` | `409 Conflict` | Conflito de estado ou duplicidade (ex.: e-mail/CPF já cadastrado, pagamento já confirmado, aula já realizada) |
 | `BusinessException` | `422 Unprocessable Entity` | Regra de negócio violada (ex.: paciente inativo não pode receber cobrança, profissional inativo não pode ser vinculado a aula) |
+| `UnauthorizedException` | `401 Unauthorized` | Refresh token inválido, expirado, revogado ou reutilizado em `POST /auth/refresh`; a mensagem é genérica e não diz qual dos casos ocorreu |
 | `IllegalArgumentException` | `400 Bad Request` | Parâmetros de entrada inválidos (ex.: período inicial maior que o final, valor menor que o do plano) |
 | `DataIntegrityViolationException` | `409 Conflict` | Violação de constraint do banco (ex.: registro duplicado ao salvar) |
 | `MethodArgumentNotValidException` / `HandlerMethodValidationException` / `ConstraintViolationException` | `400 Bad Request` | Bean Validation falhou (`@NotBlank`, `@Email`, `@Min`…); a resposta detalha os campos inválidos |

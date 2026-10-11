@@ -53,6 +53,7 @@ O endpoint `/actuator/prometheus` expõe métricas no formato de scrape do Prome
 | `pilates_pagamentos_confirmados_total` | Pagamentos confirmados |
 | `pilates_logins_bloqueados_total` | Tentativas de login barradas pelo rate limit |
 | `pilates_emails_reset_enviados_total` | E-mails de redefinição de senha enviados |
+| `pilates_refresh_tokens_reusados_total` | Refresh tokens já rotacionados reapresentados — cada ocorrência revogou uma sessão e indica possível vazamento de token |
 
 Os contadores são declarados em `metrics/BusinessMetrics` e nascem em `0` na subida da aplicação, permitindo alertas por taxa (`rate(...)`) sem esperar o primeiro evento. Todas as séries carregam a tag `application=CarlessoPilatesApi`.
 
@@ -71,6 +72,10 @@ scrape_configs:
     static_configs:
       - targets: ['api:8080']
 ```
+
+> O access token expira em `JWT_EXPIRATION_MS` (15 min por padrão), então um JWT fixo no `prometheus.yml` para de
+> autorizar o scrape logo depois. Enquanto não houver credencial dedicada para o scrape, o token precisa ser
+> renovado por fora (login ou `POST /auth/refresh`) e gravado em `credentials_file`.
 
 Verificação manual:
 

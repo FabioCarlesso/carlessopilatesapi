@@ -83,7 +83,8 @@ export DB_NAME=carlesso_pilates
 export DB_USER=postgres
 export DB_PASSWORD=postgres
 export JWT_SECRET=replace_with_a_secret_with_at_least_32_characters
-export JWT_EXPIRATION_MS=86400000
+export JWT_EXPIRATION_MS=900000
+export JWT_REFRESH_EXPIRATION_MS=604800000
 export CORS_ALLOWED_ORIGINS=http://localhost:4200
 ```
 
@@ -104,7 +105,8 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `DB_USER` | `postgres` | Usuário do banco |
 | `DB_PASSWORD` | `postgres` | Senha do banco |
 | `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar JWT; use pelo menos 32 caracteres |
-| `JWT_EXPIRATION_MS` | `86400000` | Expiração do access token em milissegundos |
+| `JWT_EXPIRATION_MS` | `900000` | Expiração do access token em milissegundos (15 min); a sessão é renovada por `POST /auth/refresh` |
+| `JWT_REFRESH_EXPIRATION_MS` | `604800000` | Expiração do refresh token em milissegundos (7 dias), contada a partir de cada rotação |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
 | `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` | E-mail do admin inicial criado no perfil `prod` quando não há `ADMIN` ativo |
 | `APP_INITIAL_ADMIN_PASSWORD` | - | Senha obrigatória para bootstrap do admin inicial no perfil `prod` |

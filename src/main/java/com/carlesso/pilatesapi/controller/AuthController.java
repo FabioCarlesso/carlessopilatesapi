@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.controller;
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthResponseDTO;
 import com.carlesso.pilatesapi.dto.ForgotPasswordRequestDTO;
+import com.carlesso.pilatesapi.dto.RefreshTokenRequestDTO;
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
 import com.carlesso.pilatesapi.service.AuthService;
 import com.carlesso.pilatesapi.service.PasswordResetService;
@@ -19,9 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(
         name = "Autenticação",
-        description =
-                "Login e recuperação de senha com JWT. Use o accessToken retornado no botão Authorize do Swagger UI. "
-                        + "A criação de usuários é restrita a administradores em POST /users.")
+        description = "Login, renovação de sessão e recuperação de senha com JWT. Use o accessToken retornado no botão "
+                + "Authorize do Swagger UI e o refreshToken em POST /auth/refresh quando ele expirar. "
+                + "A criação de usuários é restrita a administradores em POST /users.")
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -37,10 +38,44 @@ public class AuthController {
     @Operation(
             summary = "Login",
             description =
-                    "Endpoint público. Valida e-mail/senha e retorna accessToken para uso no Authorize do Swagger UI.")
+                    "Endpoint público. Valida e-mail/senha e retorna accessToken (curta duração) para uso no Authorize "
+                            + "do Swagger UI e refreshToken para renovar a sessão em POST /auth/refresh.")
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid AuthLoginRequestDTO dto) {
         return ResponseEntity.ok(authService.login(dto));
+    }
+
+    @Operation(
+            summary = "Renovar sessão",
+            description =
+                    "Endpoint público. Troca um refreshToken válido por um novo par accessToken + refreshToken; o "
+                            + "refreshToken apresentado deixa de valer (rotação). Reapresentar um refreshToken já "
+                            + "rotacionado revoga toda a sessão originada no mesmo login.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Novo par de tokens emitido"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido"),
+        @ApiResponse(
+                responseCode = "401",
+                description =
+                        "Refresh token inválido, expirado, revogado, já utilizado ou emitido antes da última troca de senha")
+    })
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponseDTO> refresh(@RequestBody @Valid RefreshTokenRequestDTO dto) {
+        return ResponseEntity.ok(authService.refresh(dto));
+    }
+
+    @Operation(
+            summary = "Logout",
+            description = "Endpoint público. Revoga o refreshToken informado. Idempotente: token desconhecido ou já "
+                    + "revogado também retorna 204. O accessToken em uso continua válido até expirar.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Refresh token revogado"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido")
+    })
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestBody @Valid RefreshTokenRequestDTO dto) {
+        authService.logout(dto);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(
@@ -63,7 +98,7 @@ public class AuthController {
             summary = "Redefinir senha",
             description =
                     "Endpoint público. Redefine a senha a partir de um token de redefinição válido, não expirado e ainda não utilizado. "
-                            + "Tokens emitidos antes da redefinição deixam de autorizar rotas protegidas.")
+                            + "Access e refresh tokens emitidos antes da redefinição deixam de valer.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Senha redefinida com sucesso"),
         @ApiResponse(responseCode = "400", description = "Payload inválido"),

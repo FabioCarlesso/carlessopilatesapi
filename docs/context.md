@@ -72,7 +72,7 @@ Join table `plano_dias_semana`: `plano_id` + `dia_semana` (MONDAY, TUESDAY…)
 | `ativo` | BOOLEAN | NOT NULL, default `true` |
 | `token_version` | BIGINT | NOT NULL, default `0` |
 
-Usuários inativos são preservados no banco, mas não podem autenticar nem usar tokens JWT emitidos antes da inativação. `token_version` é incrementado quando a senha é trocada ou redefinida; tokens com versão anterior deixam de autorizar rotas protegidas.
+Usuários inativos são preservados no banco, mas não podem autenticar nem usar tokens JWT emitidos antes da inativação. `token_version` é incrementado quando a senha é trocada ou redefinida; access tokens com versão anterior deixam de autorizar rotas protegidas e refresh tokens com versão anterior deixam de renovar a sessão.
 
 ### Tabela `pagamentos`
 
@@ -277,6 +277,22 @@ Restrição `UNIQUE (paciente_id, competencia)` garante uma única NFSE emitida 
 
 Relacionamento `@ManyToOne` com `User`. Cada solicitação de "esqueci minha senha" gera um novo registro; tokens não são reutilizados entre solicitações.
 
+### Tabela `refresh_tokens`
+
+| Campo | Tipo | Restrição |
+|---|---|---|
+| `id` | BIGINT | PK, auto-increment |
+| `user_id` | BIGINT | NOT NULL, FK → users `ON DELETE CASCADE` |
+| `token_hash` | VARCHAR(64) | NOT NULL, UNIQUE (hash SHA-256; o token em texto puro nunca é persistido) |
+| `family_id` | UUID | NOT NULL (cadeia de rotações nascida em um mesmo login) |
+| `token_version` | BIGINT | NOT NULL (versão do usuário na emissão) |
+| `expires_at` | TIMESTAMP | NOT NULL |
+| `used_at` | TIMESTAMP | nullable (marcado na rotação) |
+| `revoked_at` | TIMESTAMP | nullable (logout, reuso detectado, troca de senha ou inativação) |
+| `created_at` | TIMESTAMP | NOT NULL |
+
+Relacionamento `@ManyToOne` com `User`. Cada rotação gera um registro novo na mesma família, em vez de atualizar o hash no lugar: é a linha antiga, com `used_at` preenchido, que permite reconhecer o reuso de um token já rotacionado e revogar a família.
+
 ### Tabela `bloqueios_agenda`
 
 | Campo | Tipo | Restrição |
@@ -326,6 +342,8 @@ A unicidade de `(paciente_id, dia_semana, hora_inicio, hora_fim)` entre as linha
 | `idx_sessoes_pilates_data` | `sessoes_pilates(data)` | Busca e ordenação de sessões por data |
 | `idx_notas_fiscais_emitidas_paciente` | `notas_fiscais_emitidas(paciente_id)` | Listagem de NFSEs por paciente e lookup do relatório de NFSE |
 | `idx_password_reset_tokens_user_id` | `password_reset_tokens(user_id)` | Suporte a possíveis consultas administrativas/cleanup por usuário |
+| `idx_refresh_tokens_user_id` | `refresh_tokens(user_id)` | FK; cobre o `ON DELETE CASCADE` e consultas por usuário |
+| `idx_refresh_tokens_family_id` | `refresh_tokens(family_id)` | Revogação da família inteira quando o reuso é detectado |
 | `idx_bloqueios_agenda_periodo` | `bloqueios_agenda(data_inicio, data_fim)` | Única consulta da tabela: interseção com o período de `GET /bloqueios` |
 | `idx_lista_espera_dia_hora` | `lista_espera(dia_semana, hora_inicio)` | Filtro de `GET /lista-espera`: dia da semana + interseção da faixa horária |
 | `idx_lista_espera_paciente` | `lista_espera(paciente_id)` | FK usada pelo filtro `pacienteId` e pelo join que recorta pacientes inativos |
@@ -346,7 +364,8 @@ Consolidadas em [`regras-de-negocio.md`](regras-de-negocio.md), fonte única do 
 - **Atualização parcial via PUT**: DTOs de update têm todos os campos opcionais; o service só sobrescreve os campos não-nulos.
 - **DTOs como records**: todos os DTOs de request e response são Java records.
 - **Factory method**: `*ResponseDTO.from(Entity)` centraliza o mapeamento entidade → DTO.
-- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409. Erros de Bean Validation retornam 400 com `{"erro": "Dados inválidos", "campos": {campo: mensagem}}`; JSON malformado retorna 400 com mensagem neutra. O handler estende `ResponseEntityExceptionHandler`, então as exceções do próprio Spring MVC mantêm status e headers do framework (405 com `Allow`, 415, parâmetro ausente e type mismatch → 400) com o corpo trocado para `{"erro": ...}`. Exceções não mapeadas (e 5xx do framework) retornam mensagem neutra e são logadas com stacktrace; `@ResponseStatus` em exceções customizadas é respeitado. O 403 de autorização por URL é escrito pelo `accessDeniedHandler` do `SecurityConfig` com o mesmo contrato `{"erro": "Acesso negado"}`.
+- **Tratamento de erros**: `GlobalExceptionHandler` mapeia exceções customizadas (`ResourceNotFoundException` → 404, `ConflictException` → 409, `BusinessException` → 422, `UnauthorizedException` → 401) e retorna `{"erro": "..."}`. `IllegalArgumentException` segue como 400 e `DataIntegrityViolationException` como 409. Erros de Bean Validation retornam 400 com `{"erro": "Dados inválidos", "campos": {campo: mensagem}}`; JSON malformado retorna 400 com mensagem neutra. O handler estende `ResponseEntityExceptionHandler`, então as exceções do próprio Spring MVC mantêm status e headers do framework (405 com `Allow`, 415, parâmetro ausente e type mismatch → 400) com o corpo trocado para `{"erro": ...}`. Exceções não mapeadas (e 5xx do framework) retornam mensagem neutra e são logadas com stacktrace; `@ResponseStatus` em exceções customizadas é respeitado. O 403 de autorização por URL é escrito pelo `accessDeniedHandler` do `SecurityConfig` com o mesmo contrato `{"erro": "Acesso negado"}`.
+- **Refresh token opaco e rotativo, não JWT**: o refresh precisa ser revogável (logout, reuso, troca de senha), e revogar exige estado no servidor de qualquer jeito; um token opaco com hash no banco dá isso sem um segundo segredo de assinatura. A rotação com família segue a recomendação do OAuth 2.0 Security BCP para clientes públicos (SPA): o reuso de um token já rotacionado denuncia o vazamento e derruba a cadeia. O access token continua JWT stateless e curto — revogá-lo exigiria consultar o banco a cada requisição, que é justamente o que o par curto/longo evita.
 - **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
 - **Transações de leitura**: métodos de consulta nos services usam `@Transactional(readOnly = true)` para evitar flush desnecessário e permitir otimizações de conexão.
 - **Indicador de saúde de mail desligado enquanto não houver SMTP**: o starter de mail no classpath registra o `MailHealthIndicator` por padrão. Sem SMTP contratado (`spring.mail.host` vazio), ele falha continuamente e derruba o `/actuator/health` agregado para `DOWN`, ainda que app e banco estejam sãos — os probes seguem `UP` porque usam grupos restritos. Por isso `management.health.mail.enabled=false` é declarado uma vez no `application.properties` principal, valendo para todos os perfis; o `application.properties` de teste repete a chave porque sombreia o principal no classpath, e o `MailHealthPropriedadesTest` guarda essa duplicação obrigatória. Ao contratar SMTP, reative com `=true` no perfil desejado e ajuste o teste junto. O healthcheck externo deve apontar para `/actuator/health/readiness` — ver [`operacao.md`](operacao.md).

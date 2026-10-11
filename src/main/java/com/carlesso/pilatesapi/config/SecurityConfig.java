@@ -118,7 +118,8 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         configuration.setExposedHeaders(List.of("Location", "Content-Disposition", "X-Request-Id"));
-        configuration.setAllowCredentials(true);
+        // Sem allowCredentials: a autenticação é Bearer no header Authorization, não cookie,
+        // então o navegador não tem credencial ambiente a enviar entre origens.
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

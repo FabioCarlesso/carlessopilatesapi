@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
+import com.carlesso.pilatesapi.exception.UnauthorizedException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
@@ -85,6 +86,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Map<String, String> handleAuthentication(AuthenticationException e) {
         return Map.of("erro", "Credenciais inválidas");
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, String> handleUnauthorized(UnauthorizedException e) {
+        return Map.of("erro", e.getMessage());
     }
 
     @ExceptionHandler(TooManyRequestsException.class)

@@ -148,6 +148,8 @@ Smoke test autenticado: login, `GET /pacientes` e a ficha de um paciente com evo
 cd scripts && python3 -m unittest discover -p 'test_*.py' -v
 ```
 
+> O `accessToken` da API local expira em `JWT_EXPIRATION_MS` (15 min por padrão) e os scripts logam uma única vez. Se uma execução passar disso e começar a receber `401`, rode-a de novo — os scripts são idempotentes — ou aumente `JWT_EXPIRATION_MS` só durante a carga.
+>
 > O token JWT do seufisio expira (~2 dias). Se demorar para rodar, capture um novo no DevTools. O header `x-version-app` é obrigatório: sem ele a API do seufisio responde `426 Upgrade Required`.
 >
 > **Segurança**: o `.gitignore` está configurado para nunca versionar dumps (`scripts/*.json`, `scripts/*.csv`) nem variáveis locais (`scripts/.env`). Não commitar tokens nem dados de pacientes em hipótese alguma. Logs e `--dry-run` mascaram CPF/e-mail/nome e nunca imprimem o texto clínico das evoluções.

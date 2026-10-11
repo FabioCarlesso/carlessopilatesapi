@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.service;
 
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthResponseDTO;
+import com.carlesso.pilatesapi.dto.RefreshTokenRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
@@ -24,21 +25,24 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
     private final LoginAttemptService loginAttemptService;
     private final BusinessMetrics businessMetrics;
 
     public AuthService(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
+            RefreshTokenService refreshTokenService,
             LoginAttemptService loginAttemptService,
             BusinessMetrics businessMetrics) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
         this.loginAttemptService = loginAttemptService;
         this.businessMetrics = businessMetrics;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponseDTO login(AuthLoginRequestDTO dto) {
         String email = EmailNormalizer.normalizar(dto.email());
         if (loginAttemptService.isBlocked(email)) {
@@ -51,13 +55,31 @@ public class AuthService {
                     authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, dto.password()));
             loginAttemptService.registerSuccess(email);
             User user = (User) auth.getPrincipal();
-            String token = jwtService.generateToken(user);
+            String accessToken = jwtService.generateToken(user);
+            String refreshToken = refreshTokenService.emitir(user);
             log.info("Login bem-sucedido: userId={}, email={}", user.getId(), LogMasker.email(email));
-            return AuthResponseDTO.bearer(token, UserResponseDTO.from(user));
+            return AuthResponseDTO.bearer(accessToken, refreshToken, UserResponseDTO.from(user));
         } catch (AuthenticationException e) {
             loginAttemptService.registerFailure(email);
             log.warn("Falha de autenticação: email={}", LogMasker.email(email));
             throw e;
         }
+    }
+
+    /**
+     * Sem {@code @Transactional} próprio de propósito: a transação é a de
+     * {@link RefreshTokenService#rotacionar}, cujo {@code noRollbackFor} preserva a
+     * revogação da família quando o reuso é detectado. Uma transação externa aqui
+     * seria marcada para rollback pela mesma exceção e desfaria a revogação.
+     */
+    public AuthResponseDTO refresh(RefreshTokenRequestDTO dto) {
+        var rotacionado = refreshTokenService.rotacionar(dto.refreshToken());
+        User user = rotacionado.user();
+        return AuthResponseDTO.bearer(
+                jwtService.generateToken(user), rotacionado.refreshToken(), UserResponseDTO.from(user));
+    }
+
+    public void logout(RefreshTokenRequestDTO dto) {
+        refreshTokenService.revogar(dto.refreshToken());
     }
 }

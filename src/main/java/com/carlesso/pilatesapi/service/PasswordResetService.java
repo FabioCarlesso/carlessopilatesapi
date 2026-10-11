@@ -12,13 +12,8 @@ import com.carlesso.pilatesapi.repository.PasswordResetTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import com.carlesso.pilatesapi.util.LogMasker;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import com.carlesso.pilatesapi.util.TokenOpaco;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.HexFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +26,6 @@ public class PasswordResetService {
     private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
 
     private static final String RATE_LIMIT_KEY_PREFIX = "forgot-password:";
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
@@ -87,7 +81,7 @@ public class PasswordResetService {
         }
 
         PasswordResetToken resetToken = tokenRepository
-                .findByTokenHash(hash(dto.token()))
+                .findByTokenHash(TokenOpaco.hash(dto.token()))
                 .filter(PasswordResetToken::isValido)
                 .orElseThrow(() -> {
                     log.warn("Redefinição de senha rejeitada: token inválido ou expirado");
@@ -106,31 +100,16 @@ public class PasswordResetService {
     private void gerarTokenEEnviarEmail(User user) {
         tokenRepository.invalidarTokensAtivos(user, LocalDateTime.now());
 
-        String rawToken = gerarTokenAleatorio();
+        String rawToken = TokenOpaco.gerar();
 
         PasswordResetToken token = new PasswordResetToken();
         token.setUser(user);
-        token.setTokenHash(hash(rawToken));
+        token.setTokenHash(TokenOpaco.hash(rawToken));
         token.setExpiresAt(LocalDateTime.now().plusMinutes(tokenTtlMinutos));
         tokenRepository.save(token);
 
         String link = resetPasswordUrl + "?token=" + rawToken;
         emailSender.send(emailTemplateService.criarEmailRedefinicaoSenha(user, link));
         businessMetrics.registrarEmailResetEnviado();
-    }
-
-    private String gerarTokenAleatorio() {
-        byte[] bytes = new byte[32];
-        SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
-    private String hash(String token) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algoritmo de hash indisponível", e);
-        }
     }
 }
