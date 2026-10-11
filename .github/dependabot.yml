@@ -50,6 +50,13 @@ updates:
       time: "06:00"
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 3
+    # A tag da imagem de build (maven:<versão>-eclipse-temurin-<jdk>) carrega a
+    # JDK no sufixo, e o Dependabot troca a JDK como se fosse um bump "minor"
+    # (ex.: 3.9-eclipse-temurin-21 → 3-eclipse-temurin-26, JDK não-LTS). A JDK
+    # de build precisa acompanhar a da CI (setup-java) e a do runtime
+    # (eclipse-temurin:21-jre-alpine), então essa imagem é atualizada à mão.
+    ignore:
+      - dependency-name: "maven"
     groups:
       docker-minor-patch:
         update-types:

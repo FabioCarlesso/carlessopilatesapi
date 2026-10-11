@@ -65,7 +65,7 @@ O gate existe para impedir regressão da suíte — a intenção é subi-lo grad
 
 | Recurso | Arquivo | O que faz |
 |---|---|---|
-| **Dependabot** | `.github/dependabot.yml` | Verifica semanalmente (segunda-feira, 06:00 BRT) atualizações nos ecossistemas `maven` (pom.xml), `github-actions` (workflows) e `docker` (imagens base do Dockerfile), abrindo PRs automaticamente. Atualizações patch/minor são agrupadas em um único PR por ecossistema; majors abrem PRs individuais. |
+| **Dependabot** | `.github/dependabot.yml` | Verifica semanalmente (segunda-feira, 06:00 BRT) atualizações nos ecossistemas `maven` (pom.xml), `github-actions` (workflows) e `docker` (imagens base do Dockerfile), abrindo PRs automaticamente. Atualizações patch/minor são agrupadas em um único PR por ecossistema; majors abrem PRs individuais. A imagem de build `maven` é ignorada: o Dependabot troca a JDK do sufixo da tag como se fosse um bump minor, então ela é atualizada à mão, junto com a JDK da CI (`setup-java`) e a do runtime (`eclipse-temurin`). |
 | **CodeQL** | `.github/workflows/codeql.yml` | Análise estática de segurança (SAST) do código Java a cada `push`/`pull_request` para `master` e semanalmente via agenda. Resultados aparecem em *Security → Code scanning*. |
 
 > Os alertas de vulnerabilidade (*Dependabot alerts*) são habilitados nas configurações do repositório (*Settings → Advanced Security*); o monitoramento dos três ecossistemas pode ser conferido em *Insights → Dependency graph → Dependabot*.
