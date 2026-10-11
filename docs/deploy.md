@@ -107,11 +107,15 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `JWT_SECRET` | - | Segredo HMAC obrigatório para assinar JWT; use pelo menos 32 caracteres |
 | `JWT_EXPIRATION_MS` | `900000` | Expiração do access token em milissegundos (15 min); a sessão é renovada por `POST /auth/refresh` |
 | `JWT_REFRESH_EXPIRATION_MS` | `604800000` | Expiração do refresh token em milissegundos (7 dias), contada a partir de cada rotação |
+| `JWT_REFRESH_SESSION_MAX_MS` | `2592000000` | Teto absoluto da sessão em milissegundos (30 dias desde o login); a rotação nunca estende o refresh token além dele |
+| `JWT_REFRESH_REUSE_GRACE_MS` | `10000` | Tolerância após a rotação em que reapresentar o token antigo recebe `401` sem derrubar a sessão (retentativa de rede, duas abas); `0` desliga |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
 | `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` | E-mail do admin inicial criado no perfil `prod` quando não há `ADMIN` ativo |
 | `APP_INITIAL_ADMIN_PASSWORD` | - | Senha obrigatória para bootstrap do admin inicial no perfil `prod` |
 | `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` | Cron expression do scheduler que marca pagamentos como `VENCIDO` |
 | `APP_COBRANCA_CRON_COBRANCAS_FUTURAS` | `0 0 7 * * *` | Cron expression do scheduler que gera cobranças futuras |
+| `APP_REFRESH_TOKEN_CRON_LIMPEZA` | `0 30 3 * * *` | Cron expression da limpeza diária de refresh tokens vencidos ou revogados |
+| `APP_METRICS_SCRAPE_TOKEN` | - | Credencial fixa (mín. 32 caracteres) aceita só em `/actuator/prometheus` para o scrape do Prometheus; vazia, o endpoint exige JWT de `ADMIN` |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
 | `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas |
 | `APP_EMAIL_PROVIDER` | `smtp` | Provedor de e-mail ativo (seleciona o bean `EmailSender` via `EmailConfig`) |

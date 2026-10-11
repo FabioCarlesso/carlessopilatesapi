@@ -43,7 +43,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V35__create_bloqueios_agenda_table.sql` | Cria tabela `bloqueios_agenda` (feriados, manutenção, eventos) com índice `(data_inicio, data_fim)` para a consulta por interseção de período. Sem FK nem constraint de sobreposição: o bloqueio é informativo e dois registros podem cobrir o mesmo dia |
 | `V36__create_lista_espera_table.sql` | Cria tabela `lista_espera` (interessados por dia da semana e faixa de horário) com FK para `pacientes` e índices `(dia_semana, hora_inicio)` e `(paciente_id)`. `data_entrada` é `TIMESTAMP` — a ordem de chegada precisa desempatar inscrições do mesmo dia — e `ativo` sustenta a remoção lógica |
 | `V37__add_unique_lista_espera_ativa.sql` | Cria o índice único **parcial** `lista_espera_ativa_uidx` em `(paciente_id, dia_semana, hora_inicio, hora_fim) WHERE ativo` — fecha a janela entre a checagem de duplicidade e o `INSERT`, que requisições concorrentes atravessavam. O predicado é o que permite reentrar na fila depois da remoção lógica |
-| `V38__create_refresh_tokens_table.sql` | Cria tabela `refresh_tokens` (hash SHA-256 do token, `family_id` da cadeia de rotações, `token_version` do usuário na emissão, `used_at`/`revoked_at`) com índices em `user_id` e `family_id` |
+| `V38__create_refresh_tokens_table.sql` | Cria tabela `refresh_tokens` (hash SHA-256 do token, `family_id` da cadeia de rotações, `token_version` do usuário na emissão, `family_expires_at` como teto absoluto da sessão, `used_at`/`revoked_at`) com índices em `user_id`, `family_id` e `family_expires_at` (limpeza diária) |
 
 ## Migrations de seed (`db/seed/`) — apenas perfil `dev`
 

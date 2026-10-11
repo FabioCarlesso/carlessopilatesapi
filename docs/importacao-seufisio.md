@@ -148,7 +148,7 @@ Smoke test autenticado: login, `GET /pacientes` e a ficha de um paciente com evo
 cd scripts && python3 -m unittest discover -p 'test_*.py' -v
 ```
 
-> O `accessToken` da API local expira em `JWT_EXPIRATION_MS` (15 min por padrão) e os scripts logam uma única vez. Se uma execução passar disso e começar a receber `401`, rode-a de novo — os scripts são idempotentes — ou aumente `JWT_EXPIRATION_MS` só durante a carga.
+> O `accessToken` da API local expira em `JWT_EXPIRATION_MS` (15 min por padrão), menos que uma carga completa. Os scripts guardam também o `refreshToken` do login (`SessaoLocal`) e, quando uma chamada autenticada volta `401`, renovam a sessão via `POST /auth/refresh` e repetem a chamada uma vez — a carga atravessa a expiração sem intervenção.
 >
 > O token JWT do seufisio expira (~2 dias). Se demorar para rodar, capture um novo no DevTools. O header `x-version-app` é obrigatório: sem ele a API do seufisio responde `426 Upgrade Required`.
 >

@@ -39,6 +39,9 @@ public class RefreshToken {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
+    @Column(name = "family_expires_at", nullable = false)
+    private LocalDateTime familyExpiresAt;
+
     @Column(name = "used_at")
     private LocalDateTime usedAt;
 
@@ -97,6 +100,14 @@ public class RefreshToken {
 
     public void setExpiresAt(LocalDateTime expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public LocalDateTime getFamilyExpiresAt() {
+        return familyExpiresAt;
+    }
+
+    public void setFamilyExpiresAt(LocalDateTime familyExpiresAt) {
+        this.familyExpiresAt = familyExpiresAt;
     }
 
     public LocalDateTime getUsedAt() {

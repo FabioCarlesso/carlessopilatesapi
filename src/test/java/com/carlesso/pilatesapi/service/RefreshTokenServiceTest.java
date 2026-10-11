@@ -33,6 +33,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class RefreshTokenServiceTest {
 
     private static final long TTL_MS = 7L * 24 * 60 * 60 * 1000;
+    private static final long SESSAO_MAX_MS = 30L * 24 * 60 * 60 * 1000;
+    private static final long TOLERANCIA_MS = 10_000;
 
     @Mock
     private RefreshTokenRepository repository;
@@ -48,7 +50,12 @@ class RefreshTokenServiceTest {
     }
 
     private RefreshTokenService novoService(long ttlMs) {
-        return new RefreshTokenService(repository, new BusinessMetrics(meterRegistry), ttlMs);
+        return novoService(ttlMs, SESSAO_MAX_MS);
+    }
+
+    private RefreshTokenService novoService(long ttlMs, long sessaoMaxMs) {
+        return new RefreshTokenService(
+                repository, new BusinessMetrics(meterRegistry), ttlMs, sessaoMaxMs, TOLERANCIA_MS);
     }
 
     @Test
@@ -68,6 +75,20 @@ class RefreshTokenServiceTest {
         assertThat(salvo.getExpiresAt())
                 .isAfter(LocalDateTime.now().plusDays(6))
                 .isBefore(LocalDateTime.now().plusDays(8));
+        assertThat(salvo.getFamilyExpiresAt())
+                .isAfter(LocalDateTime.now().plusDays(29))
+                .isBefore(LocalDateTime.now().plusDays(31));
+    }
+
+    @Test
+    void emitir_comTetoDaSessaoMenorQueOTtl_expiraNoTeto() {
+        RefreshTokenService sessaoCurta = novoService(TTL_MS, 60_000);
+
+        sessaoCurta.emitir(usuario(true, 0));
+
+        var captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getExpiresAt()).isEqualTo(captor.getValue().getFamilyExpiresAt());
     }
 
     @Test
@@ -94,12 +115,29 @@ class RefreshTokenServiceTest {
         assertThat(rotacionado.user()).isSameAs(user);
         assertThat(rotacionado.refreshToken()).isNotBlank().isNotEqualTo("raw-atual");
         assertThat(atual.getUsedAt()).isNotNull();
+        // O atual é gerenciado e gravado pelo dirty checking: só o sucessor passa pelo save.
         var captor = ArgumentCaptor.forClass(RefreshToken.class);
-        verify(repository, times(2)).save(captor.capture());
-        RefreshToken novo = captor.getAllValues().get(1);
+        verify(repository).save(captor.capture());
+        RefreshToken novo = captor.getValue();
         assertThat(novo.getFamilyId()).isEqualTo(atual.getFamilyId());
+        assertThat(novo.getFamilyExpiresAt()).isEqualTo(atual.getFamilyExpiresAt());
         assertThat(novo.getTokenHash()).isEqualTo(TokenOpaco.hash(rotacionado.refreshToken()));
         verify(repository, never()).revogarFamilia(any(), any());
+    }
+
+    @Test
+    void rotacionar_pertoDoTetoDaSessao_naoEstendeAlemDele() {
+        User user = usuario(true, 0);
+        RefreshToken atual = token(user, 0);
+        LocalDateTime teto = LocalDateTime.now().plusHours(1);
+        atual.setFamilyExpiresAt(teto);
+        when(repository.findByTokenHash(anyString())).thenReturn(Optional.of(atual));
+
+        service.rotacionar("raw");
+
+        var captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getExpiresAt()).isEqualTo(teto);
     }
 
     @Test
@@ -117,6 +155,47 @@ class RefreshTokenServiceTest {
         verify(repository, never()).save(any());
         assertThat(meterRegistry.counter("pilates.refresh.tokens.reusados").count())
                 .isEqualTo(1.0);
+    }
+
+    @Test
+    void rotacionar_comTokenRotacionadoHaInstantes_deveRetornar401SemRevogarAFamilia() {
+        RefreshToken retentativa = token(usuario(true, 0), 0);
+        retentativa.setUsedAt(LocalDateTime.now().minusSeconds(2));
+        when(repository.findByTokenHash(anyString())).thenReturn(Optional.of(retentativa));
+
+        assertThatThrownBy(() -> service.rotacionar("raw")).isInstanceOf(UnauthorizedException.class);
+
+        verify(repository, never()).revogarFamilia(any(), any());
+        verify(repository, never()).save(any());
+        assertThat(meterRegistry.counter("pilates.refresh.tokens.reusados").count())
+                .isZero();
+    }
+
+    @Test
+    void rotacionar_comTokenRotacionadoDeSessaoJaEncerrada_naoContaComoReuso() {
+        RefreshToken antigo = token(usuario(true, 0), 0);
+        antigo.setUsedAt(LocalDateTime.now().minusHours(1));
+        antigo.setRevokedAt(LocalDateTime.now().minusMinutes(30));
+        when(repository.findByTokenHash(anyString())).thenReturn(Optional.of(antigo));
+
+        assertThatThrownBy(() -> service.rotacionar("raw")).isInstanceOf(UnauthorizedException.class);
+
+        verify(repository, never()).revogarFamilia(any(), any());
+        assertThat(meterRegistry.counter("pilates.refresh.tokens.reusados").count())
+                .isZero();
+    }
+
+    @Test
+    void rotacionar_comTokenRotacionadoAposTrocaDeSenha_naoContaComoReuso() {
+        RefreshToken antigo = token(usuario(true, 1), 0);
+        antigo.setUsedAt(LocalDateTime.now().minusHours(1));
+        when(repository.findByTokenHash(anyString())).thenReturn(Optional.of(antigo));
+
+        assertThatThrownBy(() -> service.rotacionar("raw")).isInstanceOf(UnauthorizedException.class);
+
+        verify(repository).revogarFamilia(eq(antigo.getFamilyId()), any());
+        assertThat(meterRegistry.counter("pilates.refresh.tokens.reusados").count())
+                .isZero();
     }
 
     @Test
@@ -184,27 +263,25 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    void revogar_comTokenAtivo_deveMarcarRevogado() {
+    void revogar_deveRevogarAFamiliaInteira() {
         RefreshToken token = token(usuario(true, 0), 0);
         when(repository.findByTokenHash(TokenOpaco.hash("raw"))).thenReturn(Optional.of(token));
 
         service.revogar("raw");
 
-        assertThat(token.getRevokedAt()).isNotNull();
-        verify(repository).save(token);
+        verify(repository).revogarFamilia(eq(token.getFamilyId()), any());
+        verify(repository, never()).save(any());
     }
 
     @Test
-    void revogar_comTokenJaRevogado_naoDeveAlterarNada() {
-        RefreshToken token = token(usuario(true, 0), 0);
-        LocalDateTime revogadoEm = LocalDateTime.now().minusHours(1);
-        token.setRevokedAt(revogadoEm);
-        when(repository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+    void revogar_comTokenJaRotacionado_tambemDerrubaOSucessor() {
+        RefreshToken rotacionado = token(usuario(true, 0), 0);
+        rotacionado.setUsedAt(LocalDateTime.now().minusMinutes(5));
+        when(repository.findByTokenHash(anyString())).thenReturn(Optional.of(rotacionado));
 
         service.revogar("raw");
 
-        assertThat(token.getRevokedAt()).isEqualTo(revogadoEm);
-        verify(repository, never()).save(any());
+        verify(repository).revogarFamilia(eq(rotacionado.getFamilyId()), any());
     }
 
     @Test
@@ -213,7 +290,21 @@ class RefreshTokenServiceTest {
 
         service.revogar("inexistente");
 
-        verify(repository, never()).save(any());
+        verify(repository, never()).revogarFamilia(any(), any());
+    }
+
+    @Test
+    void limparObsoletos_deveRemoverSessoesVencidasERevogadasForaDaRetencao() {
+        when(repository.excluirObsoletos(any(), any())).thenReturn(3);
+
+        int removidos = service.limparObsoletos();
+
+        assertThat(removidos).isEqualTo(3);
+        var agora = ArgumentCaptor.forClass(LocalDateTime.class);
+        var limiteRevogados = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(repository).excluirObsoletos(agora.capture(), limiteRevogados.capture());
+        assertThat(limiteRevogados.getValue())
+                .isEqualTo(agora.getValue().minus(RefreshTokenService.RETENCAO_REVOGADOS));
     }
 
     private RefreshToken token(User user, long tokenVersion) {
@@ -223,6 +314,7 @@ class RefreshTokenServiceTest {
         token.setFamilyId(UUID.randomUUID());
         token.setTokenVersion(tokenVersion);
         token.setExpiresAt(LocalDateTime.now().plusDays(7));
+        token.setFamilyExpiresAt(LocalDateTime.now().plusDays(30));
         return token;
     }
 

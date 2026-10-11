@@ -15,8 +15,8 @@ no schema.
 | Método | Endpoint | Acesso | Descrição |
 |---|---|---|---|
 | `POST` | `/auth/login` | Público | Valida e-mail/senha e retorna `accessToken` (JWT, 15 min por padrão) e `refreshToken` (opaco, 7 dias por padrão). Retorna `429` após 5 tentativas falhas em 15 min |
-| `POST` | `/auth/refresh` | Público | Recebe `refreshToken` e devolve um novo par `accessToken` + `refreshToken` (mesmo corpo do login); o token apresentado deixa de valer. Retorna `401` para token inválido, expirado, revogado, já utilizado (o reuso revoga toda a sessão daquele login) ou emitido antes da última troca de senha |
-| `POST` | `/auth/logout` | Público | Recebe `refreshToken` e o revoga. Sempre `204`, mesmo para token desconhecido ou já revogado. O `accessToken` em uso segue válido até expirar |
+| `POST` | `/auth/refresh` | Público | Recebe `refreshToken` e devolve um novo par `accessToken` + `refreshToken` (mesmo corpo do login); o token apresentado deixa de valer. Retorna `401` para token inválido, expirado, revogado, já utilizado (o reuso fora da tolerância de 10 s revoga toda a sessão daquele login), emitido há mais tempo que o teto da sessão (30 dias desde o login) ou emitido antes da última troca de senha |
+| `POST` | `/auth/logout` | Público | Recebe `refreshToken` e encerra a sessão daquele login (todos os refresh tokens da cadeia). Sempre `204`, mesmo para token desconhecido ou já revogado. O `accessToken` em uso segue válido até expirar |
 | `POST` | `/auth/forgot-password` | Público | Solicita redefinição de senha por e-mail. Sempre retorna `200` com mensagem genérica, mesmo se o e-mail não existir (evita enumeração de usuários). Retorna `429` após 5 solicitações em 15 min para o mesmo e-mail |
 | `POST` | `/auth/reset-password` | Público | Redefine a senha a partir de `token`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para token inválido, expirado, já utilizado ou confirmação divergente |
 | `GET` | `/users/me` | Autenticado | Retorna dados seguros do usuário autenticado |

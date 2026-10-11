@@ -61,6 +61,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from import_seufisio import (  # noqa: E402  (precisa do sys.path acima)
     RATE_LIMIT_SECONDS,
     SEUFISIO_BASE,
+    auth_local,
     fetch_pacientes_locais,
     http_json,
     list_seufisio,
@@ -225,7 +226,7 @@ def sessoes_existentes(base_url, token, paciente_id):
     """
     status, body = http_json(
         "GET", f"{base_url}/sessoes/paciente/{paciente_id}",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
     )
     if status != 200 or not isinstance(body, list):
         return None, f"GET /sessoes/paciente/{paciente_id} -> {status}"
@@ -241,7 +242,7 @@ def evolucao_existe(base_url, token, sessao_id):
     """(existe, erro) — se a sessão já tem evolução registrada (relação 1:1)."""
     status, _ = http_json(
         "GET", f"{base_url}/evolucoes-sessao/sessao/{sessao_id}",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
     )
     if status == 200:
         return True, None
@@ -253,14 +254,14 @@ def evolucao_existe(base_url, token, sessao_id):
 def patch_paciente(base_url, token, paciente_id, acao):
     return http_json(
         "PATCH", f"{base_url}/pacientes/{paciente_id}/{acao}",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
     )
 
 
 def post_sessao(base_url, token, paciente_id, tipo, evolucao):
     return http_json(
         "POST", f"{base_url}/sessoes",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
         body={
             "pacienteId": paciente_id,
             "tipo": tipo,
@@ -273,14 +274,14 @@ def post_sessao(base_url, token, paciente_id, tipo, evolucao):
 def patch_realizar(base_url, token, sessao_id):
     return http_json(
         "PATCH", f"{base_url}/sessoes/{sessao_id}/realizar",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
     )
 
 
 def post_evolucao(base_url, token, sessao_id, evolucao):
     return http_json(
         "POST", f"{base_url}/evolucoes-sessao",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
         body={
             "sessaoId": sessao_id,
             "dataHoraRegistro": evolucao["dataHoraRegistro"],

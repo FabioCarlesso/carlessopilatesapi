@@ -18,6 +18,7 @@ import com.carlesso.pilatesapi.repository.RefreshTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
+import com.carlesso.pilatesapi.service.RefreshTokenService;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.carlesso.pilatesapi.util.TokenOpaco;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -55,6 +56,9 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private RefreshTokenService refreshTokenService;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -88,8 +92,15 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         assertThat(rotacao.get("user").get("email").asText()).isEqualTo("fluxo@email.com");
         acessarUsersMe(rotacao.get("accessToken").asText()).andExpect(status().isOk());
 
-        // Reapresentar o token já rotacionado é tratado como vazamento: 401 e a cadeia inteira cai,
-        // inclusive o refresh2 que ainda não tinha sido usado.
+        // Logo após a rotação, reapresentar o refresh1 é retentativa de boa-fé (resposta perdida,
+        // outra aba): 401, mas a sessão continua com o refresh2.
+        refresh(refresh1).andExpect(status().isUnauthorized());
+        assertThat(refreshTokenRepository.findAll())
+                .allSatisfy(t -> assertThat(t.getRevokedAt()).isNull());
+
+        // Passada a tolerância, é reuso: 401 e a cadeia inteira cai, inclusive o refresh2 que ainda
+        // não tinha sido usado.
+        envelhecerUso(refresh1);
         refresh(refresh1)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.erro").value("Refresh token inválido ou expirado"));
@@ -102,6 +113,14 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         String refresh3 = login("fluxo@email.com", SENHA).get("refreshToken").asText();
         logout(refresh3).andExpect(status().isNoContent());
         refresh(refresh3).andExpect(status().isUnauthorized());
+
+        // Logout com uma cópia já rotacionada também derruba o sucessor.
+        String refresh4 = login("fluxo@email.com", SENHA).get("refreshToken").asText();
+        String refresh5 = json(refresh(refresh4).andExpect(status().isOk()))
+                .get("refreshToken")
+                .asText();
+        logout(refresh4).andExpect(status().isNoContent());
+        refresh(refresh5).andExpect(status().isUnauthorized());
 
         // Logout é idempotente e não revela se o token existe.
         logout(refresh3).andExpect(status().isNoContent());
@@ -117,6 +136,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
                 login("duas-sessoes@email.com", SENHA).get("refreshToken").asText();
 
         refresh(sessaoA).andExpect(status().isOk());
+        envelhecerUso(sessaoA);
         refresh(sessaoA).andExpect(status().isUnauthorized());
 
         refresh(sessaoB).andExpect(status().isOk());
@@ -164,14 +184,34 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         String refreshToken =
                 login("expira@email.com", SENHA).get("refreshToken").asText();
 
-        RefreshToken salvo = refreshTokenRepository.findAll().stream()
-                .filter(t -> t.getTokenHash().equals(TokenOpaco.hash(refreshToken)))
-                .findFirst()
-                .orElseThrow();
+        RefreshToken salvo = buscar(refreshToken);
         salvo.setExpiresAt(LocalDateTime.now().minusSeconds(1));
         refreshTokenRepository.save(salvo);
 
         refresh(refreshToken).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void limpeza_deveRemoverSessoesVencidasERevogadasAntigasEPreservarAsAtivas() throws Exception {
+        criarUsuario("limpeza@email.com", Role.USER);
+        String ativa = login("limpeza@email.com", SENHA).get("refreshToken").asText();
+        String vencida = login("limpeza@email.com", SENHA).get("refreshToken").asText();
+        String revogadaAntiga =
+                login("limpeza@email.com", SENHA).get("refreshToken").asText();
+
+        RefreshToken tokenVencido = buscar(vencida);
+        tokenVencido.setFamilyExpiresAt(LocalDateTime.now().minusMinutes(1));
+        tokenVencido.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        refreshTokenRepository.save(tokenVencido);
+        RefreshToken tokenRevogado = buscar(revogadaAntiga);
+        tokenRevogado.setRevokedAt(LocalDateTime.now().minusDays(2));
+        refreshTokenRepository.save(tokenRevogado);
+
+        assertThat(refreshTokenService.limparObsoletos()).isEqualTo(2);
+
+        assertThat(refreshTokenRepository.findAll()).singleElement().satisfies(t -> assertThat(t.getTokenHash())
+                .isEqualTo(TokenOpaco.hash(ativa)));
+        refresh(ativa).andExpect(status().isOk());
     }
 
     @Test
@@ -187,6 +227,20 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         assertThat(refreshTokenRepository.findAll()).singleElement().satisfies(t -> assertThat(t.getTokenHash())
                 .isEqualTo(TokenOpaco.hash(refreshToken))
                 .isNotEqualTo(refreshToken));
+    }
+
+    private RefreshToken buscar(String refreshToken) {
+        return refreshTokenRepository.findAll().stream()
+                .filter(t -> t.getTokenHash().equals(TokenOpaco.hash(refreshToken)))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    /** Recua o used_at para fora da tolerância de reuso, sem esperar o relógio. */
+    private void envelhecerUso(String refreshToken) {
+        RefreshToken usado = buscar(refreshToken);
+        usado.setUsedAt(LocalDateTime.now().minusMinutes(1));
+        refreshTokenRepository.save(usado);
     }
 
     private JsonNode login(String email, String senha) throws Exception {

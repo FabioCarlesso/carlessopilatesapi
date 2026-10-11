@@ -44,11 +44,12 @@ src/
 │   │   ├── exception/    # ResourceNotFoundException (404), ConflictException (409),
 │   │   │                 # BusinessException (422), TooManyRequestsException (429),
 │   │   │                 # UnauthorizedException (401)
-│   │   ├── security/     # JwtAuthenticationFilter — valida o Bearer token por requisição
+│   │   ├── security/     # JwtAuthenticationFilter — valida o Bearer token por requisição;
+│   │   │                 # MetricsScrapeTokenFilter — credencial fixa do scrape do Prometheus
 │   │   ├── email/        # EmailSender e implementações (SMTP), templates transacionais
 │   │   ├── storage/      # Persistência do binário das fotos de análise postural
 │   │   ├── metrics/      # BusinessMetrics — contadores de negócio expostos no Prometheus
-│   │   ├── scheduler/    # Processos automáticos (cobranças, limpeza de rate limit)
+│   │   ├── scheduler/    # Processos automáticos (cobranças, limpeza de rate limit e de refresh tokens)
 │   │   ├── util/         # LogMasker, PacienteGuard e utilitários compartilhados
 │   │   └── web/          # CorrelationIdFilter
 │   └── resources/

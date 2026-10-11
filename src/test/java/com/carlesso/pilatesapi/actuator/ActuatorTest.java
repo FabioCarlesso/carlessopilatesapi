@@ -87,6 +87,7 @@ class ActuatorTest {
                 .contains("pilates_cobrancas_vencidas_total")
                 .contains("pilates_pagamentos_confirmados_total")
                 .contains("pilates_logins_bloqueados_total")
-                .contains("pilates_emails_reset_enviados_total");
+                .contains("pilates_emails_reset_enviados_total")
+                .contains("pilates_refresh_tokens_reusados_total");
     }
 }

@@ -57,9 +57,9 @@ O endpoint `/actuator/prometheus` expõe métricas no formato de scrape do Prome
 
 Os contadores são declarados em `metrics/BusinessMetrics` e nascem em `0` na subida da aplicação, permitindo alertas por taxa (`rate(...)`) sem esperar o primeiro evento. Todas as séries carregam a tag `application=CarlessoPilatesApi`.
 
-**O endpoint não é público:** exige um JWT de usuário com role `ADMIN` (`SecurityConfig`: `/actuator/**` → `hasRole("ADMIN")`). Sem token retorna `401`; com token de usuário comum, `403`.
+**O endpoint não é público:** exige um JWT de usuário com role `ADMIN` ou a credencial dedicada de scrape (`APP_METRICS_SCRAPE_TOKEN`, ver `MetricsScrapeTokenFilter`). Sem token retorna `401`; com token de usuário comum, `403`.
 
-Para fazer o scrape, use um token de admin no `prometheus.yml`:
+O access token JWT expira em 15 min, então não serve de credencial fixa. Para o scrape, gere um segredo com pelo menos 32 caracteres (ex.: `openssl rand -hex 32`), defina `APP_METRICS_SCRAPE_TOKEN` na aplicação e use o mesmo valor no `prometheus.yml`. Ele vale **apenas** em `/actuator/prometheus` — em qualquer outra rota, inclusive o restante do Actuator, a resposta é `401`:
 
 ```yaml
 scrape_configs:
@@ -68,14 +68,12 @@ scrape_configs:
     scrape_interval: 15s
     authorization:
       type: Bearer
-      credentials: <JWT de um usuário ADMIN>
+      credentials: <valor de APP_METRICS_SCRAPE_TOKEN>
     static_configs:
       - targets: ['api:8080']
 ```
 
-> O access token expira em `JWT_EXPIRATION_MS` (15 min por padrão), então um JWT fixo no `prometheus.yml` para de
-> autorizar o scrape logo depois. Enquanto não houver credencial dedicada para o scrape, o token precisa ser
-> renovado por fora (login ou `POST /auth/refresh`) e gravado em `credentials_file`.
+Sem a variável configurada, o filtro fica inerte e só um JWT de `ADMIN` acessa o endpoint.
 
 Verificação manual:
 

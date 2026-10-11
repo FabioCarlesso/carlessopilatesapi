@@ -20,4 +20,13 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update RefreshToken t set t.revokedAt = :agora where t.familyId = :familyId and t.revokedAt is null")
     int revogarFamilia(@Param("familyId") UUID familyId, @Param("agora") LocalDateTime agora);
+
+    /**
+     * Remove cadeias que já não autorizam nada: as que passaram do teto absoluto
+     * da sessão (todo token da família vence até ele) e as revogadas antes de
+     * {@code limiteRevogados}, mantidas por um tempo só para investigação.
+     */
+    @Modifying
+    @Query("delete from RefreshToken t where t.familyExpiresAt < :agora or t.revokedAt < :limiteRevogados")
+    int excluirObsoletos(@Param("agora") LocalDateTime agora, @Param("limiteRevogados") LocalDateTime limiteRevogados);
 }
