@@ -71,7 +71,60 @@ NOMES_UF = {
 }
 
 
+class SessaoLocal:
+    """Sessão autenticada na API local: access token curto + refresh token.
+
+    O access token expira em `JWT_EXPIRATION_MS` (15 min por padrão) e uma
+    carga completa passa disso. `str(sessao)` devolve o access token vigente,
+    então `f"Bearer {sessao}"` segue funcionando; `http_json` renova a sessão
+    via `POST /auth/refresh` quando uma chamada autenticada volta `401`.
+    """
+
+    def __init__(self, base_url, access_token, refresh_token):
+        self.base_url = base_url
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+
+    def __str__(self):
+        return self.access_token
+
+    def renovar(self):
+        if not self.refresh_token:
+            return False
+        status, body = http_json(
+            "POST", f"{self.base_url}/auth/refresh",
+            body={"refreshToken": self.refresh_token},
+        )
+        if status != 200 or not isinstance(body, dict) or not body.get("accessToken"):
+            return False
+        self.access_token = body["accessToken"]
+        self.refresh_token = body.get("refreshToken")
+        return True
+
+
+class AuthLocal(dict):
+    """Header `Authorization` que sabe renovar a sessão de onde veio."""
+
+    def __init__(self, sessao):
+        super().__init__({"Authorization": f"Bearer {sessao}"})
+        self.sessao = sessao
+
+
+def auth_local(token):
+    """Headers de autenticação na API local para uma `SessaoLocal` ou token cru."""
+    if isinstance(token, SessaoLocal):
+        return AuthLocal(token)
+    return {"Authorization": f"Bearer {token}"}
+
+
 def http_json(method, url, headers=None, body=None):
+    status, resposta = _http_json(method, url, headers, body)
+    if status == 401 and isinstance(headers, AuthLocal) and headers.sessao.renovar():
+        status, resposta = _http_json(method, url, AuthLocal(headers.sessao), body)
+    return status, resposta
+
+
+def _http_json(method, url, headers=None, body=None):
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
@@ -218,7 +271,7 @@ def login_local(base_url, email, password):
     token = body.get("accessToken")
     if not token:
         raise SystemExit("Login local não retornou accessToken na resposta")
-    return token
+    return SessaoLocal(base_url, token, body.get("refreshToken"))
 
 
 def list_seufisio(headers):
@@ -290,7 +343,7 @@ def fetch_pacientes_locais(base_url, token):
             url = f"{base_url}/pacientes?ativo={ativo}&page={page}&size={LOCAL_PAGE_SIZE}"
             status, body = http_json(
                 "GET", url,
-                headers={"Authorization": f"Bearer {token}"},
+                headers=auth_local(token),
             )
             if status != 200 or not isinstance(body, dict):
                 raise SystemExit(f"Falha ao listar pacientes locais ({status}): {body}")
@@ -402,7 +455,7 @@ def print_relatorio(total, ok, skips, fails, rotulo_ok="importados"):
 def post_paciente(base_url, token, payload):
     return http_json(
         "POST", f"{base_url}/pacientes",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
         body=payload,
     )
 
@@ -410,7 +463,7 @@ def post_paciente(base_url, token, payload):
 def patch_inativar(base_url, token, paciente_id):
     return http_json(
         "PATCH", f"{base_url}/pacientes/{paciente_id}/inativar",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_local(token),
     )
 
 

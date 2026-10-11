@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.config;
 
 import com.carlesso.pilatesapi.security.JwtAuthenticationFilter;
+import com.carlesso.pilatesapi.security.MetricsScrapeTokenFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +34,8 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AuthenticationProvider authenticationProvider,
-            CorsConfigurationSource corsConfigurationSource)
+            CorsConfigurationSource corsConfigurationSource,
+            @Value("${app.metrics.scrape-token:}") String metricsScrapeToken)
             throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -60,7 +62,10 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
                         .permitAll()
                         // Métricas (inclusive /actuator/prometheus) expõem detalhes internos
-                        // da aplicação: restritas a ADMIN, nunca públicas.
+                        // da aplicação: restritas a ADMIN, nunca públicas. O scrape também aceita
+                        // a credencial dedicada do MetricsScrapeTokenFilter (ROLE_METRICS).
+                        .requestMatchers(MetricsScrapeTokenFilter.PATH)
+                        .hasAnyRole("ADMIN", MetricsScrapeTokenFilter.ROLE)
                         .requestMatchers("/actuator/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/api-docs/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
@@ -88,6 +93,7 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new MetricsScrapeTokenFilter(metricsScrapeToken), JwtAuthenticationFilter.class)
                 .build();
     }
 
@@ -118,7 +124,8 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         configuration.setExposedHeaders(List.of("Location", "Content-Disposition", "X-Request-Id"));
-        configuration.setAllowCredentials(true);
+        // Sem allowCredentials: a autenticação é Bearer no header Authorization, não cookie,
+        // então o navegador não tem credencial ambiente a enviar entre origens.
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

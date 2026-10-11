@@ -53,12 +53,13 @@ O endpoint `/actuator/prometheus` expõe métricas no formato de scrape do Prome
 | `pilates_pagamentos_confirmados_total` | Pagamentos confirmados |
 | `pilates_logins_bloqueados_total` | Tentativas de login barradas pelo rate limit |
 | `pilates_emails_reset_enviados_total` | E-mails de redefinição de senha enviados |
+| `pilates_refresh_tokens_reusados_total` | Refresh tokens já rotacionados reapresentados — cada ocorrência revogou uma sessão e indica possível vazamento de token |
 
 Os contadores são declarados em `metrics/BusinessMetrics` e nascem em `0` na subida da aplicação, permitindo alertas por taxa (`rate(...)`) sem esperar o primeiro evento. Todas as séries carregam a tag `application=CarlessoPilatesApi`.
 
-**O endpoint não é público:** exige um JWT de usuário com role `ADMIN` (`SecurityConfig`: `/actuator/**` → `hasRole("ADMIN")`). Sem token retorna `401`; com token de usuário comum, `403`.
+**O endpoint não é público:** exige um JWT de usuário com role `ADMIN` ou a credencial dedicada de scrape (`APP_METRICS_SCRAPE_TOKEN`, ver `MetricsScrapeTokenFilter`). Sem token retorna `401`; com token de usuário comum, `403`.
 
-Para fazer o scrape, use um token de admin no `prometheus.yml`:
+O access token JWT expira em 15 min, então não serve de credencial fixa. Para o scrape, gere um segredo com pelo menos 32 caracteres (ex.: `openssl rand -hex 32`), defina `APP_METRICS_SCRAPE_TOKEN` na aplicação e use o mesmo valor no `prometheus.yml`. Ele vale **apenas** em `/actuator/prometheus` — em qualquer outra rota, inclusive o restante do Actuator, a resposta é `401`:
 
 ```yaml
 scrape_configs:
@@ -67,10 +68,12 @@ scrape_configs:
     scrape_interval: 15s
     authorization:
       type: Bearer
-      credentials: <JWT de um usuário ADMIN>
+      credentials: <valor de APP_METRICS_SCRAPE_TOKEN>
     static_configs:
       - targets: ['api:8080']
 ```
+
+Sem a variável configurada, o filtro fica inerte e só um JWT de `ADMIN` acessa o endpoint.
 
 Verificação manual:
 

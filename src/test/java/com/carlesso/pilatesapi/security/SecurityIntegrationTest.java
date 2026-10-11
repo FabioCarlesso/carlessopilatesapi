@@ -97,6 +97,8 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.user.email").value("login@email.com"));
     }
 
@@ -650,6 +652,15 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:4200"));
+    }
+
+    @Test
+    void cors_naoDevePermitirCredenciaisPorqueAutenticacaoEhBearer() throws Exception {
+        mvc.perform(options("/pacientes")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS));
     }
 
     @Test

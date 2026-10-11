@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,11 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.AuthResponseDTO;
 import com.carlesso.pilatesapi.dto.ForgotPasswordRequestDTO;
+import com.carlesso.pilatesapi.dto.RefreshTokenRequestDTO;
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
 import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
+import com.carlesso.pilatesapi.exception.UnauthorizedException;
 import com.carlesso.pilatesapi.service.AuthService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
@@ -54,14 +57,71 @@ class AuthControllerTest {
     @Test
     void login_deveRetornar200() throws Exception {
         var request = new AuthLoginRequestDTO("maria@email.com", "senha1234");
-        when(authService.login(any()))
-                .thenReturn(AuthResponseDTO.bearer(
-                        "token", new UserResponseDTO(1L, "Maria", "maria@email.com", Role.USER, true)));
+        when(authService.login(any())).thenReturn(AuthResponseDTO.bearer("token", "refresh", maria()));
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"));
+    }
+
+    @Test
+    void refresh_deveRetornar200ComNovoPar() throws Exception {
+        var request = new RefreshTokenRequestDTO("refresh-atual");
+        when(authService.refresh(request)).thenReturn(AuthResponseDTO.bearer("novo-access", "novo-refresh", maria()));
+
+        mvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("novo-access"))
+                .andExpect(jsonPath("$.refreshToken").value("novo-refresh"))
+                .andExpect(jsonPath("$.user.email").value("maria@email.com"));
+    }
+
+    @Test
+    void refresh_comTokenInvalido_deveRetornar401() throws Exception {
+        var request = new RefreshTokenRequestDTO("refresh-reusado");
+        when(authService.refresh(request)).thenThrow(new UnauthorizedException("Refresh token inválido ou expirado"));
+
+        mvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.erro").value("Refresh token inválido ou expirado"));
+    }
+
+    @Test
+    void refresh_semToken_deveRetornar400() throws Exception {
+        mvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new RefreshTokenRequestDTO(" "))))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void logout_deveRetornar204() throws Exception {
+        var request = new RefreshTokenRequestDTO("refresh-atual");
+
+        mvc.perform(post("/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(authService).logout(request);
+    }
+
+    @Test
+    void logout_semToken_deveRetornar400() throws Exception {
+        mvc.perform(post("/auth/logout").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
     }
 
     @Test
@@ -144,5 +204,9 @@ class AuthControllerTest {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value("Token inválido ou expirado"));
+    }
+
+    private static UserResponseDTO maria() {
+        return new UserResponseDTO(1L, "Maria", "maria@email.com", Role.USER, true);
     }
 }

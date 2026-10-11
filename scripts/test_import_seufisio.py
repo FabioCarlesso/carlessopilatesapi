@@ -53,6 +53,66 @@ class HttpJsonTest(unittest.TestCase):
         self.assertEqual(body, "duplicado")
 
 
+class SessaoLocalTest(unittest.TestCase):
+    """O access token da API local expira em 15 min; a carga precisa renovar sozinha."""
+
+    def setUp(self):
+        self.original = imp._http_json
+        self.chamadas = []
+
+    def tearDown(self):
+        imp._http_json = self.original
+
+    def _stub(self, respostas):
+        def fake(method, url, headers=None, body=None):
+            self.chamadas.append((method, url, dict(headers or {}), body))
+            return respostas.pop(0)
+        imp._http_json = fake
+
+    def test_login_devolve_sessao_com_access_e_refresh(self):
+        self._stub([(200, {"accessToken": "a1", "refreshToken": "r1"})])
+
+        sessao = imp.login_local("http://local", "u@x.com", "senha")
+
+        self.assertIsInstance(sessao, imp.SessaoLocal)
+        self.assertEqual(str(sessao), "a1")
+        self.assertEqual(sessao.refresh_token, "r1")
+
+    def test_401_renova_a_sessao_e_repete_a_chamada_com_o_novo_token(self):
+        sessao = imp.SessaoLocal("http://local", "a1", "r1")
+        self._stub([
+            (401, ""),
+            (200, {"accessToken": "a2", "refreshToken": "r2"}),
+            (201, {"id": 7}),
+        ])
+
+        status, body = imp.http_json("POST", "http://local/pacientes", headers=imp.auth_local(sessao), body={})
+
+        self.assertEqual((status, body), (201, {"id": 7}))
+        self.assertEqual(self.chamadas[0][2]["Authorization"], "Bearer a1")
+        self.assertEqual(self.chamadas[1][1], "http://local/auth/refresh")
+        self.assertEqual(self.chamadas[1][3], {"refreshToken": "r1"})
+        self.assertEqual(self.chamadas[2][2]["Authorization"], "Bearer a2")
+        self.assertEqual((sessao.access_token, sessao.refresh_token), ("a2", "r2"))
+
+    def test_401_com_refresh_recusado_devolve_o_401_original(self):
+        sessao = imp.SessaoLocal("http://local", "a1", "r1")
+        self._stub([(401, "expirado"), (401, "refresh invalido")])
+
+        status, body = imp.http_json("GET", "http://local/pacientes", headers=imp.auth_local(sessao))
+
+        self.assertEqual((status, body), (401, "expirado"))
+        self.assertEqual(len(self.chamadas), 2)
+
+    def test_token_cru_nao_tenta_renovar(self):
+        self._stub([(401, "expirado")])
+
+        status, _ = imp.http_json("GET", "http://local/pacientes", headers=imp.auth_local("tok"))
+
+        self.assertEqual(status, 401)
+        self.assertEqual(len(self.chamadas), 1)
+
+
 class MapToPacienteTest(unittest.TestCase):
     def test_sem_nome_retorna_skip(self):
         payload, err = imp.map_to_paciente({"nome": "   "})

@@ -8,7 +8,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.ForgotPasswordRequestDTO;
+import com.carlesso.pilatesapi.dto.RefreshTokenRequestDTO;
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
 import com.carlesso.pilatesapi.email.EmailMessage;
 import com.carlesso.pilatesapi.email.EmailSender;
@@ -70,6 +72,16 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
     void fluxoCompleto_solicitarERedefinirSenha_devePermitirLoginComNovaSenha() throws Exception {
         User user = criarUsuario("recupera@email.com");
         String tokenAntigo = "Bearer " + jwtService.generateToken(user);
+        String refreshAntigo = mapper.readTree(mvc.perform(post("/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(
+                                        new AuthLoginRequestDTO("recupera@email.com", "senha1234"))))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("refreshToken")
+                .asText();
 
         mvc.perform(post("/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -93,11 +105,15 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, tokenAntigo))
                 .andExpect(status().isUnauthorized());
+        mvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new RefreshTokenRequestDTO(refreshAntigo))))
+                .andExpect(status().isUnauthorized());
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new com.carlesso.pilatesapi.dto.AuthLoginRequestDTO(
-                                "recupera@email.com", "novaSenha123"))))
+                        .content(mapper.writeValueAsString(
+                                new AuthLoginRequestDTO("recupera@email.com", "novaSenha123"))))
                 .andExpect(status().isOk());
     }
 
