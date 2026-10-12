@@ -39,6 +39,8 @@ class PasswordResetServiceTest {
 
     private static final String RESET_PASSWORD_URL = "https://app.carlessopilates.com.br/resetar-senha";
     private static final long TOKEN_TTL_MINUTOS = 30;
+    private static final String IP = "203.0.113.10";
+    private static final int MAX_POR_IP = 8;
 
     @Mock
     private UserRepository userRepository;
@@ -61,7 +63,7 @@ class PasswordResetServiceTest {
 
     @BeforeEach
     void setUp() {
-        loginAttemptService = new LoginAttemptService();
+        loginAttemptService = new LoginAttemptService(MAX_POR_IP, 15);
         service = novoService(TOKEN_TTL_MINUTOS);
     }
 
@@ -102,7 +104,7 @@ class PasswordResetServiceTest {
         when(emailTemplateService.criarEmailRedefinicaoSenha(any(), anyString()))
                 .thenReturn(new EmailMessage("maria@email.com", "assunto", "html", "texto"));
 
-        service.solicitarRedefinicao("maria@email.com");
+        service.solicitarRedefinicao("maria@email.com", IP);
 
         ArgumentCaptor<PasswordResetToken> captor = ArgumentCaptor.forClass(PasswordResetToken.class);
         verify(tokenRepository).save(captor.capture());
@@ -120,7 +122,7 @@ class PasswordResetServiceTest {
         when(emailTemplateService.criarEmailRedefinicaoSenha(any(), anyString()))
                 .thenReturn(new EmailMessage("maria@email.com", "assunto", "html", "texto"));
 
-        service.solicitarRedefinicao("maria@email.com");
+        service.solicitarRedefinicao("maria@email.com", IP);
 
         verify(tokenRepository).invalidarTokensAtivos(eq(user), any(LocalDateTime.class));
     }
@@ -133,7 +135,7 @@ class PasswordResetServiceTest {
         when(emailTemplateService.criarEmailRedefinicaoSenha(any(), anyString()))
                 .thenReturn(new EmailMessage("maria@email.com", "assunto", "html", "texto"));
 
-        customService.solicitarRedefinicao("maria@email.com");
+        customService.solicitarRedefinicao("maria@email.com", IP);
 
         ArgumentCaptor<PasswordResetToken> captor = ArgumentCaptor.forClass(PasswordResetToken.class);
         verify(tokenRepository).save(captor.capture());
@@ -146,7 +148,7 @@ class PasswordResetServiceTest {
     void solicitarRedefinicao_comEmailInexistente_naoDeveEnviarEmailNemLancarErro() {
         when(userRepository.findByEmail("naoexiste@email.com")).thenReturn(Optional.empty());
 
-        service.solicitarRedefinicao("naoexiste@email.com");
+        service.solicitarRedefinicao("naoexiste@email.com", IP);
 
         verify(tokenRepository, never()).save(any());
         verifyNoInteractions(emailSender, emailTemplateService);
@@ -157,7 +159,7 @@ class PasswordResetServiceTest {
         User inativo = usuario(1L, "inativo@email.com", false);
         when(userRepository.findByEmail("inativo@email.com")).thenReturn(Optional.of(inativo));
 
-        service.solicitarRedefinicao("inativo@email.com");
+        service.solicitarRedefinicao("inativo@email.com", IP);
 
         verify(tokenRepository, never()).save(any());
         verifyNoInteractions(emailSender, emailTemplateService);
@@ -167,7 +169,7 @@ class PasswordResetServiceTest {
     void solicitarRedefinicao_emailNormalizadoParaLowercase() {
         when(userRepository.findByEmail("minusculo@email.com")).thenReturn(Optional.empty());
 
-        service.solicitarRedefinicao("MINUSCULO@EMAIL.COM");
+        service.solicitarRedefinicao("MINUSCULO@EMAIL.COM", IP);
 
         verify(userRepository).findByEmail("minusculo@email.com");
     }
@@ -176,12 +178,28 @@ class PasswordResetServiceTest {
     void solicitarRedefinicao_aposLimiteDeSolicitacoes_deveLancarTooManyRequests() {
         for (int i = 0; i < LoginAttemptService.MAX_ATTEMPTS; i++) {
             when(userRepository.findByEmail("bloqueado@email.com")).thenReturn(Optional.empty());
-            service.solicitarRedefinicao("bloqueado@email.com");
+            service.solicitarRedefinicao("bloqueado@email.com", IP);
         }
 
-        assertThatThrownBy(() -> service.solicitarRedefinicao("bloqueado@email.com"))
+        assertThatThrownBy(() -> service.solicitarRedefinicao("bloqueado@email.com", IP))
                 .isInstanceOf(TooManyRequestsException.class);
         verify(userRepository, times(LoginAttemptService.MAX_ATTEMPTS)).findByEmail("bloqueado@email.com");
+    }
+
+    @Test
+    void solicitarRedefinicao_comEmailsDiferentesDoMesmoIp_aposLimitePorIp_deveLancarTooManyRequests() {
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+        for (int i = 0; i < MAX_POR_IP; i++) {
+            service.solicitarRedefinicao("vitima" + i + "@email.com", IP);
+        }
+
+        assertThatThrownBy(() -> service.solicitarRedefinicao("outra@email.com", IP))
+                .isInstanceOf(TooManyRequestsException.class)
+                .hasMessage("Muitas solicitações. Tente novamente em 15 minutos.");
+        verify(userRepository, never()).findByEmail("outra@email.com");
+
+        service.solicitarRedefinicao("outra@email.com", "198.51.100.7");
+        verify(userRepository).findByEmail("outra@email.com");
     }
 
     @Test

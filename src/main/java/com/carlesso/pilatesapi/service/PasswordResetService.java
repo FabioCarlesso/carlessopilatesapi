@@ -59,9 +59,15 @@ public class PasswordResetService {
     }
 
     @Transactional
-    public void solicitarRedefinicao(String email) {
+    public void solicitarRedefinicao(String email, String ip) {
         String normalizedEmail = EmailNormalizer.normalizar(email);
         String rateLimitKey = RATE_LIMIT_KEY_PREFIX + normalizedEmail;
+        String ipRateLimitKey = RATE_LIMIT_KEY_PREFIX + ip;
+        if (loginAttemptService.isIpBlocked(ipRateLimitKey)) {
+            log.warn("Solicitação de redefinição de senha bloqueada por excesso de tentativas do mesmo IP: ip={}", ip);
+            throw new TooManyRequestsException("Muitas solicitações. Tente novamente em "
+                    + loginAttemptService.windowPorIp().toMinutes() + " minutos.");
+        }
         if (loginAttemptService.isBlocked(rateLimitKey)) {
             log.warn(
                     "Solicitação de redefinição de senha bloqueada por excesso de tentativas: email={}",
@@ -69,6 +75,7 @@ public class PasswordResetService {
             throw new TooManyRequestsException("Muitas solicitações. Tente novamente em 15 minutos.");
         }
         loginAttemptService.registerFailure(rateLimitKey);
+        loginAttemptService.registerIpFailure(ipRateLimitKey);
 
         userRepository.findByEmail(normalizedEmail).filter(User::isAtivo).ifPresent(this::gerarTokenEEnviarEmail);
         log.info("Solicitação de redefinição de senha processada: email={}", LogMasker.email(normalizedEmail));

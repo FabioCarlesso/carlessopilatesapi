@@ -34,6 +34,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -66,10 +67,12 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         // Os testes de bloqueio abaixo criam registros via HTTP, e isso comita: sem limpar, as linhas sobrevivem no
         // container Postgres compartilhado e vazam para qualquer teste que consulte a tabela depois.
         bloqueioAgendaRepository.deleteAll();
-        // reset in-memory rate limit history between tests
-        Field historyField = LoginAttemptService.class.getDeclaredField("history");
-        historyField.setAccessible(true);
-        ((java.util.concurrent.ConcurrentHashMap<?, ?>) historyField.get(loginAttemptService)).clear();
+        // reset in-memory rate limit history (por e-mail e por IP) between tests
+        for (String campo : new String[] {"history", "ipHistory"}) {
+            Field historyField = LoginAttemptService.class.getDeclaredField(campo);
+            historyField.setAccessible(true);
+            ((java.util.concurrent.ConcurrentHashMap<?, ?>) historyField.get(loginAttemptService)).clear();
+        }
     }
 
     @Test
@@ -164,6 +167,55 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(senhaErrada)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void login_comEmailsDiferentesDoMesmoIp_aposLimitePorIp_deveRetornar429() throws Exception {
+        criarUsuario("legitimo@email.com", Role.USER);
+
+        for (int i = 0; i < loginAttemptService.maxAttemptsPorIp(); i++) {
+            mvc.perform(post("/auth/login")
+                            .with(deIp("203.0.113.20"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(mapper.writeValueAsString(
+                                    new AuthLoginRequestDTO("stuffing" + i + "@email.com", "errada123"))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // Mesmo com a senha certa de um e-mail nunca tentado, o IP já está bloqueado.
+        mvc.perform(post("/auth/login")
+                        .with(deIp("203.0.113.20"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("legitimo@email.com", "senha1234"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.erro").value("Muitas tentativas. Tente novamente em 15 minutos."));
+
+        // Outro IP não é afetado.
+        mvc.perform(post("/auth/login")
+                        .with(deIp("203.0.113.21"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("legitimo@email.com", "senha1234"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void login_comXForwardedForForjadoSemProxyConfiavel_naoDeveContornarLimitePorIp() throws Exception {
+        for (int i = 0; i < loginAttemptService.maxAttemptsPorIp(); i++) {
+            mvc.perform(post("/auth/login")
+                            .with(deIp("203.0.113.30"))
+                            .header("X-Forwarded-For", "198.51.100." + i)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(mapper.writeValueAsString(
+                                    new AuthLoginRequestDTO("spoof" + i + "@email.com", "errada123"))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(post("/auth/login")
+                        .with(deIp("203.0.113.30"))
+                        .header("X-Forwarded-For", "198.51.100.250")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AuthLoginRequestDTO("spoof@email.com", "errada123"))))
+                .andExpect(status().isTooManyRequests());
     }
 
     @Test
@@ -671,6 +723,13 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(header().string(
                                 HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
                                 org.hamcrest.Matchers.containsString("X-Request-Id")));
+    }
+
+    private static RequestPostProcessor deIp(String ip) {
+        return request -> {
+            request.setRemoteAddr(ip);
+            return request;
+        };
     }
 
     private User criarUsuario(String email, Role role) {

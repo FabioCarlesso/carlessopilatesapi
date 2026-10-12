@@ -11,7 +11,10 @@ import org.junit.jupiter.api.Test;
 
 class LoginAttemptServiceTest {
 
-    private final LoginAttemptService service = new LoginAttemptService();
+    private static final int MAX_POR_IP = 8;
+    private static final long JANELA_POR_IP_MINUTOS = 30;
+
+    private final LoginAttemptService service = new LoginAttemptService(MAX_POR_IP, JANELA_POR_IP_MINUTOS);
 
     @Test
     void isBlocked_semTentativas_retornaFalse() {
@@ -68,16 +71,88 @@ class LoginAttemptServiceTest {
         assertThat(history()).doesNotContainKey("expirado@email.com").containsKey("recente@email.com");
     }
 
+    @Test
+    void isIpBlocked_comMenosQueOLimitePorIp_retornaFalse() {
+        for (int i = 0; i < MAX_POR_IP - 1; i++) {
+            service.registerIpFailure("login:203.0.113.10");
+        }
+
+        assertThat(service.isIpBlocked("login:203.0.113.10")).isFalse();
+    }
+
+    @Test
+    void isIpBlocked_comLimitePorIp_retornaTrue() {
+        for (int i = 0; i < MAX_POR_IP; i++) {
+            service.registerIpFailure("login:203.0.113.10");
+        }
+
+        assertThat(service.isIpBlocked("login:203.0.113.10")).isTrue();
+        assertThat(service.isIpBlocked("login:203.0.113.11")).isFalse();
+    }
+
+    @Test
+    void baldesPorEmailEPorIp_saoIndependentes() {
+        for (int i = 0; i < MAX_POR_IP; i++) {
+            service.registerIpFailure("compartilhada");
+        }
+
+        assertThat(service.isIpBlocked("compartilhada")).isTrue();
+        assertThat(service.isBlocked("compartilhada")).isFalse();
+    }
+
+    @Test
+    void registerSuccess_naoLimpaHistoricoPorIp() {
+        for (int i = 0; i < MAX_POR_IP; i++) {
+            service.registerIpFailure("login:203.0.113.10");
+        }
+
+        service.registerSuccess("login:203.0.113.10");
+
+        assertThat(service.isIpBlocked("login:203.0.113.10")).isTrue();
+    }
+
+    @Test
+    void isIpBlocked_usaJanelaPropriaDoBaldePorIp() {
+        Deque<Instant> deque = new ArrayDeque<>();
+        // Já fora da janela por e-mail (15 min), mas ainda dentro da janela por IP (30 min).
+        Instant dentroDaJanelaPorIp =
+                Instant.now().minus(LoginAttemptService.WINDOW).minusSeconds(60);
+        for (int i = 0; i < MAX_POR_IP; i++) {
+            deque.addLast(dentroDaJanelaPorIp);
+        }
+        mapa("ipHistory").put("login:203.0.113.10", deque);
+
+        assertThat(service.isIpBlocked("login:203.0.113.10")).isTrue();
+        assertThat(service.windowPorIp()).hasMinutes(JANELA_POR_IP_MINUTOS);
+        assertThat(service.maxAttemptsPorIp()).isEqualTo(MAX_POR_IP);
+    }
+
+    @Test
+    void limparEntradasExpiradas_tambemRemoveChavesPorIpExpiradas() {
+        Deque<Instant> expirado = new ArrayDeque<>();
+        expirado.addLast(Instant.now().minus(service.windowPorIp()).minusSeconds(1));
+        mapa("ipHistory").put("login:203.0.113.10", expirado);
+        service.registerIpFailure("login:203.0.113.11");
+
+        service.limparEntradasExpiradas();
+
+        assertThat(mapa("ipHistory")).doesNotContainKey("login:203.0.113.10").containsKey("login:203.0.113.11");
+    }
+
     private Deque<Instant> dequeComInstanteExpirado() {
         Deque<Instant> deque = new ArrayDeque<>();
         deque.addLast(Instant.now().minus(LoginAttemptService.WINDOW).minusSeconds(1));
         return deque;
     }
 
-    @SuppressWarnings("unchecked")
     private ConcurrentHashMap<String, Deque<Instant>> history() {
+        return mapa("history");
+    }
+
+    @SuppressWarnings("unchecked")
+    private ConcurrentHashMap<String, Deque<Instant>> mapa(String campo) {
         try {
-            Field field = LoginAttemptService.class.getDeclaredField("history");
+            Field field = LoginAttemptService.class.getDeclaredField(campo);
             field.setAccessible(true);
             return (ConcurrentHashMap<String, Deque<Instant>>) field.get(service);
         } catch (Exception e) {

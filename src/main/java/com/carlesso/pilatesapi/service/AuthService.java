@@ -23,6 +23,8 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
+    private static final String IP_RATE_LIMIT_KEY_PREFIX = "login:";
+
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
@@ -43,8 +45,15 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponseDTO login(AuthLoginRequestDTO dto) {
+    public AuthResponseDTO login(AuthLoginRequestDTO dto, String ip) {
         String email = EmailNormalizer.normalizar(dto.email());
+        String ipRateLimitKey = IP_RATE_LIMIT_KEY_PREFIX + ip;
+        if (loginAttemptService.isIpBlocked(ipRateLimitKey)) {
+            businessMetrics.registrarLoginBloqueado();
+            log.warn("Login bloqueado por excesso de tentativas do mesmo IP: ip={}", ip);
+            throw new TooManyRequestsException("Muitas tentativas. Tente novamente em "
+                    + loginAttemptService.windowPorIp().toMinutes() + " minutos.");
+        }
         if (loginAttemptService.isBlocked(email)) {
             businessMetrics.registrarLoginBloqueado();
             log.warn("Login bloqueado por excesso de tentativas: email={}", LogMasker.email(email));
@@ -61,7 +70,8 @@ public class AuthService {
             return AuthResponseDTO.bearer(accessToken, refreshToken, UserResponseDTO.from(user));
         } catch (AuthenticationException e) {
             loginAttemptService.registerFailure(email);
-            log.warn("Falha de autenticação: email={}", LogMasker.email(email));
+            loginAttemptService.registerIpFailure(ipRateLimitKey);
+            log.warn("Falha de autenticação: email={}, ip={}", LogMasker.email(email), ip);
             throw e;
         }
     }
