@@ -37,4 +37,22 @@ public final class LogMasker {
         }
         return cpf.length() >= 2 ? "***.***.***-" + cpf.substring(cpf.length() - 2) : "***";
     }
+
+    /**
+     * Mascara um IP preservando só o prefixo de rede, o bastante para correlacionar
+     * tentativas de uma mesma origem sem registrar o endereço do assinante
+     * (ex.: {@code 203.0.113.10} → {@code 203.0.113.***};
+     * {@code 2001:db8:0:0:0:0:0:0/64} → {@code 2001:db8:***}).
+     */
+    public static String ip(String ip) {
+        if (ip == null || ip.isBlank()) {
+            return "***";
+        }
+        if (ip.indexOf(':') >= 0) {
+            String[] grupos = ip.split(":", -1);
+            return grupos.length >= 3 ? grupos[0] + ":" + grupos[1] + ":***" : "***";
+        }
+        int ultimoPonto = ip.lastIndexOf('.');
+        return ultimoPonto > 0 ? ip.substring(0, ultimoPonto) + ".***" : "***";
+    }
 }

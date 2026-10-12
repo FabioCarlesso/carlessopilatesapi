@@ -110,9 +110,9 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `JWT_REFRESH_SESSION_MAX_MS` | `2592000000` | Teto absoluto da sessão em milissegundos (30 dias desde o login); a rotação nunca estende o refresh token além dele |
 | `JWT_REFRESH_REUSE_GRACE_MS` | `10000` | Tolerância após a rotação em que reapresentar o token antigo recebe `401` sem derrubar a sessão (retentativa de rede, duas abas); `0` desliga |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origens permitidas para o frontend Angular |
-| `APP_RATE_LIMIT_IP_MAX_TENTATIVAS` | `20` | Tentativas por IP na janela antes do `429` em `/auth/login` (falhas) e `/auth/forgot-password` (solicitações), além do limite fixo por e-mail |
-| `APP_RATE_LIMIT_IP_JANELA_MINUTOS` | `15` | Janela do rate limit por IP, em minutos |
-| `APP_SECURITY_TRUSTED_PROXIES` | - | IPs ou CIDRs dos proxies reversos confiáveis, separados por vírgula. Só conexões vindas deles têm o `X-Forwarded-For` considerado na resolução do IP do cliente; vazio, o cabeçalho é ignorado. Preencha ao colocar a aplicação atrás de nginx/Traefik, senão todos os clientes compartilham o IP do proxy no rate limit |
+| `APP_RATE_LIMIT_IP_MAX_TENTATIVAS` | `20` | Tentativas por IP na janela antes do `429` em `/auth/login` (falhas) e `/auth/forgot-password` (solicitações), além do limite fixo por e-mail. Deve ser `> 0`: valor inválido impede a subida |
+| `APP_RATE_LIMIT_IP_JANELA_MINUTOS` | `15` | Janela do rate limit por IP, em minutos. Deve ser `> 0`: valor inválido impede a subida |
+| `APP_SECURITY_TRUSTED_PROXIES` | - | IPs ou CIDRs dos proxies reversos confiáveis, separados por vírgula. Só conexões vindas deles têm o `X-Forwarded-For` considerado na resolução do IP do cliente; vazio, o cabeçalho é ignorado. Preencha ao colocar a aplicação atrás de nginx/Traefik, senão todos os clientes compartilham o IP do proxy no rate limit (a aplicação loga um `WARN` ao detectar esse cenário) |
 | `APP_INITIAL_ADMIN_EMAIL` | `admin@carlessopilates.com` | E-mail do admin inicial criado no perfil `prod` quando não há `ADMIN` ativo |
 | `APP_INITIAL_ADMIN_PASSWORD` | - | Senha obrigatória para bootstrap do admin inicial no perfil `prod` |
 | `APP_COBRANCA_CRON_VENCIDOS` | `0 0 6 * * *` | Cron expression do scheduler que marca pagamentos como `VENCIDO` |

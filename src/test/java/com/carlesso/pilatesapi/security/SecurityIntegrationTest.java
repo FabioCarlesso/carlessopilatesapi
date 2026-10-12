@@ -22,9 +22,9 @@ import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
+import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.lang.reflect.Field;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,12 +67,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         // Os testes de bloqueio abaixo criam registros via HTTP, e isso comita: sem limpar, as linhas sobrevivem no
         // container Postgres compartilhado e vazam para qualquer teste que consulte a tabela depois.
         bloqueioAgendaRepository.deleteAll();
-        // reset in-memory rate limit history (por e-mail e por IP) between tests
-        for (String campo : new String[] {"history", "ipHistory"}) {
-            Field historyField = LoginAttemptService.class.getDeclaredField(campo);
-            historyField.setAccessible(true);
-            ((java.util.concurrent.ConcurrentHashMap<?, ?>) historyField.get(loginAttemptService)).clear();
-        }
+        LoginAttemptServiceTestSupport.limpar(loginAttemptService);
     }
 
     @Test

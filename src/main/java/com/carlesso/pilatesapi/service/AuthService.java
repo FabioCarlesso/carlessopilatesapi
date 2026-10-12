@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import com.carlesso.pilatesapi.util.LogMasker;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -44,36 +45,48 @@ public class AuthService {
         this.businessMetrics = businessMetrics;
     }
 
+    /**
+     * As tentativas são reservadas nos dois baldes <em>antes</em> do bcrypt e devolvidas no
+     * sucesso. Checar o limite e só contar a falha depois do {@code authenticate()} deixaria
+     * uma rajada concorrente inteira passar pela checagem enquanto o bcrypt roda.
+     *
+     * @param origem chave de origem do cliente, de {@code ClientIpResolver#resolverOrigem}
+     */
     @Transactional
-    public AuthResponseDTO login(AuthLoginRequestDTO dto, String ip) {
+    public AuthResponseDTO login(AuthLoginRequestDTO dto, String origem) {
         String email = EmailNormalizer.normalizar(dto.email());
-        String ipRateLimitKey = IP_RATE_LIMIT_KEY_PREFIX + ip;
-        if (loginAttemptService.isIpBlocked(ipRateLimitKey)) {
+        String origemRateLimitKey = IP_RATE_LIMIT_KEY_PREFIX + origem;
+        if (!loginAttemptService.tryAcquireIp(origemRateLimitKey)) {
             businessMetrics.registrarLoginBloqueado();
-            log.warn("Login bloqueado por excesso de tentativas do mesmo IP: ip={}", ip);
-            throw new TooManyRequestsException("Muitas tentativas. Tente novamente em "
-                    + loginAttemptService.windowPorIp().toMinutes() + " minutos.");
+            log.warn("Login bloqueado por excesso de tentativas da mesma origem: ip={}", LogMasker.ip(origem));
+            throw new TooManyRequestsException(mensagemBloqueio(loginAttemptService.windowPorIp()));
         }
-        if (loginAttemptService.isBlocked(email)) {
+        if (!loginAttemptService.tryAcquire(email)) {
+            // Barrada pelo e-mail: não consome a cota da origem.
+            loginAttemptService.releaseIp(origemRateLimitKey);
             businessMetrics.registrarLoginBloqueado();
             log.warn("Login bloqueado por excesso de tentativas: email={}", LogMasker.email(email));
-            throw new TooManyRequestsException("Muitas tentativas. Tente novamente em 15 minutos.");
+            throw new TooManyRequestsException(mensagemBloqueio(loginAttemptService.window()));
         }
         try {
             Authentication auth =
                     authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, dto.password()));
             loginAttemptService.registerSuccess(email);
+            loginAttemptService.releaseIp(origemRateLimitKey);
             User user = (User) auth.getPrincipal();
             String accessToken = jwtService.generateToken(user);
             String refreshToken = refreshTokenService.emitir(user);
             log.info("Login bem-sucedido: userId={}, email={}", user.getId(), LogMasker.email(email));
             return AuthResponseDTO.bearer(accessToken, refreshToken, UserResponseDTO.from(user));
         } catch (AuthenticationException e) {
-            loginAttemptService.registerFailure(email);
-            loginAttemptService.registerIpFailure(ipRateLimitKey);
-            log.warn("Falha de autenticação: email={}, ip={}", LogMasker.email(email), ip);
+            // As reservas feitas acima ficam: a falha já está contada nos dois baldes.
+            log.warn("Falha de autenticação: email={}, ip={}", LogMasker.email(email), LogMasker.ip(origem));
             throw e;
         }
+    }
+
+    private static String mensagemBloqueio(Duration janela) {
+        return "Muitas tentativas. Tente novamente em " + janela.toMinutes() + " minutos.";
     }
 
     /**

@@ -1,19 +1,22 @@
 package com.carlesso.pilatesapi.service;
 
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
  * Rate limit em memória dos endpoints públicos de autenticação, em dois baldes
- * independentes: um por chave (e-mail) e outro por IP de origem. O balde por IP
+ * independentes: um por chave (e-mail) e outro por origem (IP). O balde por origem
  * pega quem varia o e-mail a cada tentativa (credential stuffing); por isso tem
  * janela e limite próprios, mais folgados, para não punir vários usuários legítimos
  * atrás do mesmo NAT.
+ *
+ * <p>As tentativas são <em>reservadas</em> antes do trabalho caro (bcrypt, envio de
+ * e-mail) com {@code tryAcquire*}, que checa e conta numa só operação atômica; quem
+ * chama devolve a reserva com {@code release*}/{@link #registerSuccess} quando a
+ * tentativa não deve contar.
  *
  * <p>O estado vive no heap desta instância: zera a cada restart e não é
  * compartilhado entre réplicas.
@@ -24,80 +27,90 @@ public class LoginAttemptService {
     public static final int MAX_ATTEMPTS = 5;
     static final Duration WINDOW = Duration.ofMinutes(15);
 
-    private final int maxAttemptsPorIp;
-    private final Duration windowPorIp;
+    private final JanelaDeslizante porEmail;
+    private final JanelaDeslizante porIp;
 
-    private final ConcurrentHashMap<String, Deque<Instant>> history = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<Instant>> ipHistory = new ConcurrentHashMap<>();
-
+    @Autowired
     public LoginAttemptService(
             @Value("${app.rate-limit.ip.max-tentativas:20}") int maxAttemptsPorIp,
             @Value("${app.rate-limit.ip.janela-minutos:15}") long janelaPorIpMinutos) {
-        this.maxAttemptsPorIp = maxAttemptsPorIp;
-        this.windowPorIp = Duration.ofMinutes(janelaPorIpMinutos);
+        this(maxAttemptsPorIp, janelaPorIpMinutos, Clock.systemUTC());
     }
 
-    public void registerFailure(String key) {
-        registrar(history, key);
+    LoginAttemptService(int maxAttemptsPorIp, long janelaPorIpMinutos, Clock clock) {
+        if (maxAttemptsPorIp < 1) {
+            throw new IllegalArgumentException(
+                    "app.rate-limit.ip.max-tentativas deve ser maior que zero: " + maxAttemptsPorIp);
+        }
+        if (janelaPorIpMinutos < 1) {
+            throw new IllegalArgumentException(
+                    "app.rate-limit.ip.janela-minutos deve ser maior que zero: " + janelaPorIpMinutos);
+        }
+        this.porEmail = new JanelaDeslizante(MAX_ATTEMPTS, WINDOW, clock);
+        this.porIp = new JanelaDeslizante(maxAttemptsPorIp, Duration.ofMinutes(janelaPorIpMinutos), clock);
     }
 
+    /** Reserva uma tentativa para a chave; {@code false} se ela já está bloqueada. */
+    public boolean tryAcquire(String key) {
+        return porEmail.tentarRegistrar(key);
+    }
+
+    /** Sucesso zera o histórico da chave. */
     public void registerSuccess(String key) {
-        history.remove(key);
+        porEmail.remover(key);
     }
 
     public boolean isBlocked(String key) {
-        Deque<Instant> deque = prunirExpirados(history, key, WINDOW);
-        return deque != null && deque.size() >= MAX_ATTEMPTS;
+        return porEmail.atingiuLimite(key);
+    }
+
+    /** Reserva uma tentativa para a origem; {@code false} se ela já está bloqueada. */
+    public boolean tryAcquireIp(String key) {
+        return porIp.tentarRegistrar(key);
     }
 
     /**
-     * Não há contrapartida de sucesso de propósito: se um login bem-sucedido zerasse o
-     * balde do IP, o atacante intercalaria logins na própria conta para nunca atingir o limite.
+     * Devolve só a reserva desta tentativa — nunca zera o balde: se um login bem-sucedido
+     * apagasse o histórico do IP, o atacante intercalaria logins na própria conta para nunca
+     * atingir o limite.
      */
-    public void registerIpFailure(String key) {
-        registrar(ipHistory, key);
+    public void releaseIp(String key) {
+        porIp.desfazer(key);
     }
 
     public boolean isIpBlocked(String key) {
-        Deque<Instant> deque = prunirExpirados(ipHistory, key, windowPorIp);
-        return deque != null && deque.size() >= maxAttemptsPorIp;
+        return porIp.atingiuLimite(key);
+    }
+
+    public Duration window() {
+        return porEmail.janela();
     }
 
     public int maxAttemptsPorIp() {
-        return maxAttemptsPorIp;
+        return porIp.limite();
     }
 
     public Duration windowPorIp() {
-        return windowPorIp;
+        return porIp.janela();
     }
 
-    /**
-     * Remove do mapa as chaves cujas tentativas já saíram da janela. Sem isso,
-     * chaves que nunca são revisitadas (ex.: um e-mail de recuperação de senha
-     * usado uma única vez) ficariam retidas para sempre, permitindo crescimento
-     * ilimitado do mapa em memória por um endpoint não autenticado.
-     */
+    /** Chamado periodicamente pelo {@code LoginAttemptCleanupScheduler}. */
     public void limparEntradasExpiradas() {
-        history.keySet().forEach(key -> prunirExpirados(history, key, WINDOW));
-        ipHistory.keySet().forEach(key -> prunirExpirados(ipHistory, key, windowPorIp));
+        porEmail.limparExpirados();
+        porIp.limparExpirados();
     }
 
-    private static void registrar(ConcurrentHashMap<String, Deque<Instant>> mapa, String key) {
-        mapa.compute(key, (k, deque) -> {
-            if (deque == null) deque = new ArrayDeque<>();
-            deque.addLast(Instant.now());
-            return deque;
-        });
+    boolean contemChave(String key) {
+        return porEmail.contem(key);
     }
 
-    private static Deque<Instant> prunirExpirados(
-            ConcurrentHashMap<String, Deque<Instant>> mapa, String key, Duration window) {
-        Instant cutoff = Instant.now().minus(window);
-        return mapa.computeIfPresent(key, (k, deque) -> {
-            while (!deque.isEmpty() && deque.peekFirst().isBefore(cutoff)) {
-                deque.pollFirst();
-            }
-            return deque.isEmpty() ? null : deque;
-        });
+    boolean contemChaveIp(String key) {
+        return porIp.contem(key);
+    }
+
+    /** Zera os dois baldes; uso restrito a testes, que compartilham o bean entre si. */
+    void limparTudo() {
+        porEmail.limpar();
+        porIp.limpar();
     }
 }

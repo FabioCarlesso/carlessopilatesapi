@@ -56,7 +56,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(
             @RequestBody @Valid AuthLoginRequestDTO dto, HttpServletRequest request) {
-        return ResponseEntity.ok(authService.login(dto, clientIpResolver.resolver(request)));
+        return ResponseEntity.ok(authService.login(dto, clientIpResolver.resolverOrigem(request)));
     }
 
     @Operation(
@@ -107,7 +107,7 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(
             @RequestBody @Valid ForgotPasswordRequestDTO dto, HttpServletRequest request) {
-        passwordResetService.solicitarRedefinicao(dto.email(), clientIpResolver.resolver(request));
+        passwordResetService.solicitarRedefinicao(dto.email(), clientIpResolver.resolverOrigem(request));
         return ResponseEntity.ok().build();
     }
 

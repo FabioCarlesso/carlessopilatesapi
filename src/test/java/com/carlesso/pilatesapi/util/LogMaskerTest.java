@@ -42,4 +42,22 @@ class LogMaskerTest {
     void cpf_curto_retornaMascaraGenerica() {
         assertThat(LogMasker.cpf("1")).isEqualTo("***");
     }
+
+    @Test
+    void ip_v4_mascaraUltimoOcteto() {
+        assertThat(LogMasker.ip("203.0.113.10")).isEqualTo("203.0.113.***");
+    }
+
+    @Test
+    void ip_v6_preservaApenasOsDoisPrimeirosGrupos() {
+        assertThat(LogMasker.ip("2001:db8:aa:bb:0:0:0:0/64")).isEqualTo("2001:db8:***");
+    }
+
+    @Test
+    void ip_nuloVazioOuMalformado_retornaMascaraGenerica() {
+        assertThat(LogMasker.ip(null)).isEqualTo("***");
+        assertThat(LogMasker.ip(" ")).isEqualTo("***");
+        assertThat(LogMasker.ip("semponto")).isEqualTo("***");
+        assertThat(LogMasker.ip("::1")).isEqualTo("::***");
+    }
 }
