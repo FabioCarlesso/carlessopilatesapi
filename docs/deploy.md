@@ -120,7 +120,8 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `APP_REFRESH_TOKEN_CRON_LIMPEZA` | `0 30 3 * * *` | Cron expression da limpeza diária de refresh tokens vencidos ou revogados |
 | `APP_METRICS_SCRAPE_TOKEN` | - | Credencial fixa (mín. 32 caracteres) aceita só em `/actuator/prometheus` para o scrape do Prometheus; vazia, o endpoint exige JWT de `ADMIN` |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
-| `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas |
+| `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas (quando a requisição não informa `size`) |
+| `APP_FUSO_HORARIO` | `America/Sao_Paulo` | Fuso do estúdio (ID IANA) usado nos horários gravados pelo servidor e exibidos sem conversão, como o `registradoEm` dos contatos de cobrança. Independe do fuso da JVM |
 | `APP_EMAIL_PROVIDER` | `smtp` | Provedor de e-mail ativo (seleciona o bean `EmailSender` via `EmailConfig`) |
 | `APP_EMAIL_FROM` | `no-reply@carlessopilates.com.br` | Remetente usado no envio de e-mails transacionais |
 | `APP_EMAIL_RESET_PASSWORD_URL` | `https://app.carlessopilates.com.br/resetar-senha` | URL do frontend para onde o link de redefinição de senha aponta (`?token=...`) |

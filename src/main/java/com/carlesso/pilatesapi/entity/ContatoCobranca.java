@@ -9,8 +9,8 @@ import java.time.LocalDateTime;
  *
  * <p>É um log de inclusão — não existe edição nem exclusão; uma correção entra como novo contato. {@code dataContato}
  * vem do cliente (o contato pode ter acontecido antes de ser registrado), mas {@code registradoPor} e
- * {@code registradoEm} são do servidor: o primeiro é preenchido pelo serviço a partir do usuário autenticado e o
- * segundo no {@code @PrePersist}. Ver issue #197.
+ * {@code registradoEm} são do servidor, preenchidos pelo {@code ContatoCobrancaService}: o autor a partir do usuário
+ * autenticado e o momento no fuso do estúdio ({@code app.fuso-horario}), e não no da JVM. Ver issue #197.
  */
 @Entity
 @Table(name = "contatos_cobranca")
@@ -37,13 +37,6 @@ public class ContatoCobranca {
     private LocalDateTime registradoEm;
 
     public ContatoCobranca() {}
-
-    @PrePersist
-    void prePersist() {
-        if (this.registradoEm == null) {
-            this.registradoEm = LocalDateTime.now();
-        }
-    }
 
     public Long getId() {
         return id;

@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -161,7 +162,8 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
 
     @Test
     void registrarContato_persisteComAutorEMomentoDoServidor() {
-        LocalDateTime antes = LocalDateTime.now().minusSeconds(1);
+        // registradoEm é gravado no fuso do estúdio, não no da JVM.
+        LocalDateTime antes = LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).minusSeconds(1);
 
         ContatoCobrancaResponseDTO criado = contatoCobrancaService.registrar(
                 biaVencidoFevereiro.getId(),
@@ -172,7 +174,7 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
 
         ContatoCobranca salvo = contatoCobrancaRepository.findById(criado.id()).orElseThrow();
         assertThat(salvo.getRegistradoPor()).isEqualTo("admin@email.com");
-        assertThat(salvo.getRegistradoEm()).isAfter(antes);
+        assertThat(salvo.getRegistradoEm()).isAfter(antes).isBefore(antes.plusMinutes(1));
         assertThat(salvo.getObservacao()).isEqualTo("Ligação; promete pagar sexta");
         assertThat(criado.pagamentoId()).isEqualTo(biaVencidoFevereiro.getId());
     }

@@ -89,8 +89,8 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 - Registram cada contato do estúdio com o paciente sobre um pagamento em aberto — ligação, mensagem, conversa presencial (#197). Antes disso o histórico ficava fora do sistema, e não dava para saber se um vencido já tinha sido cobrado
 - É um **log de inclusão**: não há edição nem exclusão; uma correção entra como novo contato
-- `dataContato` vem do cliente (o contato pode ter acontecido antes de ser registrado), mas não pode ser futura. `registradoPor` e `registradoEm` são do servidor — `registradoPor` é o e-mail do usuário autenticado, gravado como snapshot para que o histórico não mude se o usuário for renomeado ou desativado
-- Pagamento `PAGO` não aceita novos contatos (`422`): não há o que cobrar. Os contatos registrados enquanto ele estava em aberto continuam no histórico
+- `dataContato` vem do cliente (o contato pode ter acontecido antes de ser registrado), mas não pode ser futura **no fuso do estúdio** (`app.fuso-horario`). `registradoPor` e `registradoEm` são do servidor — `registradoPor` é o e-mail do usuário autenticado, gravado como snapshot para que o histórico não mude se o usuário for renomeado ou desativado, e `registradoEm` é a hora do estúdio, não a da JVM: o frontend a exibe sem conversão, e um container em UTC mostraria a hora 3h adiantada
+- Pagamento `PAGO` não aceita novos contatos (`422`): não há o que cobrar. Os contatos registrados enquanto ele estava em aberto continuam no histórico. O pagamento é lido com lock de escrita (`findByIdForUpdate`): sem ele, registrar um contato e confirmar o pagamento ao mesmo tempo leriam os dois `PENDENTE`, e o contato entraria num pagamento já pago
 - O histórico sai do contato mais recente para o mais antigo (`dataContato`), com `registradoEm` e `id` desempatando contatos do mesmo dia
 
 ## NFSE

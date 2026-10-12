@@ -19,7 +19,7 @@ import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -68,7 +68,7 @@ public class PagamentoController {
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate vencimentoAte,
             @Parameter(description = "ID do paciente") @RequestParam(required = false) Long pacienteId,
-            @ParameterObject @PageableDefault(sort = "dataVencimento") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "dataVencimento") Pageable pageable) {
         return ResponseEntity.ok(service.listar(status, vencimentoDe, vencimentoAte, pacienteId, pageable));
     }
 

@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.repository;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +13,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,6 +27,15 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
     @Override
     @EntityGraph(attributePaths = {"paciente", "plano"})
     Page<Pagamento> findAll(Specification<Pagamento> spec, Pageable pageable);
+
+    /**
+     * Pagamento com lock de escrita, para regras que decidem pelo status e gravam em seguida. Sem o lock, registrar um
+     * contato de cobrança e confirmar o pagamento ao mesmo tempo leriam os dois {@code PENDENTE}, e o contato entraria
+     * num pagamento que acabou de virar {@code PAGO}.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Pagamento p where p.id = :id")
+    Optional<Pagamento> findByIdForUpdate(@Param("id") Long id);
 
     List<Pagamento> findByPacienteId(Long pacienteId);
 

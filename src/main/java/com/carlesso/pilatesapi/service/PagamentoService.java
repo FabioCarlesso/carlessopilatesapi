@@ -15,6 +15,7 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -213,20 +214,20 @@ public class PagamentoService {
 
     private Specification<Pagamento> filtros(
             List<StatusPagamento> status, LocalDate vencimentoDe, LocalDate vencimentoAte, Long pacienteId) {
-        Specification<Pagamento> spec = Specification.where(null);
+        List<Specification<Pagamento>> filtros = new ArrayList<>();
         if (status != null && !status.isEmpty()) {
-            spec = spec.and((root, query, cb) -> root.get("status").in(status));
+            filtros.add((root, query, cb) -> root.get("status").in(status));
         }
         if (vencimentoDe != null) {
-            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dataVencimento"), vencimentoDe));
+            filtros.add((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dataVencimento"), vencimentoDe));
         }
         if (vencimentoAte != null) {
-            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dataVencimento"), vencimentoAte));
+            filtros.add((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dataVencimento"), vencimentoAte));
         }
         if (pacienteId != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("paciente").get("id"), pacienteId));
+            filtros.add((root, query, cb) -> cb.equal(root.get("paciente").get("id"), pacienteId));
         }
-        return spec;
+        return Specification.allOf(filtros);
     }
 
     /**
