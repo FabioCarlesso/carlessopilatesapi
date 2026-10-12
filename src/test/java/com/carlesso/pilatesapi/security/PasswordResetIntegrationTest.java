@@ -19,9 +19,9 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
+import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.lang.reflect.Field;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,9 +63,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
     @BeforeEach
     void setUp() throws Exception {
         userRepository.deleteAll();
-        Field historyField = LoginAttemptService.class.getDeclaredField("history");
-        historyField.setAccessible(true);
-        ((java.util.concurrent.ConcurrentHashMap<?, ?>) historyField.get(loginAttemptService)).clear();
+        LoginAttemptServiceTestSupport.limpar(loginAttemptService);
     }
 
     @Test
@@ -208,6 +206,30 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         mvc.perform(post("/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void forgotPassword_comEmailsDiferentesDoMesmoIp_aposLimitePorIp_deveRetornar429() throws Exception {
+        for (int i = 0; i < loginAttemptService.maxAttemptsPorIp(); i++) {
+            mvc.perform(post("/auth/forgot-password")
+                            .with(request -> {
+                                request.setRemoteAddr("203.0.113.40");
+                                return request;
+                            })
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(mapper.writeValueAsString(
+                                    new ForgotPasswordRequestDTO("massa" + i + "@email.com"))))
+                    .andExpect(status().isOk());
+        }
+
+        mvc.perform(post("/auth/forgot-password")
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113.40");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new ForgotPasswordRequestDTO("outra@email.com"))))
                 .andExpect(status().isTooManyRequests());
     }
 

@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -19,6 +20,7 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.exception.UnauthorizedException;
+import com.carlesso.pilatesapi.security.ClientIpResolver;
 import com.carlesso.pilatesapi.service.AuthService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
@@ -28,12 +30,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(ClientIpResolver.class)
 class AuthControllerTest {
 
     @Autowired
@@ -57,7 +61,7 @@ class AuthControllerTest {
     @Test
     void login_deveRetornar200() throws Exception {
         var request = new AuthLoginRequestDTO("maria@email.com", "senha1234");
-        when(authService.login(any())).thenReturn(AuthResponseDTO.bearer("token", "refresh", maria()));
+        when(authService.login(any(), any())).thenReturn(AuthResponseDTO.bearer("token", "refresh", maria()));
 
         mvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -66,6 +70,37 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.accessToken").value("token"))
                 .andExpect(jsonPath("$.refreshToken").value("refresh"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"));
+    }
+
+    @Test
+    void login_deveRepassarIpDaConexaoIgnorandoXForwardedForSemProxyConfiavel() throws Exception {
+        var request = new AuthLoginRequestDTO("maria@email.com", "senha1234");
+        when(authService.login(any(), any())).thenReturn(AuthResponseDTO.bearer("token", "refresh", maria()));
+
+        mvc.perform(post("/auth/login")
+                        .with(req -> {
+                            req.setRemoteAddr("203.0.113.10");
+                            return req;
+                        })
+                        .header("X-Forwarded-For", "198.51.100.7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(authService).login(request, "203.0.113.10");
+    }
+
+    @Test
+    void login_bloqueadoPorRateLimit_deveRetornar429() throws Exception {
+        var request = new AuthLoginRequestDTO("maria@email.com", "senha1234");
+        when(authService.login(any(), any()))
+                .thenThrow(new TooManyRequestsException("Muitas tentativas. Tente novamente em 15 minutos."));
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.erro").value("Muitas tentativas. Tente novamente em 15 minutos."));
     }
 
     @Test
@@ -133,7 +168,7 @@ class AuthControllerTest {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-        verify(passwordResetService).solicitarRedefinicao("maria@email.com");
+        verify(passwordResetService).solicitarRedefinicao("maria@email.com", "127.0.0.1");
     }
 
     @Test
@@ -161,7 +196,7 @@ class AuthControllerTest {
         var request = new ForgotPasswordRequestDTO("maria@email.com");
         doThrow(new TooManyRequestsException("Muitas solicitações. Tente novamente em 15 minutos."))
                 .when(passwordResetService)
-                .solicitarRedefinicao("maria@email.com");
+                .solicitarRedefinicao(eq("maria@email.com"), any());
 
         mvc.perform(post("/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -46,6 +46,8 @@ src/
 │   │   │                 # UnauthorizedException (401)
 │   │   ├── security/     # JwtAuthenticationFilter — valida o Bearer token por requisição;
 │   │   │                 # MetricsScrapeTokenFilter — credencial fixa do scrape do Prometheus
+│   │   │                 # ClientIpResolver — IP do cliente para o rate limit (X-Forwarded-For
+│   │   │                 # só de proxy confiável)
 │   │   ├── email/        # EmailSender e implementações (SMTP), templates transacionais
 │   │   ├── storage/      # Persistência do binário das fotos de análise postural
 │   │   ├── metrics/      # BusinessMetrics — contadores de negócio expostos no Prometheus

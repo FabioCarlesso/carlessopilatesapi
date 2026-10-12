@@ -18,12 +18,12 @@ import com.carlesso.pilatesapi.repository.RefreshTokenRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
+import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.service.RefreshTokenService;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.carlesso.pilatesapi.util.TokenOpaco;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,9 +71,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     void setUp() throws Exception {
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
-        Field historyField = LoginAttemptService.class.getDeclaredField("history");
-        historyField.setAccessible(true);
-        ((java.util.concurrent.ConcurrentHashMap<?, ?>) historyField.get(loginAttemptService)).clear();
+        LoginAttemptServiceTestSupport.limpar(loginAttemptService);
     }
 
     @Test

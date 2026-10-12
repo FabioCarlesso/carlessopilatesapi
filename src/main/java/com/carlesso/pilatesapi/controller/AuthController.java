@@ -5,12 +5,14 @@ import com.carlesso.pilatesapi.dto.AuthResponseDTO;
 import com.carlesso.pilatesapi.dto.ForgotPasswordRequestDTO;
 import com.carlesso.pilatesapi.dto.RefreshTokenRequestDTO;
 import com.carlesso.pilatesapi.dto.ResetPasswordRequestDTO;
+import com.carlesso.pilatesapi.security.ClientIpResolver;
 import com.carlesso.pilatesapi.service.AuthService;
 import com.carlesso.pilatesapi.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,10 +31,13 @@ public class AuthController {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final ClientIpResolver clientIpResolver;
 
-    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
+    public AuthController(
+            AuthService authService, PasswordResetService passwordResetService, ClientIpResolver clientIpResolver) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Operation(
@@ -40,9 +45,18 @@ public class AuthController {
             description =
                     "Endpoint público. Valida e-mail/senha e retorna accessToken (curta duração) para uso no Authorize "
                             + "do Swagger UI e refreshToken para renovar a sessão em POST /auth/refresh.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login realizado"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido"),
+        @ApiResponse(responseCode = "401", description = "Credenciais inválidas"),
+        @ApiResponse(
+                responseCode = "429",
+                description = "Muitas tentativas falhas para o e-mail informado ou a partir do mesmo IP")
+    })
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid AuthLoginRequestDTO dto) {
-        return ResponseEntity.ok(authService.login(dto));
+    public ResponseEntity<AuthResponseDTO> login(
+            @RequestBody @Valid AuthLoginRequestDTO dto, HttpServletRequest request) {
+        return ResponseEntity.ok(authService.login(dto, clientIpResolver.resolverOrigem(request)));
     }
 
     @Operation(
@@ -86,11 +100,14 @@ public class AuthController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Solicitação processada"),
         @ApiResponse(responseCode = "400", description = "Payload inválido"),
-        @ApiResponse(responseCode = "429", description = "Muitas solicitações para o e-mail informado")
+        @ApiResponse(
+                responseCode = "429",
+                description = "Muitas solicitações para o e-mail informado ou a partir do mesmo IP")
     })
     @PostMapping("/forgot-password")
-    public ResponseEntity<Void> forgotPassword(@RequestBody @Valid ForgotPasswordRequestDTO dto) {
-        passwordResetService.solicitarRedefinicao(dto.email());
+    public ResponseEntity<Void> forgotPassword(
+            @RequestBody @Valid ForgotPasswordRequestDTO dto, HttpServletRequest request) {
+        passwordResetService.solicitarRedefinicao(dto.email(), clientIpResolver.resolverOrigem(request));
         return ResponseEntity.ok().build();
     }
 

@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import com.carlesso.pilatesapi.util.LogMasker;
 import com.carlesso.pilatesapi.util.TokenOpaco;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,17 +59,31 @@ public class PasswordResetService {
         this.tokenTtlMinutos = tokenTtlMinutos;
     }
 
+    /**
+     * Toda solicitação conta nos dois baldes; checar e contar é uma só operação atômica
+     * ({@code tryAcquire*}), para uma rajada concorrente não passar inteira pela checagem.
+     *
+     * @param origem chave de origem do cliente, de {@code ClientIpResolver#resolverOrigem}
+     */
     @Transactional
-    public void solicitarRedefinicao(String email) {
+    public void solicitarRedefinicao(String email, String origem) {
         String normalizedEmail = EmailNormalizer.normalizar(email);
         String rateLimitKey = RATE_LIMIT_KEY_PREFIX + normalizedEmail;
-        if (loginAttemptService.isBlocked(rateLimitKey)) {
+        String origemRateLimitKey = RATE_LIMIT_KEY_PREFIX + origem;
+        if (!loginAttemptService.tryAcquireIp(origemRateLimitKey)) {
+            log.warn(
+                    "Solicitação de redefinição de senha bloqueada por excesso de tentativas da mesma origem: ip={}",
+                    LogMasker.ip(origem));
+            throw new TooManyRequestsException(mensagemBloqueio(loginAttemptService.windowPorIp()));
+        }
+        if (!loginAttemptService.tryAcquire(rateLimitKey)) {
+            // Barrada pelo e-mail: não consome a cota da origem.
+            loginAttemptService.releaseIp(origemRateLimitKey);
             log.warn(
                     "Solicitação de redefinição de senha bloqueada por excesso de tentativas: email={}",
                     LogMasker.email(normalizedEmail));
-            throw new TooManyRequestsException("Muitas solicitações. Tente novamente em 15 minutos.");
+            throw new TooManyRequestsException(mensagemBloqueio(loginAttemptService.window()));
         }
-        loginAttemptService.registerFailure(rateLimitKey);
 
         userRepository.findByEmail(normalizedEmail).filter(User::isAtivo).ifPresent(this::gerarTokenEEnviarEmail);
         log.info("Solicitação de redefinição de senha processada: email={}", LogMasker.email(normalizedEmail));
@@ -111,5 +126,9 @@ public class PasswordResetService {
         String link = resetPasswordUrl + "?token=" + rawToken;
         emailSender.send(emailTemplateService.criarEmailRedefinicaoSenha(user, link));
         businessMetrics.registrarEmailResetEnviado();
+    }
+
+    private static String mensagemBloqueio(Duration janela) {
+        return "Muitas solicitações. Tente novamente em " + janela.toMinutes() + " minutos.";
     }
 }
