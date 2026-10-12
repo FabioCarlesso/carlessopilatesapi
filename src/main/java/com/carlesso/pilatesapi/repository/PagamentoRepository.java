@@ -6,11 +6,25 @@ import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PagamentoRepository extends JpaRepository<Pagamento, Long> {
+public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, JpaSpecificationExecutor<Pagamento> {
+
+    /**
+     * Listagem global paginada (issue #196). Paciente e plano são {@code @ManyToOne} EAGER: sem o grafo, cada linha da
+     * página dispararia selects próprios para carregá-los. O grafo vale só para a consulta de conteúdo — a de
+     * {@code count} da paginação não faz join.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"paciente", "plano"})
+    Page<Pagamento> findAll(Specification<Pagamento> spec, Pageable pageable);
 
     List<Pagamento> findByPacienteId(Long pacienteId);
 

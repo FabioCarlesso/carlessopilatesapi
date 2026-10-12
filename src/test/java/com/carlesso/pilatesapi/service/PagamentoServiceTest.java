@@ -33,6 +33,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 class PagamentoServiceTest {
@@ -242,5 +248,58 @@ class PagamentoServiceTest {
 
         assertThat(total).isEqualTo(1);
         assertThat(p1.getStatus()).isEqualTo(StatusPagamento.VENCIDO);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listar_acrescentaIdComoDesempateNaOrdenacao() {
+        Pagamento pagamento = new Pagamento();
+        pagamento.setPaciente(paciente);
+        pagamento.setPlano(plano);
+        pagamento.setStatus(StatusPagamento.VENCIDO);
+        when(pagamentoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(pagamento)));
+
+        Page<PagamentoResponseDTO> pagina = service.listar(
+                List.of(StatusPagamento.VENCIDO), null, null, null, PageRequest.of(2, 5, Sort.by("dataVencimento")));
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(pagamentoRepository).findAll(any(Specification.class), captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(5);
+        assertThat(captor.getValue().getSort()).isEqualTo(Sort.by("dataVencimento", "id"));
+        assertThat(pagina.getContent())
+                .extracting(PagamentoResponseDTO::status)
+                .containsExactly(StatusPagamento.VENCIDO);
+    }
+
+    @Test
+    void listar_faixaDeVencimentoInvertida_lancaIllegalArgument() {
+        assertThatThrownBy(() -> service.listar(
+                        null, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 2, 1), null, PageRequest.of(0, 10)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("vencimentoDe");
+
+        verifyNoInteractions(pagamentoRepository);
+    }
+
+    @Test
+    void listar_campoDeOrdenacaoNaoAceito_lancaIllegalArgument() {
+        assertThatThrownBy(() -> service.listar(null, null, null, null, PageRequest.of(0, 10, Sort.by("plano.id"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("plano.id");
+
+        verifyNoInteractions(pagamentoRepository);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listar_semPaginacao_repassaPageableSemAlterar() {
+        when(pagamentoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.listar(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 1L, Pageable.unpaged());
+
+        verify(pagamentoRepository).findAll(any(Specification.class), eq(Pageable.unpaged()));
     }
 }

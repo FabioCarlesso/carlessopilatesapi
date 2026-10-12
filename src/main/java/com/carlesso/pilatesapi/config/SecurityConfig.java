@@ -90,6 +90,15 @@ public class SecurityConfig {
                         .authenticated()
                         .requestMatchers("/bloqueios", "/bloqueios/**")
                         .hasRole("ADMIN")
+                        // Listagem global de pagamentos e contatos de cobrança são da gestão de inadimplência,
+                        // tela de ADMIN (#196, #197). Só GET/HEAD em /pagamentos exato: o POST de criação e as
+                        // demais rotas de /pagamentos/** continuam abertas a qualquer usuário autenticado.
+                        .requestMatchers(HttpMethod.GET, "/pagamentos")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.HEAD, "/pagamentos")
+                        .hasRole("ADMIN")
+                        .requestMatchers("/pagamentos/*/cobrancas", "/pagamentos/*/cobrancas/**")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

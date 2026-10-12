@@ -16,8 +16,14 @@ import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class PagamentoService {
 
     private static final Logger log = LoggerFactory.getLogger(PagamentoService.class);
+
+    /**
+     * Campos aceitos em {@code sort} na listagem global. Sem a lista, um campo inexistente chegaria ao Spring Data como
+     * {@code PropertyReferenceException} e viraria 500; e um campo existente mas não pensado para isso (ex.:
+     * {@code plano.paciente.cpf}) seria aceito em silêncio.
+     */
+    static final Set<String> CAMPOS_ORDENAVEIS = Set.of("dataVencimento", "valor", "status", "paciente.nome");
 
     private final PagamentoRepository pagamentoRepository;
     private final PacienteRepository pacienteRepository;
@@ -130,6 +143,25 @@ public class PagamentoService {
                 .toList();
     }
 
+    /**
+     * Listagem global paginada para a gestão de inadimplência (issue #196). Todos os filtros são opcionais e
+     * combináveis; a faixa de vencimento é inclusiva nas duas pontas e pode ser aberta de um dos lados.
+     */
+    @Transactional(readOnly = true)
+    public Page<PagamentoResponseDTO> listar(
+            List<StatusPagamento> status,
+            LocalDate vencimentoDe,
+            LocalDate vencimentoAte,
+            Long pacienteId,
+            Pageable pageable) {
+        if (vencimentoDe != null && vencimentoAte != null && vencimentoDe.isAfter(vencimentoAte)) {
+            throw new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte");
+        }
+        return pagamentoRepository
+                .findAll(filtros(status, vencimentoDe, vencimentoAte, pacienteId), comDesempatePorId(pageable))
+                .map(PagamentoResponseDTO::from);
+    }
+
     @Transactional
     public int atualizarVencidos() {
         List<Pagamento> vencidos =
@@ -177,6 +209,48 @@ public class PagamentoService {
 
         businessMetrics.registrarCobrancasGeradas(count);
         return count;
+    }
+
+    private Specification<Pagamento> filtros(
+            List<StatusPagamento> status, LocalDate vencimentoDe, LocalDate vencimentoAte, Long pacienteId) {
+        Specification<Pagamento> spec = Specification.where(null);
+        if (status != null && !status.isEmpty()) {
+            spec = spec.and((root, query, cb) -> root.get("status").in(status));
+        }
+        if (vencimentoDe != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dataVencimento"), vencimentoDe));
+        }
+        if (vencimentoAte != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dataVencimento"), vencimentoAte));
+        }
+        if (pacienteId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("paciente").get("id"), pacienteId));
+        }
+        return spec;
+    }
+
+    /**
+     * Valida os campos de ordenação e acrescenta {@code id} como último critério. Sem o desempate, linhas com o mesmo
+     * vencimento — comuns, já que as cobranças nascem em lote — podem trocar de página entre uma requisição e outra.
+     */
+    private Pageable comDesempatePorId(Pageable pageable) {
+        for (Sort.Order order : pageable.getSort()) {
+            if (!CAMPOS_ORDENAVEIS.contains(order.getProperty())) {
+                throw new IllegalArgumentException("Campo de ordenação inválido: %s. Aceitos: %s"
+                        .formatted(
+                                order.getProperty(),
+                                String.join(
+                                        ", ",
+                                        CAMPOS_ORDENAVEIS.stream().sorted().toList())));
+            }
+        }
+        if (pageable.isUnpaged()) {
+            return pageable;
+        }
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort().and(Sort.by("id")));
     }
 
     private Pagamento encontrar(Long id) {

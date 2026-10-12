@@ -44,6 +44,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V36__create_lista_espera_table.sql` | Cria tabela `lista_espera` (interessados por dia da semana e faixa de horário) com FK para `pacientes` e índices `(dia_semana, hora_inicio)` e `(paciente_id)`. `data_entrada` é `TIMESTAMP` — a ordem de chegada precisa desempatar inscrições do mesmo dia — e `ativo` sustenta a remoção lógica |
 | `V37__add_unique_lista_espera_ativa.sql` | Cria o índice único **parcial** `lista_espera_ativa_uidx` em `(paciente_id, dia_semana, hora_inicio, hora_fim) WHERE ativo` — fecha a janela entre a checagem de duplicidade e o `INSERT`, que requisições concorrentes atravessavam. O predicado é o que permite reentrar na fila depois da remoção lógica |
 | `V38__create_refresh_tokens_table.sql` | Cria tabela `refresh_tokens` (hash SHA-256 do token, `family_id` da cadeia de rotações, `token_version` do usuário na emissão, `family_expires_at` como teto absoluto da sessão, `used_at`/`revoked_at`) com índices em `user_id`, `family_id` e `family_expires_at` (limpeza diária) |
+| `V39__create_contatos_cobranca_table.sql` | Cria tabela `contatos_cobranca` (histórico de contatos de cobrança por pagamento, #197) com FK para `pagamentos` e índice em `pagamento_id`. `registrado_por` guarda o e-mail do usuário como snapshot, sem FK para `users`, e `registrado_em` é `TIMESTAMP` para desempatar contatos do mesmo dia |
 
 ## Migrations de seed (`db/seed/`) — apenas perfil `dev`
 

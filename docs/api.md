@@ -84,6 +84,35 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 | `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente |
 | `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` opcional no corpo |
+| `GET` | `/pagamentos` | Listagem global paginada (gestão de inadimplência, `ADMIN`); filtros `status`, `vencimentoDe`, `vencimentoAte` e `pacienteId` |
+| `POST` | `/pagamentos/{id}/cobrancas` | Registrar contato de cobrança do pagamento (`ADMIN`) |
+| `GET` | `/pagamentos/{id}/cobrancas` | Histórico de contatos de cobrança do pagamento, do mais recente para o mais antigo (`ADMIN`) |
+| `GET` | `/pagamentos/{id}/cobrancas/{contatoId}` | Buscar contato de cobrança (é o alvo do `Location` devolvido no registro; `ADMIN`) |
+
+### Listagem global e inadimplência
+
+`GET /pagamentos` alimenta a tela de inadimplência do frontend
+([carlessopilatesfe#127](https://github.com/FabioCarlesso/carlessopilatesfe/issues/127)).
+
+```
+GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&size=20
+```
+
+- Todos os filtros são opcionais e combináveis. `status` pode ser repetido; valor fora de `PENDENTE`, `PAGO` e
+  `VENCIDO` retorna `400`.
+- `vencimentoDe` e `vencimentoAte` (`yyyy-MM-dd`) são inclusivos e podem ser usados sozinhos. `vencimentoDe` posterior
+  a `vencimentoAte` retorna `400`.
+- A resposta é paginada no formato descrito em [Paginação](#paginação), com o mesmo item de `GET /pagamentos/{id}`.
+  Dias em atraso não vêm na resposta: o frontend calcula a partir de `dataVencimento`.
+- A ordenação padrão é `dataVencimento,asc` (os mais atrasados primeiro), sempre com `id` como desempate. `sort` aceita
+  apenas `dataVencimento`, `valor`, `status` e `paciente.nome`; outro campo retorna `400`.
+
+### Contatos de cobrança
+
+- O corpo do `POST` tem `dataContato` (`yyyy-MM-dd`, obrigatória, não futura) e `observacao` (obrigatória, até 500
+  caracteres). Fora disso, `400` com o mapa `campos`.
+- `registradoPor` (e-mail do usuário autenticado) e `registradoEm` são do servidor: enviá-los no corpo não muda nada.
+- Pagamento inexistente retorna `404`; pagamento `PAGO` não aceita novos contatos e retorna `422`.
 
 ## Aulas
 
@@ -371,6 +400,9 @@ GET /profissionais/1/relatorio-pagamento/xlsx?inicio=2025-02-01&fim=2025-02-28
 GET /api/relatorios/nfse?competencia=04/2026
 GET /api/relatorios/nfse?competencia=04/2026&notaAnteriorEmitida=false&formato=XLSX
 ```
+
+O endpoint `GET /pagamentos` (restrito a `ADMIN`) suporta filtros por `status` (repetível), `vencimentoDe`,
+`vencimentoAte` e `pacienteId` — ver [Listagem global e inadimplência](#listagem-global-e-inadimplência).
 
 O tamanho padrão de página é controlado por `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`) — ver
 [`deploy.md`](deploy.md#variáveis-de-ambiente).
