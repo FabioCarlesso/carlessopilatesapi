@@ -29,6 +29,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e access e refresh tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
+- A listagem global `GET /pagamentos` (e o `HEAD` equivalente) e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem abertas a qualquer usuário autenticado
 
 ## Recuperação de senha (esqueci minha senha)
 
@@ -80,6 +81,17 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período (`UNIQUE plano_id + periodo_inicio`)
 - Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
 - A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
+- A listagem global (`GET /pagamentos`, #196) ordena por `dataVencimento` crescente por padrão — os mais atrasados primeiro — e sempre acrescenta `id` como último critério: as cobranças nascem em lote com o mesmo vencimento, e sem o desempate uma linha poderia trocar de página entre duas requisições. Os campos ordenáveis são uma lista fechada (`dataVencimento`, `valor`, `status`, `paciente.nome`); campo fora dela retorna `400` em vez de chegar ao Spring Data e virar `500`
+- A faixa `vencimentoDe`/`vencimentoAte` é inclusiva nas duas pontas e pode ser aberta de um dos lados; invertida retorna `400`
+- Dias em atraso não são calculados no backend: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento
+
+### Contatos de cobrança
+
+- Registram cada contato do estúdio com o paciente sobre um pagamento em aberto — ligação, mensagem, conversa presencial (#197). Antes disso o histórico ficava fora do sistema, e não dava para saber se um vencido já tinha sido cobrado
+- É um **log de inclusão**: não há edição nem exclusão; uma correção entra como novo contato
+- `dataContato` vem do cliente (o contato pode ter acontecido antes de ser registrado), mas não pode ser futura **no fuso do estúdio** (`app.fuso-horario`). `registradoPor` e `registradoEm` são do servidor — `registradoPor` é o e-mail do usuário autenticado, gravado como snapshot para que o histórico não mude se o usuário for renomeado ou desativado, e `registradoEm` é a hora do estúdio, não a da JVM: o frontend a exibe sem conversão, e um container em UTC mostraria a hora 3h adiantada
+- Pagamento `PAGO` não aceita novos contatos (`422`): não há o que cobrar. Os contatos registrados enquanto ele estava em aberto continuam no histórico. O pagamento é lido com lock de escrita (`findByIdForUpdate`): sem ele, registrar um contato e confirmar o pagamento ao mesmo tempo leriam os dois `PENDENTE`, e o contato entraria num pagamento já pago
+- O histórico sai do contato mais recente para o mais antigo (`dataContato`), com `registradoEm` e `id` desempatando contatos do mesmo dia
 
 ## NFSE
 

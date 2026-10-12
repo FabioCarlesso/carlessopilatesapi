@@ -727,6 +727,93 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         };
     }
 
+    @Test
+    void pagamentosListar_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/pagamentos")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void pagamentosListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("pagamentos-user@email.com", Role.USER);
+
+        mvc.perform(get("/pagamentos").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+    }
+
+    @Test
+    void pagamentosListar_headComUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("pagamentos-head@email.com", Role.USER);
+
+        // Sem HttpMethod.HEAD no matcher, o HEAD escaparia da regra de ADMIN e cairia no anyRequest().authenticated().
+        mvc.perform(head("/pagamentos").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pagamentosListar_comAdmin_deveRetornarPagina() throws Exception {
+        User admin = criarUsuario("pagamentos-admin@email.com", Role.ADMIN);
+
+        mvc.perform(get("/pagamentos").param("status", "VENCIDO").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.page.number").value(0));
+    }
+
+    @Test
+    void pagamentosBuscarPorId_comUsuarioSemRoleAdmin_naoDeveCairNaRegraDeAdmin() throws Exception {
+        User user = criarUsuario("pagamentos-id@email.com", Role.USER);
+
+        // A regra de ADMIN vale só para /pagamentos exato: a busca por ID segue aberta a qualquer autenticado,
+        // então um ID inexistente responde 404, e não 403.
+        mvc.perform(get("/pagamentos/999999").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void pagamentosCriar_comUsuarioSemRoleAdmin_naoDeveCairNaRegraDeAdmin() throws Exception {
+        User user = criarUsuario("pagamentos-post@email.com", Role.USER);
+
+        mvc.perform(post("/pagamentos")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cobrancas_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("cobrancas-user@email.com", Role.USER);
+
+        mvc.perform(get("/pagamentos/999999/cobrancas").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/pagamentos/999999/cobrancas/1").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        post("/pagamentos/999999/cobrancas")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataContato": "2026-01-10", "observacao": "Ligação"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+    }
+
+    @Test
+    void cobrancas_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/pagamentos/999999/cobrancas")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
+        User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
+
+        mvc.perform(get("/pagamentos/999999/cobrancas").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNotFound());
+    }
+
     private User criarUsuario(String email, Role role) {
         return criarUsuario(email, role, true);
     }

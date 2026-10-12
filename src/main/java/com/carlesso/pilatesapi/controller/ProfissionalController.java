@@ -18,7 +18,7 @@ import java.time.LocalDate;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -77,7 +77,7 @@ public class ProfissionalController {
             @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.")
                     @RequestParam(required = false)
                     Boolean ativo,
-            @ParameterObject @PageableDefault(sort = "nome") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(service.listar(nome, email, tipoContrato, percentualPagamentoAula, ativo, pageable));
     }
 

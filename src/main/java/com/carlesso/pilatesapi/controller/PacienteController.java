@@ -13,7 +13,7 @@ import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -61,7 +61,7 @@ public class PacienteController {
             @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.")
                     @RequestParam(required = false)
                     Boolean ativo,
-            @ParameterObject @PageableDefault(sort = "nome") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(service.listar(nome, email, cpf, telefone, ativo, pageable));
     }
 
