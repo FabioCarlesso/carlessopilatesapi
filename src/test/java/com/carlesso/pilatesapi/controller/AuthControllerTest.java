@@ -100,7 +100,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.erro").value("Muitas tentativas. Tente novamente em 15 minutos."));
+                .andExpect(jsonPath("$.detail").value("Muitas tentativas. Tente novamente em 15 minutos."));
     }
 
     @Test
@@ -126,7 +126,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.erro").value("Refresh token inválido ou expirado"));
+                .andExpect(jsonPath("$.detail").value("Refresh token inválido ou expirado"));
     }
 
     @Test
@@ -202,7 +202,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.erro").value("Muitas solicitações. Tente novamente em 15 minutos."));
+                .andExpect(jsonPath("$.detail").value("Muitas solicitações. Tente novamente em 15 minutos."));
     }
 
     @Test
@@ -238,7 +238,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Token inválido ou expirado"));
+                .andExpect(jsonPath("$.detail").value("Token inválido ou expirado"));
     }
 
     private static UserResponseDTO maria() {

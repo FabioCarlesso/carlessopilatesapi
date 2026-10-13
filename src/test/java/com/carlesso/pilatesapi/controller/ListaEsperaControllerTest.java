@@ -100,8 +100,9 @@ class ListaEsperaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Dados inválidos"))
-                .andExpect(jsonPath("$.campos.pacienteId").value("pacienteId é obrigatório"));
+                .andExpect(jsonPath("$.detail").value("Dados inválidos"))
+                .andExpect(jsonPath("$.campos[?(@.campo == 'pacienteId')].mensagem")
+                        .value("pacienteId é obrigatório"));
     }
 
     @Test
@@ -113,7 +114,8 @@ class ListaEsperaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.diaSemana").value("diaSemana é obrigatório"));
+                .andExpect(
+                        jsonPath("$.campos[?(@.campo == 'diaSemana')].mensagem").value("diaSemana é obrigatório"));
     }
 
     @Test
@@ -124,7 +126,7 @@ class ListaEsperaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo())))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("horaFim deve ser posterior a horaInicio"));
+                .andExpect(jsonPath("$.detail").value("horaFim deve ser posterior a horaInicio"));
     }
 
     @Test
@@ -135,7 +137,7 @@ class ListaEsperaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 9"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 9"));
     }
 
     @Test
@@ -147,7 +149,7 @@ class ListaEsperaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo())))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Paciente inativo não aceita novos registros clínicos: 1"));
+                .andExpect(jsonPath("$.detail").value("Paciente inativo não aceita novos registros clínicos: 1"));
     }
 
     @Test
@@ -160,7 +162,7 @@ class ListaEsperaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo())))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro")
+                .andExpect(jsonPath("$.detail")
                         .value("Paciente já está na lista de espera para esse dia e faixa de horário"));
     }
 
@@ -197,7 +199,7 @@ class ListaEsperaControllerTest {
 
         mockMvc.perform(get("/lista-espera").param("horaInicio", "08:00"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro")
+                .andExpect(jsonPath("$.detail")
                         .value("horaInicio e horaFim devem ser informadas juntas; omita as "
                                 + "duas para não filtrar por horário"));
     }
@@ -225,7 +227,7 @@ class ListaEsperaControllerTest {
 
         mockMvc.perform(get("/lista-espera/9"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Entrada da lista de espera não encontrada: 9"));
+                .andExpect(jsonPath("$.detail").value("Entrada da lista de espera não encontrada: 9"));
     }
 
     @Test
@@ -243,7 +245,7 @@ class ListaEsperaControllerTest {
 
         mockMvc.perform(delete("/lista-espera/9"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Entrada da lista de espera não encontrada: 9"));
+                .andExpect(jsonPath("$.detail").value("Entrada da lista de espera não encontrada: 9"));
     }
 
     private Map<String, Object> corpo() {

@@ -91,7 +91,7 @@ class AulaControllerTest {
     void listarPorPeriodo_semPeriodo_retorna400() throws Exception {
         mockMvc.perform(get("/aulas").param("inicio", "2025-02-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -101,7 +101,7 @@ class AulaControllerTest {
 
         mockMvc.perform(get("/aulas").param("inicio", "2025-03-01").param("fim", "2025-02-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Período inicial não pode ser maior que o período final"));
+                .andExpect(jsonPath("$.detail").value("Período inicial não pode ser maior que o período final"));
     }
 
     @Test
@@ -111,7 +111,7 @@ class AulaControllerTest {
 
         mockMvc.perform(get("/aulas").param("inicio", "2025-01-01").param("fim", "2025-12-31"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Consulta por período limitada a 92 dias"));
+                .andExpect(jsonPath("$.detail").value("Consulta por período limitada a 92 dias"));
     }
 
     @Test
@@ -130,7 +130,7 @@ class AulaControllerTest {
 
         mockMvc.perform(get("/aulas/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Aula não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Aula não encontrada: 99"));
     }
 
     @Test
@@ -185,7 +185,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patch("/aulas/1/realizar"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -195,7 +195,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "2"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -234,7 +234,7 @@ class AulaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
 
         verifyNoInteractions(aulaService);
     }
@@ -254,7 +254,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchProfissional("/aulas/99/profissional", 7L))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Aula não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Aula não encontrada: 99"));
     }
 
     @Test
@@ -264,7 +264,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", 99L))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Profissional não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Profissional não encontrado: 99"));
     }
 
     @Test
@@ -274,7 +274,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -284,7 +284,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -303,7 +303,7 @@ class AulaControllerTest {
     void remarcar_semData_retorna400ComDetalheDoCampo() throws Exception {
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.data").exists());
+                .andExpect(jsonPath("$.campos[?(@.campo == 'data')].mensagem").exists());
 
         verifyNoInteractions(aulaService);
     }
@@ -314,7 +314,7 @@ class AulaControllerTest {
         // malformado, sem `campos`. Diferente de `data` ausente, que chega à validação e aponta o campo.
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"20/02/2025\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Corpo da requisição inválido ou malformado"))
+                .andExpect(jsonPath("$.detail").value("Corpo da requisição inválido ou malformado"))
                 .andExpect(jsonPath("$.campos").doesNotExist());
 
         verifyNoInteractions(aulaService);
@@ -324,7 +324,8 @@ class AulaControllerTest {
     void remarcar_comHorario_retorna400EnquantoOCampoNaoExiste() throws Exception {
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.horario").exists());
+                .andExpect(
+                        jsonPath("$.campos[?(@.campo == 'horario')].mensagem").exists());
 
         verifyNoInteractions(aulaService);
     }
@@ -336,7 +337,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("Aula já realizada não pode ser remarcada"));
+                .andExpect(jsonPath("$.detail").value("Aula já realizada não pode ser remarcada"));
     }
 
     @Test
@@ -346,7 +347,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("Paciente já possui aula na data 2025-02-20"));
+                .andExpect(jsonPath("$.detail").value("Paciente já possui aula na data 2025-02-20"));
     }
 
     @Test
@@ -356,7 +357,7 @@ class AulaControllerTest {
 
         mockMvc.perform(patchRemarcar("/aulas/99/remarcar", "{\"data\":\"2025-02-20\"}"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Aula não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Aula não encontrada: 99"));
     }
 
     private MockHttpServletRequestBuilder patchRemarcar(String url, String corpo) {

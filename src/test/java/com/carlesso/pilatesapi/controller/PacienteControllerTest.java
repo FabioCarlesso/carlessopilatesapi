@@ -14,6 +14,7 @@ import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.exception.TipoProblema;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.PacienteService;
@@ -131,8 +132,14 @@ class PacienteControllerTest {
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Dados inválidos"))
-                .andExpect(jsonPath("$.campos.nome").isNotEmpty());
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value(TipoProblema.VALIDACAO.uri().toString()))
+                .andExpect(jsonPath("$.title").value("Dados inválidos"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Dados inválidos"))
+                .andExpect(jsonPath("$.instance").value("/pacientes"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.campos[?(@.campo == 'nome')].mensagem").isNotEmpty());
     }
 
     @Test
@@ -141,22 +148,22 @@ class PacienteControllerTest {
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Dados inválidos"))
-                .andExpect(jsonPath("$.campos.email").isNotEmpty());
+                .andExpect(jsonPath("$.detail").value("Dados inválidos"))
+                .andExpect(jsonPath("$.campos[?(@.campo == 'email')].mensagem").isNotEmpty());
     }
 
     @Test
     void cadastrar_jsonMalformado_deveRetornar400ComMensagemNeutra() throws Exception {
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content("{\"nome\": "))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Corpo da requisição inválido ou malformado"));
+                .andExpect(jsonPath("$.detail").value("Corpo da requisição inválido ou malformado"));
     }
 
     @Test
     void buscar_idNaoNumerico_deveRetornar400() throws Exception {
         mvc.perform(get("/pacientes/abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").isNotEmpty());
+                .andExpect(jsonPath("$.detail").isNotEmpty());
     }
 
     @Test
@@ -164,7 +171,7 @@ class PacienteControllerTest {
         mvc.perform(delete("/pacientes/1"))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(header().exists("Allow"))
-                .andExpect(jsonPath("$.erro").isNotEmpty());
+                .andExpect(jsonPath("$.detail").isNotEmpty());
     }
 
     @Test
@@ -174,7 +181,7 @@ class PacienteControllerTest {
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.erro").value("Erro interno do servidor"));
+                .andExpect(jsonPath("$.detail").value("Erro interno do servidor"));
     }
 
     // -------------------------------------------------------------------------
@@ -239,7 +246,11 @@ class PacienteControllerTest {
 
         mvc.perform(get("/pacientes/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.NAO_ENCONTRADO.uri().toString()))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     // -------------------------------------------------------------------------

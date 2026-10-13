@@ -43,11 +43,11 @@ src/
 │   │   ├── dto/          # Records de request e response
 │   │   ├── exception/    # ResourceNotFoundException (404), ConflictException (409),
 │   │   │                 # BusinessException (422), TooManyRequestsException (429),
-│   │   │                 # UnauthorizedException (401)
+│   │   │                 # UnauthorizedException (401); TipoProblema e Problemas (RFC 9457)
 │   │   ├── security/     # JwtAuthenticationFilter — valida o Bearer token por requisição;
 │   │   │                 # MetricsScrapeTokenFilter — credencial fixa do scrape do Prometheus
 │   │   │                 # ClientIpResolver — IP do cliente para o rate limit (X-Forwarded-For
-│   │   │                 # só de proxy confiável)
+│   │   │                 # só de proxy confiável); ProblemaHttpWriter — 401/403 do filter chain
 │   │   ├── email/        # EmailSender e implementações (SMTP), templates transacionais
 │   │   ├── storage/      # Persistência do binário das fotos de análise postural
 │   │   ├── metrics/      # BusinessMetrics — contadores de negócio expostos no Prometheus
@@ -77,40 +77,58 @@ preparar a aplicação para roteamento futuro de leituras.
 
 ## Tratamento de erros
 
-A API utiliza exceções customizadas mapeadas pelo `GlobalExceptionHandler` para retornar o status HTTP
-semanticamente correto:
-
-| Exceção | HTTP | Quando é lançada |
-|---|---|---|
-| `ResourceNotFoundException` | `404 Not Found` | Recurso solicitado não existe (ex.: paciente, plano, pagamento ou aula não encontrada) |
-| `ConflictException` | `409 Conflict` | Conflito de estado ou duplicidade (ex.: e-mail/CPF já cadastrado, pagamento já confirmado, aula já realizada) |
-| `BusinessException` | `422 Unprocessable Entity` | Regra de negócio violada (ex.: paciente inativo não pode receber cobrança, profissional inativo não pode ser vinculado a aula) |
-| `UnauthorizedException` | `401 Unauthorized` | Refresh token inválido, expirado, revogado ou reutilizado em `POST /auth/refresh`; a mensagem é genérica e não diz qual dos casos ocorreu |
-| `IllegalArgumentException` | `400 Bad Request` | Parâmetros de entrada inválidos (ex.: período inicial maior que o final, valor menor que o do plano) |
-| `DataIntegrityViolationException` | `409 Conflict` | Violação de constraint do banco (ex.: registro duplicado ao salvar) |
-| `MethodArgumentNotValidException` / `HandlerMethodValidationException` / `ConstraintViolationException` | `400 Bad Request` | Bean Validation falhou (`@NotBlank`, `@Email`, `@Min`…); a resposta detalha os campos inválidos |
-| `HttpMessageNotReadableException` | `400 Bad Request` | Corpo da requisição malformado (JSON inválido) |
-| `AccessDeniedException` | `403 Forbidden` | Usuário autenticado sem permissão para o recurso. Nas rotas protegidas por URL o corpo é escrito pelo `accessDeniedHandler` do `SecurityConfig`; o handler do advice cobre o mesmo contrato caso method security seja adotada |
-| Exceções do Spring MVC | Status original do framework | O handler estende `ResponseEntityExceptionHandler`: método não suportado → `405` (com header `Allow`), mídia inválida → `415`, parâmetro obrigatório ausente e type mismatch (ex.: `GET /pacientes/abc`) → `400`. Apenas o corpo é trocado pelo contrato `{"erro": ...}` |
-| Demais exceções | `500 Internal Server Error` | Erro inesperado: logado com stacktrace no servidor e respondido com mensagem neutra, sem vazar detalhes internos (erros 5xx do próprio framework recebem o mesmo tratamento). Exceções anotadas com `@ResponseStatus` preservam o status declarado |
-
-Formato da resposta de erro:
-
-```json
-{ "erro": "Mensagem descritiva do problema" }
-```
-
-Erros de validação de campos incluem também o detalhe por campo:
+Toda resposta de erro segue a [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) e sai como
+`application/problem+json`. O `GlobalExceptionHandler` monta o corpo pelo `Problemas` (pacote `exception`), e os
+401/403 da autorização por URL — que nascem no filter chain, antes do DispatcherServlet — são escritos no mesmo
+formato pelo `ProblemaHttpWriter` usado no `SecurityConfig`.
 
 ```json
 {
-  "erro": "Dados inválidos",
-  "campos": {
-    "nome": "não deve estar em branco",
-    "email": "deve ser um endereço de e-mail bem formado"
-  }
+  "type": "https://carlessopilates.com.br/problemas/validation",
+  "title": "Dados inválidos",
+  "status": 400,
+  "detail": "Dados inválidos",
+  "instance": "/pacientes",
+  "timestamp": "2026-10-13T14:02:11.482Z",
+  "campos": [
+    { "campo": "nome", "mensagem": "não deve estar em branco" },
+    { "campo": "email", "mensagem": "deve ser um endereço de e-mail bem formado" }
+  ]
 }
 ```
+
+- **`type`** é o código estável do erro: o cliente deve reagir a ele, nunca ao texto de `detail`. As URIs só
+  identificam o tipo — não precisam abrir no navegador.
+- **`detail`** é a mensagem legível da ocorrência (a que antes vinha em `erro`).
+- **`campos`** só aparece em `validation`, com um item por campo ou parâmetro inválido.
+
+### Catálogo de `type`
+
+O catálogo vive no enum `TipoProblema`; o prefixo é `https://carlessopilates.com.br/problemas/`. Renomear um slug é
+quebra de contrato.
+
+| Slug | HTTP | Quando |
+|---|---|---|
+| `validation` | `400` | Bean Validation falhou (`MethodArgumentNotValidException`, `HandlerMethodValidationException`, `ConstraintViolationException`) — traz `campos` |
+| `bad-request` | `400` | `IllegalArgumentException` (ex.: período inicial maior que o final), JSON malformado, parâmetro obrigatório ausente, type mismatch (ex.: `GET /pacientes/abc`) |
+| `unauthorized` | `401` | Sem token ou token inválido; credenciais erradas no login (mensagem genérica); refresh token inválido, expirado, revogado ou reutilizado (`UnauthorizedException`) |
+| `forbidden` | `403` | Usuário autenticado sem permissão. Nas rotas protegidas por URL o corpo vem do `accessDeniedHandler`; o handler do advice cobre `AccessDeniedException` caso method security seja adotada |
+| `not-found` | `404` | `ResourceNotFoundException`/`EntityNotFoundException` e rota inexistente |
+| `method-not-allowed` | `405` | Método não suportado pela rota (com header `Allow`) |
+| `conflict` | `409` | `ConflictException` (e-mail/CPF já cadastrado, aula já realizada…) e `DataIntegrityViolationException` |
+| `concurrent-modification` | `409` | Locking otimista perdido: recarregar o recurso e refazer a ação |
+| `payload-too-large` | `413` | Upload acima do limite de 2 MB |
+| `unsupported-media-type` | `415` | `Content-Type` não aceito pela rota |
+| `business-rule` | `422` | `BusinessException`: regra de negócio violada (ex.: paciente inativo não pode receber cobrança) |
+| `rate-limit` | `429` | `TooManyRequestsException`: tentativas de login ou de redefinição de senha esgotadas |
+| `internal-error` | `5xx` | Erro inesperado: logado com stacktrace e respondido com mensagem neutra, sem vazar detalhes. Erros 5xx do framework preservam o status original (ex.: `503`) |
+
+Exceções do Spring MVC são resolvidas pela superclasse `ResponseEntityExceptionHandler`, que mantém status e headers
+do framework; só o corpo é refeito pelo catálogo. Status sem entrada nele (ex.: `406`) usam `type` `about:blank`,
+como manda a RFC, mas mantêm `timestamp`. Exceções anotadas com `@ResponseStatus` preservam o status declarado.
+
+O Swagger publica o schema `Problema` (e `CampoInvalido`) e o aplica a toda resposta 4xx/5xx; o 500 genérico é
+acrescentado a todas as operações pelo `OpenApiConfig`.
 
 ## Ver também
 

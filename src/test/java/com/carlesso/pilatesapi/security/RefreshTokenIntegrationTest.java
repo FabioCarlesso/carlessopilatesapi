@@ -101,7 +101,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         envelhecerUso(refresh1);
         refresh(refresh1)
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.erro").value("Refresh token inválido ou expirado"));
+                .andExpect(jsonPath("$.detail").value("Refresh token inválido ou expirado"));
         refresh(refresh2).andExpect(status().isUnauthorized());
         List<RefreshToken> cadeia = refreshTokenRepository.findAll();
         assertThat(cadeia).hasSize(2).allSatisfy(t -> assertThat(t.getRevokedAt())

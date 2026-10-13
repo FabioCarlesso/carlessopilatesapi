@@ -1,8 +1,10 @@
 package com.carlesso.pilatesapi.config;
 
+import com.carlesso.pilatesapi.exception.TipoProblema;
 import com.carlesso.pilatesapi.security.JwtAuthenticationFilter;
 import com.carlesso.pilatesapi.security.MetricsScrapeTokenFilter;
-import jakarta.servlet.http.HttpServletResponse;
+import com.carlesso.pilatesapi.security.ProblemaHttpWriter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,30 +31,32 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    static final String ERRO_NAO_AUTENTICADO = "Autenticação necessária para acessar este recurso";
+    static final String ERRO_ACESSO_NEGADO = "Acesso negado";
+
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AuthenticationProvider authenticationProvider,
             CorsConfigurationSource corsConfigurationSource,
-            @Value("${app.metrics.scrape-token:}") String metricsScrapeToken)
+            @Value("${app.metrics.scrape-token:}") String metricsScrapeToken,
+            ObjectMapper objectMapper)
             throws Exception {
+        ProblemaHttpWriter problemaWriter = new ProblemaHttpWriter(objectMapper);
         return http.csrf(csrf -> csrf.disable())
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                // Autorização é por URL, então 401 e 403 nascem no filter chain e nunca
+                // chegam ao GlobalExceptionHandler; escreve aqui o mesmo ProblemDetail
+                // (application/problem+json) para manter o contrato de erro da API.
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) ->
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-                        // Autorização é por URL, então o 403 nasce no filter chain e nunca
-                        // chega ao GlobalExceptionHandler; escreve aqui o mesmo corpo
-                        // {"erro": ...} documentado para manter o contrato de erro da API.
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                            response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write("{\"erro\": \"Acesso negado\"}");
-                        }))
+                        .authenticationEntryPoint((request, response, authException) -> problemaWriter.escrever(
+                                request, response, TipoProblema.NAO_AUTENTICADO, ERRO_NAO_AUTENTICADO))
+                        .accessDeniedHandler((request, response, accessDeniedException) -> problemaWriter.escrever(
+                                request, response, TipoProblema.ACESSO_NEGADO, ERRO_ACESSO_NEGADO)))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/auth/**")

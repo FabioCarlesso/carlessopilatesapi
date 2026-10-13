@@ -127,7 +127,7 @@ class SessaoPilatesControllerTest {
     void listarPorPeriodo_semPeriodo_deveRetornar400() throws Exception {
         mvc.perform(get("/sessoes").param("fim", "2026-05-31"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -137,7 +137,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(get("/sessoes").param("inicio", "2026-05-31").param("fim", "2026-05-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Período inicial não pode ser maior que o período final"));
+                .andExpect(jsonPath("$.detail").value("Período inicial não pode ser maior que o período final"));
     }
 
     @Test
@@ -147,7 +147,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(get("/sessoes").param("inicio", "2026-01-01").param("fim", "2026-12-31"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Consulta por período limitada a 92 dias"));
+                .andExpect(jsonPath("$.detail").value("Consulta por período limitada a 92 dias"));
     }
 
     @Test
@@ -209,7 +209,7 @@ class SessaoPilatesControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -228,7 +228,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(get("/sessoes/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Sessão não encontrada: 99"));
     }
 
     @Test
@@ -248,7 +248,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(get("/sessoes/paciente/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -296,7 +296,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(put("/sessoes/99").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Sessão não encontrada: 99"));
     }
 
     @Test
@@ -331,7 +331,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(patch("/sessoes/99/realizar"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Sessão não encontrada: 99"));
     }
 
     @Test
@@ -342,7 +342,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(patch("/sessoes/1/realizar"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro")
+                .andExpect(jsonPath("$.detail")
                         .value("Transição inválida: sessão CANCELADA não pode ser alterada para REALIZADA"));
     }
 
@@ -378,7 +378,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(patch("/sessoes/99/cancelar"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Sessão não encontrada: 99"));
     }
 
     @Test
@@ -389,7 +389,7 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(patch("/sessoes/1/cancelar"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro")
+                .andExpect(jsonPath("$.detail")
                         .value("Transição inválida: sessão REALIZADA não pode ser alterada para CANCELADA"));
     }
 
@@ -406,6 +406,6 @@ class SessaoPilatesControllerTest {
 
         mvc.perform(delete("/sessoes/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Sessão não encontrada: 99"));
     }
 }

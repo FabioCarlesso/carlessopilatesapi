@@ -126,7 +126,7 @@ class ReavaliacaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -145,7 +145,7 @@ class ReavaliacaoControllerTest {
 
         mvc.perform(get("/reavaliacoes/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Reavaliação não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Reavaliação não encontrada: 99"));
     }
 
     @Test
@@ -204,6 +204,6 @@ class ReavaliacaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Reavaliação não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Reavaliação não encontrada: 99"));
     }
 }
