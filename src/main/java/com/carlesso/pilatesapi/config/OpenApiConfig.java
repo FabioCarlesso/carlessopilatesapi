@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.config;
 
+import com.carlesso.pilatesapi.exception.Problemas;
 import com.carlesso.pilatesapi.exception.TipoProblema;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -86,10 +87,10 @@ public class OpenApiConfig {
             if (openApi.getPaths() == null) {
                 return;
             }
-            openApi.getPaths().values().forEach(path -> path.readOperations().forEach(operation -> {
+            openApi.getPaths().forEach((caminho, path) -> path.readOperations().forEach(operation -> {
                 operation.getResponses().forEach((codigo, resposta) -> {
                     if (codigo.startsWith("4") || codigo.startsWith("5")) {
-                        resposta.setContent(conteudoProblema(codigo));
+                        resposta.setContent(conteudoProblema(codigo, caminho));
                     }
                 });
                 operation
@@ -98,23 +99,24 @@ public class OpenApiConfig {
                                 "500",
                                 new ApiResponse()
                                         .description("Erro interno do servidor")
-                                        .content(conteudoProblema("500")));
+                                        .content(conteudoProblema("500", caminho)));
             }));
         };
     }
 
-    private static Content conteudoProblema(String codigo) {
+    private static Content conteudoProblema(String codigo, String caminho) {
         MediaType conteudo = new MediaType().schema(new Schema<>().$ref(REF_SCHEMAS + SCHEMA_PROBLEMA));
-        exemploProblema(codigo).ifPresent(conteudo::setExample);
+        exemploProblema(codigo, caminho).ifPresent(conteudo::setExample);
         return new Content().addMediaType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE, conteudo);
     }
 
     /**
      * Exemplo coerente com o código da resposta. Sem ele o Swagger UI monta um a partir do schema único — o primeiro
      * {@code type} do enum ({@code validation}), um {@code status} qualquer e a lista {@code campos} até num 404. O
-     * 400 mostra a validação, o caso mais comum, e é o único com {@code campos}.
+     * 400 mostra a validação, o caso mais comum, e é o único com {@code campos}. O {@code instance} é o caminho da
+     * própria operação, com as variáveis de path trocadas por {@code 1}.
      */
-    static Optional<Map<String, Object>> exemploProblema(String codigo) {
+    static Optional<Map<String, Object>> exemploProblema(String codigo, String caminho) {
         HttpStatusCode status;
         try {
             status = HttpStatusCode.valueOf(Integer.parseInt(codigo));
@@ -130,10 +132,10 @@ public class OpenApiConfig {
             exemplo.put("title", t.titulo());
             exemplo.put("status", status.value());
             exemplo.put("detail", t.titulo());
-            exemplo.put("instance", "/pacientes/1");
+            exemplo.put("instance", caminho.replaceAll("\\{[^}]+}", "1"));
             exemplo.put("timestamp", "2026-01-15T13:45:00Z");
             if (t == TipoProblema.VALIDACAO) {
-                exemplo.put("campos", List.of(Map.of("campo", "nome", "mensagem", "não deve estar em branco")));
+                exemplo.put("campos", List.of(new Problemas.CampoInvalido("nome", "não deve estar em branco")));
             }
             return exemplo;
         });

@@ -55,6 +55,8 @@ class OpenApiProblemaContratoTest {
                         .value(TipoProblema.NAO_ENCONTRADO.uri().toString()))
                 .andExpect(jsonPath(resposta404 + ".status").value(404))
                 .andExpect(jsonPath(resposta404 + ".campos").doesNotExist())
+                .andExpect(jsonPath(resposta404 + ".instance").value("/pacientes/1"))
+                .andExpect(jsonPath(resposta400 + ".instance").value("/pacientes"))
                 .andExpect(jsonPath(resposta400 + ".type")
                         .value(TipoProblema.VALIDACAO.uri().toString()))
                 .andExpect(jsonPath(resposta400 + ".campos[0].campo").value("nome"));
