@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.carlesso.pilatesapi.exception.TipoProblema;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -42,5 +43,20 @@ class OpenApiProblemaContratoTest {
                 .andExpect(
                         jsonPath("$.paths['/pacientes'].post.responses['500'].content" + PROBLEM_JSON + ".schema.$ref")
                                 .value("#/components/schemas/Problema"));
+    }
+
+    @Test
+    void exemploDeCadaResposta_condizComOCodigo() throws Exception {
+        String resposta404 = "$.paths['/pacientes/{id}'].get.responses['404'].content" + PROBLEM_JSON + ".example";
+        String resposta400 = "$.paths['/pacientes'].post.responses['400'].content" + PROBLEM_JSON + ".example";
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(resposta404 + ".type")
+                        .value(TipoProblema.NAO_ENCONTRADO.uri().toString()))
+                .andExpect(jsonPath(resposta404 + ".status").value(404))
+                .andExpect(jsonPath(resposta404 + ".campos").doesNotExist())
+                .andExpect(jsonPath(resposta400 + ".type")
+                        .value(TipoProblema.VALIDACAO.uri().toString()))
+                .andExpect(jsonPath(resposta400 + ".campos[0].campo").value("nome"));
     }
 }

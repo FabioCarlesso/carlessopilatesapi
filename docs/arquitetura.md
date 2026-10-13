@@ -33,7 +33,8 @@ Aplicação Spring Boot em camadas, com pacote raiz `com.carlesso.pilatesapi`.
 src/
 ├── main/
 │   ├── java/com/carlesso/pilatesapi/
-│   │   ├── config/       # SecurityConfig (JWT stateless, CORS), OpenApiConfig, GlobalExceptionHandler
+│   │   ├── config/       # SecurityConfig (JWT stateless, CORS), OpenApiConfig, GlobalExceptionHandler,
+│   │   │                 # ProblemaErrorController (/error)
 │   │   ├── controller/   # Endpoints REST — um controller por área de negócio
 │   │   ├── service/      # Regras de negócio, cálculo de relatórios e exportação PDF/XLSX
 │   │   ├── repository/   # Spring Data JPA
@@ -80,7 +81,10 @@ preparar a aplicação para roteamento futuro de leituras.
 Toda resposta de erro segue a [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) e sai como
 `application/problem+json`. O `GlobalExceptionHandler` monta o corpo pelo `Problemas` (pacote `exception`), e os
 401/403 da autorização por URL — que nascem no filter chain, antes do DispatcherServlet — são escritos no mesmo
-formato pelo `ProblemaHttpWriter` usado no `SecurityConfig`.
+formato pelo `ProblemaHttpWriter` usado no `SecurityConfig`. O que escapa dos dois — URL recusada pelo
+`StrictHttpFirewall`, exceção lançada dentro de um filtro, `sendError` do container — cai no `/error`, servido pelo
+`ProblemaErrorController` no lugar do `BasicErrorController` do Spring Boot: mesmo schema, `instance` com o caminho
+original e `detail` sempre neutro (o título do tipo), já que a mensagem da exceção ali é detalhe interno.
 
 ```json
 {
@@ -128,7 +132,8 @@ do framework; só o corpo é refeito pelo catálogo. Status sem entrada nele (ex
 como manda a RFC, mas mantêm `timestamp`. Exceções anotadas com `@ResponseStatus` preservam o status declarado.
 
 O Swagger publica o schema `Problema` (e `CampoInvalido`) e o aplica a toda resposta 4xx/5xx; o 500 genérico é
-acrescentado a todas as operações pelo `OpenApiConfig`.
+acrescentado a todas as operações pelo `OpenApiConfig`. Cada resposta traz um exemplo do próprio código (o 400 mostra
+`validation` com `campos`), para o Swagger UI não montar um exemplo genérico a partir do schema único.
 
 ## Ver também
 

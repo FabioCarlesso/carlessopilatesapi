@@ -16,11 +16,16 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 
 @Configuration
 public class OpenApiConfig {
@@ -65,7 +70,7 @@ public class OpenApiConfig {
     /**
      * Toda resposta de erro da API é um {@code application/problem+json} (RFC 9457). Em vez de repetir o schema em cada
      * {@code @ApiResponse}, troca aqui o conteúdo de toda resposta 4xx/5xx declarada pelo schema {@value
-     * #SCHEMA_PROBLEMA} e acrescenta o 500 genérico onde ele não foi declarado.
+     * #SCHEMA_PROBLEMA} e acrescenta o 500 genérico onde ele não foi declarado. Cada resposta leva um exemplo do próprio código.
      */
     @Bean
     public OpenApiCustomizer respostasDeErroComoProblemDetail() {
@@ -84,7 +89,7 @@ public class OpenApiConfig {
             openApi.getPaths().values().forEach(path -> path.readOperations().forEach(operation -> {
                 operation.getResponses().forEach((codigo, resposta) -> {
                     if (codigo.startsWith("4") || codigo.startsWith("5")) {
-                        resposta.setContent(conteudoProblema());
+                        resposta.setContent(conteudoProblema(codigo));
                     }
                 });
                 operation
@@ -93,16 +98,45 @@ public class OpenApiConfig {
                                 "500",
                                 new ApiResponse()
                                         .description("Erro interno do servidor")
-                                        .content(conteudoProblema()));
+                                        .content(conteudoProblema("500")));
             }));
         };
     }
 
-    private static Content conteudoProblema() {
-        return new Content()
-                .addMediaType(
-                        org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                        new MediaType().schema(new Schema<>().$ref(REF_SCHEMAS + SCHEMA_PROBLEMA)));
+    private static Content conteudoProblema(String codigo) {
+        MediaType conteudo = new MediaType().schema(new Schema<>().$ref(REF_SCHEMAS + SCHEMA_PROBLEMA));
+        exemploProblema(codigo).ifPresent(conteudo::setExample);
+        return new Content().addMediaType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE, conteudo);
+    }
+
+    /**
+     * Exemplo coerente com o código da resposta. Sem ele o Swagger UI monta um a partir do schema único — o primeiro
+     * {@code type} do enum ({@code validation}), um {@code status} qualquer e a lista {@code campos} até num 404. O
+     * 400 mostra a validação, o caso mais comum, e é o único com {@code campos}.
+     */
+    static Optional<Map<String, Object>> exemploProblema(String codigo) {
+        HttpStatusCode status;
+        try {
+            status = HttpStatusCode.valueOf(Integer.parseInt(codigo));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+        Optional<TipoProblema> tipo = status.value() == HttpStatus.BAD_REQUEST.value()
+                ? Optional.of(TipoProblema.VALIDACAO)
+                : TipoProblema.doStatus(status);
+        return tipo.map(t -> {
+            Map<String, Object> exemplo = new LinkedHashMap<>();
+            exemplo.put("type", t.uri().toString());
+            exemplo.put("title", t.titulo());
+            exemplo.put("status", status.value());
+            exemplo.put("detail", t.titulo());
+            exemplo.put("instance", "/pacientes/1");
+            exemplo.put("timestamp", "2026-01-15T13:45:00Z");
+            if (t == TipoProblema.VALIDACAO) {
+                exemplo.put("campos", List.of(Map.of("campo", "nome", "mensagem", "não deve estar em branco")));
+            }
+            return exemplo;
+        });
     }
 
     private static Schema<?> schemaProblema() {
