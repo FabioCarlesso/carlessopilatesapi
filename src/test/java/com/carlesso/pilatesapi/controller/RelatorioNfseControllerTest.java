@@ -107,7 +107,7 @@ class RelatorioNfseControllerTest {
                         .param("competencia", "04/2026")
                         .param("formato", "PDF"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("formato deve ser JSON, CSV ou XLSX"));
+                .andExpect(jsonPath("$.detail").value("formato deve ser JSON, CSV ou XLSX"));
     }
 
     @Test

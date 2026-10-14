@@ -144,7 +144,7 @@ class PlanoTratamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("dataFimPrevista não pode ser anterior a dataInicio"));
+                .andExpect(jsonPath("$.detail").value("dataFimPrevista não pode ser anterior a dataInicio"));
     }
 
     @Test
@@ -155,7 +155,7 @@ class PlanoTratamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -175,7 +175,7 @@ class PlanoTratamentoControllerTest {
 
         mvc.perform(get("/planos-tratamento/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Plano de tratamento não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Plano de tratamento não encontrado: 99"));
     }
 
     @Test
@@ -194,7 +194,7 @@ class PlanoTratamentoControllerTest {
 
         mvc.perform(get("/planos-tratamento/paciente/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -266,7 +266,7 @@ class PlanoTratamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("dataFimPrevista não pode ser anterior a dataInicio"));
+                .andExpect(jsonPath("$.detail").value("dataFimPrevista não pode ser anterior a dataInicio"));
     }
 
     @Test
@@ -280,7 +280,7 @@ class PlanoTratamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Plano de tratamento não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Plano de tratamento não encontrado: 99"));
     }
 
     @Test
@@ -296,6 +296,6 @@ class PlanoTratamentoControllerTest {
 
         mvc.perform(delete("/planos-tratamento/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Plano de tratamento não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Plano de tratamento não encontrado: 99"));
     }
 }

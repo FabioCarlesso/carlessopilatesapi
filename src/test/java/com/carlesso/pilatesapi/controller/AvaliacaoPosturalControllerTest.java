@@ -121,7 +121,7 @@ class AvaliacaoPosturalControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(new AvaliacaoPosturalRequestDTO(99L, VistaPostural.FRENTE))))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Avaliação fisioterapêutica não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Avaliação fisioterapêutica não encontrada: 99"));
     }
 
     @Test
@@ -133,7 +133,7 @@ class AvaliacaoPosturalControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE))))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("Avaliação já possui análise postural ativa da vista FRENTE"));
+                .andExpect(jsonPath("$.detail").value("Avaliação já possui análise postural ativa da vista FRENTE"));
     }
 
     @Test
@@ -155,7 +155,7 @@ class AvaliacaoPosturalControllerTest {
 
         mvc.perform(get("/avaliacoes-posturais/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Análise postural não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Análise postural não encontrada: 99"));
     }
 
     @Test
@@ -227,7 +227,7 @@ class AvaliacaoPosturalControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Ponto ORELHA não pertence à vista FRENTE"));
+                .andExpect(jsonPath("$.detail").value("Ponto ORELHA não pertence à vista FRENTE"));
     }
 
     @Test
@@ -257,7 +257,7 @@ class AvaliacaoPosturalControllerTest {
 
         mvc.perform(patch("/avaliacoes-posturais/10/concluir"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Pontos obrigatórios não marcados: [TORNOZELO_ESQ]"));
+                .andExpect(jsonPath("$.detail").value("Pontos obrigatórios não marcados: [TORNOZELO_ESQ]"));
     }
 
     @Test
@@ -309,7 +309,7 @@ class AvaliacaoPosturalControllerTest {
 
         mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto").file(arquivoFoto()))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Formato de foto não suportado: envie JPEG ou PNG"));
+                .andExpect(jsonPath("$.detail").value("Formato de foto não suportado: envie JPEG ou PNG"));
     }
 
     @Test

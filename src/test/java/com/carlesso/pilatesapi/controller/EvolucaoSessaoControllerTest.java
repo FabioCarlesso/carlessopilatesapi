@@ -141,7 +141,7 @@ class EvolucaoSessaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Sessão não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Sessão não encontrada: 99"));
     }
 
     @Test
@@ -153,7 +153,7 @@ class EvolucaoSessaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Paciente inativo não aceita novos registros clínicos: 1"));
+                .andExpect(jsonPath("$.detail").value("Paciente inativo não aceita novos registros clínicos: 1"));
     }
 
     @Test
@@ -164,7 +164,7 @@ class EvolucaoSessaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("Sessão já possui evolução registrada: 1"));
+                .andExpect(jsonPath("$.detail").value("Sessão já possui evolução registrada: 1"));
     }
 
     @Test
@@ -183,7 +183,7 @@ class EvolucaoSessaoControllerTest {
 
         mvc.perform(get("/evolucoes-sessao/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Evolução não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Evolução não encontrada: 99"));
     }
 
     @Test
@@ -205,7 +205,7 @@ class EvolucaoSessaoControllerTest {
 
         mvc.perform(get("/evolucoes-sessao/sessao/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Evolução não encontrada para a sessão: 99"));
+                .andExpect(jsonPath("$.detail").value("Evolução não encontrada para a sessão: 99"));
     }
 
     @Test
@@ -258,7 +258,7 @@ class EvolucaoSessaoControllerTest {
 
         mvc.perform(get("/evolucoes-sessao/paciente/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -316,6 +316,6 @@ class EvolucaoSessaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Evolução não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Evolução não encontrada: 99"));
     }
 }

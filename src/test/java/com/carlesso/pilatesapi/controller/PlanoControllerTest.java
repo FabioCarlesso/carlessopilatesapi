@@ -112,7 +112,7 @@ class PlanoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Paciente inativo"));
+                .andExpect(jsonPath("$.detail").value("Paciente inativo"));
     }
 
     @Test
@@ -131,7 +131,7 @@ class PlanoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("incompatível"));
+                .andExpect(jsonPath("$.detail").value("incompatível"));
     }
 
     @Test
@@ -149,7 +149,7 @@ class PlanoControllerTest {
 
         mockMvc.perform(get("/planos/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Plano não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Plano não encontrado: 99"));
     }
 
     @Test

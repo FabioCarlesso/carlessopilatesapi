@@ -132,7 +132,7 @@ class AnamneseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -143,7 +143,7 @@ class AnamneseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("Paciente já possui anamnese cadastrada: 1"));
+                .andExpect(jsonPath("$.detail").value("Paciente já possui anamnese cadastrada: 1"));
     }
 
     // -------------------------------------------------------------------------
@@ -167,7 +167,7 @@ class AnamneseControllerTest {
 
         mvc.perform(get("/anamneses/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Anamnese não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Anamnese não encontrada: 99"));
     }
 
     // -------------------------------------------------------------------------

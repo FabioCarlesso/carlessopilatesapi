@@ -97,7 +97,7 @@ class UserControllerTest {
 
         mvc.perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("E-mail já cadastrado"));
+                .andExpect(jsonPath("$.detail").value("E-mail já cadastrado"));
     }
 
     @Test
@@ -141,7 +141,7 @@ class UserControllerTest {
 
         mvc.perform(get("/users/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Usuário não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Usuário não encontrado: 99"));
     }
 
     @Test
@@ -169,7 +169,7 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível alterar o próprio perfil de acesso"));
+                .andExpect(jsonPath("$.detail").value("Não é possível alterar o próprio perfil de acesso"));
     }
 
     @Test
@@ -189,7 +189,7 @@ class UserControllerTest {
 
         mvc.perform(delete("/users/1").principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
+                .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
     @Test
@@ -200,7 +200,7 @@ class UserControllerTest {
 
         mvc.perform(delete("/users/99").principal(adminAuth()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Usuário não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Usuário não encontrado: 99"));
     }
 
     @Test
@@ -211,7 +211,7 @@ class UserControllerTest {
 
         mvc.perform(delete("/users/2").principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível inativar o último administrador ativo"));
+                .andExpect(jsonPath("$.detail").value("Não é possível inativar o último administrador ativo"));
     }
 
     @Test
@@ -238,7 +238,7 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Senha atual incorreta"));
+                .andExpect(jsonPath("$.detail").value("Senha atual incorreta"));
     }
 
     @Test
@@ -253,7 +253,7 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Confirmação de senha não confere"));
+                .andExpect(jsonPath("$.detail").value("Confirmação de senha não confere"));
     }
 
     @Test
@@ -268,7 +268,7 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("A nova senha deve ser diferente da senha atual"));
+                .andExpect(jsonPath("$.detail").value("A nova senha deve ser diferente da senha atual"));
     }
 
     @Test
@@ -295,6 +295,6 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível rebaixar o último administrador ativo"));
+                .andExpect(jsonPath("$.detail").value("Não é possível rebaixar o último administrador ativo"));
     }
 }

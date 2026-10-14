@@ -133,17 +133,17 @@ GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&s
 última semana do mês e registrar reposições já ocorridas.
 
 - `409` se a aula já foi realizada, ou se o paciente já tem aula na data de destino (mensagem cita a data).
-- `400` se `data` for omitida ou vier `null`: o corpo traz `campos.data`, apontando o campo culpado.
+- `400` se `data` for omitida ou vier `null`: o corpo traz `data` na lista `campos`, apontando o campo culpado.
 - `400` também se `data` vier em formato não-ISO (`"20/02/2025"`), mas **sem** `campos` — aí o corpo é o genérico
-  `{"erro": "Corpo da requisição inválido ou malformado"}`. A desserialização falha antes da Bean Validation, e esse
+  `detail` `"Corpo da requisição inválido ou malformado"` (`type` `bad-request`). A desserialização falha antes da Bean Validation, e esse
   é o contrato do handler global para corpo malformado em toda a API, não uma particularidade desta rota.
 - Remarcar para a data atual da aula é no-op e retorna `200`.
 - `horario` já existe no contrato mas é recusado com `400` até a [#106](https://github.com/FabioCarlesso/carlessopilatesapi/issues/106)
   criar o campo na aula: aceitar e descartar em silêncio faria o frontend acreditar que a hora foi gravada.
 
 As três rotas de escrita de aula (`realizar`, `profissional` e `remarcar`) usam locking otimista. Se duas
-requisições alterarem a mesma aula ao mesmo tempo, a perdedora recebe `409` com
-`{"erro": "Registro alterado por outra operação simultânea; recarregue e tente novamente"}` — o cliente deve
+requisições alterarem a mesma aula ao mesmo tempo, a perdedora recebe `409` com `type`
+`concurrent-modification` (e não o `conflict` das demais regras) — o cliente deve
 recarregar a aula e refazer a ação sobre o estado novo, em vez de repetir a requisição às cegas.
 
 ### Profissional da aula
@@ -173,7 +173,7 @@ nada ali — a decisão continua com quem opera, porque exceções (a turma que 
 
 - `horaInicio`/`horaFim` ausentes bloqueiam o dia inteiro e a resposta traz `diaInteiro: true`; presentes, bloqueiam
   a faixa em cada dia do período. Mandar só uma das duas retorna `400`, assim como `horaFim` não posterior a
-  `horaInicio` — nesses casos o corpo é `{"erro": ...}`, sem `campos`, por serem regras entre campos.
+  `horaInicio` — nesses casos o corpo é um `bad-request`, sem `campos`, por serem regras entre campos.
 - `motivo` ausente, em branco ou acima de 200 caracteres, e `dataInicio`/`dataFim` ausentes, retornam `400` com
   `campos` apontando o campo culpado.
 - `dataFim` anterior a `dataInicio` retorna `400`; iguais é válido (feriado de um dia).

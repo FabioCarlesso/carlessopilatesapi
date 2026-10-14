@@ -166,7 +166,7 @@ class AvaliacaoFisioterapeuticaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Paciente não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
     }
 
     @Test
@@ -186,7 +186,7 @@ class AvaliacaoFisioterapeuticaControllerTest {
 
         mvc.perform(get("/avaliacoes-fisioterapeuticas/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Avaliação fisioterapêutica não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Avaliação fisioterapêutica não encontrada: 99"));
     }
 
     @Test
@@ -280,6 +280,6 @@ class AvaliacaoFisioterapeuticaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Avaliação fisioterapêutica não encontrada: 99"));
+                .andExpect(jsonPath("$.detail").value("Avaliação fisioterapêutica não encontrada: 99"));
     }
 }

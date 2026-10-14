@@ -148,7 +148,7 @@ class ProfissionalControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").value("E-mail já cadastrado: paula@email.com"));
+                .andExpect(jsonPath("$.detail").value("E-mail já cadastrado: paula@email.com"));
     }
 
     @Test
@@ -202,7 +202,7 @@ class ProfissionalControllerTest {
 
         mvc.perform(get("/profissionais/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Profissional não encontrado: 99"));
+                .andExpect(jsonPath("$.detail").value("Profissional não encontrado: 99"));
     }
 
     @Test
@@ -344,7 +344,7 @@ class ProfissionalControllerTest {
                         .param("inicio", "2025-03-01")
                         .param("fim", "2025-02-28"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test

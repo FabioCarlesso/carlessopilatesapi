@@ -75,8 +75,8 @@ class BloqueioAgendaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Dados inválidos"))
-                .andExpect(jsonPath("$.campos.motivo").value("motivo é obrigatório"));
+                .andExpect(jsonPath("$.detail").value("Dados inválidos"))
+                .andExpect(jsonPath("$.campos[?(@.campo == 'motivo')].mensagem").value("motivo é obrigatório"));
     }
 
     @Test
@@ -88,7 +88,7 @@ class BloqueioAgendaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.motivo").value("motivo é obrigatório"));
+                .andExpect(jsonPath("$.campos[?(@.campo == 'motivo')].mensagem").value("motivo é obrigatório"));
     }
 
     @Test
@@ -100,7 +100,8 @@ class BloqueioAgendaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.dataInicio").value("dataInicio é obrigatória"));
+                .andExpect(jsonPath("$.campos[?(@.campo == 'dataInicio')].mensagem")
+                        .value("dataInicio é obrigatória"));
     }
 
     @Test
@@ -112,7 +113,7 @@ class BloqueioAgendaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo())))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("dataFim não pode ser anterior a dataInicio"));
+                .andExpect(jsonPath("$.detail").value("dataFim não pode ser anterior a dataInicio"));
     }
 
     @Test
@@ -138,7 +139,7 @@ class BloqueioAgendaControllerTest {
 
         mockMvc.perform(get("/bloqueios").param("inicio", "2026-09-30").param("fim", "2026-09-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("Período inicial não pode ser maior que o período final"));
+                .andExpect(jsonPath("$.detail").value("Período inicial não pode ser maior que o período final"));
     }
 
     @Test
@@ -147,7 +148,7 @@ class BloqueioAgendaControllerTest {
 
         mockMvc.perform(get("/bloqueios/9"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.erro").value("Bloqueio de agenda não encontrado: 9"));
+                .andExpect(jsonPath("$.detail").value("Bloqueio de agenda não encontrado: 9"));
     }
 
     @Test

@@ -127,7 +127,7 @@ class PagamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -142,7 +142,7 @@ class PagamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -156,7 +156,7 @@ class PagamentoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -220,7 +220,7 @@ class PagamentoControllerTest {
 
         mockMvc.perform(patch("/pagamentos/1/pagar"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -267,7 +267,7 @@ class PagamentoControllerTest {
     void listar_statusInvalido_retorna400() throws Exception {
         mockMvc.perform(get("/pagamentos").param("status", "ATRASADO"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test
@@ -277,7 +277,7 @@ class PagamentoControllerTest {
 
         mockMvc.perform(get("/pagamentos").param("vencimentoDe", "2026-02-01").param("vencimentoAte", "2026-01-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value("vencimentoDe não pode ser posterior a vencimentoAte"));
+                .andExpect(jsonPath("$.detail").value("vencimentoDe não pode ser posterior a vencimentoAte"));
     }
 
     @Test
@@ -312,7 +312,8 @@ class PagamentoControllerTest {
                                 """
                                         .formatted(LocalDate.now().plusDays(1))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.dataContato").value("dataContato não pode ser uma data futura"));
+                .andExpect(jsonPath("$.campos[?(@.campo == 'dataContato')].mensagem")
+                        .value("dataContato não pode ser uma data futura"));
     }
 
     @Test
@@ -326,7 +327,8 @@ class PagamentoControllerTest {
                                 {"dataContato": "2026-02-15", "observacao": "   "}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.observacao").exists());
+                .andExpect(jsonPath("$.campos[?(@.campo == 'observacao')].mensagem")
+                        .exists());
 
         mockMvc.perform(post("/pagamentos/1/cobrancas")
                         .principal(adminAuth())
@@ -337,7 +339,8 @@ class PagamentoControllerTest {
                                 """
                                         .formatted("x".repeat(501))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.campos.observacao").value("observacao deve ter no máximo 500 caracteres"));
+                .andExpect(jsonPath("$.campos[?(@.campo == 'observacao')].mensagem")
+                        .value("observacao deve ter no máximo 500 caracteres"));
     }
 
     @Test
@@ -354,7 +357,7 @@ class PagamentoControllerTest {
                                 {"dataContato": "2026-02-15", "observacao": "Ligação"}
                                 """))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test

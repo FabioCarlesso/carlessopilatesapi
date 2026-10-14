@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,6 +19,7 @@ import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
+import com.carlesso.pilatesapi.exception.TipoProblema;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
@@ -109,7 +111,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.erro").value("Credenciais inválidas"));
+                .andExpect(jsonPath("$.detail").value("Credenciais inválidas"));
     }
 
     @Test
@@ -138,7 +140,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(senhaErrada)))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.erro").value("Muitas tentativas. Tente novamente em 15 minutos."));
+                .andExpect(jsonPath("$.detail").value("Muitas tentativas. Tente novamente em 15 minutos."));
     }
 
     @Test
@@ -183,7 +185,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(new AuthLoginRequestDTO("legitimo@email.com", "senha1234"))))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.erro").value("Muitas tentativas. Tente novamente em 15 minutos."));
+                .andExpect(jsonPath("$.detail").value("Muitas tentativas. Tente novamente em 15 minutos."));
 
         // Outro IP não é afetado.
         mvc.perform(post("/auth/login")
@@ -231,7 +233,14 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void rotaProtegida_semToken_deveRetornar401() throws Exception {
-        mvc.perform(get("/pacientes")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/pacientes"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.NAO_AUTENTICADO.uri().toString()))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.instance").value("/pacientes"))
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
@@ -251,7 +260,12 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(get("/admin/health").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Acesso negado"))
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
@@ -350,7 +364,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível alterar o próprio perfil de acesso"));
+                .andExpect(jsonPath("$.detail").value("Não é possível alterar o próprio perfil de acesso"));
     }
 
     @Test
@@ -426,7 +440,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(delete("/users/{id}", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Não é possível inativar a própria conta"));
+                .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
     @Test
@@ -484,7 +498,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Senha atual incorreta"));
+                .andExpect(jsonPath("$.detail").value("Senha atual incorreta"));
     }
 
     @Test
@@ -497,7 +511,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("Confirmação de senha não confere"));
+                .andExpect(jsonPath("$.detail").value("Confirmação de senha não confere"));
     }
 
     @Test
@@ -510,7 +524,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.erro").value("A nova senha deve ser diferente da senha atual"));
+                .andExpect(jsonPath("$.detail").value("A nova senha deve ser diferente da senha atual"));
     }
 
     @Test
@@ -624,7 +638,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                                 {"dataInicio": "2026-09-07", "dataFim": "2026-09-07", "motivo": "Feriado"}
                                 """))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+                .andExpect(jsonPath("$.detail").value("Acesso negado"));
     }
 
     @Test
@@ -738,7 +752,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(get("/pagamentos").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+                .andExpect(jsonPath("$.detail").value("Acesso negado"));
     }
 
     @Test
@@ -798,7 +812,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                                 {"dataContato": "2026-01-10", "observacao": "Ligação"}
                                 """))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.erro").value("Acesso negado"));
+                .andExpect(jsonPath("$.detail").value("Acesso negado"));
     }
 
     @Test
