@@ -405,7 +405,8 @@ O endpoint `GET /pagamentos` (restrito a `ADMIN`) suporta filtros por `status` (
 `vencimentoAte` e `pacienteId` — ver [Listagem global e inadimplência](#listagem-global-e-inadimplência).
 
 O tamanho padrão de página é controlado por `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`) — ver
-[`deploy.md`](deploy.md#variáveis-de-ambiente). O teto de `size` é o padrão do Spring, `2000`.
+[`deploy.md`](deploy.md#variáveis-de-ambiente). O teto de `size` é `2000` (`spring.data.web.pageable.max-page-size`), fixado porque o frontend pede o
+histórico de um paciente numa página desse tamanho.
 
 ### Listagens por paciente
 
@@ -416,7 +417,7 @@ da lista abaixo é recusado com `400`.
 
 | Rota | Ordenação padrão | Campos aceitos em `sort` |
 |---|---|---|
-| `GET /pagamentos/paciente/{id}` | `dataVencimento,desc` | `dataVencimento`, `valor`, `status`, `paciente.nome` |
+| `GET /pagamentos/paciente/{id}` | `dataVencimento,desc` | `dataVencimento`, `valor`, `status` |
 | `GET /aulas/paciente/{id}` | `data,desc` | `data`, `realizada` |
 | `GET /sessoes/paciente/{id}` | `data,desc` | `data`, `horario`, `status`, `tipo` |
 | `GET /avaliacoes-fisioterapeuticas/paciente/{id}` | `dataAvaliacao,desc` | `dataAvaliacao` |

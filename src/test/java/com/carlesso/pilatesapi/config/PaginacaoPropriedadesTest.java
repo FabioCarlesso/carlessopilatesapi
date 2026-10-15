@@ -24,4 +24,14 @@ class PaginacaoPropriedadesTest {
         assertThat(ArquivoDePropriedades.lerComPrefixo(Path.of("src/test/resources/application.properties"), CHAVE))
                 .containsEntry(CHAVE, "via-dto");
     }
+
+    /** O frontend busca o histórico de um paciente com {@code size=2000}; o teto não pode cair sem que se perceba. */
+    @Test
+    void tetoDeTamanhoDePagina_deveSer2000NosDoisArquivos() {
+        String chave = "spring.data.web.pageable.max-page-size";
+        assertThat(ArquivoDePropriedades.lerComPrefixo(Path.of("src/main/resources/application.properties"), chave))
+                .containsEntry(chave, "2000");
+        assertThat(ArquivoDePropriedades.lerComPrefixo(Path.of("src/test/resources/application.properties"), chave))
+                .containsEntry(chave, "2000");
+    }
 }

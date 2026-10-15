@@ -11,8 +11,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -53,7 +53,7 @@ public class PacienteController {
                     "Retorna uma página de pacientes filtrando por nome, e-mail, CPF, telefone e status ativo/inativo. Por padrão retorna pacientes ativos. Suporta paginação e ordenação via query params (page, size, sort).")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")})
     @GetMapping
-    public ResponseEntity<Page<PacienteResponseDTO>> listar(
+    public ResponseEntity<PagedModel<PacienteResponseDTO>> listar(
             @Parameter(description = "Filtro parcial por nome") @RequestParam(required = false) String nome,
             @Parameter(description = "Filtro parcial por e-mail") @RequestParam(required = false) String email,
             @Parameter(description = "Filtro parcial por CPF") @RequestParam(required = false) String cpf,
@@ -62,7 +62,7 @@ public class PacienteController {
                     @RequestParam(required = false)
                     Boolean ativo,
             @ParameterObject @SortDefault(sort = "nome") Pageable pageable) {
-        return ResponseEntity.ok(service.listar(nome, email, cpf, telefone, ativo, pageable));
+        return ResponseEntity.ok(new PagedModel<>(service.listar(nome, email, cpf, telefone, ativo, pageable)));
     }
 
     @Operation(

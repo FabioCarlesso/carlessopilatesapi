@@ -14,8 +14,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -86,9 +86,9 @@ public class UserController {
             summary = "Listar usuários",
             description = "Requer role ADMIN. Lista usuários cadastrados com paginação, sem expor senhas.")
     @GetMapping
-    public ResponseEntity<Page<UserResponseDTO>> listar(
+    public ResponseEntity<PagedModel<UserResponseDTO>> listar(
             @ParameterObject @SortDefault(sort = "name") Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+        return ResponseEntity.ok(new PagedModel<>(service.listar(pageable)));
     }
 
     @Operation(

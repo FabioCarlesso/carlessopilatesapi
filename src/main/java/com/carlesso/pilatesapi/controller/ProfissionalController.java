@@ -16,8 +16,8 @@ import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -67,7 +67,7 @@ public class ProfissionalController {
                     "Retorna uma página de profissionais filtrando por nome, e-mail, tipo de contrato, percentual por aula e status ativo/inativo. Por padrão retorna profissionais ativos. Suporta paginação e ordenação via query params.")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")})
     @GetMapping
-    public ResponseEntity<Page<ProfissionalResponseDTO>> listar(
+    public ResponseEntity<PagedModel<ProfissionalResponseDTO>> listar(
             @Parameter(description = "Filtro parcial por nome") @RequestParam(required = false) String nome,
             @Parameter(description = "Filtro parcial por e-mail") @RequestParam(required = false) String email,
             @Parameter(description = "Filtro por tipo de contrato") @RequestParam(required = false)
@@ -78,7 +78,8 @@ public class ProfissionalController {
                     @RequestParam(required = false)
                     Boolean ativo,
             @ParameterObject @SortDefault(sort = "nome") Pageable pageable) {
-        return ResponseEntity.ok(service.listar(nome, email, tipoContrato, percentualPagamentoAula, ativo, pageable));
+        return ResponseEntity.ok(
+                new PagedModel<>(service.listar(nome, email, tipoContrato, percentualPagamentoAula, ativo, pageable)));
     }
 
     @Operation(

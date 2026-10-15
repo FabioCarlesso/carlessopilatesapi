@@ -40,6 +40,9 @@ public class PagamentoService {
      */
     static final Set<String> CAMPOS_ORDENAVEIS = Set.of("dataVencimento", "valor", "status", "paciente.nome");
 
+    /** Sem {@code paciente.nome}: na listagem de um único paciente, ordenar pelo nome dele não muda nada. */
+    static final Set<String> CAMPOS_ORDENAVEIS_POR_PACIENTE = Set.of("dataVencimento", "valor", "status");
+
     private final PagamentoRepository pagamentoRepository;
     private final PacienteRepository pacienteRepository;
     private final PlanoRepository planoRepository;
@@ -141,7 +144,8 @@ public class PagamentoService {
     public Page<PagamentoResponseDTO> listarPorPaciente(Long pacienteId, Pageable pageable) {
         return pagamentoRepository
                 .findByPacienteId(
-                        pacienteId, PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.DESC))
+                        pacienteId,
+                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
                 .map(PagamentoResponseDTO::from);
     }
 

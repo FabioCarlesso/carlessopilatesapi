@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.carlesso.pilatesapi.config.AppProperties;
@@ -288,6 +289,26 @@ class PagamentoServiceTest {
         assertThatThrownBy(() -> service.listar(null, null, null, null, PageRequest.of(0, 10, Sort.by("plano.id"))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("plano.id");
+
+        verifyNoInteractions(pagamentoRepository);
+    }
+
+    @Test
+    void listarPorPaciente_ordenaPorVencimentoDescComDesempatePorId() {
+        when(pagamentoRepository.findByPacienteId(eq(1L), any(Pageable.class))).thenReturn(Page.empty());
+
+        service.listarPorPaciente(1L, PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "dataVencimento")));
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(pagamentoRepository).findByPacienteId(eq(1L), captor.capture());
+        assertThat(captor.getValue().getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "dataVencimento", "id"));
+    }
+
+    @Test
+    void listarPorPaciente_ordenarPeloNomeDoPaciente_lancaIllegalArgument() {
+        assertThatThrownBy(() -> service.listarPorPaciente(1L, PageRequest.of(0, 10, Sort.by("paciente.nome"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Campo de ordenação inválido: paciente.nome. Aceitos: dataVencimento, status, valor");
 
         verifyNoInteractions(pagamentoRepository);
     }

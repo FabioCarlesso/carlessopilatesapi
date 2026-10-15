@@ -11,9 +11,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -71,10 +71,10 @@ public class PlanoTratamentoController {
         @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<Page<PlanoTratamentoResponseDTO>> listarPorPaciente(
+    public ResponseEntity<PagedModel<PlanoTratamentoResponseDTO>> listarPorPaciente(
             @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId,
             @ParameterObject @SortDefault(sort = "dataInicio", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(service.listarPorPaciente(pacienteId, pageable));
+        return ResponseEntity.ok(new PagedModel<>(service.listarPorPaciente(pacienteId, pageable)));
     }
 
     @Operation(
