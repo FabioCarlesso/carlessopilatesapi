@@ -36,6 +36,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class SessaoPilatesServiceTest {
@@ -269,21 +273,22 @@ class SessaoPilatesServiceTest {
     void listarPorPaciente_deveRetornarSessoesDoPaciente() {
         Paciente p = paciente();
         when(pacienteRepository.existsById(1L)).thenReturn(true);
-        when(sessaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of(sessao(p)));
+        when(sessaoRepository.findByPaciente(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(sessao(p))));
 
-        List<SessaoPilatesResponseDTO> response = service.listarPorPaciente(1L);
+        Page<SessaoPilatesResponseDTO> response = service.listarPorPaciente(1L, PageRequest.of(0, 10));
 
         assertThat(response).hasSize(1);
-        assertThat(response.getFirst().pacienteId()).isEqualTo(1L);
-        assertThat(response.getFirst().data()).isEqualTo(LocalDate.of(2026, 5, 10));
+        assertThat(response.getContent().getFirst().pacienteId()).isEqualTo(1L);
+        assertThat(response.getContent().getFirst().data()).isEqualTo(LocalDate.of(2026, 5, 10));
     }
 
     @Test
     void listarPorPaciente_comPacienteAtiveSemSessoes_deveRetornarListaVazia() {
         when(pacienteRepository.existsById(1L)).thenReturn(true);
-        when(sessaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of());
+        when(sessaoRepository.findByPaciente(eq(1L), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
-        List<SessaoPilatesResponseDTO> response = service.listarPorPaciente(1L);
+        Page<SessaoPilatesResponseDTO> response = service.listarPorPaciente(1L, PageRequest.of(0, 10));
 
         assertThat(response).isEmpty();
     }
@@ -292,7 +297,7 @@ class SessaoPilatesServiceTest {
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
         when(pacienteRepository.existsById(99L)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.listarPorPaciente(99L))
+        assertThatThrownBy(() -> service.listarPorPaciente(99L, PageRequest.of(0, 10)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }

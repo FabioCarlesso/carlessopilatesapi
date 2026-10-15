@@ -9,7 +9,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,14 +53,15 @@ public class NotaFiscalEmitidaController {
     @Operation(
             summary = "Listar NFSEs emitidas de um paciente",
             description =
-                    "Retorna as notas fiscais emitidas registradas para o paciente, da competência mais recente para a mais antiga.")
+                    "Retorna uma página das notas fiscais emitidas registradas para o paciente. Ordenação padrão: `competencia` desc; aceita `competencia`, `dataEmissao` e `valor`, sempre com `id` como desempate.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
         @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<List<NotaFiscalEmitidaResponseDTO>> listarPorPaciente(
-            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId) {
-        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
+    public ResponseEntity<Page<NotaFiscalEmitidaResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId,
+            @ParameterObject @SortDefault(sort = "competencia", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarPorPaciente(pacienteId, pageable));
     }
 }

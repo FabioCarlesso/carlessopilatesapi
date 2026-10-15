@@ -14,6 +14,7 @@ import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +22,6 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -138,10 +138,11 @@ public class PagamentoService {
         return PagamentoResponseDTO.from(encontrar(id));
     }
 
-    public List<PagamentoResponseDTO> listarPorPaciente(Long pacienteId) {
-        return pagamentoRepository.findByPacienteId(pacienteId).stream()
-                .map(PagamentoResponseDTO::from)
-                .toList();
+    public Page<PagamentoResponseDTO> listarPorPaciente(Long pacienteId, Pageable pageable) {
+        return pagamentoRepository
+                .findByPacienteId(
+                        pacienteId, PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.DESC))
+                .map(PagamentoResponseDTO::from);
     }
 
     /**
@@ -159,7 +160,9 @@ public class PagamentoService {
             throw new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte");
         }
         return pagamentoRepository
-                .findAll(filtros(status, vencimentoDe, vencimentoAte, pacienteId), comDesempatePorId(pageable))
+                .findAll(
+                        filtros(status, vencimentoDe, vencimentoAte, pacienteId),
+                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.ASC))
                 .map(PagamentoResponseDTO::from);
     }
 
@@ -228,30 +231,6 @@ public class PagamentoService {
             filtros.add((root, query, cb) -> cb.equal(root.get("paciente").get("id"), pacienteId));
         }
         return Specification.allOf(filtros);
-    }
-
-    /**
-     * Valida os campos de ordenação e acrescenta {@code id} como último critério. Sem o desempate, linhas com o mesmo
-     * vencimento — comuns, já que as cobranças nascem em lote — podem trocar de página entre uma requisição e outra.
-     */
-    private Pageable comDesempatePorId(Pageable pageable) {
-        for (Sort.Order order : pageable.getSort()) {
-            if (!CAMPOS_ORDENAVEIS.contains(order.getProperty())) {
-                throw new IllegalArgumentException("Campo de ordenação inválido: %s. Aceitos: %s"
-                        .formatted(
-                                order.getProperty(),
-                                String.join(
-                                        ", ",
-                                        CAMPOS_ORDENAVEIS.stream().sorted().toList())));
-            }
-        }
-        if (pageable.isUnpaged()) {
-            return pageable;
-        }
-        return PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                pageable.getSort().and(Sort.by("id")));
     }
 
     private Pagamento encontrar(Long id) {

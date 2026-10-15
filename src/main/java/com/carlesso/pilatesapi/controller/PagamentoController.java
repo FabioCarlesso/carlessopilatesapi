@@ -19,6 +19,7 @@ import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.SortDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -105,12 +106,16 @@ public class PagamentoController {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Listar pagamentos do paciente")
+    @Operation(
+            summary = "Listar pagamentos do paciente",
+            description =
+                    "Retorna uma página dos pagamentos do paciente. Ordenação padrão: `dataVencimento` desc; aceita `dataVencimento`, `valor`, `status` e `paciente.nome`, sempre com `id` como desempate.")
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<List<PagamentoResponseDTO>> listarPorPaciente(
-            @Parameter(description = "ID do paciente") @PathVariable Long pacienteId) {
-        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
+    public ResponseEntity<Page<PagamentoResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente") @PathVariable Long pacienteId,
+            @ParameterObject @SortDefault(sort = "dataVencimento", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarPorPaciente(pacienteId, pageable));
     }
 
     @Operation(

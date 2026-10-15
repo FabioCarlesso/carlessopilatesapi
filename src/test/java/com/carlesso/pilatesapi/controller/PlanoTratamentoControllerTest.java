@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -180,17 +181,18 @@ class PlanoTratamentoControllerTest {
 
     @Test
     void listarPorPaciente_deveRetornar200ComPlanos() throws Exception {
-        when(service.listarPorPaciente(1L)).thenReturn(List.of(responseDTO()));
+        when(service.listarPorPaciente(eq(1L), any())).thenReturn(new PageImpl<>(List.of(responseDTO())));
 
         mvc.perform(get("/planos-tratamento/paciente/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].pacienteId").value(1))
-                .andExpect(jsonPath("$[0].dataInicio").value("2026-05-01"));
+                .andExpect(jsonPath("$.content[0].pacienteId").value(1))
+                .andExpect(jsonPath("$.content[0].dataInicio").value("2026-05-01"));
     }
 
     @Test
     void listarPorPaciente_comPacienteInexistente_deveRetornar404() throws Exception {
-        when(service.listarPorPaciente(99L)).thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
+        when(service.listarPorPaciente(eq(99L), any()))
+                .thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
 
         mvc.perform(get("/planos-tratamento/paciente/99"))
                 .andExpect(status().isNotFound())

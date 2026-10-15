@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -41,16 +43,18 @@ public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Lo
             @Param("novoStatus") StatusSessao novoStatus,
             @Param("dataAtualizacao") LocalDateTime dataAtualizacao);
 
+    /** Ordenação vem do {@code Pageable}; a contagem é explícita porque não pode carregar os {@code JOIN FETCH}. */
     @Query(
-            """
-            SELECT s FROM SessaoPilates s
-            JOIN FETCH s.paciente pac
-            LEFT JOIN FETCH s.profissional
-            LEFT JOIN FETCH s.planoTratamento
-            WHERE pac.id = :pacienteId
-            ORDER BY s.data DESC, s.id DESC
-            """)
-    List<SessaoPilates> findByPacienteOrdenadas(@Param("pacienteId") Long pacienteId);
+            value =
+                    """
+                    SELECT s FROM SessaoPilates s
+                    JOIN FETCH s.paciente pac
+                    LEFT JOIN FETCH s.profissional
+                    LEFT JOIN FETCH s.planoTratamento
+                    WHERE pac.id = :pacienteId
+                    """,
+            countQuery = "SELECT COUNT(s) FROM SessaoPilates s WHERE s.paciente.id = :pacienteId")
+    Page<SessaoPilates> findByPaciente(@Param("pacienteId") Long pacienteId, Pageable pageable);
 
     /**
      * Agenda do estúdio: sessões do período, com os filtros opcionais aplicados

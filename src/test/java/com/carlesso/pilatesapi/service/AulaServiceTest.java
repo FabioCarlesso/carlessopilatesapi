@@ -36,6 +36,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,7 +84,7 @@ class AulaServiceTest {
     @Test
     void metodosDeLeitura_saoTransacionaisReadOnly() throws Exception {
         assertReadOnly("buscarPorId", Long.class);
-        assertReadOnly("buscarPorPaciente", Long.class);
+        assertReadOnly("buscarPorPaciente", Long.class, Pageable.class);
         assertReadOnly("buscarPorPagamento", Long.class);
         assertReadOnly("listarPorPeriodo", LocalDate.class, LocalDate.class, Long.class, Long.class, Boolean.class);
     }

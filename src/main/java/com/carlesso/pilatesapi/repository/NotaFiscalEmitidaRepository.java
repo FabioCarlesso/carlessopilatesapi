@@ -4,6 +4,8 @@ import com.carlesso.pilatesapi.entity.NotaFiscalEmitida;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,15 +14,17 @@ public interface NotaFiscalEmitidaRepository extends JpaRepository<NotaFiscalEmi
 
     Optional<NotaFiscalEmitida> findByPacienteIdAndCompetencia(Long pacienteId, LocalDate competencia);
 
+    /** Ordenação vem do {@code Pageable}; a contagem é explícita porque não pode carregar o {@code join fetch}. */
     @Query(
-            """
-            select n
-            from NotaFiscalEmitida n
-            join fetch n.paciente
-            where n.paciente.id = :pacienteId
-            order by n.competencia desc
-            """)
-    List<NotaFiscalEmitida> findByPacienteIdOrderByCompetenciaDesc(@Param("pacienteId") Long pacienteId);
+            value =
+                    """
+                    select n
+                    from NotaFiscalEmitida n
+                    join fetch n.paciente
+                    where n.paciente.id = :pacienteId
+                    """,
+            countQuery = "select count(n) from NotaFiscalEmitida n where n.paciente.id = :pacienteId")
+    Page<NotaFiscalEmitida> findByPacienteId(@Param("pacienteId") Long pacienteId, Pageable pageable);
 
     @Query(
             """

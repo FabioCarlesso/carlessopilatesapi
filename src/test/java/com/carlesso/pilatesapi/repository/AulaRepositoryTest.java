@@ -27,6 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @PostgresDataJpaTest
 class AulaRepositoryTest extends PostgresTestcontainerSupport {
@@ -70,13 +72,36 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void findByPacienteIdOrderByData_naoRetornaAulasDePacienteInativo() {
-        assertThat(repository.findByPacienteIdOrderByData(pacienteAtivo.getId()))
-                .extracting(aula -> aula.getPaciente().getNome())
+    void findByPacienteId_naoRetornaAulasDePacienteInativo() {
+        assertThat(repository.findByPacienteId(pacienteAtivo.getId(), PageRequest.of(0, 10)))
+                .extracting(AulaResponseDTO::pacienteNome)
                 .containsExactly("Ana Ativa");
 
-        assertThat(repository.findByPacienteIdOrderByData(pacienteInativo.getId()))
+        assertThat(repository.findByPacienteId(pacienteInativo.getId(), PageRequest.of(0, 10)))
                 .isEmpty();
+    }
+
+    @Test
+    void findByPacienteId_devolvePaginaNaOrdemPedidaEContaTodas() {
+        // 25 aulas de 01/03 a 25/03, somadas à aula de 03/02 do setUp.
+        LocalDate primeira = LocalDate.of(2025, 3, 1);
+        for (int i = 0; i < 25; i++) {
+            entityManager.persist(aula(pacienteAtivo, pagamentoAtivo, primeira.plusDays(i)));
+        }
+        entityManager.flush();
+        entityManager.clear();
+
+        var pagina = repository.findByPacienteId(
+                pacienteAtivo.getId(), PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "data", "id")));
+
+        assertThat(pagina.getTotalElements()).isEqualTo(26);
+        assertThat(pagina.getTotalPages()).isEqualTo(3);
+        assertThat(pagina.getContent())
+                .extracting(AulaResponseDTO::data)
+                .first()
+                .isEqualTo(LocalDate.of(2025, 3, 15));
+        assertThat(pagina.getContent()).extracting(AulaResponseDTO::data).last().isEqualTo(LocalDate.of(2025, 3, 6));
+        assertThat(pagina.getContent()).extracting(AulaResponseDTO::data).isSortedAccordingTo((a, b) -> b.compareTo(a));
     }
 
     @Test

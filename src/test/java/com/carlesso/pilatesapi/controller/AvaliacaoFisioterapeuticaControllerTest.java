@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -191,12 +192,12 @@ class AvaliacaoFisioterapeuticaControllerTest {
 
     @Test
     void listarPorPaciente_deveRetornar200ComAvaliacoes() throws Exception {
-        when(service.listarPorPaciente(1L)).thenReturn(List.of(responseDTO()));
+        when(service.listarPorPaciente(eq(1L), any())).thenReturn(new PageImpl<>(List.of(responseDTO())));
 
         mvc.perform(get("/avaliacoes-fisioterapeuticas/paciente/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].pacienteId").value(1))
-                .andExpect(jsonPath("$[0].dataAvaliacao").value("2026-04-20"));
+                .andExpect(jsonPath("$.content[0].pacienteId").value(1))
+                .andExpect(jsonPath("$.content[0].dataAvaliacao").value("2026-04-20"));
     }
 
     @Test

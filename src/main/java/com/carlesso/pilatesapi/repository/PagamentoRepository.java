@@ -39,6 +39,8 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
 
     List<Pagamento> findByPacienteId(Long pacienteId);
 
+    Page<Pagamento> findByPacienteId(Long pacienteId, Pageable pageable);
+
     List<Pagamento> findByStatusAndDataVencimentoBefore(StatusPagamento status, LocalDate data);
 
     boolean existsByPlanoAndPeriodoInicio(Plano plano, LocalDate periodoInicio);

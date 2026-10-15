@@ -12,6 +12,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -67,12 +72,14 @@ public class AulaController {
 
     @Operation(
             summary = "Listar aulas do paciente",
-            description = "Retorna todas as aulas de um paciente ordenadas por data.")
+            description =
+                    "Retorna uma página das aulas de um paciente ativo. Ordenação padrão: `data` desc; aceita `data` e `realizada`, sempre com `id` como desempate.")
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<List<AulaResponseDTO>> listarPorPaciente(
-            @Parameter(description = "ID do paciente") @PathVariable Long pacienteId) {
-        return ResponseEntity.ok(service.buscarPorPaciente(pacienteId));
+    public ResponseEntity<Page<AulaResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente") @PathVariable Long pacienteId,
+            @ParameterObject @SortDefault(sort = "data", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.buscarPorPaciente(pacienteId, pageable));
     }
 
     @Operation(summary = "Listar aulas de um pagamento")

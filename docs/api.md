@@ -82,7 +82,7 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 |---|---|---|
 | `POST` | `/pagamentos` | Criar pagamento (PENDENTE) |
 | `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
-| `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente |
+| `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente (paginado) |
 | `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` opcional no corpo |
 | `GET` | `/pagamentos` | Listagem global paginada (gestão de inadimplência, `ADMIN`); filtros `status`, `vencimentoDe`, `vencimentoAte` e `pacienteId` |
 | `POST` | `/pagamentos/{id}/cobrancas` | Registrar contato de cobrança do pagamento (`ADMIN`) |
@@ -120,7 +120,7 @@ GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&s
 |---|---|---|
 | `GET` | `/aulas` | Listar aulas por período (agenda do estúdio); filtros `profissionalId`, `pacienteId` e `realizada` |
 | `GET` | `/aulas/{id}` | Buscar aula por ID |
-| `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente |
+| `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente (paginado) |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
 | `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
@@ -192,7 +192,7 @@ nada ali — a decisão continua com quem opera, porque exceções (a turma que 
 | `POST` | `/sessoes` | Registrar sessão de Pilates ou Fisioterapia para um paciente |
 | `GET` | `/sessoes` | Listar sessões por período (agenda do estúdio); filtros `profissionalId`, `pacienteId`, `tipo` e `status` |
 | `GET` | `/sessoes/{id}` | Buscar sessão por ID |
-| `GET` | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente |
+| `GET` | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente (paginado) |
 | `PUT` | `/sessoes/{id}` | Atualizar sessão (parcial, exceto `status`) |
 | `PATCH` | `/sessoes/{id}/realizar` | Marcar sessão como `REALIZADA` (apenas a partir de `AGENDADA`) |
 | `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`) |
@@ -260,7 +260,7 @@ consultada por nenhuma outra rota — não bloqueia o cancelamento nem vira sess
 |---|---|---|
 | `POST` | `/avaliacoes-fisioterapeuticas` | Criar avaliação fisioterapêutica para um paciente |
 | `GET` | `/avaliacoes-fisioterapeuticas/{id}` | Buscar avaliação fisioterapêutica por ID |
-| `GET` | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente |
+| `GET` | `/avaliacoes-fisioterapeuticas/paciente/{pacienteId}` | Listar avaliações fisioterapêuticas do paciente (paginado) |
 | `PUT` | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar dados da avaliação fisioterapêutica |
 
 Campos obrigatórios: `pacienteId`, `dataAvaliacao`, `queixaFuncional`, `escalaDor` (0 a 10) e `diagnosticoFisioterapeutico`.
@@ -327,7 +327,7 @@ liberando a vista para uma nova análise.
 |---|---|---|
 | `POST` | `/planos-tratamento` | Criar plano de tratamento para um paciente |
 | `GET` | `/planos-tratamento/{id}` | Buscar plano de tratamento por ID |
-| `GET` | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente |
+| `GET` | `/planos-tratamento/paciente/{pacienteId}` | Listar planos de tratamento do paciente (paginado) |
 | `PUT` | `/planos-tratamento/{id}` | Atualizar dados do plano de tratamento |
 | `DELETE` | `/planos-tratamento/{id}` | Inativar plano de tratamento |
 
@@ -358,7 +358,7 @@ existia à época do registro.
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `POST` | `/api/nfse-emitidas` | Registrar ou atualizar a NFSE emitida de um paciente em uma competência |
-| `GET` | `/api/nfse-emitidas/paciente/{pacienteId}` | Listar as NFSEs emitidas registradas para um paciente |
+| `GET` | `/api/nfse-emitidas/paciente/{pacienteId}` | Listar as NFSEs emitidas registradas para um paciente (paginado) |
 
 ## Dashboard
 
@@ -405,7 +405,33 @@ O endpoint `GET /pagamentos` (restrito a `ADMIN`) suporta filtros por `status` (
 `vencimentoAte` e `pacienteId` — ver [Listagem global e inadimplência](#listagem-global-e-inadimplência).
 
 O tamanho padrão de página é controlado por `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`) — ver
-[`deploy.md`](deploy.md#variáveis-de-ambiente).
+[`deploy.md`](deploy.md#variáveis-de-ambiente). O teto de `size` é o padrão do Spring, `2000`.
+
+### Listagens por paciente
+
+As listagens de sub-recursos por paciente são paginadas (#100) e devolvem o mesmo formato de `/pacientes`
+(`{content, page:{size, number, totalElements, totalPages}}`). Sem `sort`, saem do registro mais recente para o mais
+antigo; `id` é sempre acrescentado como último critério, então a ordem é estável entre páginas. Um campo de `sort` fora
+da lista abaixo é recusado com `400`.
+
+| Rota | Ordenação padrão | Campos aceitos em `sort` |
+|---|---|---|
+| `GET /pagamentos/paciente/{id}` | `dataVencimento,desc` | `dataVencimento`, `valor`, `status`, `paciente.nome` |
+| `GET /aulas/paciente/{id}` | `data,desc` | `data`, `realizada` |
+| `GET /sessoes/paciente/{id}` | `data,desc` | `data`, `horario`, `status`, `tipo` |
+| `GET /avaliacoes-fisioterapeuticas/paciente/{id}` | `dataAvaliacao,desc` | `dataAvaliacao` |
+| `GET /reavaliacoes/paciente/{id}` | `dataReavaliacao,desc` | `dataReavaliacao` |
+| `GET /planos-tratamento/paciente/{id}` | `dataInicio,desc` | `dataInicio`, `dataFimPrevista` |
+| `GET /api/nfse-emitidas/paciente/{id}` | `competencia,desc` | `competencia`, `dataEmissao`, `valor` |
+
+```
+GET /aulas/paciente/1?page=0&size=20
+GET /sessoes/paciente/1?page=1&size=10&sort=horario,asc
+```
+
+`GET /evolucoes-sessao/paciente/{id}` continua devolvendo o histórico completo em array, pela decisão registrada em
+[`regras-de-negocio.md`](regras-de-negocio.md#por-que-a-listagem-não-é-paginada-decisão-da-158). Quem precisa do
+período inteiro de aulas ou sessões para montar uma agenda usa `GET /aulas` e `GET /sessoes` com `pacienteId`.
 
 ## Relatório de pagamento — contrato JSON (Angular-friendly)
 
@@ -536,7 +562,8 @@ Para que o relatório use dados reais em `notaAnteriorEmitida`, a última NFSE e
 - `numeroNota` é opcional e limitado a 60 caracteres (400 quando excedido); `valor` e `observacoes` são opcionais; quando informado, `valor` deve ser maior que zero (422 caso contrário).
 - O registro é idempotente por `(paciente, competência)` inclusive sob concorrência: requisições simultâneas para o mesmo par resolvem para uma única nota (a colisão da constraint única é repetida automaticamente como atualização).
 
-`GET /api/nfse-emitidas/paciente/{pacienteId}` retorna as notas registradas do paciente, da competência mais recente para a mais antiga.
+`GET /api/nfse-emitidas/paciente/{pacienteId}` retorna uma página das notas registradas do paciente, da competência mais
+recente para a mais antiga — ver [Listagens por paciente](#listagens-por-paciente).
 
 ## Ver também
 

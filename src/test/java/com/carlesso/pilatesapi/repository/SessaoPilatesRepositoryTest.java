@@ -21,6 +21,7 @@ import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.Pageable;
 
 @PostgresDataJpaTest
 class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
@@ -84,14 +85,15 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void findByPacienteOrdenadas_quandoPacienteInativo_deveRetornarHistorico() {
+    void findByPaciente_quandoPacienteInativo_deveRetornarHistorico() {
         Paciente paciente = persistirPaciente("historico.repository@email.com", false);
         entityManager.persist(sessao(paciente));
         entityManager.persist(sessao(paciente));
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(repository.findByPacienteOrdenadas(paciente.getId())).hasSize(2);
+        assertThat(repository.findByPaciente(paciente.getId(), Pageable.unpaged()))
+                .hasSize(2);
     }
 
     @Test

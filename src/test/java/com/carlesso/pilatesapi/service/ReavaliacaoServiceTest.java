@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,6 +30,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class ReavaliacaoServiceTest {
@@ -268,21 +273,22 @@ class ReavaliacaoServiceTest {
     void listarPorPaciente_deveRetornarReavaliacoesDoPaciente() {
         Paciente p = paciente();
         when(pacienteRepository.existsById(1L)).thenReturn(true);
-        when(reavaliacaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of(reavaliacao(p)));
+        when(reavaliacaoRepository.findByPaciente(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(reavaliacao(p))));
 
-        List<ReavaliacaoResponseDTO> response = service.listarPorPaciente(1L);
+        Page<ReavaliacaoResponseDTO> response = service.listarPorPaciente(1L, PageRequest.of(0, 10));
 
         assertThat(response).hasSize(1);
-        assertThat(response.getFirst().pacienteId()).isEqualTo(1L);
-        assertThat(response.getFirst().dataReavaliacao()).isEqualTo(LocalDate.of(2026, 5, 1));
+        assertThat(response.getContent().getFirst().pacienteId()).isEqualTo(1L);
+        assertThat(response.getContent().getFirst().dataReavaliacao()).isEqualTo(LocalDate.of(2026, 5, 1));
     }
 
     @Test
     void listarPorPaciente_comPacienteAtivoSemReavaliacoes_deveRetornarListaVazia() {
         when(pacienteRepository.existsById(1L)).thenReturn(true);
-        when(reavaliacaoRepository.findByPacienteOrdenadas(1L)).thenReturn(List.of());
+        when(reavaliacaoRepository.findByPaciente(eq(1L), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
-        List<ReavaliacaoResponseDTO> response = service.listarPorPaciente(1L);
+        Page<ReavaliacaoResponseDTO> response = service.listarPorPaciente(1L, PageRequest.of(0, 10));
 
         assertThat(response).isEmpty();
     }
@@ -291,7 +297,7 @@ class ReavaliacaoServiceTest {
     void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFoundException() {
         when(pacienteRepository.existsById(99L)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.listarPorPaciente(99L))
+        assertThatThrownBy(() -> service.listarPorPaciente(99L, PageRequest.of(0, 10)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }
