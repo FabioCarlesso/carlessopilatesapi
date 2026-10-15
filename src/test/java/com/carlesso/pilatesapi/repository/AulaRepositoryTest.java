@@ -15,10 +15,12 @@ import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,8 +93,13 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
         entityManager.flush();
         entityManager.clear();
 
+        // Mesma ordenação que o AulaService monta: a projeção em DTO também precisa aceitar NULLS LAST.
         var pagina = repository.findByPacienteId(
-                pacienteAtivo.getId(), PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "data", "id")));
+                pacienteAtivo.getId(),
+                PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                        PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "data")),
+                        Set.of("data"),
+                        Sort.Direction.DESC));
 
         assertThat(pagina.getTotalElements()).isEqualTo(26);
         assertThat(pagina.getTotalPages()).isEqualTo(3);

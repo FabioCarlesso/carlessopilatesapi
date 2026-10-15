@@ -25,6 +25,25 @@ class PaginacaoGuardTest {
     }
 
     @Test
+    void variantePorJpql_mandaOsNulosParaOFimEmCadaCriterio() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "data"));
+
+        Pageable resultado = PaginacaoGuard.comNulosNoFimEDesempatePorId(pageable, CAMPOS, Sort.Direction.DESC);
+
+        assertThat(resultado.getSort())
+                .isEqualTo(Sort.by(Sort.Order.desc("data").nullsLast()).and(Sort.by(Sort.Direction.DESC, "id")));
+    }
+
+    @Test
+    void variantePorJpql_validaOsCamposDoMesmoJeito() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("observacoes"));
+
+        assertThatThrownBy(() -> PaginacaoGuard.comNulosNoFimEDesempatePorId(pageable, CAMPOS, Sort.Direction.DESC))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("observacoes");
+    }
+
+    @Test
     void semOrdenacao_ordenaSoPorId() {
         Pageable resultado = PaginacaoGuard.comDesempatePorId(PageRequest.of(0, 10), CAMPOS, Sort.Direction.ASC);
 

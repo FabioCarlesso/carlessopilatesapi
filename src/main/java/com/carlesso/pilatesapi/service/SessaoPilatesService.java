@@ -107,7 +107,8 @@ public class SessaoPilatesService {
         return sessaoRepository
                 .findByPaciente(
                         pacienteId,
-                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
                 .map(SessaoPilatesResponseDTO::from);
     }
 

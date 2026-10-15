@@ -69,7 +69,8 @@ public class PlanoTratamentoService {
         return planoTratamentoRepository
                 .findAtivosByPaciente(
                         pacienteId,
-                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
                 .map(PlanoTratamentoResponseDTO::from);
     }
 

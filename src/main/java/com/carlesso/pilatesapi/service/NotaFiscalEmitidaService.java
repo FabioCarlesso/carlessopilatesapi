@@ -117,7 +117,8 @@ public class NotaFiscalEmitidaService {
         return repository
                 .findByPacienteId(
                         pacienteId,
-                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
                 .map(NotaFiscalEmitidaResponseDTO::from);
     }
 

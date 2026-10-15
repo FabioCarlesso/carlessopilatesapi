@@ -412,7 +412,8 @@ histórico de um paciente numa página desse tamanho.
 
 As listagens de sub-recursos por paciente são paginadas (#100) e devolvem o mesmo formato de `/pacientes`
 (`{content, page:{size, number, totalElements, totalPages}}`). Sem `sort`, saem do registro mais recente para o mais
-antigo; `id` é sempre acrescentado como último critério, então a ordem é estável entre páginas. Um campo de `sort` fora
+antigo; `id` é sempre acrescentado como último critério, então a ordem é estável entre páginas. Registros sem
+valor no campo ordenado (`horario`, `dataFimPrevista`, `valor` da NFS-e) ficam no fim, em qualquer direção. Um campo de `sort` fora
 da lista abaixo é recusado com `400`.
 
 | Rota | Ordenação padrão | Campos aceitos em `sort` |

@@ -71,7 +71,8 @@ public class AulaService {
     public Page<AulaResponseDTO> buscarPorPaciente(Long pacienteId, Pageable pageable) {
         return aulaRepository.findByPacienteId(
                 pacienteId,
-                PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC));
+                PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                        pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC));
     }
 
     @Transactional(readOnly = true)

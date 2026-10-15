@@ -72,7 +72,8 @@ public class AvaliacaoFisioterapeuticaService {
         return avaliacaoRepository
                 .findByPaciente(
                         pacienteId,
-                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
                 .map(AvaliacaoFisioterapeuticaResponseDTO::from);
     }
 

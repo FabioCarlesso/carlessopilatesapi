@@ -12,16 +12,20 @@ import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Set;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @PostgresDataJpaTest
 class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
@@ -232,6 +236,27 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
         assertThat(dtos).hasSize(3).allSatisfy(dto -> assertThat(dto.planoTratamentoId())
                 .isNotNull());
         assertThat(estatisticas.getPrepareStatementCount()).isEqualTo(1);
+    }
+
+    @Test
+    void findByPaciente_ordenadoPorHorarioDesc_deixaSessoesSemHorarioNoFim() {
+        Paciente paciente = persistirPaciente("horario.nulo@email.com", true);
+        entityManager.persist(sessao(paciente, LocalDate.of(2026, 5, 10), null));
+        entityManager.persist(sessao(paciente, LocalDate.of(2026, 5, 11), LocalTime.of(8, 0)));
+        entityManager.persist(sessao(paciente, LocalDate.of(2026, 5, 12), LocalTime.of(18, 0)));
+        entityManager.flush();
+        entityManager.clear();
+
+        var pagina = repository.findByPaciente(
+                paciente.getId(),
+                PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                        PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "horario")),
+                        Set.of("horario"),
+                        Sort.Direction.DESC));
+
+        assertThat(pagina.getContent())
+                .extracting(SessaoPilates::getHorario)
+                .containsExactly(LocalTime.of(18, 0), LocalTime.of(8, 0), null);
     }
 
     private PlanoTratamento planoTratamento(Paciente paciente) {

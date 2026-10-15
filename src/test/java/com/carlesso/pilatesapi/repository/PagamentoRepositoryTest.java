@@ -10,13 +10,18 @@ import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @PostgresDataJpaTest
 class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
@@ -53,6 +58,36 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
                 StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30));
 
         assertThat(pagamentos).extracting(Pagamento::getId).containsExactly(pagoNaCompetencia.getId());
+    }
+
+    /**
+     * As consultas de pagamento passam pela Criteria API — a derivada por paciente e a {@code Specification} da
+     * listagem global —, que não aceita precedência de nulos; por isso o serviço usa a variante sem {@code nullsLast}.
+     * Este teste roda as duas contra o banco com a ordenação que o serviço monta.
+     */
+    @Test
+    void consultasPorCriteria_aceitamAOrdenacaoDoPaginacaoGuard() {
+        Paciente paciente = entityManager.persist(paciente("Ana", "ana.criteria@email.com", "99988877766", true));
+        Plano plano = entityManager.persist(plano(paciente));
+        Plano outroPlano = entityManager.persist(plano(paciente));
+        Pagamento antigo =
+                entityManager.persist(pagamento(paciente, plano, StatusPagamento.PAGO, LocalDate.of(2026, 3, 10)));
+        Pagamento recente =
+                entityManager.persist(pagamento(paciente, outroPlano, StatusPagamento.PAGO, LocalDate.of(2026, 4, 10)));
+        entityManager.flush();
+        entityManager.clear();
+        Pageable pageable = PaginacaoGuard.comDesempatePorId(
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "dataVencimento")),
+                Set.of("dataVencimento"),
+                Sort.Direction.DESC);
+
+        assertThat(repository.findByPacienteId(paciente.getId(), pageable))
+                .extracting(Pagamento::getId)
+                .containsExactly(recente.getId(), antigo.getId());
+        assertThat(repository.findAll(
+                        (root, query, cb) -> cb.equal(root.get("paciente").get("id"), paciente.getId()), pageable))
+                .extracting(Pagamento::getId)
+                .containsExactly(recente.getId(), antigo.getId());
     }
 
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {
