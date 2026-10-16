@@ -17,7 +17,8 @@ public record PlanoTratamentoResponseDTO(
         String responsavelTratamento,
         String observacoes,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao) {
+        LocalDateTime dataAtualizacao,
+        Long version) {
     public static PlanoTratamentoResponseDTO from(PlanoTratamento p) {
         return new PlanoTratamentoResponseDTO(
                 p.getId(),
@@ -32,6 +33,7 @@ public record PlanoTratamentoResponseDTO(
                 p.getResponsavelTratamento(),
                 p.getObservacoes(),
                 p.getDataCriacao(),
-                p.getDataAtualizacao());
+                p.getDataAtualizacao(),
+                p.getVersion());
     }
 }

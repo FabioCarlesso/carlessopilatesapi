@@ -17,6 +17,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.AulaRepository.ProfissionalPagamentoAulaProjection;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -87,6 +88,7 @@ public class ProfissionalService {
     @Transactional
     public ProfissionalResponseDTO atualizar(Long id, ProfissionalUpdateDTO dto) {
         Profissional profissional = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), profissional.getVersion(), Profissional.class, id);
         if (dto.nome() != null) profissional.setNome(dto.nome());
         if (dto.email() != null) profissional.setEmail(dto.email());
         if (dto.telefone() != null) profissional.setTelefone(dto.telefone());
@@ -95,7 +97,7 @@ public class ProfissionalService {
             profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
         if (dto.dataInicio() != null) profissional.setDataInicio(dto.dataInicio());
         if (dto.numeroRegistro() != null) profissional.setNumeroRegistro(normalizar(dto.numeroRegistro()));
-        return ProfissionalResponseDTO.from(profissional);
+        return ProfissionalResponseDTO.from(repository.saveAndFlush(profissional));
     }
 
     /** String vazia ou em branco vira {@code null}: "sem registro informado" tem uma representação só. */

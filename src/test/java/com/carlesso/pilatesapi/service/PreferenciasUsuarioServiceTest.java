@@ -101,13 +101,13 @@ class PreferenciasUsuarioServiceTest {
         User user = usuario(1L, "novo@email.com");
         when(userRepository.findByEmailForUpdate("novo@email.com")).thenReturn(Optional.of(user));
         when(repository.findByUserId(1L)).thenReturn(Optional.empty());
-        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.ES_ES, TemaPreferencia.ESCURO, false, true);
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.ES_ES, TemaPreferencia.ESCURO, false, true, null);
 
         PreferenciasUsuarioResponseDTO response = service.atualizarPorEmail("novo@email.com", dto);
 
         ArgumentCaptor<PreferenciasUsuario> captor = ArgumentCaptor.forClass(PreferenciasUsuario.class);
-        verify(repository).save(captor.capture());
+        verify(repository).saveAndFlush(captor.capture());
         PreferenciasUsuario salvas = captor.getValue();
         assertThat(salvas.getUser()).isEqualTo(user);
         assertThat(salvas.getIdioma()).isEqualTo(IdiomaPreferencia.ES_ES);
@@ -128,13 +128,13 @@ class PreferenciasUsuarioServiceTest {
         existente.setNotificacoesPush(false);
         when(userRepository.findByEmailForUpdate("existente@email.com")).thenReturn(Optional.of(user));
         when(repository.findByUserId(1L)).thenReturn(Optional.of(existente));
-        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true);
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true, null);
 
         PreferenciasUsuarioResponseDTO response = service.atualizarPorEmail("existente@email.com", dto);
 
         ArgumentCaptor<PreferenciasUsuario> captor = ArgumentCaptor.forClass(PreferenciasUsuario.class);
-        verify(repository).save(captor.capture());
+        verify(repository).saveAndFlush(captor.capture());
         assertThat(captor.getValue()).isSameAs(existente);
         assertThat(existente.getIdioma()).isEqualTo(IdiomaPreferencia.EN_US);
         assertThat(existente.getTema()).isEqualTo(TemaPreferencia.ESCURO);
@@ -148,8 +148,8 @@ class PreferenciasUsuarioServiceTest {
         User user = usuario(1L, "minusculo@email.com");
         when(userRepository.findByEmailForUpdate("minusculo@email.com")).thenReturn(Optional.of(user));
         when(repository.findByUserId(1L)).thenReturn(Optional.empty());
-        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, false);
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, false, null);
 
         service.atualizarPorEmail("MINUSCULO@EMAIL.COM", dto);
 
@@ -159,7 +159,7 @@ class PreferenciasUsuarioServiceTest {
     @Test
     void atualizarPorEmail_usuarioInexistente_deveLancar404() {
         when(userRepository.findByEmailForUpdate("naoexiste@email.com")).thenReturn(Optional.empty());
-        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, true);
+        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, true, null);
 
         assertThatThrownBy(() -> service.atualizarPorEmail("naoexiste@email.com", dto))
                 .isInstanceOf(ResourceNotFoundException.class)

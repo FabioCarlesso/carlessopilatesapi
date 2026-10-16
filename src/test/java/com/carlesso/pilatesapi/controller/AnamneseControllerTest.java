@@ -63,6 +63,7 @@ class AnamneseControllerTest {
                 "Melhorar postura e reduzir dores",
                 "Paciente relata estresse",
                 LocalDateTime.of(2026, 1, 15, 10, 0),
+                null,
                 null);
     }
 
@@ -212,10 +213,11 @@ class AnamneseControllerTest {
                 "Melhorar postura e reduzir dores",
                 "Paciente relata estresse",
                 LocalDateTime.of(2026, 1, 15, 10, 0),
-                LocalDateTime.of(2026, 3, 10, 9, 0));
+                LocalDateTime.of(2026, 3, 10, 9, 0),
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
-        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -227,7 +229,7 @@ class AnamneseControllerTest {
     void atualizar_quandoNaoExistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any())).thenThrow(new ResourceNotFoundException("Anamnese não encontrada: 99"));
 
-        var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/anamneses/99")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -237,7 +239,7 @@ class AnamneseControllerTest {
 
     @Test
     void atualizar_comQueixaPrincipalEmBranco_deveRetornar400() throws Exception {
-        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -245,7 +247,7 @@ class AnamneseControllerTest {
 
     @Test
     void atualizar_comObjetivosEmBranco_deveRetornar400() throws Exception {
-        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null);
+        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null, null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());

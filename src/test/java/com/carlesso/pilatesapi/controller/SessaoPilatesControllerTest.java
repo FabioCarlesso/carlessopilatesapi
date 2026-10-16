@@ -65,6 +65,7 @@ class SessaoPilatesControllerTest {
                 50,
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
+                null,
                 null);
     }
 
@@ -270,10 +271,11 @@ class SessaoPilatesControllerTest {
                 60,
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
-                LocalDateTime.of(2026, 5, 15, 10, 0));
+                LocalDateTime.of(2026, 5, 15, 10, 0),
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
-        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 15), LocalTime.of(10, 0), null, 60, null);
+        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 15), LocalTime.of(10, 0), null, 60, null, null);
 
         mvc.perform(put("/sessoes/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -284,7 +286,7 @@ class SessaoPilatesControllerTest {
 
     @Test
     void atualizar_comDuracaoNegativa_deveRetornar400() throws Exception {
-        var dto = new SessaoPilatesUpdateDTO(null, null, null, -5, null);
+        var dto = new SessaoPilatesUpdateDTO(null, null, null, -5, null, null);
 
         mvc.perform(put("/sessoes/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -294,7 +296,7 @@ class SessaoPilatesControllerTest {
     void atualizar_comSessaoInexistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any())).thenThrow(new ResourceNotFoundException("Sessão não encontrada: 99"));
 
-        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 20), null, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 20), null, null, null, null, null);
 
         mvc.perform(put("/sessoes/99").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
@@ -318,7 +320,8 @@ class SessaoPilatesControllerTest {
                 50,
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
-                LocalDateTime.of(2026, 5, 8, 12, 0));
+                LocalDateTime.of(2026, 5, 8, 12, 0),
+                null);
         when(service.realizar(1L)).thenReturn(realizada);
 
         mvc.perform(patch("/sessoes/1/realizar"))
@@ -365,7 +368,8 @@ class SessaoPilatesControllerTest {
                 50,
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
-                LocalDateTime.of(2026, 5, 8, 12, 0));
+                LocalDateTime.of(2026, 5, 8, 12, 0),
+                null);
         when(service.cancelar(1L)).thenReturn(cancelada);
 
         mvc.perform(patch("/sessoes/1/cancelar"))

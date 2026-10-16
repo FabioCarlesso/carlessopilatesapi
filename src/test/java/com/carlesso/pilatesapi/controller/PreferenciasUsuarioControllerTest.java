@@ -55,7 +55,8 @@ class PreferenciasUsuarioControllerTest {
 
     @Test
     void consultar_deveRetornar200ComPreferencias() throws Exception {
-        var response = new PreferenciasUsuarioResponseDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, false);
+        var response =
+                new PreferenciasUsuarioResponseDTO(IdiomaPreferencia.PT_BR, TemaPreferencia.CLARO, true, false, null);
         when(service.buscarPorEmail("user@email.com")).thenReturn(response);
 
         mvc.perform(get("/users/me/preferencias").principal(userAuth("user@email.com")))
@@ -68,8 +69,9 @@ class PreferenciasUsuarioControllerTest {
 
     @Test
     void atualizar_comDadosValidos_deveRetornar200() throws Exception {
-        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true);
-        var response = new PreferenciasUsuarioResponseDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true);
+        var dto = new PreferenciasUsuarioRequestDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true, null);
+        var response =
+                new PreferenciasUsuarioResponseDTO(IdiomaPreferencia.EN_US, TemaPreferencia.ESCURO, false, true, null);
         when(service.atualizarPorEmail(eq("user@email.com"), any())).thenReturn(response);
 
         mvc.perform(put("/users/me/preferencias")

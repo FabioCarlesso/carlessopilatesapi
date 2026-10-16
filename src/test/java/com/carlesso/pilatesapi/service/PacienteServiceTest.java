@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,9 +24,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PacienteServiceTest {
@@ -180,10 +183,37 @@ class PacienteServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
+    void atualizar_comVersaoDesatualizada_deveLancarConflitoSemSalvar() {
+        Paciente paciente = paciente();
+        ReflectionTestUtils.setField(paciente, "version", 3L);
+        when(repository.findById(1L)).thenReturn(Optional.of(paciente));
+
+        var dto = new PacienteUpdateDTO("Novo Nome", null, null, null, null, 2L);
+
+        assertThatThrownBy(() -> service.atualizar(1L, dto)).isInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(paciente.getNome()).isEqualTo("Maria Souza");
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void atualizar_comVersaoAtual_deveSalvarComFlush() {
+        Paciente paciente = paciente();
+        ReflectionTestUtils.setField(paciente, "version", 3L);
+        when(repository.findById(1L)).thenReturn(Optional.of(paciente));
+        when(repository.saveAndFlush(paciente)).thenReturn(paciente);
+
+        var response = service.atualizar(1L, new PacienteUpdateDTO("Novo Nome", null, null, null, null, 3L));
+
+        assertThat(response.nome()).isEqualTo("Novo Nome");
+        verify(repository).saveAndFlush(paciente);
+    }
+
+    @Test
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         when(repository.findById(1L)).thenReturn(Optional.of(paciente()));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new PacienteUpdateDTO("Novo Nome", null, "11999999999", null, null);
+        var dto = new PacienteUpdateDTO("Novo Nome", null, "11999999999", null, null, null);
         PacienteResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.nome()).isEqualTo("Novo Nome");
@@ -194,9 +224,10 @@ class PacienteServiceTest {
     @Test
     void atualizar_comEndereco_deveAtualizarEndereco() {
         when(repository.findById(1L)).thenReturn(Optional.of(paciente()));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var novoEndereco = new EnderecoDTO("Av. Paulista", "1000", "Bela Vista", "São Paulo", "SP", "01310100");
-        var dto = new PacienteUpdateDTO(null, null, null, null, novoEndereco);
+        var dto = new PacienteUpdateDTO(null, null, null, null, novoEndereco, null);
         PacienteResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.endereco().logradouro()).isEqualTo("Av. Paulista");
@@ -207,7 +238,7 @@ class PacienteServiceTest {
     void atualizar_quandoNaoExistente_deveLancarResourceNotFoundException() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.atualizar(99L, new PacienteUpdateDTO(null, null, null, null, null)))
+        assertThatThrownBy(() -> service.atualizar(99L, new PacienteUpdateDTO(null, null, null, null, null, null)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }

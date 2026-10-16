@@ -63,7 +63,8 @@ class PacienteControllerTest {
                 "11912345678",
                 LocalDate.of(1990, 5, 20),
                 new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"),
-                true);
+                true,
+                null);
     }
 
     private PacienteRequestDTO requestDTO() {
@@ -259,7 +260,7 @@ class PacienteControllerTest {
 
     @Test
     void atualizar_deveRetornar200ComDadosAtualizados() throws Exception {
-        var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null);
+        var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null, null);
         var updated = new PacienteResponseDTO(
                 1L,
                 "Novo Nome",
@@ -268,7 +269,8 @@ class PacienteControllerTest {
                 "11912345678",
                 LocalDate.of(1990, 5, 20),
                 null,
-                true);
+                true,
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
         mvc.perform(put("/pacientes/1")
@@ -285,7 +287,8 @@ class PacienteControllerTest {
 
         mvc.perform(put("/pacientes/99")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new PacienteUpdateDTO("Nome", null, null, null, null))))
+                        .content(
+                                mapper.writeValueAsString(new PacienteUpdateDTO("Nome", null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 

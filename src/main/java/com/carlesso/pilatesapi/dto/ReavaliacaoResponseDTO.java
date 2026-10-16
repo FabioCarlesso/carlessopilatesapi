@@ -21,7 +21,8 @@ public record ReavaliacaoResponseDTO(
         String ajustesRecomendados,
         String observacoesGerais,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao) {
+        LocalDateTime dataAtualizacao,
+        Long version) {
     public static ReavaliacaoResponseDTO from(Reavaliacao r) {
         return new ReavaliacaoResponseDTO(
                 r.getId(),
@@ -42,6 +43,7 @@ public record ReavaliacaoResponseDTO(
                 r.getAjustesRecomendados(),
                 r.getObservacoesGerais(),
                 r.getDataCriacao(),
-                r.getDataAtualizacao());
+                r.getDataAtualizacao(),
+                r.getVersion());
     }
 }

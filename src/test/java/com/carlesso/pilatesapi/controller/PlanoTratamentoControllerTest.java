@@ -59,6 +59,7 @@ class PlanoTratamentoControllerTest {
                 "Dr. João",
                 "Paciente deve evitar impacto",
                 LocalDateTime.of(2026, 5, 1, 10, 0),
+                null,
                 null);
     }
 
@@ -214,7 +215,8 @@ class PlanoTratamentoControllerTest {
                 "Dr. João",
                 "Evoluindo bem",
                 LocalDateTime.of(2026, 5, 1, 10, 0),
-                LocalDateTime.of(2026, 5, 10, 9, 0));
+                LocalDateTime.of(2026, 5, 10, 9, 0),
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
         var dto = new PlanoTratamentoUpdateDTO(
@@ -225,7 +227,8 @@ class PlanoTratamentoControllerTest {
                 30,
                 null,
                 null,
-                "Evoluindo bem");
+                "Evoluindo bem",
+                null);
 
         mvc.perform(put("/planos-tratamento/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -238,7 +241,7 @@ class PlanoTratamentoControllerTest {
 
     @Test
     void atualizar_comObjetivosEmBranco_deveRetornar400() throws Exception {
-        var dto = new PlanoTratamentoUpdateDTO(null, null, "   ", null, null, null, null, null);
+        var dto = new PlanoTratamentoUpdateDTO(null, null, "   ", null, null, null, null, null, null);
 
         mvc.perform(put("/planos-tratamento/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -248,7 +251,7 @@ class PlanoTratamentoControllerTest {
 
     @Test
     void atualizar_comNumeroSessaoNegativo_deveRetornar400() throws Exception {
-        var dto = new PlanoTratamentoUpdateDTO(null, null, null, null, -5, null, null, null);
+        var dto = new PlanoTratamentoUpdateDTO(null, null, null, null, -5, null, null, null, null);
 
         mvc.perform(put("/planos-tratamento/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -262,7 +265,7 @@ class PlanoTratamentoControllerTest {
                 .thenThrow(new IllegalArgumentException("dataFimPrevista não pode ser anterior a dataInicio"));
 
         var dto = new PlanoTratamentoUpdateDTO(
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1), null, null, null, null, null, null);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null);
 
         mvc.perform(put("/planos-tratamento/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -276,7 +279,8 @@ class PlanoTratamentoControllerTest {
         when(service.atualizar(eq(99L), any()))
                 .thenThrow(new ResourceNotFoundException("Plano de tratamento não encontrado: 99"));
 
-        var dto = new PlanoTratamentoUpdateDTO(LocalDate.of(2026, 5, 10), null, null, null, null, null, null, null);
+        var dto =
+                new PlanoTratamentoUpdateDTO(LocalDate.of(2026, 5, 10), null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/planos-tratamento/99")
                         .contentType(MediaType.APPLICATION_JSON)

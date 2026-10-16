@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -18,4 +19,9 @@ public record AvaliacaoFisioterapeuticaUpdateDTO(
         @Min(0) @Max(10) Integer escalaDor,
         String testesFuncionaisRealizados,
         @Pattern(regexp = ".*\\S.*", message = "diagnosticoFisioterapeutico não pode ser vazio") String diagnosticoFisioterapeutico,
-        String observacoesGerais) {}
+        String observacoesGerais,
+        @Schema(
+                        description =
+                                "Versão recebida no GET; divergente da atual retorna 409 concurrent-modification. Ausente: sem checagem (modo legado)",
+                        example = "0")
+                Long version) {}

@@ -13,6 +13,11 @@ public class Profissional {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(nullable = false)
     private String nome;
 
@@ -41,6 +46,10 @@ public class Profissional {
     private boolean ativo = true;
 
     public Profissional() {}
+
+    public Long getVersion() {
+        return version;
+    }
 
     public Long getId() {
         return id;

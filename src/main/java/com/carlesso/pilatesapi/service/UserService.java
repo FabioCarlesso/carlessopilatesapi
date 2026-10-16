@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
 import com.carlesso.pilatesapi.util.LogMasker;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
@@ -82,6 +83,7 @@ public class UserService {
     @Transactional
     public UserResponseDTO atualizar(Long id, UserUpdateDTO dto, String currentEmail) {
         User user = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), user.getVersion(), User.class, id);
 
         if (user.getEmail().equals(currentEmail)
                 && dto.role() != null
@@ -106,7 +108,7 @@ public class UserService {
         }
         if (dto.role() != null) user.setRole(dto.role());
 
-        return UserResponseDTO.from(repository.save(user));
+        return UserResponseDTO.from(repository.saveAndFlush(user));
     }
 
     @Transactional

@@ -15,6 +15,7 @@ import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDateTime;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -110,6 +111,7 @@ public class ReavaliacaoService {
     @Transactional
     public ReavaliacaoResponseDTO atualizar(Long id, ReavaliacaoUpdateDTO dto) {
         Reavaliacao reavaliacao = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), reavaliacao.getVersion(), Reavaliacao.class, id);
 
         if (dto.dataReavaliacao() != null) reavaliacao.setDataReavaliacao(dto.dataReavaliacao());
         if (dto.comparativoAvaliacaoAnterior() != null)
@@ -124,7 +126,7 @@ public class ReavaliacaoService {
         if (dto.observacoesGerais() != null) reavaliacao.setObservacoesGerais(dto.observacoesGerais());
         reavaliacao.setDataAtualizacao(LocalDateTime.now());
 
-        return ReavaliacaoResponseDTO.from(reavaliacaoRepository.save(reavaliacao));
+        return ReavaliacaoResponseDTO.from(reavaliacaoRepository.saveAndFlush(reavaliacao));
     }
 
     private Reavaliacao encontrar(Long id) {

@@ -64,6 +64,7 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 "Disfunção lombopélvica",
                 "Reavaliar em 30 dias",
                 LocalDateTime.of(2026, 4, 20, 10, 0),
+                null,
                 null);
     }
 
@@ -220,7 +221,8 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 "Disfunção lombopélvica",
                 "Evoluiu com exercícios",
                 LocalDateTime.of(2026, 4, 20, 10, 0),
-                LocalDateTime.of(2026, 5, 5, 9, 0));
+                LocalDateTime.of(2026, 5, 5, 9, 0),
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
@@ -236,7 +238,8 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 3,
                 null,
                 null,
-                "Evoluiu com exercícios");
+                "Evoluiu com exercícios",
+                null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -250,7 +253,7 @@ class AvaliacaoFisioterapeuticaControllerTest {
     @Test
     void atualizar_comEscalaDorNegativa_deveRetornar400() throws Exception {
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, null, null, null, null, null, null, null, null, -1, null, null, null);
+                null, null, null, null, null, null, null, null, null, -1, null, null, null, null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -261,7 +264,7 @@ class AvaliacaoFisioterapeuticaControllerTest {
     @Test
     void atualizar_comQueixaFuncionalEmBranco_deveRetornar400() throws Exception {
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, "   ", null, null, null, null, null, null, null, null, null, null, null);
+                null, "   ", null, null, null, null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -275,7 +278,7 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 .thenThrow(new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: 99"));
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                LocalDate.of(2026, 5, 5), null, null, null, null, null, null, null, null, null, null, null, null);
+                LocalDate.of(2026, 5, 5), null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/99")
                         .contentType(MediaType.APPLICATION_JSON)

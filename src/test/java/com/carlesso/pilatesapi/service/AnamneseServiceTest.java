@@ -263,8 +263,9 @@ class AnamneseServiceTest {
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         Anamnese a = anamnese(paciente());
         when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null, null);
         AnamneseResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.queixaPrincipal()).isEqualTo("Nova queixa");
@@ -277,7 +278,7 @@ class AnamneseServiceTest {
     void atualizar_quandoNaoExistente_deveLancarResourceNotFoundException() {
         when(anamneseRepository.findById(99L)).thenReturn(Optional.empty());
 
-        var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -288,7 +289,7 @@ class AnamneseServiceTest {
     void atualizar_comQueixaPrincipalEmBranco_deveLancarIllegalArgumentException() {
         when(anamneseRepository.findById(1L)).thenReturn(Optional.of(anamnese(paciente())));
 
-        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(1L, dto))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -299,7 +300,7 @@ class AnamneseServiceTest {
     void atualizar_comObjetivosEmBranco_deveLancarIllegalArgumentException() {
         when(anamneseRepository.findById(1L)).thenReturn(Optional.of(anamnese(paciente())));
 
-        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null);
+        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null, null);
 
         assertThatThrownBy(() -> service.atualizar(1L, dto))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -310,6 +311,7 @@ class AnamneseServiceTest {
     void atualizar_comTodosOsCampos_deveAtualizarTudo() {
         Anamnese a = anamnese(paciente());
         when(anamneseRepository.findById(1L)).thenReturn(Optional.of(a));
+        when(anamneseRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var dto = new AnamneseUpdateDTO(
                 "Dor cervical",
@@ -321,7 +323,8 @@ class AnamneseServiceTest {
                 "Ativo",
                 "Sem restrições",
                 "Ganhar massa muscular",
-                "Perfil atlético");
+                "Perfil atlético",
+                null);
         AnamneseResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.queixaPrincipal()).isEqualTo("Dor cervical");

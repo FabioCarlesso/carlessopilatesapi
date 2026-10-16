@@ -83,7 +83,11 @@ public class PlanoTratamentoController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Plano de tratamento atualizado com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-        @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado")
+        @ApiResponse(responseCode = "404", description = "Plano de tratamento não encontrado"),
+        @ApiResponse(
+                responseCode = "409",
+                description =
+                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição")
     })
     @PutMapping("/{id}")
     public ResponseEntity<PlanoTratamentoResponseDTO> atualizar(

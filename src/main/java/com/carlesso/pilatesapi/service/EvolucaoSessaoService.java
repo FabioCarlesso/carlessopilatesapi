@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.repository.EvolucaoSessaoRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -97,6 +98,7 @@ public class EvolucaoSessaoService {
     @Transactional
     public EvolucaoSessaoResponseDTO atualizar(Long id, EvolucaoSessaoUpdateDTO dto) {
         EvolucaoSessao evolucao = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), evolucao.getVersion(), EvolucaoSessao.class, id);
 
         if (dto.dataHoraRegistro() != null) evolucao.setDataHoraRegistro(dto.dataHoraRegistro());
         if (dto.exerciciosRealizados() != null) evolucao.setExerciciosRealizados(dto.exerciciosRealizados());
@@ -111,7 +113,7 @@ public class EvolucaoSessaoService {
             evolucao.setObservacoesFisioterapeuta(dto.observacoesFisioterapeuta());
         evolucao.setDataAtualizacao(LocalDateTime.now());
 
-        return EvolucaoSessaoResponseDTO.from(evolucaoRepository.save(evolucao));
+        return EvolucaoSessaoResponseDTO.from(evolucaoRepository.saveAndFlush(evolucao));
     }
 
     private EvolucaoSessao encontrar(Long id) {

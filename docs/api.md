@@ -10,6 +10,22 @@ no schema.
 > No perfil `prod` a documentação OpenAPI fica desabilitada (`springdoc.*.enabled=false`) e essas rotas
 > retornam `404`, para não expor o mapa da API. Este arquivo é a referência nesse cenário.
 
+## Locking otimista (`version`)
+
+Pacientes, profissionais, anamneses, avaliações fisioterapêuticas, planos de tratamento, sessões, evoluções de
+sessão, reavaliações, usuários e preferências do usuário trazem `version` na resposta e aceitam `version` no
+corpo do update (`PUT /pacientes/{id}`, `PUT /profissionais/{id}`, `PUT /anamneses/{id}`,
+`PUT /avaliacoes-fisioterapeuticas/{id}`, `PUT /planos-tratamento/{id}`, `PUT /sessoes/{id}`,
+`PUT /evolucoes-sessao/{id}`, `PUT /reavaliacoes/{id}`, `PUT /users/{id}` e `PUT /users/me/preferencias`).
+
+- O cliente devolve no update a `version` que recebeu no `GET`. Se o registro mudou nesse meio-tempo, a resposta
+  é `409` com `type` `concurrent-modification`: recarregue o registro e reaplique a edição sobre o estado novo.
+- A resposta de um update bem-sucedido já traz a `version` incrementada — use-a no próximo save, sem novo `GET`.
+- **Modo legado:** update sem `version` (ou com `null`) segue sem a checagem, como antes da #101. É temporário,
+  até o frontend passar a enviá-la; ver [`regras-de-negocio.md`](regras-de-negocio.md#locking-otimista).
+- `GET /users/me/preferencias` de quem nunca salvou devolve os padrões com `version: null`; o primeiro save
+  também vai sem versão.
+
 ## Autenticação
 
 | Método | Endpoint | Acesso | Descrição |

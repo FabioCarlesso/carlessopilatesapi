@@ -242,6 +242,6 @@ class AuthControllerTest {
     }
 
     private static UserResponseDTO maria() {
-        return new UserResponseDTO(1L, "Maria", "maria@email.com", Role.USER, true);
+        return new UserResponseDTO(1L, "Maria", "maria@email.com", Role.USER, true, null);
     }
 }

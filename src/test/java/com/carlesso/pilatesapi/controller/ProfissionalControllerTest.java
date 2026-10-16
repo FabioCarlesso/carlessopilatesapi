@@ -74,7 +74,8 @@ class ProfissionalControllerTest {
                 new BigDecimal("45.00"),
                 LocalDate.of(2024, 1, 15),
                 true,
-                "350544-F");
+                "350544-F",
+                null);
     }
 
     private ProfissionalRequestDTO request(String numeroRegistro) {
@@ -118,6 +119,7 @@ class ProfissionalControllerTest {
                         new BigDecimal("45.00"),
                         LocalDate.of(2024, 1, 15),
                         true,
+                        null,
                         null));
 
         mvc.perform(post("/profissionais")
@@ -207,7 +209,7 @@ class ProfissionalControllerTest {
 
     @Test
     void atualizar_deveRetornar200() throws Exception {
-        var update = new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null, "123456-TO");
+        var update = new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null, "123456-TO", null);
         when(service.atualizar(eq(1L), any()))
                 .thenReturn(new ProfissionalResponseDTO(
                         1L,
@@ -219,7 +221,8 @@ class ProfissionalControllerTest {
                         new BigDecimal("45.00"),
                         LocalDate.of(2024, 1, 15),
                         true,
-                        "123456-TO"));
+                        "123456-TO",
+                        null));
 
         mvc.perform(put("/profissionais/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -231,7 +234,7 @@ class ProfissionalControllerTest {
 
     @Test
     void atualizar_numeroRegistroAcimaDoLimite_deveRetornar400() throws Exception {
-        var update = new ProfissionalUpdateDTO(null, null, null, null, null, null, "X".repeat(31));
+        var update = new ProfissionalUpdateDTO(null, null, null, null, null, null, "X".repeat(31), null);
 
         mvc.perform(put("/profissionais/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -249,7 +252,7 @@ class ProfissionalControllerTest {
         mvc.perform(put("/profissionais/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(
-                                new ProfissionalUpdateDTO("Nome", null, null, null, null, null, null))))
+                                new ProfissionalUpdateDTO("Nome", null, null, null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 

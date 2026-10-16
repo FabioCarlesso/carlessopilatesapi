@@ -156,9 +156,11 @@ class ProfissionalServiceTest {
     @Test
     void atualizar_deveAtualizarCamposInformados() {
         when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response = service.atualizar(
-                1L, new ProfissionalUpdateDTO("Novo Nome", null, null, null, new BigDecimal("50.00"), null, null));
+                1L,
+                new ProfissionalUpdateDTO("Novo Nome", null, null, null, new BigDecimal("50.00"), null, null, null));
 
         assertThat(response.nome()).isEqualTo("Novo Nome");
         assertThat(response.percentualPagamentoAula()).isEqualByComparingTo("50.00");
@@ -168,9 +170,10 @@ class ProfissionalServiceTest {
     @Test
     void atualizar_deveAtualizarNumeroRegistro() {
         when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response =
-                service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO"));
+                service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO", null));
 
         assertThat(response.numeroRegistro()).isEqualTo("123456-TO");
     }
@@ -178,8 +181,9 @@ class ProfissionalServiceTest {
     @Test
     void atualizar_comNumeroRegistroEmBranco_deveLimparOCampo() {
         when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var response = service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "  "));
+        var response = service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "  ", null));
 
         assertThat(response.numeroRegistro()).isNull();
     }

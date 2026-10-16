@@ -118,6 +118,18 @@ public class UserController {
             summary = "Atualizar usuário",
             description =
                     "Requer role ADMIN. Atualiza nome, e-mail, senha e perfil de acesso USER ou ADMIN. Admin não pode alterar o próprio role nem rebaixar o último administrador ativo.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Usuário atualizado com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado"),
+        @ApiResponse(
+                responseCode = "409",
+                description =
+                        "E-mail já cadastrado, ou registro alterado por outra operação simultânea (concurrent-modification)"),
+        @ApiResponse(
+                responseCode = "422",
+                description = "Alteração do próprio perfil ou rebaixamento do último administrador ativo")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDTO> atualizar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
