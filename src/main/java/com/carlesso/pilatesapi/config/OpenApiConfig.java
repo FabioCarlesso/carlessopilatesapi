@@ -36,6 +36,7 @@ public class OpenApiConfig {
     static final String SCHEMA_PROBLEMA = "Problema";
     static final String SCHEMA_CAMPO_INVALIDO = "CampoInvalido";
     private static final String REF_SCHEMAS = "#/components/schemas/";
+    private static final String CODIGO_CONFLITO = "409";
 
     static {
         // LocalTime trafega como "HH:mm:ss" (JavaTimeModule), mas o springdoc o descreve como o objeto
@@ -97,10 +98,15 @@ public class OpenApiConfig {
             if (openApi.getPaths() == null) {
                 return;
             }
+            Map<String, Schema> schemas = openApi.getComponents().getSchemas();
             openApi.getPaths().forEach((caminho, path) -> path.readOperations().forEach(operation -> {
+                boolean comVersao = corpoComVersao(operation, schemas);
                 operation.getResponses().forEach((codigo, resposta) -> {
                     if (codigo.startsWith("4") || codigo.startsWith("5")) {
-                        resposta.setContent(conteudoProblema(codigo, caminho));
+                        resposta.setContent(
+                                comVersao && codigo.equals(CODIGO_CONFLITO)
+                                        ? conteudoProblema(TipoProblema.CONFLITO_CONCORRENCIA, caminho)
+                                        : conteudoProblema(codigo, caminho));
                     }
                 });
                 operation
@@ -115,9 +121,35 @@ public class OpenApiConfig {
     }
 
     private static Content conteudoProblema(String codigo, String caminho) {
+        return conteudoProblema(exemploProblema(codigo, caminho));
+    }
+
+    private static Content conteudoProblema(TipoProblema tipo, String caminho) {
+        return conteudoProblema(Optional.of(exemploProblema(tipo, tipo.status(), caminho)));
+    }
+
+    private static Content conteudoProblema(Optional<Map<String, Object>> exemplo) {
         MediaType conteudo = new MediaType().schema(new Schema<>().$ref(REF_SCHEMAS + SCHEMA_PROBLEMA));
-        exemploProblema(codigo, caminho).ifPresent(conteudo::setExample);
+        exemplo.ifPresent(conteudo::setExample);
         return new Content().addMediaType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE, conteudo);
+    }
+
+    /**
+     * Operação cujo corpo traz {@code version} (locking otimista da #101): o 409 dela é, antes de tudo, o
+     * {@code concurrent-modification}. Sem isso o exemplo sairia com o {@code conflict} genérico do status e induziria
+     * o cliente a reagir ao tipo errado. Decidido pelo próprio contrato, e não pelo texto da descrição.
+     */
+    static boolean corpoComVersao(io.swagger.v3.oas.models.Operation operation, Map<String, Schema> schemas) {
+        if (operation.getRequestBody() == null || operation.getRequestBody().getContent() == null || schemas == null) {
+            return false;
+        }
+        return operation.getRequestBody().getContent().values().stream()
+                .map(MediaType::getSchema)
+                .filter(schema -> schema != null && schema.get$ref() != null)
+                .map(schema -> schemas.get(schema.get$ref().substring(REF_SCHEMAS.length())))
+                .anyMatch(schema -> schema != null
+                        && schema.getProperties() != null
+                        && schema.getProperties().containsKey("version"));
     }
 
     /**
@@ -136,19 +168,21 @@ public class OpenApiConfig {
         Optional<TipoProblema> tipo = status.value() == HttpStatus.BAD_REQUEST.value()
                 ? Optional.of(TipoProblema.VALIDACAO)
                 : TipoProblema.doStatus(status);
-        return tipo.map(t -> {
-            Map<String, Object> exemplo = new LinkedHashMap<>();
-            exemplo.put("type", t.uri().toString());
-            exemplo.put("title", t.titulo());
-            exemplo.put("status", status.value());
-            exemplo.put("detail", t.titulo());
-            exemplo.put("instance", caminho.replaceAll("\\{[^}]+}", "1"));
-            exemplo.put("timestamp", "2026-01-15T13:45:00Z");
-            if (t == TipoProblema.VALIDACAO) {
-                exemplo.put("campos", List.of(new Problemas.CampoInvalido("nome", "não deve estar em branco")));
-            }
-            return exemplo;
-        });
+        return tipo.map(t -> exemploProblema(t, status, caminho));
+    }
+
+    private static Map<String, Object> exemploProblema(TipoProblema t, HttpStatusCode status, String caminho) {
+        Map<String, Object> exemplo = new LinkedHashMap<>();
+        exemplo.put("type", t.uri().toString());
+        exemplo.put("title", t.titulo());
+        exemplo.put("status", status.value());
+        exemplo.put("detail", t.titulo());
+        exemplo.put("instance", caminho.replaceAll("\\{[^}]+}", "1"));
+        exemplo.put("timestamp", "2026-01-15T13:45:00Z");
+        if (t == TipoProblema.VALIDACAO) {
+            exemplo.put("campos", List.of(new Problemas.CampoInvalido("nome", "não deve estar em branco")));
+        }
+        return exemplo;
     }
 
     private static Schema<?> schemaProblema() {
