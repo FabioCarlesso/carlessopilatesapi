@@ -178,11 +178,12 @@ class PagamentoControllerTest {
 
     @Test
     void listarPorPaciente_retorna200() throws Exception {
-        when(pagamentoService.listarPorPaciente(1L)).thenReturn(List.of(pagamentoPendente()));
+        when(pagamentoService.listarPorPaciente(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(pagamentoPendente())));
 
         mockMvc.perform(get("/pagamentos/paciente/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$.content.length()").value(1));
     }
 
     @Test

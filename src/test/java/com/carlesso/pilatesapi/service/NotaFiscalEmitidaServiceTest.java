@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -166,7 +167,8 @@ class NotaFiscalEmitidaServiceTest {
     void listarPorPaciente_pacienteInexistente_deveLancar404() {
         when(pacienteRepository.existsById(1L)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.listarPorPaciente(1L)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.listarPorPaciente(1L, PageRequest.of(0, 10)))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     private Paciente paciente() {

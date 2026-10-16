@@ -7,6 +7,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +19,38 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
     Optional<Aula> findByIdAndPacienteAtivoTrue(Long id);
 
-    @Query("SELECT a FROM Aula a WHERE a.paciente.id = :pacienteId AND a.paciente.ativo = true ORDER BY a.data")
-    List<Aula> findByPacienteIdOrderByData(@Param("pacienteId") Long pacienteId);
+    /**
+     * Aulas do paciente, paginadas. Projeta no DTO pela mesma razão de {@link #findAgendaPorPeriodo}: carregar a
+     * entidade arrastaria a cadeia EAGER {@code pagamento} → {@code plano} → {@code diasSemana}. A ordenação vem do
+     * {@code Pageable}; a {@code countQuery} é explícita porque o Spring Data não deriva contagem de uma expressão
+     * {@code new}.
+     */
+    @Query(
+            value =
+                    """
+                    SELECT new com.carlesso.pilatesapi.dto.AulaResponseDTO(
+                            a.id,
+                            paciente.id,
+                            paciente.nome,
+                            profissional.id,
+                            profissional.nome,
+                            a.pagamento.id,
+                            a.data,
+                            a.realizada)
+                    FROM Aula a
+                    JOIN a.paciente paciente
+                    LEFT JOIN a.profissional profissional
+                    WHERE paciente.id = :pacienteId
+                      AND paciente.ativo = true
+                    """,
+            countQuery =
+                    """
+                    SELECT COUNT(a)
+                    FROM Aula a
+                    WHERE a.paciente.id = :pacienteId
+                      AND a.paciente.ativo = true
+                    """)
+    Page<AulaResponseDTO> findByPacienteId(@Param("pacienteId") Long pacienteId, Pageable pageable);
 
     @Query("SELECT a FROM Aula a WHERE a.pagamento.id = :pagamentoId AND a.paciente.ativo = true ORDER BY a.data")
     List<Aula> findByPagamentoIdOrderByData(@Param("pagamentoId") Long pagamentoId);

@@ -14,6 +14,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -94,15 +99,19 @@ public class SessaoPilatesController {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Listar sessões por paciente")
+    @Operation(
+            summary = "Listar sessões por paciente",
+            description =
+                    "Retorna uma página das sessões do paciente. Ordenação padrão: `data` desc; aceita `data`, `horario`, `status` e `tipo`, sempre com `id` como desempate.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Sessões encontradas"),
         @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<List<SessaoPilatesResponseDTO>> listarPorPaciente(
-            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId) {
-        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
+    public ResponseEntity<PagedModel<SessaoPilatesResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId,
+            @ParameterObject @SortDefault(sort = "data", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(new PagedModel<>(service.listarPorPaciente(pacienteId, pageable)));
     }
 
     @Operation(

@@ -17,8 +17,9 @@ import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.SortDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -56,7 +57,7 @@ public class PagamentoController {
         @ApiResponse(responseCode = "403", description = "Usuário sem papel ADMIN")
     })
     @GetMapping
-    public ResponseEntity<Page<PagamentoResponseDTO>> listar(
+    public ResponseEntity<PagedModel<PagamentoResponseDTO>> listar(
             @Parameter(description = "Filtra por status; pode ser repetido") @RequestParam(required = false)
                     List<StatusPagamento> status,
             @Parameter(description = "Vencimento a partir de (`yyyy-MM-dd`, inclusivo)")
@@ -69,7 +70,8 @@ public class PagamentoController {
                     LocalDate vencimentoAte,
             @Parameter(description = "ID do paciente") @RequestParam(required = false) Long pacienteId,
             @ParameterObject @SortDefault(sort = "dataVencimento") Pageable pageable) {
-        return ResponseEntity.ok(service.listar(status, vencimentoDe, vencimentoAte, pacienteId, pageable));
+        return ResponseEntity.ok(
+                new PagedModel<>(service.listar(status, vencimentoDe, vencimentoAte, pacienteId, pageable)));
     }
 
     @Operation(
@@ -105,12 +107,16 @@ public class PagamentoController {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Listar pagamentos do paciente")
+    @Operation(
+            summary = "Listar pagamentos do paciente",
+            description =
+                    "Retorna uma página dos pagamentos do paciente. Ordenação padrão: `dataVencimento` desc; aceita `dataVencimento`, `valor` e `status`, sempre com `id` como desempate.")
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<List<PagamentoResponseDTO>> listarPorPaciente(
-            @Parameter(description = "ID do paciente") @PathVariable Long pacienteId) {
-        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
+    public ResponseEntity<PagedModel<PagamentoResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente") @PathVariable Long pacienteId,
+            @ParameterObject @SortDefault(sort = "dataVencimento", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(new PagedModel<>(service.listarPorPaciente(pacienteId, pageable)));
     }
 
     @Operation(

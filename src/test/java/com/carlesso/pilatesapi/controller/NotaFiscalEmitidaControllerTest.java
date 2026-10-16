@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -92,12 +94,12 @@ class NotaFiscalEmitidaControllerTest {
 
     @Test
     void listarPorPaciente_deveRetornarLista() throws Exception {
-        when(service.listarPorPaciente(1L)).thenReturn(List.of(item()));
+        when(service.listarPorPaciente(eq(1L), any())).thenReturn(new PageImpl<>(List.of(item())));
 
         mockMvc.perform(get("/api/nfse-emitidas/paciente/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(5))
-                .andExpect(jsonPath("$[0].competencia").value("04/2026"));
+                .andExpect(jsonPath("$.content[0].id").value(5))
+                .andExpect(jsonPath("$.content[0].competencia").value("04/2026"));
     }
 
     private NotaFiscalEmitidaResponseDTO item() {

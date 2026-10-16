@@ -10,16 +10,23 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AulaService {
+
+    static final Set<String> CAMPOS_ORDENAVEIS_POR_PACIENTE = Set.of("data", "realizada");
 
     private final AulaRepository aulaRepository;
     private final ProfissionalRepository profissionalRepository;
@@ -61,10 +68,11 @@ public class AulaService {
     }
 
     @Transactional(readOnly = true)
-    public List<AulaResponseDTO> buscarPorPaciente(Long pacienteId) {
-        return aulaRepository.findByPacienteIdOrderByData(pacienteId).stream()
-                .map(AulaResponseDTO::from)
-                .toList();
+    public Page<AulaResponseDTO> buscarPorPaciente(Long pacienteId, Pageable pageable) {
+        return aulaRepository.findByPacienteId(
+                pacienteId,
+                PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                        pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC));
     }
 
     @Transactional(readOnly = true)

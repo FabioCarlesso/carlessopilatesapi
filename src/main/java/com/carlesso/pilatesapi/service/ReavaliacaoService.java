@@ -14,13 +14,19 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReavaliacaoService {
+
+    static final Set<String> CAMPOS_ORDENAVEIS_POR_PACIENTE = Set.of("dataReavaliacao");
 
     private final ReavaliacaoRepository reavaliacaoRepository;
     private final PacienteRepository pacienteRepository;
@@ -89,13 +95,16 @@ public class ReavaliacaoService {
     }
 
     @Transactional(readOnly = true)
-    public List<ReavaliacaoResponseDTO> listarPorPaciente(Long pacienteId) {
+    public Page<ReavaliacaoResponseDTO> listarPorPaciente(Long pacienteId, Pageable pageable) {
         if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return reavaliacaoRepository.findByPacienteOrdenadas(pacienteId).stream()
-                .map(ReavaliacaoResponseDTO::from)
-                .toList();
+        return reavaliacaoRepository
+                .findByPaciente(
+                        pacienteId,
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                .map(ReavaliacaoResponseDTO::from);
     }
 
     @Transactional

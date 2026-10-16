@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -135,11 +137,12 @@ class AulaControllerTest {
 
     @Test
     void listarPorPaciente_retorna200() throws Exception {
-        when(aulaService.buscarPorPaciente(1L)).thenReturn(List.of(aulaResponse(false), aulaResponse(true)));
+        when(aulaService.buscarPorPaciente(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(aulaResponse(false), aulaResponse(true))));
 
         mockMvc.perform(get("/aulas/paciente/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2));
+                .andExpect(jsonPath("$.content.length()").value(2));
     }
 
     @Test

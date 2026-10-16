@@ -12,6 +12,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @PostgresDataJpaTest
 class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
@@ -53,19 +55,39 @@ class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void findByPacienteIdOrderByCompetenciaDesc_retornaDaMaisRecenteParaMaisAntiga() {
+    void findByPacienteId_devolvePaginaNaOrdemPedidaEContaTodas() {
         Paciente paciente = entityManager.persist(paciente("Ana", "ana@email.com", "11122233344"));
-        entityManager.persist(nota(paciente, LocalDate.of(2026, 3, 1)));
-        entityManager.persist(nota(paciente, LocalDate.of(2026, 5, 1)));
-        entityManager.persist(nota(paciente, LocalDate.of(2026, 4, 1)));
+        Paciente outro = entityManager.persist(paciente("Bia", "bia@email.com", "55566677788"));
+        // 50 competências mensais, de jan/2022 a fev/2026, inseridas fora de ordem; a nota do outro paciente não conta.
+        LocalDate primeira = LocalDate.of(2022, 1, 1);
+        for (int i = 49; i >= 0; i -= 2) {
+            entityManager.persist(nota(paciente, primeira.plusMonths(i)));
+        }
+        for (int i = 0; i < 50; i += 2) {
+            entityManager.persist(nota(paciente, primeira.plusMonths(i)));
+        }
+        entityManager.persist(nota(outro, primeira));
         entityManager.flush();
         entityManager.clear();
 
-        var notas = repository.findByPacienteIdOrderByCompetenciaDesc(paciente.getId());
+        var pagina = repository.findByPacienteId(
+                paciente.getId(), PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "competencia", "id")));
 
-        assertThat(notas)
+        assertThat(pagina.getTotalElements()).isEqualTo(50);
+        assertThat(pagina.getTotalPages()).isEqualTo(5);
+        assertThat(pagina.getContent())
                 .extracting(NotaFiscalEmitida::getCompetencia)
-                .containsExactly(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 3, 1));
+                .containsExactly(
+                        LocalDate.of(2025, 4, 1),
+                        LocalDate.of(2025, 3, 1),
+                        LocalDate.of(2025, 2, 1),
+                        LocalDate.of(2025, 1, 1),
+                        LocalDate.of(2024, 12, 1),
+                        LocalDate.of(2024, 11, 1),
+                        LocalDate.of(2024, 10, 1),
+                        LocalDate.of(2024, 9, 1),
+                        LocalDate.of(2024, 8, 1),
+                        LocalDate.of(2024, 7, 1));
     }
 
     private Paciente paciente(String nome, String email, String cpf) {

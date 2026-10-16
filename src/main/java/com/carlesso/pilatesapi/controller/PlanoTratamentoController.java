@@ -10,7 +10,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -58,15 +62,19 @@ public class PlanoTratamentoController {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Listar planos de tratamento por paciente")
+    @Operation(
+            summary = "Listar planos de tratamento por paciente",
+            description =
+                    "Retorna uma página dos planos de tratamento ativos do paciente. Ordenação padrão: `dataInicio` desc; aceita `dataInicio` e `dataFimPrevista`, sempre com `id` como desempate.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Planos de tratamento encontrados"),
         @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
     })
     @GetMapping("/paciente/{pacienteId}")
-    public ResponseEntity<List<PlanoTratamentoResponseDTO>> listarPorPaciente(
-            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId) {
-        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
+    public ResponseEntity<PagedModel<PlanoTratamentoResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId,
+            @ParameterObject @SortDefault(sort = "dataInicio", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(new PagedModel<>(service.listarPorPaciente(pacienteId, pageable)));
     }
 
     @Operation(

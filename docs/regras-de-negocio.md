@@ -216,7 +216,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Campos obrigatórios: `sessaoId` e `dataHoraRegistro`
 - `dorAntes` e `dorDepois`, quando informados, aceitam apenas valores inteiros de 0 a 10
 - Consultas e atualizações de evolução não filtram por `sessao.paciente.ativo`
-- `GET /evolucoes-sessao/paciente/{pacienteId}` devolve o histórico completo do paciente em uma única chamada, ordenado por `sessao.data DESC`, `sessao.horario DESC NULLS LAST`, `sessao.id DESC`
+- `GET /evolucoes-sessao/paciente/{pacienteId}` devolve o histórico completo do paciente em uma única chamada, ordenado por `sessao.data DESC`, `sessao.horario DESC NULLS LAST`, `sessao.id DESC`. É a única listagem por paciente que ficou fora da paginação da #100 (motivo abaixo)
 - Paciente existente sem nenhuma evolução recebe `200` com lista vazia; apenas paciente inexistente retorna `404`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
@@ -236,7 +236,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Campos obrigatórios: `pacienteId` e `dataReavaliacao`
 - `avaliacaoFisioterapeuticaId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir, estar ativo quando aplicável e pertencer ao mesmo `pacienteId` da reavaliação
 - Consultas por ID e por paciente não filtram por `paciente.ativo`
-- Listagem por paciente retorna reavaliações ordenadas por `dataReavaliacao DESC, id DESC`
+- Listagem por paciente é paginada e, por padrão, sai por `dataReavaliacao DESC, id DESC` — ver [Listagens por paciente](api.md#listagens-por-paciente)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 

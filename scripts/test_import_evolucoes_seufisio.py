@@ -144,6 +144,13 @@ class ResolverPacienteTest(unittest.TestCase):
         self.assertEqual(motivo, "paciente_nao_encontrado")
 
 
+def pagina(conteudo, numero=0, total_paginas=1):
+    """Corpo de uma rota paginada da API, no formato `{content, page:{...}}`."""
+    return {"content": conteudo,
+            "page": {"size": imp.SESSOES_PAGE_SIZE, "number": numero,
+                     "totalElements": len(conteudo), "totalPages": total_paginas}}
+
+
 class HttpStubTest(unittest.TestCase):
     """Base para testes que trocam o http_json do módulo por um stub."""
 
@@ -189,10 +196,10 @@ class FetchProntuariosTest(HttpStubTest):
 
 class SessoesExistentesTest(HttpStubTest):
     def test_normaliza_chaves(self):
-        self.stub([(200, [{"id": 1, "status": "REALIZADA",
+        self.stub([(200, pagina([{"id": 1, "status": "REALIZADA",
                            "data": "2026-07-21", "horario": "18:00"},
                           {"id": 2, "status": "REALIZADA",
-                           "data": "2026-07-22", "horario": None}])])
+                           "data": "2026-07-22", "horario": None}]))])
 
         por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
 
@@ -202,10 +209,10 @@ class SessoesExistentesTest(HttpStubTest):
 
     def test_mesma_chave_acumula_as_sessoes(self):
         """Sem horário, os atendimentos do dia colapsam na mesma chave."""
-        self.stub([(200, [{"id": 1, "status": "REALIZADA",
+        self.stub([(200, pagina([{"id": 1, "status": "REALIZADA",
                            "data": "2026-07-21", "horario": None},
                           {"id": 2, "status": "REALIZADA",
-                           "data": "2026-07-21", "horario": None}])])
+                           "data": "2026-07-21", "horario": None}]))])
 
         por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
 
@@ -213,13 +220,46 @@ class SessoesExistentesTest(HttpStubTest):
         self.assertEqual([s["id"] for s in por_chave["2026-07-21T00:00"]], [1, 2])
 
     def test_ignora_canceladas(self):
-        self.stub([(200, [{"id": 1, "status": "CANCELADA",
-                           "data": "2026-07-21", "horario": "18:00"}])])
+        self.stub([(200, pagina([{"id": 1, "status": "CANCELADA",
+                           "data": "2026-07-21", "horario": "18:00"}]))])
 
         por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
 
         self.assertIsNone(erro)
         self.assertEqual(por_chave, {})
+
+    def test_percorre_todas_as_paginas(self):
+        self.stub([
+            (200, pagina([{"id": 1, "status": "REALIZADA",
+                           "data": "2026-07-21", "horario": "18:00"}], numero=0, total_paginas=2)),
+            (200, pagina([{"id": 2, "status": "REALIZADA",
+                           "data": "2026-07-22", "horario": "18:00"}], numero=1, total_paginas=2)),
+        ])
+
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
+
+        self.assertIsNone(erro)
+        self.assertEqual(set(por_chave), {"2026-07-21T18:00", "2026-07-22T18:00"})
+        self.assertEqual([url for _, url, _ in self.chamadas], [
+            f"http://local/sessoes/paciente/1?page=0&size={imp.SESSOES_PAGE_SIZE}",
+            f"http://local/sessoes/paciente/1?page=1&size={imp.SESSOES_PAGE_SIZE}",
+        ])
+
+    def test_paciente_sem_sessoes_faz_uma_chamada(self):
+        self.stub([(200, pagina([], total_paginas=0))])
+
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
+
+        self.assertIsNone(erro)
+        self.assertEqual(por_chave, {})
+        self.assertEqual(len(self.chamadas), 1)
+
+    def test_corpo_em_array_e_erro(self):
+        """O formato antigo, sem paginação, não pode passar por lista vazia."""
+        self.stub([(200, [])])
+        por_chave, erro = imp.sessoes_existentes("http://local", "tok", 1)
+        self.assertIsNone(por_chave)
+        self.assertIn("200", erro)
 
     def test_404_retorna_erro(self):
         self.stub([(404, "não encontrado")])
@@ -378,7 +418,7 @@ class ProcessarClienteTest(HttpStubTest):
     def test_pula_sessao_existente_e_cria_apenas_a_nova(self):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00")]),  # sessões existentes
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00")])),  # sessões existentes
             (200, {"id": 70}),                                # sessão 50 já tem evolução
             (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),
         ])
@@ -395,8 +435,8 @@ class ProcessarClienteTest(HttpStubTest):
         """Idempotência: com tudo já cadastrado, nada é criado."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00"),
-                   self.sessao(51, "2026-07-21", "19:00")]),
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00"),
+                   self.sessao(51, "2026-07-21", "19:00")])),
             (200, {"id": 70}), (200, {"id": 71}),  # ambas já com evolução
         ])
         skips, fails = Counter(), Counter()
@@ -411,7 +451,7 @@ class ProcessarClienteTest(HttpStubTest):
         """Sem horário a chave colapsa; o 2º atendimento não pode ser perdido."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, []),
+            (200, pagina([])),
             (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),
             (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
         ])
@@ -428,8 +468,8 @@ class ProcessarClienteTest(HttpStubTest):
         """As duas sessões do dia são consumidas uma a uma, não a mesma duas vezes."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", None),
-                   self.sessao(51, "2026-07-20", None)]),
+            (200, pagina([self.sessao(50, "2026-07-20", None),
+                   self.sessao(51, "2026-07-20", None)])),
             (200, {"id": 70}), (200, {"id": 71}),
         ])
         skips, fails = Counter(), Counter()
@@ -445,7 +485,7 @@ class ProcessarClienteTest(HttpStubTest):
         """Execução interrompida deixou a sessão sem evolução: a próxima conserta."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00")]),
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00")])),
             (404, "sem evolução"),   # sessão 50 é órfã
             (201, {"id": 77}),       # evolução criada só para ela
             (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),  # 2026-07-21
@@ -464,7 +504,7 @@ class ProcessarClienteTest(HttpStubTest):
         """`PATCH realizar` falhou antes: a sessão ficou AGENDADA e sem evolução."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00", status="AGENDADA")]),
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00", status="AGENDADA")])),
             (404, "sem evolução"),
             (200, {"id": 50}),       # PATCH realizar
             (201, {"id": 77}),       # POST evolução
@@ -482,7 +522,7 @@ class ProcessarClienteTest(HttpStubTest):
         """CANCELADA não recebe evolução; o atendimento vira uma sessão nova."""
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00", status="CANCELADA")]),
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00", status="CANCELADA")])),
             (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),
             (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
         ])
@@ -497,7 +537,7 @@ class ProcessarClienteTest(HttpStubTest):
     def test_falha_ao_consultar_evolucao_nao_cria_sessao_duplicada(self):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00")]),
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00")])),
             (500, "boom"),
             (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),
         ])
@@ -512,7 +552,7 @@ class ProcessarClienteTest(HttpStubTest):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": False}
         self.stub([
             (204, None),                                          # ativar
-            (200, []),                                            # sessões existentes
+            (200, pagina([])),                                            # sessões existentes
             (201, {"id": 55}), (200, {"id": 55}), (201, {"id": 77}),  # 2026-07-20
             (201, {"id": 56}), (200, {"id": 56}), (201, {"id": 78}),  # 2026-07-21
             (204, None),                                          # inativar
@@ -542,7 +582,7 @@ class ProcessarClienteTest(HttpStubTest):
 
     def test_dry_run_nao_grava(self):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
-        self.stub([(200, [])])  # apenas a consulta de sessões existentes
+        self.stub([(200, pagina([]))])  # apenas a consulta de sessões existentes
         skips, fails = Counter(), Counter()
 
         criadas = imp.processar_cliente(self.cfg(dry_run=True), paciente,
@@ -554,7 +594,7 @@ class ProcessarClienteTest(HttpStubTest):
     def test_dry_run_com_sessao_orfa_apenas_consulta(self):
         paciente = {"id": 1, "nome": "Ana Silva", "ativo": True}
         self.stub([
-            (200, [self.sessao(50, "2026-07-20", "18:00")]),
+            (200, pagina([self.sessao(50, "2026-07-20", "18:00")])),
             (404, "sem evolução"),
         ])
         skips, fails = Counter(), Counter()

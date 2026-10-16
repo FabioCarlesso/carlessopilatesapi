@@ -9,13 +9,19 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AvaliacaoFisioterapeuticaService {
+
+    static final Set<String> CAMPOS_ORDENAVEIS_POR_PACIENTE = Set.of("dataAvaliacao");
 
     private final AvaliacaoFisioterapeuticaRepository avaliacaoRepository;
     private final PacienteRepository pacienteRepository;
@@ -59,13 +65,16 @@ public class AvaliacaoFisioterapeuticaService {
     }
 
     @Transactional(readOnly = true)
-    public List<AvaliacaoFisioterapeuticaResponseDTO> listarPorPaciente(Long pacienteId) {
+    public Page<AvaliacaoFisioterapeuticaResponseDTO> listarPorPaciente(Long pacienteId, Pageable pageable) {
         if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return avaliacaoRepository.findByPacienteOrdenadas(pacienteId).stream()
-                .map(AvaliacaoFisioterapeuticaResponseDTO::from)
-                .toList();
+        return avaliacaoRepository
+                .findByPaciente(
+                        pacienteId,
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                .map(AvaliacaoFisioterapeuticaResponseDTO::from);
     }
 
     @Transactional

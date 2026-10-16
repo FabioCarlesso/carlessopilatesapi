@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.Pageable;
 
 /**
  * Paciente inativo é ex-aluno, não registro apagado: o prontuário dele continua
@@ -81,7 +82,8 @@ class HistoricoPacienteInativoRepositoryTest extends PostgresTestcontainerSuppor
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(avaliacaoRepository.findByPacienteOrdenadas(inativo.getId())).hasSize(1);
+        assertThat(avaliacaoRepository.findByPaciente(inativo.getId(), Pageable.unpaged()))
+                .hasSize(1);
         assertThat(avaliacaoRepository.findByIdComPaciente(id)).isPresent();
     }
 
@@ -95,7 +97,7 @@ class HistoricoPacienteInativoRepositoryTest extends PostgresTestcontainerSuppor
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(planoTratamentoRepository.findAtivosByPacienteOrdenados(inativo.getId()))
+        assertThat(planoTratamentoRepository.findAtivosByPaciente(inativo.getId(), Pageable.unpaged()))
                 .hasSize(1);
         assertThat(planoTratamentoRepository.findAtivoById(id)).isPresent();
     }
@@ -112,7 +114,7 @@ class HistoricoPacienteInativoRepositoryTest extends PostgresTestcontainerSuppor
         entityManager.clear();
 
         // O soft delete do próprio plano continua valendo: só o filtro de paciente saiu.
-        assertThat(planoTratamentoRepository.findAtivosByPacienteOrdenados(inativo.getId()))
+        assertThat(planoTratamentoRepository.findAtivosByPaciente(inativo.getId(), Pageable.unpaged()))
                 .isEmpty();
         assertThat(planoTratamentoRepository.findAtivoById(id)).isEmpty();
     }
@@ -126,7 +128,7 @@ class HistoricoPacienteInativoRepositoryTest extends PostgresTestcontainerSuppor
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(reavaliacaoRepository.findByPacienteOrdenadas(inativo.getId()))
+        assertThat(reavaliacaoRepository.findByPaciente(inativo.getId(), Pageable.unpaged()))
                 .hasSize(1);
         assertThat(reavaliacaoRepository.findByIdComPaciente(id)).isPresent();
     }

@@ -75,6 +75,8 @@ from import_seufisio import (  # noqa: E402  (precisa do sys.path acima)
 
 DESCRIPTION = "Importa evoluções (prontuários) do seufisio.com.br para a API carlessopilatesapi."
 PRONTUARIOS_PAGE_SIZE = 200
+# Teto do Spring (`spring.data.web.pageable.max-page-size`): na prática, uma página por paciente.
+SESSOES_PAGE_SIZE = 2000
 TIPO_SESSAO_PADRAO = "PILATES"
 TIPOS_SESSAO_VALIDOS = ("PILATES", "FISIOTERAPIA")  # enum TipoSessao da API
 TAGS_QUEBRA_LINHA = {
@@ -216,6 +218,8 @@ def map_to_evolucao(linha, desde=None):
 def sessoes_existentes(base_url, token, paciente_id):
     """(por_chave, erro) — sessões já cadastradas agrupadas por `data+horário`.
 
+    A rota é paginada (#100): percorre as páginas até `page.totalPages`.
+
     Cada chave aponta para a *lista* de sessões com aquela data/horário, não
     para uma só: sem `hora_atendimento` todos os atendimentos do dia colapsam
     na mesma chave, e tratá-la como única faria o script pular os demais como
@@ -224,14 +228,22 @@ def sessoes_existentes(base_url, token, paciente_id):
     Sessões CANCELADA ficam de fora — não recebem evolução e, contadas aqui,
     bloqueariam a importação de um atendimento legítimo no mesmo horário.
     """
-    status, body = http_json(
-        "GET", f"{base_url}/sessoes/paciente/{paciente_id}",
-        headers=auth_local(token),
-    )
-    if status != 200 or not isinstance(body, list):
-        return None, f"GET /sessoes/paciente/{paciente_id} -> {status}"
+    sessoes = []
+    pagina = 0
+    while True:
+        status, body = http_json(
+            "GET",
+            f"{base_url}/sessoes/paciente/{paciente_id}?page={pagina}&size={SESSOES_PAGE_SIZE}",
+            headers=auth_local(token),
+        )
+        if status != 200 or not isinstance(body, dict) or not isinstance(body.get("content"), list):
+            return None, f"GET /sessoes/paciente/{paciente_id} -> {status}"
+        sessoes.extend(body["content"])
+        pagina += 1
+        if pagina >= (body.get("page") or {}).get("totalPages", 0):
+            break
     por_chave = defaultdict(list)
-    for s in body:
+    for s in sessoes:
         if s.get("status") == "CANCELADA":
             continue
         por_chave[chave_sessao(s.get("data"), s.get("horario"))].append(s)

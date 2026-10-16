@@ -10,20 +10,26 @@ import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.CompetenciaUtils;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class NotaFiscalEmitidaService {
+
+    static final Set<String> CAMPOS_ORDENAVEIS_POR_PACIENTE = Set.of("competencia", "dataEmissao", "valor");
 
     private static final Logger log = LoggerFactory.getLogger(NotaFiscalEmitidaService.class);
 
@@ -104,13 +110,16 @@ public class NotaFiscalEmitidaService {
     }
 
     @Transactional(readOnly = true)
-    public List<NotaFiscalEmitidaResponseDTO> listarPorPaciente(Long pacienteId) {
+    public Page<NotaFiscalEmitidaResponseDTO> listarPorPaciente(Long pacienteId, Pageable pageable) {
         if (!pacienteRepository.existsById(pacienteId)) {
             throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
         }
-        return repository.findByPacienteIdOrderByCompetenciaDesc(pacienteId).stream()
-                .map(NotaFiscalEmitidaResponseDTO::from)
-                .toList();
+        return repository
+                .findByPacienteId(
+                        pacienteId,
+                        PaginacaoGuard.comNulosNoFimEDesempatePorId(
+                                pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
+                .map(NotaFiscalEmitidaResponseDTO::from);
     }
 
     private void validar(NotaFiscalEmitidaRequestDTO dto) {

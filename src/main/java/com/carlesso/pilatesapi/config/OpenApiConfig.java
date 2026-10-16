@@ -16,6 +16,7 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -34,6 +36,14 @@ public class OpenApiConfig {
     static final String SCHEMA_PROBLEMA = "Problema";
     static final String SCHEMA_CAMPO_INVALIDO = "CampoInvalido";
     private static final String REF_SCHEMAS = "#/components/schemas/";
+
+    static {
+        // LocalTime trafega como "HH:mm:ss" (JavaTimeModule), mas o springdoc o descreve como o objeto
+        // {hour, minute, second, nano}; um cliente gerado a partir do contrato mandaria esse objeto e levaria 400.
+        SpringDocUtils.getConfig()
+                .replaceWithSchema(
+                        LocalTime.class, new StringSchema().format("time").example("09:00:00"));
+    }
 
     @Bean
     public OpenAPI openAPI() {
