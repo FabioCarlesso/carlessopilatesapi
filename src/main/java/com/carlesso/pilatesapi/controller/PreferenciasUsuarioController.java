@@ -54,7 +54,11 @@ public class PreferenciasUsuarioController {
                 description =
                         "Payload inválido (idioma/tema fora dos valores aceitos ou campos obrigatórios ausentes)"),
         @ApiResponse(responseCode = "401", description = "Token ausente ou inválido"),
-        @ApiResponse(responseCode = "404", description = "Usuário do token não encontrado")
+        @ApiResponse(responseCode = "404", description = "Usuário do token não encontrado"),
+        @ApiResponse(
+                responseCode = "409",
+                description =
+                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição")
     })
     @PutMapping
     public ResponseEntity<PreferenciasUsuarioResponseDTO> atualizar(

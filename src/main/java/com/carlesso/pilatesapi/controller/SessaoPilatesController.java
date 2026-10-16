@@ -120,7 +120,11 @@ public class SessaoPilatesController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Sessão atualizada com sucesso"),
         @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-        @ApiResponse(responseCode = "404", description = "Sessão não encontrada")
+        @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
+        @ApiResponse(
+                responseCode = "409",
+                description =
+                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição")
     })
     @PutMapping("/{id}")
     public ResponseEntity<SessaoPilatesResponseDTO> atualizar(

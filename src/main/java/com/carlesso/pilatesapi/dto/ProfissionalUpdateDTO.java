@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
@@ -16,4 +17,8 @@ public record ProfissionalUpdateDTO(
         @DecimalMin("0.01") @DecimalMax("100.00") BigDecimal percentualPagamentoAula,
         LocalDate dataInicio,
         @Size(max = 30) String numeroRegistro,
-        Long version) {}
+        @Schema(
+                        description =
+                                "Versão recebida no GET; divergente da atual retorna 409 concurrent-modification. Ausente: sem checagem (modo legado)",
+                        example = "0")
+                Long version) {}

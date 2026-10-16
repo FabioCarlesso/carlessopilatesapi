@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.time.LocalDateTime;
@@ -15,4 +16,8 @@ public record EvolucaoSessaoUpdateDTO(
         String intercorrencias,
         String orientacoes,
         String observacoesFisioterapeuta,
-        Long version) {}
+        @Schema(
+                        description =
+                                "Versão recebida no GET; divergente da atual retorna 409 concurrent-modification. Ausente: sem checagem (modo legado)",
+                        example = "0")
+                Long version) {}
