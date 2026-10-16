@@ -19,6 +19,7 @@ import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -130,6 +131,7 @@ public class SessaoPilatesService {
     @Transactional
     public SessaoPilatesResponseDTO atualizar(Long id, SessaoPilatesUpdateDTO dto) {
         SessaoPilates sessao = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), sessao.getVersion(), SessaoPilates.class, id);
 
         if (dto.data() != null) sessao.setData(dto.data());
         if (dto.horario() != null) sessao.setHorario(dto.horario());
@@ -138,7 +140,7 @@ public class SessaoPilatesService {
         if (dto.observacoes() != null) sessao.setObservacoes(dto.observacoes());
         sessao.setDataAtualizacao(LocalDateTime.now());
 
-        return SessaoPilatesResponseDTO.from(sessaoRepository.save(sessao));
+        return SessaoPilatesResponseDTO.from(sessaoRepository.saveAndFlush(sessao));
     }
 
     @Transactional

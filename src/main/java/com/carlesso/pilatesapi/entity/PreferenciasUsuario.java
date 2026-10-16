@@ -15,6 +15,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -26,6 +27,11 @@ public class PreferenciasUsuario {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
@@ -62,6 +68,10 @@ public class PreferenciasUsuario {
     @PreUpdate
     void preUpdate() {
         this.dataAtualizacao = LocalDateTime.now();
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public Long getId() {

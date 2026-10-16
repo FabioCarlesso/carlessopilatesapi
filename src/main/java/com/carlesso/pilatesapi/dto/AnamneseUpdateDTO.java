@@ -12,4 +12,5 @@ public record AnamneseUpdateDTO(
         String nivelAtividadeFisica,
         String restricoesMedicas,
         @Pattern(regexp = ".*\\S.*", message = "objetivos não pode ser vazio") String objetivos,
-        String observacoes) {}
+        String observacoes,
+        Long version) {}

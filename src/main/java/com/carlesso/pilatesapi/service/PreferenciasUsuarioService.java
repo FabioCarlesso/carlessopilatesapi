@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PreferenciasUsuarioRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.EmailNormalizer;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,13 +45,15 @@ public class PreferenciasUsuarioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
         PreferenciasUsuario preferencias = repository.findByUserId(user.getId()).orElseGet(() -> novaComPadroes(user));
+        VersaoGuard.exigirVersaoAtual(
+                dto.version(), preferencias.getVersion(), PreferenciasUsuario.class, preferencias.getId());
 
         preferencias.setIdioma(dto.idioma());
         preferencias.setTema(dto.tema());
         preferencias.setNotificacoesEmail(dto.notificacoesEmail());
         preferencias.setNotificacoesPush(dto.notificacoesPush());
 
-        return PreferenciasUsuarioResponseDTO.from(repository.save(preferencias));
+        return PreferenciasUsuarioResponseDTO.from(repository.saveAndFlush(preferencias));
     }
 
     private PreferenciasUsuario novaComPadroes(User user) {
@@ -65,6 +68,6 @@ public class PreferenciasUsuarioService {
 
     private PreferenciasUsuarioResponseDTO padraoResponse() {
         return new PreferenciasUsuarioResponseDTO(
-                IDIOMA_PADRAO, TEMA_PADRAO, NOTIFICACOES_EMAIL_PADRAO, NOTIFICACOES_PUSH_PADRAO);
+                IDIOMA_PADRAO, TEMA_PADRAO, NOTIFICACOES_EMAIL_PADRAO, NOTIFICACOES_PUSH_PADRAO, null);
     }
 }

@@ -339,10 +339,10 @@ class EvolucaoSessaoServiceTest {
         SessaoPilates s = sessao(paciente());
         EvolucaoSessao e = evolucao(s);
         when(evolucaoRepository.findByIdComSessao(1L)).thenReturn(Optional.of(e));
-        when(evolucaoRepository.save(e)).thenReturn(e);
+        when(evolucaoRepository.saveAndFlush(e)).thenReturn(e);
 
         var dto = new EvolucaoSessaoUpdateDTO(
-                null, "Reformer, Chair", null, "Mola 3", 3, 1, "Melhorou muito", null, null, null);
+                null, "Reformer, Chair", null, "Mola 3", 3, 1, "Melhorou muito", null, null, null, null);
 
         EvolucaoSessaoResponseDTO response = service.atualizar(1L, dto);
 
@@ -359,13 +359,14 @@ class EvolucaoSessaoServiceTest {
         SessaoPilates s = sessao(paciente());
         EvolucaoSessao e = evolucao(s);
         when(evolucaoRepository.findByIdComSessao(1L)).thenReturn(Optional.of(e));
-        when(evolucaoRepository.save(e)).thenReturn(e);
+        when(evolucaoRepository.saveAndFlush(e)).thenReturn(e);
 
         // Depois da criação o cadastro do profissional mudou; a evolução não acompanha.
         s.getProfissional().setNome("Outro Nome");
         s.getProfissional().setNumeroRegistro("999999-X");
 
-        var dto = new EvolucaoSessaoUpdateDTO(null, "Reformer, Chair", null, null, null, null, null, null, null, null);
+        var dto = new EvolucaoSessaoUpdateDTO(
+                null, "Reformer, Chair", null, null, null, null, null, null, null, null, null);
 
         EvolucaoSessaoResponseDTO response = service.atualizar(1L, dto);
 
@@ -378,7 +379,7 @@ class EvolucaoSessaoServiceTest {
     void atualizar_comEvolucaoInexistente_deveLancarResourceNotFoundException() {
         when(evolucaoRepository.findByIdComSessao(99L)).thenReturn(Optional.empty());
 
-        var dto = new EvolucaoSessaoUpdateDTO(null, null, null, null, null, null, null, null, null, null);
+        var dto = new EvolucaoSessaoUpdateDTO(null, null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)

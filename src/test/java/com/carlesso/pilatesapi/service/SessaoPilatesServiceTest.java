@@ -306,9 +306,9 @@ class SessaoPilatesServiceTest {
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
-        when(sessaoRepository.save(s)).thenReturn(s);
+        when(sessaoRepository.saveAndFlush(s)).thenReturn(s);
 
-        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 15), LocalTime.of(10, 0), null, 60, null);
+        var dto = new SessaoPilatesUpdateDTO(LocalDate.of(2026, 5, 15), LocalTime.of(10, 0), null, 60, null, null);
 
         SessaoPilatesResponseDTO response = service.atualizar(1L, dto);
 
@@ -324,7 +324,7 @@ class SessaoPilatesServiceTest {
     void atualizar_comSessaoInexistente_deveLancarResourceNotFoundException() {
         when(sessaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        var dto = new SessaoPilatesUpdateDTO(null, null, null, null, null);
+        var dto = new SessaoPilatesUpdateDTO(null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)

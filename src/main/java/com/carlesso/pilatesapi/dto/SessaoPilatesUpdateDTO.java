@@ -5,4 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 public record SessaoPilatesUpdateDTO(
-        LocalDate data, LocalTime horario, String local, @Positive Integer duracaoMinutos, String observacoes) {}
+        LocalDate data,
+        LocalTime horario,
+        String local,
+        @Positive Integer duracaoMinutos,
+        String observacoes,
+        Long version) {}

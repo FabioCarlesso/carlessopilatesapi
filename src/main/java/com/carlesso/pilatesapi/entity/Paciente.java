@@ -11,6 +11,11 @@ public class Paciente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(nullable = false)
     private String nome;
 
@@ -29,6 +34,10 @@ public class Paciente {
     private boolean ativo = true;
 
     public Paciente() {}
+
+    public Long getVersion() {
+        return version;
+    }
 
     public Long getId() {
         return id;

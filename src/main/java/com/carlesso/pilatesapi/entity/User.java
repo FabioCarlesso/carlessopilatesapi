@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.GrantedAuthority;
@@ -22,6 +23,11 @@ public class User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @Column(nullable = false)
     private String name;
@@ -41,6 +47,10 @@ public class User implements UserDetails {
 
     @Column(name = "token_version", nullable = false)
     private long tokenVersion = 0;
+
+    public Long getVersion() {
+        return version;
+    }
 
     public Long getId() {
         return id;

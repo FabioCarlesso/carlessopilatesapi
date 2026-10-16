@@ -105,7 +105,8 @@ class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
                 null));
         assertThat(criado.numeroRegistro()).isNull();
 
-        service.atualizar(criado.id(), new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO"));
+        service.atualizar(
+                criado.id(), new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO", null));
 
         assertThat(service.buscarPorId(criado.id()).numeroRegistro()).isEqualTo("123456-TO");
     }

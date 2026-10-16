@@ -334,7 +334,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("perfil@email.com", Role.USER);
         String tokenAntigo = bearer(user);
-        var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN);
+        var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN, null);
 
         mvc.perform(put("/users/{id}", user.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -357,7 +357,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersAtualizar_adminAlterandoProprioRole_deveRetornar422() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        var request = new UserUpdateDTO(null, null, null, Role.USER);
+        var request = new UserUpdateDTO(null, null, null, Role.USER, null);
 
         mvc.perform(put("/users/{id}", admin.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -370,7 +370,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersAtualizar_adminAlterandoProprioNomeSemMudarRole_devePermitir() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        var request = new UserUpdateDTO("Novo Nome", null, null, null);
+        var request = new UserUpdateDTO("Novo Nome", null, null, null, null);
 
         mvc.perform(put("/users/{id}", admin.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -385,7 +385,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void usersAtualizar_rebaixandoAdminInativo_devePermitir() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User adminInativo = criarUsuario("admin-inativo@email.com", Role.ADMIN, false);
-        var request = new UserUpdateDTO(null, null, null, Role.USER);
+        var request = new UserUpdateDTO(null, null, null, Role.USER, null);
 
         mvc.perform(put("/users/{id}", adminInativo.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -400,7 +400,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void usersAtualizar_nomeVazio_deveRetornar400() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("user@email.com", Role.USER);
-        var request = new UserUpdateDTO("", null, null, null);
+        var request = new UserUpdateDTO("", null, null, null, null);
 
         mvc.perform(put("/users/{id}", user.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))

@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDateTime;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -78,6 +79,7 @@ public class AnamneseService {
     @Transactional
     public AnamneseResponseDTO atualizar(Long id, AnamneseUpdateDTO dto) {
         Anamnese anamnese = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), anamnese.getVersion(), Anamnese.class, id);
 
         validarCampoObrigatorio("queixaPrincipal", dto.queixaPrincipal());
         validarCampoObrigatorio("objetivos", dto.objetivos());
@@ -94,7 +96,7 @@ public class AnamneseService {
         if (dto.observacoes() != null) anamnese.setObservacoes(dto.observacoes());
         anamnese.setDataAtualizacao(LocalDateTime.now());
 
-        return AnamneseResponseDTO.from(anamnese);
+        return AnamneseResponseDTO.from(anamneseRepository.saveAndFlush(anamnese));
     }
 
     private Anamnese encontrar(Long id) {

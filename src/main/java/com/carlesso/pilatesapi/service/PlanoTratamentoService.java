@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -77,6 +78,7 @@ public class PlanoTratamentoService {
     @Transactional
     public PlanoTratamentoResponseDTO atualizar(Long id, PlanoTratamentoUpdateDTO dto) {
         PlanoTratamento plano = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), plano.getVersion(), PlanoTratamento.class, id);
         var dataInicio = dto.dataInicio() != null ? dto.dataInicio() : plano.getDataInicio();
         var dataFimPrevista = dto.dataFimPrevista() != null ? dto.dataFimPrevista() : plano.getDataFimPrevista();
         validarPeriodo(dataInicio, dataFimPrevista);
@@ -91,7 +93,7 @@ public class PlanoTratamentoService {
         if (dto.observacoes() != null) plano.setObservacoes(dto.observacoes());
         plano.setDataAtualizacao(LocalDateTime.now());
 
-        return PlanoTratamentoResponseDTO.from(planoTratamentoRepository.save(plano));
+        return PlanoTratamentoResponseDTO.from(planoTratamentoRepository.saveAndFlush(plano));
     }
 
     @Transactional

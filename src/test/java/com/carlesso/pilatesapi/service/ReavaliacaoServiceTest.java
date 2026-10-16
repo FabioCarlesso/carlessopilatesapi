@@ -306,10 +306,20 @@ class ReavaliacaoServiceTest {
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         Reavaliacao r = reavaliacao(paciente());
         when(reavaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(r));
-        when(reavaliacaoRepository.save(r)).thenReturn(r);
+        when(reavaliacaoRepository.saveAndFlush(r)).thenReturn(r);
 
         var dto = new ReavaliacaoUpdateDTO(
-                LocalDate.of(2026, 5, 10), "Evolução excelente", "Sem dor", null, null, null, null, null, null, null);
+                LocalDate.of(2026, 5, 10),
+                "Evolução excelente",
+                "Sem dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         ReavaliacaoResponseDTO response = service.atualizar(1L, dto);
 
@@ -324,7 +334,7 @@ class ReavaliacaoServiceTest {
     void atualizar_comReavaliacaoInexistente_deveLancarResourceNotFoundException() {
         when(reavaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        var dto = new ReavaliacaoUpdateDTO(null, null, null, null, null, null, null, null, null, null);
+        var dto = new ReavaliacaoUpdateDTO(null, null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)

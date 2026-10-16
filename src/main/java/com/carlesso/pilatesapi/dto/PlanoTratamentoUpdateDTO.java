@@ -12,4 +12,5 @@ public record PlanoTratamentoUpdateDTO(
         @Positive Integer numeroSessoesPrevistas,
         String frequenciaSessoes,
         String responsavelTratamento,
-        String observacoes) {}
+        String observacoes,
+        Long version) {}

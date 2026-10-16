@@ -11,6 +11,11 @@ public class Anamnese {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paciente_id", nullable = false, unique = true)
     private Paciente paciente;
@@ -51,6 +56,10 @@ public class Anamnese {
     private LocalDateTime dataAtualizacao;
 
     public Anamnese() {}
+
+    public Long getVersion() {
+        return version;
+    }
 
     public Long getId() {
         return id;

@@ -15,4 +15,5 @@ public record ProfissionalUpdateDTO(
         TipoContrato tipoContrato,
         @DecimalMin("0.01") @DecimalMax("100.00") BigDecimal percentualPagamentoAula,
         LocalDate dataInicio,
-        @Size(max = 30) String numeroRegistro) {}
+        @Size(max = 30) String numeroRegistro,
+        Long version) {}

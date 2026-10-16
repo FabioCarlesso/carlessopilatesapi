@@ -64,7 +64,7 @@ class UserControllerTest {
     private ObjectMapper mapper;
 
     private UserResponseDTO response() {
-        return new UserResponseDTO(1L, "João Silva", "joao@email.com", Role.USER, true);
+        return new UserResponseDTO(1L, "João Silva", "joao@email.com", Role.USER, true, null);
     }
 
     private Authentication adminAuth() {
@@ -146,8 +146,8 @@ class UserControllerTest {
 
     @Test
     void atualizar_comDadosValidos_deveRetornar200() throws Exception {
-        var dto = new UserUpdateDTO("Novo Nome", null, null, null);
-        var updated = new UserResponseDTO(1L, "Novo Nome", "joao@email.com", Role.USER, true);
+        var dto = new UserUpdateDTO("Novo Nome", null, null, null, null);
+        var updated = new UserResponseDTO(1L, "Novo Nome", "joao@email.com", Role.USER, true, null);
         when(service.atualizar(eq(1L), any(), anyString())).thenReturn(updated);
 
         mvc.perform(put("/users/1")
@@ -160,7 +160,7 @@ class UserControllerTest {
 
     @Test
     void atualizar_adminAlterandoProprioRole_deveRetornar422() throws Exception {
-        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
         when(service.atualizar(eq(1L), any(), anyString()))
                 .thenThrow(new BusinessException("Não é possível alterar o próprio perfil de acesso"));
 
@@ -286,7 +286,7 @@ class UserControllerTest {
 
     @Test
     void atualizar_rebaixandoUltimoAdmin_deveRetornar422() throws Exception {
-        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
         when(service.atualizar(eq(2L), any(), anyString()))
                 .thenThrow(new BusinessException("Não é possível rebaixar o último administrador ativo"));
 

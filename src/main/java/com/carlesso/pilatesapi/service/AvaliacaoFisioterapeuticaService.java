@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDateTime;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -80,6 +81,7 @@ public class AvaliacaoFisioterapeuticaService {
     @Transactional
     public AvaliacaoFisioterapeuticaResponseDTO atualizar(Long id, AvaliacaoFisioterapeuticaUpdateDTO dto) {
         AvaliacaoFisioterapeutica avaliacao = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), avaliacao.getVersion(), AvaliacaoFisioterapeutica.class, id);
 
         if (dto.dataAvaliacao() != null) avaliacao.setDataAvaliacao(dto.dataAvaliacao());
         if (dto.queixaFuncional() != null) avaliacao.setQueixaFuncional(dto.queixaFuncional());
@@ -98,7 +100,7 @@ public class AvaliacaoFisioterapeuticaService {
         if (dto.observacoesGerais() != null) avaliacao.setObservacoesGerais(dto.observacoesGerais());
         avaliacao.setDataAtualizacao(LocalDateTime.now());
 
-        return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.save(avaliacao));
+        return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.saveAndFlush(avaliacao));
     }
 
     private AvaliacaoFisioterapeutica encontrar(Long id) {

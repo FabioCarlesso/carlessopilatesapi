@@ -12,4 +12,5 @@ public record ReavaliacaoUpdateDTO(
         String objetivosAlcancados,
         String pontosAtencao,
         String ajustesRecomendados,
-        String observacoesGerais) {}
+        String observacoesGerais,
+        Long version) {}

@@ -63,6 +63,7 @@ class ReavaliacaoControllerTest {
                 "Aumentar carga nos exercícios de glúteo",
                 "Paciente motivado com a evolução",
                 LocalDateTime.of(2026, 5, 1, 10, 0),
+                null,
                 null);
     }
 
@@ -178,11 +179,22 @@ class ReavaliacaoControllerTest {
                 "Aumentar carga nos exercícios de glúteo",
                 "Paciente motivado com a evolução",
                 LocalDateTime.of(2026, 5, 1, 10, 0),
-                LocalDateTime.of(2026, 5, 10, 9, 0));
+                LocalDateTime.of(2026, 5, 10, 9, 0),
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
         var dto = new ReavaliacaoUpdateDTO(
-                LocalDate.of(2026, 5, 10), "Evolução excelente", "Sem dor", null, null, null, null, null, null, null);
+                LocalDate.of(2026, 5, 10),
+                "Evolução excelente",
+                "Sem dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(put("/reavaliacoes/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -199,7 +211,7 @@ class ReavaliacaoControllerTest {
                 .thenThrow(new ResourceNotFoundException("Reavaliação não encontrada: 99"));
 
         var dto = new ReavaliacaoUpdateDTO(
-                LocalDate.of(2026, 5, 10), null, null, null, null, null, null, null, null, null);
+                LocalDate.of(2026, 5, 10), null, null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/reavaliacoes/99")
                         .contentType(MediaType.APPLICATION_JSON)

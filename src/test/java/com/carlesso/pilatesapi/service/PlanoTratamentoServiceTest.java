@@ -209,7 +209,7 @@ class PlanoTratamentoServiceTest {
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         PlanoTratamento p = plano(paciente());
         when(planoTratamentoRepository.findAtivoById(1L)).thenReturn(Optional.of(p));
-        when(planoTratamentoRepository.save(p)).thenReturn(p);
+        when(planoTratamentoRepository.saveAndFlush(p)).thenReturn(p);
 
         var dto = new PlanoTratamentoUpdateDTO(
                 LocalDate.of(2026, 5, 10),
@@ -219,7 +219,8 @@ class PlanoTratamentoServiceTest {
                 30,
                 null,
                 null,
-                "Evoluindo bem");
+                "Evoluindo bem",
+                null);
 
         PlanoTratamentoResponseDTO response = service.atualizar(1L, dto);
 
@@ -237,7 +238,7 @@ class PlanoTratamentoServiceTest {
         when(planoTratamentoRepository.findAtivoById(1L)).thenReturn(Optional.of(p));
 
         var dto = new PlanoTratamentoUpdateDTO(
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1), null, null, null, null, null, null);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(1L, dto))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -248,7 +249,7 @@ class PlanoTratamentoServiceTest {
     void atualizar_comPlanoInexistente_deveLancarResourceNotFoundException() {
         when(planoTratamentoRepository.findAtivoById(99L)).thenReturn(Optional.empty());
 
-        var dto = new PlanoTratamentoUpdateDTO(null, null, null, null, null, null, null, null);
+        var dto = new PlanoTratamentoUpdateDTO(null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)

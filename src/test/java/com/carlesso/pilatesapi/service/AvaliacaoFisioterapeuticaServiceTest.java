@@ -221,7 +221,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
     void atualizar_deveAtualizarApenasOsCamposInformados() {
         AvaliacaoFisioterapeutica a = avaliacao(paciente());
         when(avaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(a));
-        when(avaliacaoRepository.save(a)).thenReturn(a);
+        when(avaliacaoRepository.saveAndFlush(a)).thenReturn(a);
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
                 LocalDate.of(2026, 5, 5),
@@ -236,7 +236,8 @@ class AvaliacaoFisioterapeuticaServiceTest {
                 3,
                 null,
                 null,
-                "Evoluiu com exercícios");
+                "Evoluiu com exercícios",
+                null);
 
         AvaliacaoFisioterapeuticaResponseDTO response = service.atualizar(1L, dto);
 
@@ -252,7 +253,7 @@ class AvaliacaoFisioterapeuticaServiceTest {
         when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)

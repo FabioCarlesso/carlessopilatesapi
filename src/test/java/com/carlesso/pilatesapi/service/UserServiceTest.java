@@ -119,9 +119,9 @@ class UserServiceTest {
     @Test
     void atualizar_comDadosValidos_deveRetornarResponseAtualizado() {
         User u = usuario(1L, "user@email.com", Role.USER);
-        var dto = new UserUpdateDTO("Novo Nome", null, null, null);
+        var dto = new UserUpdateDTO("Novo Nome", null, null, null, null);
         when(repository.findById(1L)).thenReturn(Optional.of(u));
-        when(repository.save(any())).thenReturn(u);
+        when(repository.saveAndFlush(any())).thenReturn(u);
 
         UserResponseDTO response = service.atualizar(1L, dto, "admin@email.com");
 
@@ -131,7 +131,7 @@ class UserServiceTest {
     @Test
     void atualizar_adminAlterandoProprioRole_deveLancarBusinessException() {
         User admin = usuario(1L, "admin@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
         when(repository.findById(1L)).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> service.atualizar(1L, dto, "admin@email.com"))
@@ -230,7 +230,7 @@ class UserServiceTest {
     @Test
     void atualizar_rebaixandoUltimoAdmin_deveLancarBusinessException() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin));
 
@@ -245,15 +245,15 @@ class UserServiceTest {
     void atualizar_rebaixandoAdminComOutroAdminAtivo_deveAtualizar() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
         User outroAdmin = usuario(3L, "admin3@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin, outroAdmin));
-        when(repository.save(any())).thenReturn(admin);
+        when(repository.saveAndFlush(any())).thenReturn(admin);
 
         UserResponseDTO response = service.atualizar(2L, dto, "admin@email.com");
 
         assertThat(response).isNotNull();
-        verify(repository).save(any());
+        verify(repository).saveAndFlush(any());
     }
 
     @Test
@@ -351,14 +351,14 @@ class UserServiceTest {
     void atualizar_rebaixandoAdminInativo_deveAtualizarSemValidarUltimoAdminAtivo() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
         admin.setAtivo(false);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER);
+        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
-        when(repository.save(any())).thenReturn(admin);
+        when(repository.saveAndFlush(any())).thenReturn(admin);
 
         UserResponseDTO response = service.atualizar(2L, dto, "admin@email.com");
 
         assertThat(response).isNotNull();
         verify(repository, never()).findActiveByRoleForUpdate(Role.ADMIN);
-        verify(repository).save(any());
+        verify(repository).saveAndFlush(any());
     }
 }

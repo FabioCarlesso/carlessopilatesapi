@@ -12,6 +12,11 @@ public class Reavaliacao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paciente_id", nullable = false)
     private Paciente paciente;
@@ -64,6 +69,10 @@ public class Reavaliacao {
     @PrePersist
     void prePersist() {
         this.dataCriacao = LocalDateTime.now();
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public Long getId() {

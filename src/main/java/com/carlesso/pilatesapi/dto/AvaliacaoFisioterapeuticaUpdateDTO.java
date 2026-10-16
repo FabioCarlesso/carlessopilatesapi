@@ -18,4 +18,5 @@ public record AvaliacaoFisioterapeuticaUpdateDTO(
         @Min(0) @Max(10) Integer escalaDor,
         String testesFuncionaisRealizados,
         @Pattern(regexp = ".*\\S.*", message = "diagnosticoFisioterapeutico não pode ser vazio") String diagnosticoFisioterapeutico,
-        String observacoesGerais) {}
+        String observacoesGerais,
+        Long version) {}

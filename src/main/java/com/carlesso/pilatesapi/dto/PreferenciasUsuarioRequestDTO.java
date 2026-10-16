@@ -8,4 +8,5 @@ public record PreferenciasUsuarioRequestDTO(
         @NotNull IdiomaPreferencia idioma,
         @NotNull TemaPreferencia tema,
         @NotNull Boolean notificacoesEmail,
-        @NotNull Boolean notificacoesPush) {}
+        @NotNull Boolean notificacoesPush,
+        Long version) {}

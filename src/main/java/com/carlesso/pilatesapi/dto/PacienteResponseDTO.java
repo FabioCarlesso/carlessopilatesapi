@@ -11,7 +11,8 @@ public record PacienteResponseDTO(
         String telefone,
         LocalDate dataNascimento,
         EnderecoDTO endereco,
-        boolean ativo) {
+        boolean ativo,
+        Long version) {
     public static PacienteResponseDTO from(Paciente p) {
         EnderecoDTO enderecoDTO = null;
         if (p.getEndereco() != null) {
@@ -31,6 +32,7 @@ public record PacienteResponseDTO(
                 p.getTelefone(),
                 p.getDataNascimento(),
                 enderecoDTO,
-                p.isAtivo());
+                p.isAtivo(),
+                p.getVersion());
     }
 }

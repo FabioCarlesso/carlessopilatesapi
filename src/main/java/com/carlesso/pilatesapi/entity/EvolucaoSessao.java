@@ -11,6 +11,11 @@ public class EvolucaoSessao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Locking otimista: ver {@code VersaoGuard} e a migration V40. */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sessao_id", nullable = false, unique = true)
     private SessaoPilates sessao;
@@ -65,6 +70,10 @@ public class EvolucaoSessao {
     @PrePersist
     void prePersist() {
         this.dataCriacao = LocalDateTime.now();
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public Long getId() {

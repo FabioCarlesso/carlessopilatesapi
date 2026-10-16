@@ -64,6 +64,7 @@ class EvolucaoSessaoControllerTest {
                 "Manter exercícios",
                 null,
                 LocalDateTime.of(2026, 5, 10, 10, 30),
+                null,
                 null);
     }
 
@@ -227,6 +228,7 @@ class EvolucaoSessaoControllerTest {
                 null,
                 null,
                 LocalDateTime.of(2026, 4, 20, 9, 0),
+                null,
                 null);
         when(service.listarPorPaciente(1L)).thenReturn(List.of(responseDTO(), anterior));
 
@@ -280,11 +282,12 @@ class EvolucaoSessaoControllerTest {
                 "Manter exercícios",
                 null,
                 LocalDateTime.of(2026, 5, 10, 10, 30),
-                LocalDateTime.of(2026, 5, 10, 11, 0));
+                LocalDateTime.of(2026, 5, 10, 11, 0),
+                null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
         var dto = new EvolucaoSessaoUpdateDTO(
-                null, "Reformer, Chair", null, "Mola 3", 3, 1, "Melhorou muito", null, null, null);
+                null, "Reformer, Chair", null, "Mola 3", 3, 1, "Melhorou muito", null, null, null, null);
 
         mvc.perform(put("/evolucoes-sessao/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -298,7 +301,7 @@ class EvolucaoSessaoControllerTest {
 
     @Test
     void atualizar_comDorForaDaEscala_deveRetornar400() throws Exception {
-        var dto = new EvolucaoSessaoUpdateDTO(null, null, null, null, -1, null, null, null, null, null);
+        var dto = new EvolucaoSessaoUpdateDTO(null, null, null, null, -1, null, null, null, null, null, null);
 
         mvc.perform(put("/evolucoes-sessao/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -310,7 +313,8 @@ class EvolucaoSessaoControllerTest {
     void atualizar_comEvolucaoInexistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any())).thenThrow(new ResourceNotFoundException("Evolução não encontrada: 99"));
 
-        var dto = new EvolucaoSessaoUpdateDTO(null, "Novo exercício", null, null, null, null, null, null, null, null);
+        var dto = new EvolucaoSessaoUpdateDTO(
+                null, "Novo exercício", null, null, null, null, null, null, null, null, null);
 
         mvc.perform(put("/evolucoes-sessao/99")
                         .contentType(MediaType.APPLICATION_JSON)

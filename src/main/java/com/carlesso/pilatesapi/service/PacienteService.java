@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.util.Locale;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -65,6 +66,7 @@ public class PacienteService {
     @Transactional
     public PacienteResponseDTO atualizar(Long id, PacienteUpdateDTO dto) {
         Paciente paciente = encontrar(id);
+        VersaoGuard.exigirVersaoAtual(dto.version(), paciente.getVersion(), Paciente.class, id);
         if (dto.nome() != null) paciente.setNome(dto.nome());
         if (dto.email() != null) paciente.setEmail(dto.email());
         if (dto.telefone() != null) paciente.setTelefone(dto.telefone());
@@ -78,7 +80,7 @@ public class PacienteService {
                     dto.endereco().uf(),
                     dto.endereco().cep()));
         }
-        return PacienteResponseDTO.from(paciente);
+        return PacienteResponseDTO.from(repository.saveAndFlush(paciente));
     }
 
     @Transactional

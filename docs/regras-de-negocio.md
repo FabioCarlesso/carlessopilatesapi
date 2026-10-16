@@ -260,6 +260,26 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - A FK `preferencias_usuario.user_id` usa `ON DELETE CASCADE` para que a remoção física de um usuário (cenário de teste e cleanup) leve junto suas preferências
 - `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
 
+## Locking otimista
+
+Dez entidades editáveis têm `@Version` (coluna `version` da `V40`): `Paciente`, `Profissional`, `Anamnese`,
+`AvaliacaoFisioterapeutica`, `PlanoTratamento`, `SessaoPilates`, `EvolucaoSessao`, `Reavaliacao`, `User` e
+`PreferenciasUsuario` — além de `Aula`, que já tinha desde a `V34`. Sem ela, duas recepcionistas editando o mesmo
+paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem aviso.
+
+- O update compara a `version` enviada pelo cliente com a do registro (`VersaoGuard`) antes de alterar qualquer
+  campo. Divergência é `409` `concurrent-modification` e nada é gravado.
+- Mesmo com a versão certa, duas requisições simultâneas ainda podem passar pela checagem ao mesmo tempo; o
+  `UPDATE ... WHERE version = ?` do Hibernate barra a segunda no flush, com o mesmo `409`.
+- **Modo legado temporário:** update sem `version` não é checado contra o que o cliente viu — é o comportamento de
+  antes, mantido para o frontend atual seguir funcionando até passar a enviar a versão. A proteção da janela
+  leitura → flush continua valendo. Quando o frontend estiver enviando em todas as telas, o modo legado deve ser
+  removido e a versão, tornada obrigatória.
+- Toda escrita na linha incrementa a versão, inclusive as que não passam pelo `PUT`: ativar/inativar paciente ou
+  profissional, realizar/cancelar sessão, troca de senha (que mexe em `users`). Um formulário aberto antes dessas
+  ações recebe `409` ao salvar.
+- `Pagamento` ficou de fora: suas transições já são protegidas por regras de status e constraints.
+
 ## Scheduler (processos automáticos)
 
 | Cron (default) | Horário | Ação | Propriedade |
