@@ -30,6 +30,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
 - A listagem global `GET /pagamentos` (e o `HEAD` equivalente) e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem abertas a qualquer usuário autenticado
+- `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` são restritos a `ADMIN` (`403` para os demais): são gestão do negócio. `GET /dashboard/resumo` segue aberto a qualquer usuário autenticado
 
 ## Recuperação de senha (esqueci minha senha)
 
@@ -45,7 +46,8 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 - Um paciente pode ter **apenas um plano ativo** por vez
 - Pacientes **inativos** não recebem novas cobranças nem têm aulas geradas
-- Consultas de aulas não retornam registros associados a pacientes inativos
+- Consultas de aulas não retornam registros associados a pacientes inativos — exceto os indicadores históricos do dashboard (ver [Indicadores do dashboard](#indicadores-do-dashboard))
+- O cadastro grava `dataCadastro` com a data do dia. Inativar grava `dataInativacao` com a data do dia, e inativar quem já está inativo não muda essa data; reativar a limpa
 
 ## Profissionais
 
@@ -279,6 +281,17 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
   profissional, realizar/cancelar sessão, troca de senha (que mexe em `users`). Um formulário aberto antes dessas
   ações recebe `409` ao salvar.
 - `Pagamento` ficou de fora: suas transições já são protegidas por regras de status e constraints.
+
+## Indicadores do dashboard
+
+`GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` segue aberto a qualquer autenticado.
+
+- A janela de `indicadores` tem `meses` meses (padrão 12, de 1 a 24, fora disso `400`) e termina no mês atual, que entra na série. Todo mês da janela aparece nas três séries, com zero quando não houve movimento.
+- **Receita:** soma de `valor` dos pagamentos `PAGO`, pelo mês de `dataPagamento` — o mesmo critério do `receitaMesAtual` do resumo.
+- **Aulas:** `realizadas` conta `realizada = true` e `agendadas` conta `realizada = false`, pelo mês de `data` — o mesmo par do resumo. Ocupação = realizadas / (realizadas + agendadas).
+- **Pacientes:** `novos` conta por `dataCadastro` e `inativados` por `dataInativacao`. Pacientes sem essas datas (anteriores à `V41`) não entram em nenhum mês; um paciente reativado deixa de contar como evasão. Pacientes importados pelo `scripts/import_seufisio.py` entram como novos no mês da importação.
+- **Ranking por profissional:** aulas `realizada = true` entre `inicio` e `fim` (inclusive), do maior total para o menor e, no empate, por nome. Sem os dois parâmetros, usa o mês atual; com só um, período invertido ou acima de 366 dias, `400`. Profissional inativo aparece se teve aulas; aula sem profissional fica de fora.
+- Diferente das demais consultas de aulas, os indicadores **não** excluem pacientes inativos: no histórico, a inativação de hoje apagaria aulas que aconteceram.
 
 ## Scheduler (processos automáticos)
 

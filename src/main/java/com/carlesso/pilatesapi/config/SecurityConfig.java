@@ -103,6 +103,10 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
                         .requestMatchers("/pagamentos/*/cobrancas", "/pagamentos/*/cobrancas/**")
                         .hasRole("ADMIN")
+                        // Indicadores históricos são gestão do negócio, tela de ADMIN (#202). O /dashboard/resumo
+                        // segue aberto a qualquer autenticado: alimenta o painel inicial de todos os perfis.
+                        .requestMatchers("/dashboard/indicadores", "/dashboard/aulas-por-profissional")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

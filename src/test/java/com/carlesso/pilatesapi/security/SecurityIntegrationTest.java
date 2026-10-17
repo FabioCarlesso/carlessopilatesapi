@@ -821,6 +821,43 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void indicadoresDashboard_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("indicadores-user@email.com", Role.USER);
+
+        mvc.perform(get("/dashboard/indicadores").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+        mvc.perform(head("/dashboard/indicadores").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/dashboard/aulas-por-profissional").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void indicadoresDashboard_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/dashboard/indicadores")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/dashboard/aulas-por-profissional")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void indicadoresDashboard_comAdmin_deveRetornar200() throws Exception {
+        User admin = criarUsuario("indicadores-admin@email.com", Role.ADMIN);
+
+        mvc.perform(get("/dashboard/indicadores").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receita.length()").value(12));
+        mvc.perform(get("/dashboard/aulas-por-profissional").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void resumoDashboard_comUsuarioSemRoleAdmin_continuaLiberado() throws Exception {
+        User user = criarUsuario("resumo-user@email.com", Role.USER);
+
+        mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 

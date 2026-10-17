@@ -71,4 +71,26 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
             """)
     java.math.BigDecimal sumValorByStatusAndDataPagamentoBetween(
             @Param("status") StatusPagamento status, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    /** Receita confirmada por mês de {@code dataPagamento}: mesmo critério do {@code receitaMesAtual} do resumo. */
+    @Query(
+            """
+            select extract(year from p.dataPagamento) as ano,
+                   extract(month from p.dataPagamento) as mes,
+                   coalesce(sum(p.valor), 0) as total
+            from Pagamento p
+            where p.status = :status
+              and p.dataPagamento between :inicio and :fim
+            group by extract(year from p.dataPagamento), extract(month from p.dataPagamento)
+            """)
+    List<ReceitaMensalProjection> sumValorPorMes(
+            @Param("status") StatusPagamento status, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    interface ReceitaMensalProjection {
+        Integer getAno();
+
+        Integer getMes();
+
+        java.math.BigDecimal getTotal();
+    }
 }

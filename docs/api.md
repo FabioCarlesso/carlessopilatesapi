@@ -381,6 +381,8 @@ existia à época do registro.
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `GET` | `/dashboard/resumo` | Resumo consolidado para o painel inicial (pacientes, profissionais, pagamentos e aulas do mês) |
+| `GET` | `/dashboard/indicadores?meses=12` | Séries mensais de receita, aulas e pacientes (novos/inativados). Só `ADMIN` |
+| `GET` | `/dashboard/aulas-por-profissional?inicio=&fim=` | Ranking de aulas realizadas por profissional no período. Só `ADMIN` |
 
 ## Preferências do usuário
 
@@ -547,6 +549,31 @@ A resposta de `GET /dashboard/resumo` consolida contadores do banco em um único
 - `receitaMesAtual` — soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente.
 - `totalAgendadasMesAtual` — aulas com `realizada = false` e `data` dentro do mês corrente vinculadas a pacientes ativos.
 - `totalRealizadasMesAtual` — aulas com `realizada = true` e `data` dentro do mês corrente vinculadas a pacientes ativos.
+
+## Indicadores do dashboard — contrato JSON
+
+`GET /dashboard/indicadores?meses=12` (padrão 12, de 1 a 24) devolve três séries com um item por mês, do mais antigo ao atual, incluindo os meses zerados. `mes` é `AAAA-MM`:
+
+```json
+{
+  "meses": 12,
+  "receita": [{ "mes": "2025-11", "receita": 1600.00 }],
+  "aulas": [{ "mes": "2025-11", "realizadas": 40, "agendadas": 5 }],
+  "pacientes": [{ "mes": "2025-11", "novos": 3, "inativados": 1 }],
+  "geradoEm": "2026-10-17T10:00:00"
+}
+```
+
+`GET /dashboard/aulas-por-profissional?inicio=2026-01-01&fim=2026-06-30` (datas inclusivas, até 366 dias; sem os dois, o mês atual) devolve o ranking ordenado por `totalRealizadas` decrescente:
+
+```json
+[
+  { "profissionalId": 2, "nome": "Paula Mendes", "totalRealizadas": 30 },
+  { "profissionalId": 1, "nome": "Ana Lima", "totalRealizadas": 12 }
+]
+```
+
+Os critérios de cada série e as limitações da série de pacientes estão em [`regras-de-negocio.md`](regras-de-negocio.md#indicadores-do-dashboard).
 
 ## Relatório de emissão de NFSEs
 
