@@ -33,6 +33,12 @@ public class Paciente {
     @Column(nullable = false)
     private boolean ativo = true;
 
+    /** Nula para quem foi cadastrado antes da V41: ver a migration. */
+    private LocalDate dataCadastro;
+
+    /** Preenchida ao inativar e limpa ao reativar; nula também para inativações anteriores à V41. */
+    private LocalDate dataInativacao;
+
     public Paciente() {}
 
     public Long getVersion() {
@@ -97,5 +103,21 @@ public class Paciente {
 
     public void setAtivo(boolean ativo) {
         this.ativo = ativo;
+    }
+
+    public LocalDate getDataCadastro() {
+        return dataCadastro;
+    }
+
+    public void setDataCadastro(LocalDate dataCadastro) {
+        this.dataCadastro = dataCadastro;
+    }
+
+    public LocalDate getDataInativacao() {
+        return dataInativacao;
+    }
+
+    public void setDataInativacao(LocalDate dataInativacao) {
+        this.dataInativacao = dataInativacao;
     }
 }

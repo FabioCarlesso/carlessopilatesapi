@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
+import com.carlesso.pilatesapi.dto.AulasPorProfissionalDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import java.math.BigDecimal;
@@ -159,6 +160,52 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             """)
     long countByRealizadaAndDataBetweenAndPacienteAtivoTrue(
             @Param("realizada") boolean realizada, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    /**
+     * Aulas por mês de {@code data}, separando realizadas das não realizadas — o mesmo par do {@code AulasResumo}.
+     *
+     * <p>Sem o filtro de paciente ativo que o resumo aplica: numa série histórica ele faria a inativação de hoje
+     * apagar aulas que de fato aconteceram meses atrás.
+     */
+    @Query(
+            """
+            select extract(year from a.data) as ano,
+                   extract(month from a.data) as mes,
+                   sum(case when a.realizada = true then 1 else 0 end) as realizadas,
+                   sum(case when a.realizada = false then 1 else 0 end) as agendadas
+            from Aula a
+            where a.data between :inicio and :fim
+            group by extract(year from a.data), extract(month from a.data)
+            """)
+    List<AulasMensalProjection> countPorMes(@Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    /**
+     * Aulas realizadas por profissional no período, do maior total para o menor. Profissional inativo entra se teve
+     * aulas; aula sem profissional fica de fora (o join é interno). Sem filtro de paciente ativo, pela mesma razão de
+     * {@link #countPorMes}.
+     */
+    @Query(
+            """
+            select new com.carlesso.pilatesapi.dto.AulasPorProfissionalDTO(profissional.id, profissional.nome, count(a))
+            from Aula a
+            join a.profissional profissional
+            where a.realizada = true
+              and a.data between :inicio and :fim
+            group by profissional.id, profissional.nome
+            order by count(a) desc, profissional.nome asc, profissional.id asc
+            """)
+    List<AulasPorProfissionalDTO> countRealizadasPorProfissional(
+            @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    interface AulasMensalProjection {
+        Integer getAno();
+
+        Integer getMes();
+
+        Long getRealizadas();
+
+        Long getAgendadas();
+    }
 
     interface ProfissionalPagamentoAulaProjection {
         Long getAulaId();

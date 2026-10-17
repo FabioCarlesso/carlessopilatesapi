@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -110,6 +111,18 @@ class PacienteServiceTest {
 
         assertThat(response.endereco()).isNull();
         verify(repository).save(any(Paciente.class));
+    }
+
+    @Test
+    void cadastrar_deveRegistrarDataDeCadastroDeHoje() {
+        when(repository.save(any(Paciente.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.cadastrar(requestDTO());
+
+        ArgumentCaptor<Paciente> salvo = ArgumentCaptor.forClass(Paciente.class);
+        verify(repository).save(salvo.capture());
+        assertThat(salvo.getValue().getDataCadastro()).isEqualTo(LocalDate.now());
+        assertThat(salvo.getValue().getDataInativacao()).isNull();
     }
 
     // -------------------------------------------------------------------------
@@ -255,6 +268,32 @@ class PacienteServiceTest {
         service.inativar(1L);
 
         assertThat(existente.isAtivo()).isFalse();
+        assertThat(existente.getDataInativacao()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void inativar_pacienteJaInativo_deveManterADataDeInativacaoOriginal() {
+        Paciente existente = paciente();
+        existente.setAtivo(false);
+        existente.setDataInativacao(LocalDate.of(2026, 1, 15));
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+
+        service.inativar(1L);
+
+        assertThat(existente.getDataInativacao()).isEqualTo(LocalDate.of(2026, 1, 15));
+    }
+
+    @Test
+    void ativar_deveReativarELimparADataDeInativacao() {
+        Paciente existente = paciente();
+        existente.setAtivo(false);
+        existente.setDataInativacao(LocalDate.of(2026, 1, 15));
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+
+        service.ativar(1L);
+
+        assertThat(existente.isAtivo()).isTrue();
+        assertThat(existente.getDataInativacao()).isNull();
     }
 
     @Test

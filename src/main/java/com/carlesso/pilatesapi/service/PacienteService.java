@@ -9,6 +9,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.VersaoGuard;
+import java.time.LocalDate;
 import java.util.Locale;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +40,7 @@ public class PacienteService {
         paciente.setCpf(dto.cpf());
         paciente.setTelefone(dto.telefone());
         paciente.setDataNascimento(dto.dataNascimento());
+        paciente.setDataCadastro(LocalDate.now());
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -87,11 +89,16 @@ public class PacienteService {
     public void ativar(Long id) {
         Paciente paciente = encontrar(id);
         paciente.setAtivo(true);
+        paciente.setDataInativacao(null);
     }
 
     @Transactional
     public void inativar(Long id) {
         Paciente paciente = encontrar(id);
+        // Inativar quem já está inativo não muda a data de saída: a evasão conta no mês em que ela aconteceu.
+        if (paciente.isAtivo()) {
+            paciente.setDataInativacao(LocalDate.now());
+        }
         paciente.setAtivo(false);
     }
 
