@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -16,9 +17,22 @@ public record DashboardIndicadoresDTO(
         List<PacientesMensal> pacientes,
         LocalDateTime geradoEm) {
 
-    public record ReceitaMensal(YearMonth mes, BigDecimal receita) {}
+    /**
+     * O Jackson serializa {@link YearMonth} como {@code "AAAA-MM"}, mas o springdoc o descreveria como objeto
+     * ({@code year}, {@code month}...): o {@code @Schema} alinha o contrato publicado ao JSON real.
+     */
+    private static final String MES_PATTERN = "^\\d{4}-\\d{2}$";
 
-    public record AulasMensal(YearMonth mes, long realizadas, long agendadas) {}
+    public record ReceitaMensal(
+            @Schema(type = "string", pattern = MES_PATTERN, example = "2026-03") YearMonth mes, BigDecimal receita) {}
 
-    public record PacientesMensal(YearMonth mes, long novos, long inativados) {}
+    public record AulasMensal(
+            @Schema(type = "string", pattern = MES_PATTERN, example = "2026-03") YearMonth mes,
+            long realizadas,
+            long agendadas) {}
+
+    public record PacientesMensal(
+            @Schema(type = "string", pattern = MES_PATTERN, example = "2026-03") YearMonth mes,
+            long novos,
+            long inativados) {}
 }
