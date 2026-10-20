@@ -4,15 +4,15 @@ Pipeline de integração contínua, estratégia de testes e ferramental do proje
 
 ## Integração Contínua (CI)
 
-O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a cada `push` e `pull_request` para `master`, a cada tag `v*` (e sob demanda via `workflow_dispatch`). São três jobs:
+O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a cada `push` e `pull_request` para `master` (e sob demanda via `workflow_dispatch`). São três jobs:
 
 | Job | O que faz |
 |---|---|
 | `build-test` | Compila com JDK 21 (Temurin) e roda toda a suíte de testes com `mvn -B verify`. O mesmo `verify` também checa formatação (**Spotless**) e roda a análise estática (**SpotBugs**). Testes unitários e de controller usam H2 em memória; testes de repositório e integração sobem um PostgreSQL 16 via Testcontainers (o runner já tem Docker). Publica os relatórios de teste e o relatório de cobertura JaCoCo como artefatos (`surefire-reports` e `jacoco-report`). |
 | `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Complementa a validação das migrations (os testes de integração via Testcontainers já as exercitam). |
-| `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage. Em `push` na `master` publica no GHCR (`ghcr.io/fabiocarlesso/carlessopilatesapi`) com as tags `sha-<commit>` e `latest`; em tag `v1.2.3` publica `sha-<commit>`, `1.2.3` e `1.2`. Em PR e `workflow_dispatch` só builda, sem push. |
+| `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage (sem push para registry). |
 
-`flyway-postgres` depende de `build-test`, e `docker-build` depende dos dois: só é publicada imagem que passou nos testes e nas migrations. O login no GHCR usa o `GITHUB_TOKEN` do próprio workflow (permissão `packages: write` só nesse job). Nenhum segredo de produção é usado no CI.
+Os jobs `flyway-postgres` e `docker-build` dependem de `build-test`. Nenhum segredo de produção é usado no CI. A CI não faz deploy: a Railway builda o `Dockerfile` por conta própria e, com *Wait for CI* ligado, só faz o deploy de um commit da `master` depois que esses jobs passam — ver [`deploy.md`](deploy.md#produção--railway).
 
 Para reproduzir localmente os mesmos passos:
 

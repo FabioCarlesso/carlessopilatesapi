@@ -3,16 +3,14 @@ name: CI
 on:
   push:
     branches: [ master ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
 
-# Cancela execuções obsoletas do mesmo PR para economizar recursos. Na master e
-# nas tags, não: cancelar ali deixaria um commit mergeado sem a imagem sha-<commit>.
+# Cancela execuções obsoletas do mesmo branch/PR para economizar recursos.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   # Etapa 1 — compila a aplicação e roda toda a suíte de testes (H2 em memória).
@@ -96,18 +94,11 @@ jobs:
           -Dflyway.user=postgres
           -Dflyway.password=postgres
 
-  # Etapa 3 — builda a imagem do Dockerfile multi-stage. Em push na master ou
-  # em tag v* (só depois dos testes e das migrations passarem), publica no GHCR;
-  # em PR e workflow_dispatch apenas builda.
+  # Etapa 3 — garante que o Dockerfile multi-stage builda a imagem (sem push).
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
-    needs: [ build-test, flyway-postgres ]
-    permissions:
-      contents: read
-      packages: write
-    env:
-      PUBLICAR: ${{ github.event_name == 'push' }}
+    needs: build-test
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -115,32 +106,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Login no GHCR
-        if: env.PUBLICAR == 'true'
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # sha-<commit> em todo push; latest só na master; a versão semântica nas tags v*.
-      - name: Tags da imagem
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/fabiocarlesso/carlessopilatesapi
-          tags: |
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-
-      - name: Build da imagem (push só em master e tags v*)
+      - name: Build da imagem (sem push)
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: ${{ env.PUBLICAR == 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: false
+          load: true
+          tags: carlessopilatesapi:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max

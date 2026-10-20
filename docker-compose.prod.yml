@@ -1,7 +1,5 @@
 # Ambiente de produção — banco limpo, sem dados de seed.
 # Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-# A aplicação sobe da imagem publicada pela CI no GHCR, nunca de build local —
-# o runbook de deploy e rollback está em docs/deploy.md.
 services:
   db:
     container_name: carlesso_pilates_db_prod
@@ -10,10 +8,6 @@ services:
 
   app:
     container_name: carlesso_pilates_app_prod
-    # !reset descarta o `build: .` herdado do docker-compose.yml: com ele, uma tag
-    # ausente no registry viraria build local em vez de erro.
-    build: !reset null
-    image: ghcr.io/fabiocarlesso/carlessopilatesapi:${APP_IMAGE_TAG:-latest}
     environment:
       SPRING_PROFILES_ACTIVE: prod
 
