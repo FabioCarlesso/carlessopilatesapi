@@ -12,7 +12,7 @@ O projeto roda um pipeline no **GitHub Actions** (`.github/workflows/ci.yml`) a 
 | `flyway-postgres` | Sobe um PostgreSQL 16 e aplica todas as migrations com `mvn flyway:migrate` + `flyway:validate`. Complementa a validação das migrations (os testes de integração via Testcontainers já as exercitam). |
 | `docker-build` | Builda a imagem a partir do `Dockerfile` multi-stage (sem push para registry). |
 
-Os jobs `flyway-postgres` e `docker-build` dependem de `build-test`. Nenhum segredo de produção é usado no CI.
+Os jobs `flyway-postgres` e `docker-build` dependem de `build-test`. Nenhum segredo de produção é usado no CI. A CI não faz deploy: a Railway builda o `Dockerfile` por conta própria e, com *Wait for CI* ligado, só faz o deploy de um commit da `master` depois que esses jobs passam — ver [`deploy.md`](deploy.md#produção--railway).
 
 Para reproduzir localmente os mesmos passos:
 

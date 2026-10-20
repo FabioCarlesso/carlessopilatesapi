@@ -1,5 +1,35 @@
 # Deploy e execução
 
+## Produção — Railway
+
+O backend de produção roda na **Railway** (`https://carlessopilatesapi-production.up.railway.app`), que builda o
+`Dockerfile` deste repositório a cada push na `master`. O frontend roda na Vercel e encaminha `/api` para essa URL.
+O `docker-compose.prod.yml` **não** é usado na Railway: ele serve para subir o perfil `prod` localmente.
+
+A configuração do serviço fica só no painel da Railway, não no repositório. O que precisa estar assim:
+
+| Onde (painel do serviço) | Valor | Por quê |
+|---|---|---|
+| *Settings → Source* | Repositório GitHub, branch `master` | Deploy automático a cada merge |
+| *Settings → Source → Wait for CI* | Ligado | A Railway só faz o deploy depois que os checks do GitHub Actions passam (testes, migrations, build da imagem); sem isso, um merge que quebra a CI vai para produção mesmo assim |
+| *Settings → Deploy → Healthcheck Path* | `/actuator/health/readiness` | A Railway só troca o tráfego para o deploy novo quando o healthcheck responde 200; se não responder dentro do timeout, o deploy falha e o anterior continua no ar. Não use o `/actuator/health` agregado ([por quê](operacao.md#qual-endpoint-usar-no-healthcheck-externo)) |
+| *Variables* | `SPRING_PROFILES_ACTIVE=prod` e as [variáveis de ambiente](#variáveis-de-ambiente) obrigatórias (`DB_*`, `JWT_SECRET`, `APP_INITIAL_ADMIN_PASSWORD`, `CORS_ALLOWED_ORIGINS`…) | O perfil `prod` desliga o Swagger e o registro público |
+
+### Deploy
+
+1. Mergeie na `master`. Com *Wait for CI* ligado, o deploy fica em espera até a CI passar.
+2. Acompanhe na aba *Deployments* do serviço (build, deploy e logs).
+3. Verifique: `curl -fsS https://carlessopilatesapi-production.up.railway.app/actuator/health/readiness` deve
+   responder `{"status":"UP"}`.
+
+### Rollback
+
+Na aba *Deployments*, abra o deploy anterior e use **Rollback**: a Railway volta a imagem já buildada daquele
+deploy, sem novo build. **A imagem volta, o banco não:** o Flyway não desfaz migrations, e a versão antiga sobe com
+`ddl-auto=validate` contra o schema novo. Migration aditiva (coluna nova anulável, tabela nova) não impede o
+rollback; remoção ou renomeação de coluna impede, e nesse caso a correção vai para frente, numa versão nova — ver
+[`banco-de-dados.md`](banco-de-dados.md).
+
 ## Opção 1 — Docker Compose (recomendado)
 
 Sobe o banco PostgreSQL e a aplicação juntos, sem instalar nada localmente além do Docker.
@@ -11,7 +41,7 @@ O projeto usa o padrão de **override do Docker Compose** para isolar os ambient
 | Ambiente | Comando | Volume PostgreSQL | Dados de seed |
 |---|---|---|---|
 | **Desenvolvimento** | `docker compose up` (auto-carrega `docker-compose.override.yml`) | `postgres_dev_data` | Sim (10 pacientes, 3 profissionais, 5 usuários) |
-| **Produção** | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up` | `postgres_prod_data` | Não (apenas admin inicial) |
+| **Perfil prod local** | `docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up` (a produção real é na [Railway](#produção--railway)) | `postgres_prod_data` | Não (apenas admin inicial) |
 
 ### Desenvolvimento
 
@@ -36,10 +66,13 @@ docker compose down
 docker compose down -v
 ```
 
-### Produção
+### Perfil prod local
+
+Sobe o perfil `prod` com banco próprio, para reproduzir localmente o comportamento de produção. Não é o deploy
+real, que é feito pela [Railway](#produção--railway).
 
 ```bash
-# Configurar variáveis de ambiente de produção (nunca versionar este arquivo)
+# Configurar variáveis de ambiente do perfil prod (nunca versionar este arquivo)
 cp .env.example .env.prod
 # Edite .env.prod com credenciais seguras, APP_INITIAL_ADMIN_PASSWORD e as
 # variáveis SMTP_*/APP_EMAIL_* (necessárias para o e-mail de recuperação de senha)
@@ -47,8 +80,8 @@ cp .env.example .env.prod
 # Subir com perfil prod (banco limpo, sem seed)
 docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 
-# Derrubar e remover os dados do banco de produção
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+# Derrubar e remover os dados do banco do perfil prod
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml down -v
 ```
 
 > **Admin inicial de produção:** no perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o usuário `admin@carlessopilates.com` (ou `APP_INITIAL_ADMIN_EMAIL`) usando a senha definida em `APP_INITIAL_ADMIN_PASSWORD`. A aplicação falha ao iniciar em produção se essa senha não estiver configurada.
@@ -98,6 +131,7 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 
 | Variável | Padrão | Descrição |
 |---|---|---|
+| `SPRING_PROFILES_ACTIVE` | - | Perfil Spring: `prod` na Railway (o `docker-compose.prod.yml` já o define; o override de dev usa `dev`) |
 | `DB_HOST` | `localhost` | Host do banco PostgreSQL |
 | `DB_PORT` | `5432` | Porta usada pela aplicação para conectar ao banco |
 | `DB_HOST_PORT` | `5432` | Porta publicada no host pelo Docker Compose |
