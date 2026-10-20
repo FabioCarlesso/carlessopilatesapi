@@ -11,7 +11,7 @@ O projeto usa o padrão de **override do Docker Compose** para isolar os ambient
 | Ambiente | Comando | Volume PostgreSQL | Dados de seed |
 |---|---|---|---|
 | **Desenvolvimento** | `docker compose up` (auto-carrega `docker-compose.override.yml`) | `postgres_dev_data` | Sim (10 pacientes, 3 profissionais, 5 usuários) |
-| **Produção** | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up` | `postgres_prod_data` | Não (apenas admin inicial) |
+| **Produção** | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up` (imagem do GHCR, sem build local) | `postgres_prod_data` | Não (apenas admin inicial) |
 
 ### Desenvolvimento
 
@@ -38,18 +38,59 @@ docker compose down -v
 
 ### Produção
 
+Produção não builda a imagem: roda a que a CI publicou no GHCR
+(`ghcr.io/fabiocarlesso/carlessopilatesapi`) depois de passar nos testes e nas migrations — o
+`docker-compose.prod.yml` descarta o `build:` do compose base. A tag vem de `APP_IMAGE_TAG` no
+`.env.prod`; vazia, é `latest`. Fixe sempre uma tag `sha-<commit>`: ela é imutável, então o
+`.env.prod` diz exatamente o que está rodando, e voltar a versão anterior é trocar a tag.
+
+O servidor só precisa do `docker-compose.yml`, do `docker-compose.prod.yml` e do `.env.prod` — não
+precisa do código, de Maven nem de JDK. O compose usa `!reset`, que exige Docker Compose 2.24.4 ou
+mais recente.
+
 ```bash
 # Configurar variáveis de ambiente de produção (nunca versionar este arquivo)
 cp .env.example .env.prod
-# Edite .env.prod com credenciais seguras, APP_INITIAL_ADMIN_PASSWORD e as
+# Edite .env.prod com credenciais seguras, APP_INITIAL_ADMIN_PASSWORD, as
 # variáveis SMTP_*/APP_EMAIL_* (necessárias para o e-mail de recuperação de senha)
+# e APP_IMAGE_TAG
 
 # Subir com perfil prod (banco limpo, sem seed)
-docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull app
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 # Derrubar e remover os dados do banco de produção
 docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
 ```
+
+> **Pacote do GHCR público:** o primeiro push cria o pacote como privado. Uma vez, em
+> *GitHub → Packages → carlessopilatesapi → Package settings → Change visibility*, torne-o público
+> para o servidor dar `pull` sem login. Se preferir mantê-lo privado, rode no servidor
+> `docker login ghcr.io` com um PAT que tenha só o escopo `read:packages`.
+
+#### Deploy de uma nova versão
+
+1. Escolha a tag: na aba *Actions*, a execução do CI do commit mergeado; ou em *Packages*, a tag
+   `sha-<commit>` mais recente. Em release, a tag `v1.2.3` gera também a imagem `1.2.3`.
+2. Anote a tag atual (`grep APP_IMAGE_TAG .env.prod`); é ela o alvo de um rollback.
+3. Troque `APP_IMAGE_TAG` no `.env.prod` e suba:
+
+   ```bash
+   docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull app
+   docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d app
+   ```
+
+4. Verifique: `docker ps` deve mostrar o container `healthy`, e
+   `curl -fsS http://localhost:8080/actuator/health/readiness` deve responder `{"status":"UP"}`.
+   Acompanhe a subida com `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f app`.
+
+#### Rollback
+
+Volte `APP_IMAGE_TAG` para a tag anotada no passo 2 e repita o passo 3; a imagem anterior já está
+no cache local, então a troca leva segundos. **A imagem volta, o banco não:** o Flyway não desfaz
+migrations, e a versão antiga sobe com `ddl-auto=validate` contra o schema novo. Migration aditiva
+(coluna nova anulável, tabela nova) não impede o rollback; remoção ou renomeação de coluna impede, e
+nesse caso a correção vai para frente, numa versão nova — ver [`banco-de-dados.md`](banco-de-dados.md).
 
 > **Admin inicial de produção:** no perfil `prod`, se não existir nenhum `ADMIN` ativo, a aplicação cria o usuário `admin@carlessopilates.com` (ou `APP_INITIAL_ADMIN_EMAIL`) usando a senha definida em `APP_INITIAL_ADMIN_PASSWORD`. A aplicação falha ao iniciar em produção se essa senha não estiver configurada.
 
@@ -132,6 +173,7 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `SMTP_PASSWORD` | - | Senha de autenticação SMTP |
 | `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0` | Flags da JVM no container Docker; o valor **substitui** o padrão por completo — inclua `-XX:MaxRAMPercentage` (ou `-Xmx`) ao customizar |
 | `APP_MEM_LIMIT` | `1g` | Limite de memória do container da aplicação no Docker Compose (a heap da JVM usa 75% desse valor) |
+| `APP_IMAGE_TAG` | `latest` | Só produção: tag da imagem `ghcr.io/fabiocarlesso/carlessopilatesapi` que o `docker-compose.prod.yml` sobe. Use uma `sha-<commit>`; trocar a tag é o deploy e o rollback |
 
 ## Ver também
 
