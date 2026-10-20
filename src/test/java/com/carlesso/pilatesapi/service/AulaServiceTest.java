@@ -615,6 +615,24 @@ class AulaServiceTest {
     }
 
     @Test
+    void atribuirProfissional_mesmoProfissionalJaAtribuido_naoConfereCapacidade() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        Profissional atribuido = profissionalAtivo(1L, "Paula Mendes");
+        aula.setProfissional(atribuido);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        var response = service.atribuirProfissional(1L, 1L);
+
+        assertThat(response.profissionalId()).isEqualTo(1L);
+        assertThat(aula.getProfissional()).isSameAs(atribuido);
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
+        verify(profissionalRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
     void atribuirProfissional_aulaSemHorario_naoConfereCapacidade() {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aulaPendente()));
         when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));

@@ -141,6 +141,11 @@ public class AulaService {
             throw new ConflictException("Aula já realizada não pode ter o profissional alterado");
         }
         Profissional profissional = resolverProfissional(profissionalId);
+        // Reatribuir quem já está na aula não ocupa vaga nova. Sem este atalho, um horário que passou da capacidade
+        // por um realizar (que não confere vaga) recusaria com 409 uma operação que não muda nada.
+        if (mesmoProfissional(profissional, aula.getProfissional())) {
+            return AulaResponseDTO.from(aula);
+        }
         exigirVagaNoHorario(aula, profissional, aula.getData(), aula.getHorario());
         aula.setProfissional(profissional);
         return AulaResponseDTO.from(aula);
@@ -218,6 +223,10 @@ public class AulaService {
                     "Profissional %s já atende %d aula(s) em %s às %s; a capacidade por horário é %d"
                             .formatted(profissional.getNome(), ocupadas, data, horario, capacidade));
         }
+    }
+
+    private static boolean mesmoProfissional(Profissional novo, Profissional atual) {
+        return novo != null && atual != null && Objects.equals(novo.getId(), atual.getId());
     }
 
     private String conflitoDeData(LocalDate data) {

@@ -185,6 +185,7 @@ menos que isso. Atribuir o profissional (`PATCH /aulas/{id}/profissional`) ou re
 profissional para um horário lotado retorna `409` com `type` `conflict` e a ocupação na mensagem.
 
 - Aula sem horário ou sem profissional não entra na conta e não é conferida.
+- Reatribuir o profissional que a aula já tem retorna `200` sem conferir a capacidade.
 - `PATCH /aulas/{id}/realizar` com `profissionalId` **não** confere a capacidade: a rota registra uma aula que já
   aconteceu, e recusá-la obrigaria a lançar o profissional errado, corrompendo o repasse.
 
