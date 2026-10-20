@@ -60,7 +60,7 @@ docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod
 docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 # Derrubar e remover os dados do banco de produção
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml down -v
 ```
 
 > **Pacote do GHCR público:** o primeiro push cria o pacote como privado. Uma vez, em
@@ -82,7 +82,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
 
 4. Verifique: `docker ps` deve mostrar o container `healthy`, e
    `curl -fsS http://localhost:8080/actuator/health/readiness` deve responder `{"status":"UP"}`.
-   Acompanhe a subida com `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f app`.
+   Acompanhe a subida com `docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml logs -f app`.
 
 #### Rollback
 

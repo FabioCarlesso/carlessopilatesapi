@@ -8,10 +8,11 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
-# Cancela execuções obsoletas do mesmo branch/PR para economizar recursos.
+# Cancela execuções obsoletas do mesmo PR para economizar recursos. Na master e
+# nas tags, não: cancelar ali deixaria um commit mergeado sem a imagem sha-<commit>.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Etapa 1 — compila a aplicação e roda toda a suíte de testes (H2 em memória).
