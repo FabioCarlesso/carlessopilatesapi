@@ -11,7 +11,7 @@ O projeto usa o padrão de **override do Docker Compose** para isolar os ambient
 | Ambiente | Comando | Volume PostgreSQL | Dados de seed |
 |---|---|---|---|
 | **Desenvolvimento** | `docker compose up` (auto-carrega `docker-compose.override.yml`) | `postgres_dev_data` | Sim (10 pacientes, 3 profissionais, 5 usuários) |
-| **Produção** | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up` (imagem do GHCR, sem build local) | `postgres_prod_data` | Não (apenas admin inicial) |
+| **Produção** | `docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up` (imagem do GHCR, sem build local) | `postgres_prod_data` | Não (apenas admin inicial) |
 
 ### Desenvolvimento
 
