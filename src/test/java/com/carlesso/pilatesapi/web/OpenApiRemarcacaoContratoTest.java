@@ -13,10 +13,9 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * Fixa a forma do corpo de {@code PATCH /aulas/{id}/remarcar} no OpenAPI publicado.
  *
- * <p>Existe por causa de {@code horario}: sem {@code type}/{@code format} explícitos no {@code @Schema}, o springdoc
- * expande {@code LocalTime} no objeto {@code {hour, minute, second, nano}}, e um cliente gerado a partir do contrato
- * passaria a mandar esse objeto em vez de {@code "08:00"} assim que a #106 ativar o campo. O erro é invisível na
- * suíte comum — só aparece no JSON do schema —, então é aqui que ele fica preso.
+ * <p>Existe por causa de {@code horario}: se o springdoc expandir {@code LocalTime} no objeto
+ * {@code {hour, minute, second, nano}}, um cliente gerado a partir do contrato manda esse objeto em vez de
+ * {@code "08:00"}. O erro é invisível na suíte comum — só aparece no JSON do schema —, então é aqui que ele fica preso.
  */
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)

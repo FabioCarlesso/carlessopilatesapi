@@ -13,9 +13,8 @@ import java.time.LocalTime;
  * automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via
  * {@code GET /bloqueios}, para que a agenda mostre o conflito e a decisão continue humana.
  *
- * <p>{@code horaInicio}/{@code horaFim} ausentes significam dia inteiro. Uma faixa de horário só passa a ter
- * efeito prático quando a aula ganhar horário (issue #106); os campos já nascem aqui para não exigir nova
- * migration depois.
+ * <p>{@code horaInicio}/{@code horaFim} ausentes significam dia inteiro. A faixa é cruzada com o {@code horario} das
+ * aulas pelo calendário (issue #106), sem que o backend recuse ou marque a aula.
  */
 // O índice (data_inicio, data_fim) vive só na V35: com ddl-auto=validate o Hibernate não confere índices, então
 // declará-lo aqui não valida nada e ainda criaria uma segunda fonte de verdade para divergir da migration.

@@ -36,7 +36,7 @@ public class AulaController {
             description =
                     """
                     Agenda do estúdio: todas as aulas de pacientes ativos entre `inicio` e `fim` (ambos inclusive),
-                    ordenadas por data. O período é obrigatório e limitado a 92 dias, e a resposta a 5000 registros.
+                    ordenadas por data e horário (aulas sem horário no fim do dia). O período é obrigatório e limitado a 92 dias, e a resposta a 5000 registros.
                     Os filtros opcionais são combináveis entre si. Período sem registros retorna lista vazia.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
@@ -73,7 +73,7 @@ public class AulaController {
     @Operation(
             summary = "Listar aulas do paciente",
             description =
-                    "Retorna uma página das aulas de um paciente ativo. Ordenação padrão: `data` desc; aceita `data` e `realizada`, sempre com `id` como desempate.")
+                    "Retorna uma página das aulas de um paciente ativo. Ordenação padrão: `data` desc; aceita `data`, `horario` e `realizada` (nulos no fim), sempre com `id` como desempate.")
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<PagedModel<AulaResponseDTO>> listarPorPaciente(
@@ -117,14 +117,17 @@ public class AulaController {
                     Vincula um profissional a uma aula ainda não realizada, viabilizando a agenda futura.
                     `profissionalId` nulo no corpo desvincula o profissional; omitir o campo é recusado com
                     `400`, para que um corpo incompleto nunca apague o vínculo em silêncio. Aulas já
-                    realizadas só mudam de profissional por `PATCH /aulas/{id}/realizar`.""")
+                    realizadas só mudam de profissional por `PATCH /aulas/{id}/realizar`. Se a aula tem horário,
+                    o profissional precisa ter vaga nele: cada um atende até `app.agenda.capacidade-por-horario`
+                    aulas cujos inícios distem menos que `app.agenda.duracao-aula-minutos`.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Profissional atribuído ou desvinculado"),
         @ApiResponse(responseCode = "400", description = "Corpo ausente ou sem o campo `profissionalId`"),
         @ApiResponse(responseCode = "404", description = "Aula ou profissional não encontrado"),
         @ApiResponse(
                 responseCode = "409",
-                description = "Aula já realizada, ou alterada por outra operação simultânea"),
+                description =
+                        "Aula já realizada, profissional sem vaga no horário da aula, ou aula alterada por outra operação simultânea"),
         @ApiResponse(responseCode = "422", description = "Profissional inativo")
     })
     @PatchMapping("/{id}/profissional")
@@ -134,27 +137,28 @@ public class AulaController {
     }
 
     @Operation(
-            summary = "Remarcar aula para outra data",
+            summary = "Remarcar aula para outra data ou horário",
             description =
                     """
-                    Troca a data de uma aula ainda não realizada, preservando o paciente e o pagamento de origem.
-                    A nova data **não** precisa cair dentro de `periodoInicio`/`periodoFim` do pagamento e pode
-                    estar no passado, para que a recepção registre reposições já ocorridas. Remarcar para a data
-                    atual da aula é no-op e retorna `200`. O campo `horario` está reservado para a #106 e por ora
-                    é recusado com `400`.""")
+                    Troca a data e, opcionalmente, o horário de uma aula ainda não realizada, preservando o
+                    paciente e o pagamento de origem. `horario` ausente ou nulo mantém o horário atual. A nova data
+                    **não** precisa cair dentro de `periodoInicio`/`periodoFim` do pagamento e pode estar no
+                    passado, para que a recepção registre reposições já ocorridas. Remarcar para a data e o horário
+                    atuais da aula é no-op e retorna `200`. Com profissional atribuído, o novo horário precisa ter
+                    vaga na agenda dele.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Aula remarcada"),
-        @ApiResponse(responseCode = "400", description = "`data` ausente ou inválida, ou `horario` informado"),
+        @ApiResponse(responseCode = "400", description = "`data` ausente ou inválida, ou `horario` inválido"),
         @ApiResponse(responseCode = "404", description = "Aula não encontrada"),
         @ApiResponse(
                 responseCode = "409",
                 description =
-                        "Aula já realizada, paciente já possui aula na data informada, ou aula alterada por outra operação simultânea")
+                        "Aula já realizada, paciente já possui aula na data informada, profissional sem vaga no novo horário, ou aula alterada por outra operação simultânea")
     })
     @PatchMapping("/{id}/remarcar")
     public ResponseEntity<AulaResponseDTO> remarcar(
             @Parameter(description = "ID da aula") @PathVariable Long id,
             @RequestBody @Valid AulaRemarcacaoRequestDTO dto) {
-        return ResponseEntity.ok(service.remarcar(id, dto.data()));
+        return ResponseEntity.ok(service.remarcar(id, dto.data(), dto.horario()));
     }
 }

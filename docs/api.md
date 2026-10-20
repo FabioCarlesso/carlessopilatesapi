@@ -92,6 +92,9 @@ Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamen
 | `GET` | `/planos/paciente/{id}/ativo` | Buscar plano ativo do paciente |
 | `DELETE` | `/planos/{id}` | Inativar plano |
 
+`horario` é opcional no `POST /planos` (`"08:00:00"`) e vale para todos os `diasSemana`: as aulas geradas pelo
+pagamento copiam esse horário. Sem ele, as aulas nascem sem horário e ficam fora da regra de capacidade.
+
 ## Pagamentos
 
 | Método | Endpoint | Descrição |
@@ -140,22 +143,23 @@ GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&s
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
 | `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
-| `PATCH` | `/aulas/{id}/remarcar` | Trocar a data de uma aula ainda não realizada (corpo) |
+| `PATCH` | `/aulas/{id}/remarcar` | Trocar a data e/ou o horário de uma aula ainda não realizada (corpo) |
 
 ### Remarcação
 
-`{"data": "2025-02-20"}` move a aula, preservando paciente e `pagamentoId`. A nova data **não** é confrontada com
+`{"data": "2025-02-20", "horario": "08:00"}` move a aula, preservando paciente e `pagamentoId`. `horario` é opcional:
+ausente ou `null`, a aula mantém o horário que já tinha. A nova data **não** é confrontada com
 `periodoInicio`/`periodoFim` do pagamento e pode estar no passado — a recepção precisa poder remarcar a falta da
 última semana do mês e registrar reposições já ocorridas.
 
-- `409` se a aula já foi realizada, ou se o paciente já tem aula na data de destino (mensagem cita a data).
+- `409` se a aula já foi realizada, se o paciente já tem aula na data de destino (mensagem cita a data), ou se o
+  profissional atribuído não tem vaga no novo dia e horário (ver [Capacidade por horário](#capacidade-por-horário)).
 - `400` se `data` for omitida ou vier `null`: o corpo traz `data` na lista `campos`, apontando o campo culpado.
 - `400` também se `data` vier em formato não-ISO (`"20/02/2025"`), mas **sem** `campos` — aí o corpo é o genérico
   `detail` `"Corpo da requisição inválido ou malformado"` (`type` `bad-request`). A desserialização falha antes da Bean Validation, e esse
   é o contrato do handler global para corpo malformado em toda a API, não uma particularidade desta rota.
-- Remarcar para a data atual da aula é no-op e retorna `200`.
-- `horario` já existe no contrato mas é recusado com `400` até a [#106](https://github.com/FabioCarlesso/carlessopilatesapi/issues/106)
-  criar o campo na aula: aceitar e descartar em silêncio faria o frontend acreditar que a hora foi gravada.
+- Remarcar para a data e o horário atuais da aula é no-op e retorna `200`. Trocar só o horário no mesmo dia é
+  permitido e não colide com a própria aula.
 
 As três rotas de escrita de aula (`realizar`, `profissional` e `remarcar`) usam locking otimista. Se duas
 requisições alterarem a mesma aula ao mesmo tempo, a perdedora recebe `409` com `type`
@@ -172,6 +176,17 @@ frontend, e o corpo só é obrigatório na rota nova porque lá `null` tem signi
 - Omitir o campo (`{}`) ou mandar a requisição sem corpo retorna `400`. `{}` e `null` explícito chegam idênticos ao
   Java, então exigir o campo é o que impede um corpo montado pela metade de apagar o vínculo sem avisar.
 - Em `realizar`, ausência de `profissionalId` **preserva** o profissional já atribuído; presença sobrescreve.
+
+### Capacidade por horário
+
+Um profissional atende até `APP_AGENDA_CAPACIDADE_POR_HORARIO` aulas (padrão `3`) ao mesmo tempo. Toda aula dura
+`APP_AGENDA_DURACAO_AULA_MINUTOS` (padrão `60`), então duas aulas disputam o horário quando seus inícios distam
+menos que isso. Atribuir o profissional (`PATCH /aulas/{id}/profissional`) ou remarcar uma aula que já tem
+profissional para um horário lotado retorna `409` com `type` `conflict` e a ocupação na mensagem.
+
+- Aula sem horário ou sem profissional não entra na conta e não é conferida.
+- `PATCH /aulas/{id}/realizar` com `profissionalId` **não** confere a capacidade: a rota registra uma aula que já
+  aconteceu, e recusá-la obrigaria a lançar o profissional errado, corrompendo o repasse.
 
 ## Bloqueios de agenda
 
@@ -233,8 +248,7 @@ GET /aulas?inicio=2025-02-01&fim=2025-02-28&profissionalId=7&realizada=false
 - `GET /aulas` traz apenas aulas de **pacientes ativos**, mesma regra das demais consultas de aulas. `GET /sessoes`
   traz também as de pacientes inativos: sessão é registro clínico e o histórico do ex-aluno continua legível, o mesmo
   critério de `GET /sessoes/paciente/{id}`.
-- Ordenação: aulas por `data` e `id`; sessões por `data`, `horario` e `id`, com as sessões sem `horario` no fim do
-  respectivo dia.
+- Ordenação: aulas e sessões por `data`, `horario` e `id`, com os registros sem `horario` no fim do respectivo dia.
 - `AulaResponseDTO` expõe `profissionalId` e `profissionalNome` (ambos `null` enquanto a aula não tem profissional
   vinculado) — o calendário usa esses campos para colorir e filtrar por profissional.
 
@@ -437,7 +451,7 @@ da lista abaixo é recusado com `400`.
 | Rota | Ordenação padrão | Campos aceitos em `sort` |
 |---|---|---|
 | `GET /pagamentos/paciente/{id}` | `dataVencimento,desc` | `dataVencimento`, `valor`, `status` |
-| `GET /aulas/paciente/{id}` | `data,desc` | `data`, `realizada` |
+| `GET /aulas/paciente/{id}` | `data,desc` | `data`, `horario`, `realizada` |
 | `GET /sessoes/paciente/{id}` | `data,desc` | `data`, `horario`, `status`, `tipo` |
 | `GET /avaliacoes-fisioterapeuticas/paciente/{id}` | `dataAvaliacao,desc` | `dataAvaliacao` |
 | `GET /reavaliacoes/paciente/{id}` | `dataReavaliacao,desc` | `dataReavaliacao` |

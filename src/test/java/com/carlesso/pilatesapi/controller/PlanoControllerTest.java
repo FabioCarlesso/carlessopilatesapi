@@ -57,7 +57,8 @@ class PlanoControllerTest {
                 FrequenciaSemanal.DUAS_VEZES,
                 List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
                 LocalDate.now(),
-                true);
+                true,
+                null);
     }
 
     @Test
@@ -68,7 +69,8 @@ class PlanoControllerTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.DUAS_VEZES,
                 List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
-                LocalDate.now());
+                LocalDate.now(),
+                null);
 
         when(planoService.criar(any())).thenReturn(planoResponse());
 
@@ -88,6 +90,7 @@ class PlanoControllerTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.UMA_VEZ,
                 List.of(DayOfWeek.MONDAY),
+                null,
                 null);
 
         mockMvc.perform(post("/planos")
@@ -104,6 +107,7 @@ class PlanoControllerTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.UMA_VEZ,
                 List.of(DayOfWeek.MONDAY),
+                null,
                 null);
 
         when(planoService.criar(any())).thenThrow(new BusinessException("Paciente inativo"));
@@ -123,6 +127,7 @@ class PlanoControllerTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.DUAS_VEZES,
                 List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+                null,
                 null);
 
         when(planoService.criar(any())).thenThrow(new IllegalArgumentException("incompatível"));

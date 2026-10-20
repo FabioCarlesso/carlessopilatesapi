@@ -184,7 +184,7 @@ class PaginacaoSubRecursosControllerTest {
 
     @Test
     void resposta_segueFormatoDePaginaComMetadados() throws Exception {
-        var aula = new AulaResponseDTO(7L, 1L, "Ana", null, null, 3L, LocalDate.of(2026, 5, 10), false);
+        var aula = new AulaResponseDTO(7L, 1L, "Ana", null, null, 3L, LocalDate.of(2026, 5, 10), null, false);
         when(aulaService.buscarPorPaciente(eq(1L), any()))
                 .thenReturn(new PageImpl<>(List.of(aula), PageRequest.of(1, 10), 11));
 

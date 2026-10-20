@@ -6,6 +6,7 @@ import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -37,6 +38,7 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                             profissional.nome,
                             a.pagamento.id,
                             a.data,
+                            a.horario,
                             a.realizada)
                     FROM Aula a
                     JOIN a.paciente paciente
@@ -76,6 +78,7 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                     profissional.nome,
                     a.pagamento.id,
                     a.data,
+                    a.horario,
                     a.realizada)
             FROM Aula a
             JOIN a.paciente paciente
@@ -85,7 +88,7 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
               AND (:profissionalId IS NULL OR profissional.id = :profissionalId)
               AND (:pacienteId IS NULL OR paciente.id = :pacienteId)
               AND (:realizada IS NULL OR a.realizada = :realizada)
-            ORDER BY a.data, a.id
+            ORDER BY a.data, a.horario NULLS LAST, a.id
             """)
     List<AulaResponseDTO> findAgendaPorPeriodo(
             @Param("inicio") LocalDate inicio,
@@ -93,6 +96,32 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             @Param("profissionalId") Long profissionalId,
             @Param("pacienteId") Long pacienteId,
             @Param("realizada") Boolean realizada);
+
+    /**
+     * Aulas do profissional que disputam o horário de uma aula: mesmo dia e início estritamente dentro da janela
+     * {@code (de, ate)}. Os limites nulos abrem a janela naquele lado — é o caso de uma aula perto da meia-noite, em que
+     * subtrair ou somar a duração daria a volta no relógio. A própria aula é excluída por {@code aulaId}, e aulas de
+     * paciente inativo não ocupam vaga. O {@code cast} tipa o parâmetro no {@code IS NULL}: sem ele o PostgreSQL não
+     * infere o tipo de um {@code LocalTime} nulo e recusa a consulta.
+     */
+    @Query(
+            """
+            SELECT COUNT(a)
+            FROM Aula a
+            WHERE a.profissional.id = :profissionalId
+              AND a.data = :data
+              AND a.horario IS NOT NULL
+              AND (cast(:de as LocalTime) IS NULL OR a.horario > :de)
+              AND (cast(:ate as LocalTime) IS NULL OR a.horario < :ate)
+              AND a.id <> :aulaId
+              AND a.paciente.ativo = true
+            """)
+    long countConcorrentesDoProfissional(
+            @Param("profissionalId") Long profissionalId,
+            @Param("data") LocalDate data,
+            @Param("de") LocalTime de,
+            @Param("ate") LocalTime ate,
+            @Param("aulaId") Long aulaId);
 
     @Query(
             """
