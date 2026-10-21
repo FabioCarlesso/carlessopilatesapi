@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +44,7 @@ public class SessaoPilatesService {
     private final PlanoTratamentoRepository planoTratamentoRepository;
     private final EvolucaoSessaoRepository evolucaoSessaoRepository;
     private final AuditorAware<String> auditorAware;
+    private final DateTimeProvider dateTimeProvider;
 
     public SessaoPilatesService(
             SessaoPilatesRepository sessaoRepository,
@@ -50,13 +52,15 @@ public class SessaoPilatesService {
             ProfissionalRepository profissionalRepository,
             PlanoTratamentoRepository planoTratamentoRepository,
             EvolucaoSessaoRepository evolucaoSessaoRepository,
-            AuditorAware<String> auditorAware) {
+            AuditorAware<String> auditorAware,
+            DateTimeProvider dateTimeProvider) {
         this.sessaoRepository = sessaoRepository;
         this.pacienteRepository = pacienteRepository;
         this.profissionalRepository = profissionalRepository;
         this.planoTratamentoRepository = planoTratamentoRepository;
         this.evolucaoSessaoRepository = evolucaoSessaoRepository;
         this.auditorAware = auditorAware;
+        this.dateTimeProvider = dateTimeProvider;
     }
 
     @Transactional
@@ -165,17 +169,16 @@ public class SessaoPilatesService {
                     "Transição inválida: sessão " + sessao.getStatus() + " não pode ser alterada para " + novoStatus);
         }
 
-        LocalDateTime agora = LocalDateTime.now();
+        // Mesmo relógio e mesmo autor do listener de auditoria, que o UPDATE em massa não aciona.
+        LocalDateTime agora = LocalDateTime.from(dateTimeProvider.getNow().orElseGet(LocalDateTime::now));
         String autor = auditorAware.getCurrentAuditor().orElse(UsuarioAuditorAware.SISTEMA);
         int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, agora, autor);
         if (atualizadas == 0) {
             throw new BusinessException("Sessão foi modificada concorrentemente; recarregue e tente novamente");
         }
 
-        sessao.setStatus(novoStatus);
-        sessao.setDataAtualizacao(agora);
-        sessao.setAlteradoPor(autor);
-        return SessaoPilatesResponseDTO.from(sessao);
+        // O UPDATE desanexa a entidade (clearAutomatically): a resposta relê o estado gravado, com a versão nova.
+        return SessaoPilatesResponseDTO.from(encontrar(id));
     }
 
     @Transactional

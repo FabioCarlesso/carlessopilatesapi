@@ -82,14 +82,15 @@ Entidades de negócio estendem `EntidadeAuditavel` (pacote `entity`), um `@Mappe
 `dataAtualizacao`, `criadoPor` e `alteradoPor` preenchidos pelo `AuditingEntityListener` do Spring Data. O autor vem
 do `UsuarioAuditorAware` (pacote `security`), que lê o e-mail do `SecurityContext` ou devolve `system`; o
 `@EnableJpaAuditing` fica em `JpaAuditingConfig`, fora da classe principal, para não ser carregado pelos testes
-`@WebMvcTest`.
+`@WebMvcTest`. Os timestamps vêm do `DateTimeProvider` `horarioDoEstudio`, no fuso `app.fuso-horario`.
 
 Dois cuidados ao escrever código novo:
 
 - O listener roda no flush. Um update que monta a resposta a partir da entidade precisa usar `saveAndFlush`, ou a
   resposta sai com `dataAtualizacao`/`alteradoPor` antigos.
-- UPDATEs em massa (`@Modifying`) não passam pelo listener e precisam gravar data e autor explicitamente, como
-  `SessaoPilatesRepository.transicionarStatusSeAgendada`.
+- UPDATEs em massa (`@Modifying`) não passam pelo listener nem pelo `@Version`: precisam gravar data e autor —
+  obtidos do mesmo `DateTimeProvider`/`AuditorAware` — e incrementar a versão explicitamente, e reler a entidade
+  para montar a resposta, como `SessaoPilatesRepository.transicionarStatusSeAgendada`.
 
 ## Tratamento de erros
 

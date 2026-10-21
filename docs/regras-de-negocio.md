@@ -287,7 +287,8 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
   removido e a versão, tornada obrigatória.
 - Toda escrita na linha incrementa a versão, inclusive as que não passam pelo `PUT`: ativar/inativar paciente ou
   profissional, realizar/cancelar sessão, troca de senha (que mexe em `users`). Um formulário aberto antes dessas
-  ações recebe `409` ao salvar.
+  ações recebe `409` ao salvar. Realizar/cancelar sessão é um UPDATE em massa, que não passa pelo `@Version`: a
+  query incrementa a versão explicitamente, e a resposta relê a sessão para já devolver a versão nova.
 - `Pagamento` ficou de fora: suas transições já são protegidas por regras de status e constraints.
 
 ## Indicadores do dashboard
@@ -313,6 +314,9 @@ superclasse `EntidadeAuditavel`. Nenhum service preenche esses campos, e o que o
   postural (a análise em si é auditada) e os contatos de cobrança, que já guardam `registradoPor`/`registradoEm` e
   nunca são alterados.
 - **Autor:** o e-mail do usuário autenticado. Processos sem usuário — os schedulers de cobrança — gravam `system`.
+- **Fuso:** as datas de auditoria saem no horário do estúdio (`app.fuso-horario`, padrão `America/Sao_Paulo`), não no
+  da JVM, que roda em UTC no container. Valores gravados antes dessa correção — inclusive os `data_criacao` herdados das
+  tabelas clínicas — ficam no fuso em que foram gravados: sem backfill, porque não há como saber o fuso de cada linha.
 - `dataCriacao`/`criadoPor` não mudam depois da criação. `dataAtualizacao`/`alteradoPor` ficam nulos até a primeira
   alteração e passam a refletir a última.
 - Só alterações que mudam a linha contam: um `PUT` sem nenhum campo diferente não atualiza `dataAtualizacao`. A

@@ -76,6 +76,7 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
             assertThat(s.getStatus()).isEqualTo(StatusSessao.CANCELADA);
             assertThat(s.getDataAtualizacao()).isEqualTo(quando);
             assertThat(s.getAlteradoPor()).isEqualTo("recepcao@carlessopilates.com");
+            assertThat(s.getVersion()).isEqualTo(sessao.getVersion() + 1);
         });
     }
 

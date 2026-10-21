@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -63,6 +64,9 @@ class SessaoPilatesServiceTest {
     @Mock
     private AuditorAware<String> auditorAware;
 
+    @Mock
+    private DateTimeProvider dateTimeProvider;
+
     @InjectMocks
     private SessaoPilatesService service;
 
@@ -73,6 +77,15 @@ class SessaoPilatesServiceTest {
         p.setCpf("12345678900");
         setId(p, Paciente.class, 1L);
         return p;
+    }
+
+    /** Sessão como relida do banco depois do UPDATE em massa da transição de status. */
+    private SessaoPilates sessaoGravada(StatusSessao status, String alteradoPor) {
+        SessaoPilates s = sessao(paciente());
+        s.setStatus(status);
+        s.setDataAtualizacao(LocalDateTime.of(2026, 5, 10, 9, 50));
+        s.setAlteradoPor(alteradoPor);
+        return s;
     }
 
     private SessaoPilates sessao(Paciente paciente) {
@@ -337,7 +350,8 @@ class SessaoPilatesServiceTest {
     @Test
     void realizar_comSessaoAgendada_deveTransicionarParaRealizada() {
         SessaoPilates s = sessao(paciente());
-        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(s), Optional.of(sessaoGravada(StatusSessao.REALIZADA, "system")));
         when(sessaoRepository.transicionarStatusSeAgendada(
                         eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class), any()))
                 .thenReturn(1);
@@ -412,7 +426,8 @@ class SessaoPilatesServiceTest {
     @Test
     void cancelar_comSessaoAgendada_deveTransicionarParaCancelada() {
         SessaoPilates s = sessao(paciente());
-        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(s), Optional.of(sessaoGravada(StatusSessao.CANCELADA, "system")));
         when(sessaoRepository.transicionarStatusSeAgendada(
                         eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class), any()))
                 .thenReturn(1);
@@ -427,7 +442,10 @@ class SessaoPilatesServiceTest {
     void realizar_deveGravarUsuarioAutenticadoComoAutorDaAlteracao() {
         // O UPDATE em massa não passa pelo listener de auditoria: o autor vai explícito na query.
         SessaoPilates s = sessao(paciente());
-        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.findByIdComPaciente(1L))
+                .thenReturn(
+                        Optional.of(s),
+                        Optional.of(sessaoGravada(StatusSessao.REALIZADA, "fisio@carlessopilates.com")));
         when(auditorAware.getCurrentAuditor()).thenReturn(Optional.of("fisio@carlessopilates.com"));
         when(sessaoRepository.transicionarStatusSeAgendada(
                         eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class), eq("fisio@carlessopilates.com")))
@@ -439,9 +457,24 @@ class SessaoPilatesServiceTest {
     }
 
     @Test
+    void realizar_deveUsarORelogioDeAuditoriaNaDataDaAlteracao() {
+        LocalDateTime horarioDoEstudio = LocalDateTime.of(2026, 5, 10, 9, 45);
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(s), Optional.of(sessaoGravada(StatusSessao.REALIZADA, "system")));
+        when(dateTimeProvider.getNow()).thenReturn(Optional.of(horarioDoEstudio));
+        when(sessaoRepository.transicionarStatusSeAgendada(
+                        eq(1L), eq(StatusSessao.REALIZADA), eq(horarioDoEstudio), any()))
+                .thenReturn(1);
+
+        assertThat(service.realizar(1L).status()).isEqualTo(StatusSessao.REALIZADA);
+    }
+
+    @Test
     void cancelar_semUsuarioAutenticado_deveGravarSystemComoAutor() {
         SessaoPilates s = sessao(paciente());
-        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(sessaoRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(s), Optional.of(sessaoGravada(StatusSessao.CANCELADA, "system")));
         when(auditorAware.getCurrentAuditor()).thenReturn(Optional.empty());
         when(sessaoRepository.transicionarStatusSeAgendada(
                         eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class), eq("system")))
