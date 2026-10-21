@@ -56,6 +56,7 @@ public class PlanoService {
         plano.setValor(dto.valor());
         plano.setFrequenciaSemanal(dto.frequenciaSemanal());
         plano.setDiasSemana(dto.diasSemana());
+        plano.setHorario(dto.horario());
         plano.setDataInicio(dto.dataInicio() != null ? dto.dataInicio() : LocalDate.now());
 
         return PlanoResponseDTO.from(planoRepository.save(plano));

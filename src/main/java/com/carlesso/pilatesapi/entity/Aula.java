@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(
@@ -27,6 +28,9 @@ public class Aula {
 
     @Column(nullable = false)
     private LocalDate data;
+
+    /** Nulo em aulas anteriores à #106 e nas geradas por plano sem horário. */
+    private LocalTime horario;
 
     @Column(nullable = false)
     private boolean realizada = false;
@@ -81,6 +85,14 @@ public class Aula {
 
     public void setData(LocalDate data) {
         this.data = data;
+    }
+
+    public LocalTime getHorario() {
+        return horario;
+    }
+
+    public void setHorario(LocalTime horario) {
+        this.horario = horario;
     }
 
     public boolean isRealizada() {

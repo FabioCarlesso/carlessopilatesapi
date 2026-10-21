@@ -19,6 +19,7 @@ import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 import org.hibernate.SessionFactory;
@@ -390,6 +391,70 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
                 .containsExactly(aulaAtiva.getId());
     }
 
+    @Test
+    void findAgendaPorPeriodo_ordenaPorHorarioNoDiaComAulasSemHorarioNoFim() {
+        LocalDate dia = LocalDate.of(2025, 2, 10);
+        Aula dezHoras = entityManager.persist(aulaNoHorario(novoPaciente(1), dia, LocalTime.of(10, 0), null));
+        Aula semHorario = entityManager.persist(aulaNoHorario(novoPaciente(2), dia, null, null));
+        Aula oitoHoras = entityManager.persist(aulaNoHorario(novoPaciente(3), dia, LocalTime.of(8, 0), null));
+        entityManager.flush();
+        entityManager.clear();
+
+        var aulas = repository.findAgendaPorPeriodo(dia, dia, null, null, null);
+
+        assertThat(aulas)
+                .extracting(AulaResponseDTO::id)
+                .containsExactly(oitoHoras.getId(), dezHoras.getId(), semHorario.getId());
+        assertThat(aulas)
+                .extracting(AulaResponseDTO::horario)
+                .containsExactly(LocalTime.of(8, 0), LocalTime.of(10, 0), null);
+    }
+
+    @Test
+    void countConcorrentesDoProfissional_contaSoAsAulasDoProfissionalComInicioDentroDaJanela() {
+        LocalDate dia = LocalDate.of(2025, 2, 10);
+        Profissional outro = profissional();
+        outro.setEmail("carla@email.com");
+        outro.setCpf("98765432100");
+        outro = entityManager.persist(outro);
+
+        // Janela de 08:00 com duração de 60 min: (07:00, 09:00), pontas exclusivas.
+        entityManager.persist(aulaNoHorario(novoPaciente(1), dia, LocalTime.of(7, 0), profissional));
+        entityManager.persist(aulaNoHorario(novoPaciente(2), dia, LocalTime.of(7, 30), profissional));
+        Aula oitoHoras = entityManager.persist(aulaNoHorario(novoPaciente(3), dia, LocalTime.of(8, 0), profissional));
+        entityManager.persist(aulaNoHorario(novoPaciente(4), dia, LocalTime.of(9, 0), profissional));
+        entityManager.persist(aulaNoHorario(novoPaciente(5), dia, null, profissional));
+        entityManager.persist(aulaNoHorario(novoPaciente(6), dia, LocalTime.of(8, 0), outro));
+        entityManager.persist(aulaNoHorario(novoPaciente(7), dia.plusDays(1), LocalTime.of(8, 0), profissional));
+        entityManager.persist(aulaNoHorario(pacienteInativo, dia, LocalTime.of(8, 0), profissional));
+        entityManager.flush();
+        entityManager.clear();
+
+        // 07:30 e 08:00; a própria aula fica de fora quando é ela que está sendo conferida.
+        assertThat(repository.countConcorrentesDoProfissional(
+                        profissional.getId(), dia, LocalTime.of(7, 0), LocalTime.of(9, 0), -1L))
+                .isEqualTo(2);
+        assertThat(repository.countConcorrentesDoProfissional(
+                        profissional.getId(), dia, LocalTime.of(7, 0), LocalTime.of(9, 0), oitoHoras.getId()))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void countConcorrentesDoProfissional_limitesNulosAbremAJanela() {
+        LocalDate dia = LocalDate.of(2025, 2, 10);
+        entityManager.persist(aulaNoHorario(novoPaciente(1), dia, LocalTime.MIDNIGHT, profissional));
+        entityManager.persist(aulaNoHorario(novoPaciente(2), dia, LocalTime.of(23, 30), profissional));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.countConcorrentesDoProfissional(
+                        profissional.getId(), dia, null, LocalTime.of(1, 30), -1L))
+                .isEqualTo(1);
+        assertThat(repository.countConcorrentesDoProfissional(
+                        profissional.getId(), dia, LocalTime.of(23, 0), null, -1L))
+                .isEqualTo(1);
+    }
+
     private Paciente paciente(String nome, String email, String cpf, boolean ativo) {
         Paciente paciente = new Paciente();
         paciente.setNome(nome);
@@ -440,6 +505,17 @@ class AulaRepositoryTest extends PostgresTestcontainerSupport {
         aula.setProfissional(profissional);
         aula.setData(data);
         aula.setRealizada(true);
+        return aula;
+    }
+
+    private Paciente novoPaciente(int n) {
+        return entityManager.persist(paciente("Paciente " + n, "paciente" + n + "@email.com", "0000000000" + n, true));
+    }
+
+    private Aula aulaNoHorario(Paciente paciente, LocalDate data, LocalTime horario, Profissional profissional) {
+        Aula aula = aulaNaoRealizadaSemProfissional(paciente, pagamentoAtivo, data);
+        aula.setHorario(horario);
+        aula.setProfissional(profissional);
         return aula;
     }
 

@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,7 +75,8 @@ class PlanoServiceTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.DUAS_VEZES,
                 List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
-                LocalDate.now());
+                LocalDate.now(),
+                null);
 
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(pacienteAtivo));
         when(planoRepository.findByPacienteIdAndAtivoTrue(1L)).thenReturn(Optional.empty());
@@ -96,6 +98,26 @@ class PlanoServiceTest {
     }
 
     @Test
+    void criarPlano_gravaOHorarioDasAulas() {
+        var dto = new PlanoRequestDTO(
+                1L,
+                TipoPagamento.MENSAL,
+                new BigDecimal("200.00"),
+                FrequenciaSemanal.DUAS_VEZES,
+                List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
+                LocalDate.now(),
+                LocalTime.of(8, 0));
+
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(pacienteAtivo));
+        when(planoRepository.findByPacienteIdAndAtivoTrue(1L)).thenReturn(Optional.empty());
+        when(planoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        PlanoResponseDTO response = service.criar(dto);
+
+        assertThat(response.horario()).isEqualTo(LocalTime.of(8, 0));
+    }
+
+    @Test
     void criarPlano_pacienteInativo_lancaExcecao() {
         var dto = new PlanoRequestDTO(
                 2L,
@@ -103,6 +125,7 @@ class PlanoServiceTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.UMA_VEZ,
                 List.of(DayOfWeek.MONDAY),
+                null,
                 null);
 
         when(pacienteRepository.findById(2L)).thenReturn(Optional.of(pacienteInativo));
@@ -121,6 +144,7 @@ class PlanoServiceTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.DUAS_VEZES,
                 List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+                null,
                 null);
 
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(pacienteAtivo));
@@ -138,6 +162,7 @@ class PlanoServiceTest {
                 new BigDecimal("250.00"),
                 FrequenciaSemanal.UMA_VEZ,
                 List.of(DayOfWeek.TUESDAY),
+                null,
                 null);
 
         Plano planoExistente = new Plano();
@@ -169,6 +194,7 @@ class PlanoServiceTest {
                 new BigDecimal("200.00"),
                 FrequenciaSemanal.UMA_VEZ,
                 List.of(DayOfWeek.MONDAY),
+                null,
                 null);
 
         when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());

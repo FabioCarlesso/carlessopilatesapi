@@ -6,6 +6,7 @@ import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public record PlanoResponseDTO(
@@ -17,7 +18,8 @@ public record PlanoResponseDTO(
         FrequenciaSemanal frequenciaSemanal,
         List<DayOfWeek> diasSemana,
         LocalDate dataInicio,
-        boolean ativo) {
+        boolean ativo,
+        LocalTime horario) {
     public static PlanoResponseDTO from(Plano plano) {
         return new PlanoResponseDTO(
                 plano.getId(),
@@ -28,6 +30,7 @@ public record PlanoResponseDTO(
                 plano.getFrequenciaSemanal(),
                 plano.getDiasSemana(),
                 plano.getDataInicio(),
-                plano.isAtivo());
+                plano.isAtivo(),
+                plano.getHorario());
     }
 }

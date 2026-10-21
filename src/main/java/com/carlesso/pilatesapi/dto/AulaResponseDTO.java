@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.dto;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Profissional;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 public record AulaResponseDTO(
         Long id,
@@ -12,6 +13,7 @@ public record AulaResponseDTO(
         String profissionalNome,
         Long pagamentoId,
         LocalDate data,
+        LocalTime horario,
         boolean realizada) {
     public static AulaResponseDTO from(Aula aula) {
         Profissional profissional = aula.getProfissional();
@@ -23,6 +25,7 @@ public record AulaResponseDTO(
                 profissional != null ? profissional.getNome() : null,
                 aula.getPagamento().getId(),
                 aula.getData(),
+                aula.getHorario(),
                 aula.isRealizada());
     }
 }

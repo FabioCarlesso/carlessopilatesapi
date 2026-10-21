@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Entity
@@ -36,6 +37,9 @@ public class Plano {
     @Column(name = "dia_semana")
     @Enumerated(EnumType.STRING)
     private List<DayOfWeek> diasSemana;
+
+    /** Horário das aulas em todos os {@code diasSemana}; copiado para cada aula na geração. */
+    private LocalTime horario;
 
     @Column(name = "data_inicio", nullable = false)
     private LocalDate dataInicio;
@@ -87,6 +91,14 @@ public class Plano {
 
     public void setDiasSemana(List<DayOfWeek> diasSemana) {
         this.diasSemana = diasSemana;
+    }
+
+    public LocalTime getHorario() {
+        return horario;
+    }
+
+    public void setHorario(LocalTime horario) {
+        this.horario = horario;
     }
 
     public LocalDate getDataInicio() {

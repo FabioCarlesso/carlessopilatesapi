@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.config.AppProperties;
 import com.carlesso.pilatesapi.dto.ContatoCobrancaRequestDTO;
 import com.carlesso.pilatesapi.dto.ContatoCobrancaResponseDTO;
@@ -41,12 +42,14 @@ import org.springframework.test.context.TestPropertySource;
  */
 @PostgresDataJpaTest
 @Import({PagamentoService.class, AulaService.class, ContatoCobrancaService.class, MetricsTestConfig.class})
-@EnableConfigurationProperties(AppProperties.class)
+@EnableConfigurationProperties({AppProperties.class, AgendaProperties.class})
 @TestPropertySource(
         properties = {
             "app.cobranca.cron-vencidos=0 0 6 * * *",
             "app.cobranca.cron-cobrancas-futuras=0 0 7 * * *",
-            "app.cobranca.vencimento-dias=10"
+            "app.cobranca.vencimento-dias=10",
+            "app.agenda.duracao-aula-minutos=60",
+            "app.agenda.capacidade-por-horario=3"
         })
 class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport {
 

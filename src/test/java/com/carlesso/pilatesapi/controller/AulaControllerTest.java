@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -18,6 +19,7 @@ import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +51,7 @@ class AulaControllerTest {
     CustomUserDetailsService customUserDetailsService;
 
     private AulaResponseDTO aulaResponse(boolean realizada) {
-        return new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), realizada);
+        return new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), null, realizada);
     }
 
     @Test
@@ -223,7 +225,7 @@ class AulaControllerTest {
     @Test
     void atribuirProfissional_comProfissionalIdNulo_retorna200SemVinculo() throws Exception {
         when(aulaService.atribuirProfissional(eq(1L), isNull()))
-                .thenReturn(new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), false));
+                .thenReturn(new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false));
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", null))
                 .andExpect(status().isOk())
@@ -292,8 +294,9 @@ class AulaControllerTest {
 
     @Test
     void remarcar_retorna200ComNovaData() throws Exception {
-        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20)))
-                .thenReturn(new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), false));
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), null))
+                .thenReturn(
+                        new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), null, false));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
                 .andExpect(status().isOk())
@@ -324,18 +327,30 @@ class AulaControllerTest {
     }
 
     @Test
-    void remarcar_comHorario_retorna400EnquantoOCampoNaoExiste() throws Exception {
-        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(
-                        jsonPath("$.campos[?(@.campo == 'horario')].mensagem").exists());
+    void remarcar_comHorario_repassaOHorarioAoService() throws Exception {
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0)))
+                .thenReturn(new AulaResponseDTO(
+                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0), false));
 
-        verifyNoInteractions(aulaService);
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.horario").value("08:00:00"));
+    }
+
+    @Test
+    void remarcar_semVagaNoHorario_retorna409() throws Exception {
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0)))
+                .thenThrow(new ConflictException(
+                        "Profissional Paula já atende 3 aula(s) em 2025-02-20 às 08:00; a capacidade por horário é 3"));
+
+        mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value(containsString("capacidade por horário")));
     }
 
     @Test
     void remarcar_aulaJaRealizada_retorna409() throws Exception {
-        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20)))
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), null))
                 .thenThrow(new ConflictException("Aula já realizada não pode ser remarcada"));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
@@ -345,7 +360,7 @@ class AulaControllerTest {
 
     @Test
     void remarcar_dataOcupada_retorna409ComMensagemExplicita() throws Exception {
-        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20)))
+        when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), null))
                 .thenThrow(new ConflictException("Paciente já possui aula na data 2025-02-20"));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
@@ -355,7 +370,7 @@ class AulaControllerTest {
 
     @Test
     void remarcar_aulaNaoEncontrada_retorna404() throws Exception {
-        when(aulaService.remarcar(99L, LocalDate.of(2025, 2, 20)))
+        when(aulaService.remarcar(99L, LocalDate.of(2025, 2, 20), null))
                 .thenThrow(new ResourceNotFoundException("Aula não encontrada: 99"));
 
         mockMvc.perform(patchRemarcar("/aulas/99/remarcar", "{\"data\":\"2025-02-20\"}"))

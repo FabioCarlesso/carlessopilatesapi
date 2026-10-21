@@ -154,6 +154,8 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `APP_REFRESH_TOKEN_CRON_LIMPEZA` | `0 30 3 * * *` | Cron expression da limpeza diária de refresh tokens vencidos ou revogados |
 | `APP_METRICS_SCRAPE_TOKEN` | - | Credencial fixa (mín. 32 caracteres) aceita só em `/actuator/prometheus` para o scrape do Prometheus; vazia, o endpoint exige JWT de `ADMIN` |
 | `APP_COBRANCA_VENCIMENTO_DIAS` | `10` | Dias somados ao início do período para definir o vencimento das cobranças geradas |
+| `APP_AGENDA_DURACAO_AULA_MINUTOS` | `60` | Duração fixa de cada aula, em minutos (1 a 720); define a janela em que duas aulas do mesmo profissional disputam o horário |
+| `APP_AGENDA_CAPACIDADE_POR_HORARIO` | `3` | Quantas aulas um profissional atende ao mesmo tempo; acima disso, atribuir profissional ou remarcar retorna `409` |
 | `APP_PAGINACAO_TAMANHO_PADRAO` | `10` | Tamanho padrão de página nas listagens paginadas (quando a requisição não informa `size`) |
 | `APP_FUSO_HORARIO` | `America/Sao_Paulo` | Fuso do estúdio (ID IANA) usado nos horários gravados pelo servidor e exibidos sem conversão, como o `registradoEm` dos contatos de cobrança. Independe do fuso da JVM |
 | `APP_EMAIL_PROVIDER` | `smtp` | Provedor de e-mail ativo (seleciona o bean `EmailSender` via `EmailConfig`) |

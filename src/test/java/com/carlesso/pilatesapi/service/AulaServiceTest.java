@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
+import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
@@ -26,13 +29,13 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,7 +51,6 @@ class AulaServiceTest {
     @Mock
     ProfissionalRepository profissionalRepository;
 
-    @InjectMocks
     AulaService service;
 
     private Paciente paciente;
@@ -57,6 +59,8 @@ class AulaServiceTest {
 
     @BeforeEach
     void setUp() {
+        service = new AulaService(aulaRepository, profissionalRepository, new AgendaProperties(60, 3));
+
         paciente = new Paciente();
         paciente.setNome("Ana");
         paciente.setEmail("ana@email.com");
@@ -92,7 +96,7 @@ class AulaServiceTest {
     @Test
     void listarPorPeriodo_repassaFiltrosAoRepositorio() {
         AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), true);
+                new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), null, true);
         when(aulaRepository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 7L, 1L, true))
                 .thenReturn(List.of(aula));
 
@@ -121,7 +125,8 @@ class AulaServiceTest {
 
     @Test
     void listarPorPeriodo_acimaDoLimiteDeRegistros_lancaIllegalArgument() {
-        AulaResponseDTO aula = new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), false);
+        AulaResponseDTO aula =
+                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false);
         when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
                 .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA + 1, aula));
 
@@ -133,7 +138,8 @@ class AulaServiceTest {
 
     @Test
     void listarPorPeriodo_noLimiteExatoDeRegistros_retornaLista() {
-        AulaResponseDTO aula = new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), false);
+        AulaResponseDTO aula =
+                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false);
         when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
                 .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA, aula));
 
@@ -447,7 +453,7 @@ class AulaServiceTest {
         when(aulaRepository.existsByPacienteAndData(paciente, novaData)).thenReturn(false);
         when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
 
-        var response = service.remarcar(1L, novaData);
+        var response = service.remarcar(1L, novaData, null);
 
         assertThat(aula.getData()).isEqualTo(novaData);
         assertThat(response.data()).isEqualTo(novaData);
@@ -466,7 +472,7 @@ class AulaServiceTest {
         when(aulaRepository.existsByPacienteAndData(paciente, foraDoPeriodo)).thenReturn(false);
         when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
 
-        var response = service.remarcar(1L, foraDoPeriodo);
+        var response = service.remarcar(1L, foraDoPeriodo, null);
 
         assertThat(response.data()).isEqualTo(foraDoPeriodo);
         assertThat(aula.getPagamento()).isEqualTo(pagamentoPago);
@@ -481,7 +487,7 @@ class AulaServiceTest {
         when(aulaRepository.existsByPacienteAndData(paciente, passado)).thenReturn(false);
         when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
 
-        assertThat(service.remarcar(1L, passado).data()).isEqualTo(passado);
+        assertThat(service.remarcar(1L, passado, null).data()).isEqualTo(passado);
     }
 
     @Test
@@ -490,7 +496,7 @@ class AulaServiceTest {
 
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
 
-        var response = service.remarcar(1L, LocalDate.of(2025, 2, 3));
+        var response = service.remarcar(1L, LocalDate.of(2025, 2, 3), null);
 
         assertThat(response.data()).isEqualTo(LocalDate.of(2025, 2, 3));
         verify(aulaRepository, never()).existsByPacienteAndData(any(), any());
@@ -504,7 +510,7 @@ class AulaServiceTest {
 
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
 
-        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 20)))
+        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 20), null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Aula já realizada");
         assertThat(aula.getData()).isEqualTo(LocalDate.of(2025, 2, 3));
@@ -519,7 +525,7 @@ class AulaServiceTest {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
         when(aulaRepository.existsByPacienteAndData(paciente, ocupada)).thenReturn(true);
 
-        assertThatThrownBy(() -> service.remarcar(1L, ocupada))
+        assertThatThrownBy(() -> service.remarcar(1L, ocupada, null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Paciente já possui aula na data 2025-02-05");
         assertThat(aula.getData()).isEqualTo(LocalDate.of(2025, 2, 3));
@@ -536,7 +542,7 @@ class AulaServiceTest {
         when(aulaRepository.existsByPacienteAndData(paciente, novaData)).thenReturn(false);
         when(aulaRepository.saveAndFlush(aula)).thenThrow(new DataIntegrityViolationException("violação unique"));
 
-        assertThatThrownBy(() -> service.remarcar(1L, novaData))
+        assertThatThrownBy(() -> service.remarcar(1L, novaData, null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Paciente já possui aula na data 2025-02-05");
     }
@@ -545,9 +551,186 @@ class AulaServiceTest {
     void remarcar_pacienteInativo_lancaResourceNotFound() {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 20)))
+        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 20), null))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Aula não encontrada: 1");
+    }
+
+    @Test
+    void gerarAulas_copiaOHorarioDoPlanoParaCadaAula() {
+        plano.setHorario(LocalTime.of(8, 0));
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        assertThat(aulas).hasSize(8).allSatisfy(aula -> assertThat(aula.getHorario())
+                .isEqualTo(LocalTime.of(8, 0)));
+        // Aula gerada nasce sem profissional: não há agenda de ninguém para conferir.
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void gerarAulas_planoSemHorario_geraAulasSemHorario() {
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service.gerarAulas(pagamentoPago))
+                .allSatisfy(aula -> assertThat(aula.getHorario()).isNull());
+    }
+
+    @Test
+    void atribuirProfissional_comVaga_contaAsAulasDentroDaDuracaoEVincula() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        Profissional profissional = profissionalAtivo(1L, "Paula Mendes");
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
+        when(aulaRepository.countConcorrentesDoProfissional(
+                        1L, LocalDate.of(2025, 2, 3), LocalTime.of(7, 0), LocalTime.of(9, 0), null))
+                .thenReturn(2L);
+
+        service.atribuirProfissional(1L, 1L);
+
+        assertThat(aula.getProfissional()).isEqualTo(profissional);
+        verify(profissionalRepository).findByIdForUpdate(1L);
+    }
+
+    @Test
+    void atribuirProfissional_semVagaNoHorario_lancaConflictSemAlterarVinculo() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+        when(aulaRepository.countConcorrentesDoProfissional(anyLong(), any(), any(), any(), any()))
+                .thenReturn(3L);
+
+        assertThatThrownBy(() -> service.atribuirProfissional(1L, 1L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage(
+                        "Profissional Paula Mendes já atende 3 aula(s) em 2025-02-03 às 08:00; a capacidade por horário é 3");
+        assertThat(aula.getProfissional()).isNull();
+    }
+
+    @Test
+    void atribuirProfissional_mesmoProfissionalJaAtribuido_naoConfereCapacidade() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        Profissional atribuido = profissionalAtivo(1L, "Paula Mendes");
+        aula.setProfissional(atribuido);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        var response = service.atribuirProfissional(1L, 1L);
+
+        assertThat(response.profissionalId()).isEqualTo(1L);
+        assertThat(aula.getProfissional()).isSameAs(atribuido);
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
+        verify(profissionalRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void atribuirProfissional_aulaSemHorario_naoConfereCapacidade() {
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aulaPendente()));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        service.atribuirProfissional(1L, 1L);
+
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
+        verify(profissionalRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void atribuirProfissional_pertoDaMeiaNoite_abreAJanelaDoLadoQueDariaAVolta() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(0, 30));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        service.atribuirProfissional(1L, 1L);
+
+        // 00:30 - 60min daria 23:30 do dia anterior; o limite inferior vai nulo em vez de excluir a madrugada.
+        verify(aulaRepository).countConcorrentesDoProfissional(eq(1L), any(), isNull(), eq(LocalTime.of(1, 30)), any());
+    }
+
+    @Test
+    void realizarAula_comProfissional_naoConfereCapacidade() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        service.realizarAula(1L, 1L);
+
+        assertThat(aula.isRealizada()).isTrue();
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void remarcar_soOHorarioNoMesmoDia_gravaSemConferirColisaoDoPaciente() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
+
+        var response = service.remarcar(1L, LocalDate.of(2025, 2, 3), LocalTime.of(18, 0));
+
+        assertThat(response.data()).isEqualTo(LocalDate.of(2025, 2, 3));
+        assertThat(response.horario()).isEqualTo(LocalTime.of(18, 0));
+        verify(aulaRepository, never()).existsByPacienteAndData(any(), any());
+    }
+
+    @Test
+    void remarcar_semHorario_preservaOHorarioAtual() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        LocalDate novaData = LocalDate.of(2025, 2, 20);
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.existsByPacienteAndData(paciente, novaData)).thenReturn(false);
+        when(aulaRepository.saveAndFlush(aula)).thenReturn(aula);
+
+        var response = service.remarcar(1L, novaData, null);
+
+        assertThat(response.data()).isEqualTo(novaData);
+        assertThat(response.horario()).isEqualTo(LocalTime.of(8, 0));
+    }
+
+    @Test
+    void remarcar_paraAMesmaDataEOMesmoHorario_eNoOp() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+
+        service.remarcar(1L, LocalDate.of(2025, 2, 3), LocalTime.of(8, 0));
+
+        verify(aulaRepository, never()).saveAndFlush(any());
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void remarcar_comProfissionalSemVagaNoNovoHorario_lancaConflictSemAlterar() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        aula.setProfissional(profissionalAtivo(1L, "Paula Mendes"));
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(aulaRepository.countConcorrentesDoProfissional(
+                        1L, LocalDate.of(2025, 2, 3), LocalTime.of(17, 0), LocalTime.of(19, 0), null))
+                .thenReturn(3L);
+
+        assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 3), LocalTime.of(18, 0)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("capacidade por horário é 3");
+        assertThat(aula.getHorario()).isEqualTo(LocalTime.of(8, 0));
+        verify(aulaRepository, never()).saveAndFlush(any());
     }
 
     private Aula aulaPendente() {

@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * Todo {@code LocalTime} do contrato publicado é {@code string}/{@code time}, como trafega no JSON ({@code "09:00:00"}).
  *
  * <p>Sem o mapeamento global do {@code OpenApiConfig}, o springdoc expandia o tipo no objeto
- * {@code {hour, minute, second, nano}} em sessões, bloqueios de agenda e lista de espera — e um cliente gerado a
+ * {@code {hour, minute, second, nano}} em sessões, aulas, planos, bloqueios de agenda e lista de espera — e um cliente gerado a
  * partir do contrato mandaria esse objeto. Mesmo problema que o {@link OpenApiRemarcacaoContratoTest} prende campo a
  * campo, aqui resolvido na raiz.
  */
@@ -34,7 +34,11 @@ class OpenApiHorarioContratoTest {
         "BloqueioAgendaRequestDTO, horaInicio",
         "BloqueioAgendaResponseDTO, horaFim",
         "ListaEsperaRequestDTO, horaInicio",
-        "ListaEsperaResponseDTO, horaFim"
+        "ListaEsperaResponseDTO, horaFim",
+        "AulaResponseDTO, horario",
+        "AulaRemarcacaoRequestDTO, horario",
+        "PlanoRequestDTO, horario",
+        "PlanoResponseDTO, horario"
     })
     void campoLocalTime_publicaStringNoFormatoTime(String schema, String campo) throws Exception {
         String propriedade = "$.components.schemas." + schema + ".properties." + campo;
