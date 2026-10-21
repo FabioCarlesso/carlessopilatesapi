@@ -4,13 +4,12 @@ import com.carlesso.pilatesapi.entity.enums.StatusAvaliacaoPostural;
 import com.carlesso.pilatesapi.entity.enums.VistaPostural;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "avaliacoes_posturais")
-public class AvaliacaoPostural {
+public class AvaliacaoPostural extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,17 +59,7 @@ public class AvaliacaoPostural {
     @Column(nullable = false)
     private boolean ativo = true;
 
-    @Column(nullable = false)
-    private LocalDateTime dataCriacao;
-
-    private LocalDateTime dataAtualizacao;
-
     public AvaliacaoPostural() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
 
     public Long getId() {
         return id;
@@ -154,21 +143,5 @@ public class AvaliacaoPostural {
 
     public void setAtivo(boolean ativo) {
         this.ativo = ativo;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

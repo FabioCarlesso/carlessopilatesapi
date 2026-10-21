@@ -11,7 +11,6 @@ import com.carlesso.pilatesapi.repository.AnamneseRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.VersaoGuard;
-import java.time.LocalDateTime;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,7 +49,6 @@ public class AnamneseService {
         anamnese.setRestricoesMedicas(dto.restricoesMedicas());
         anamnese.setObjetivos(dto.objetivos());
         anamnese.setObservacoes(dto.observacoes());
-        anamnese.setDataCriacao(LocalDateTime.now());
 
         try {
             return AnamneseResponseDTO.from(anamneseRepository.saveAndFlush(anamnese));
@@ -94,7 +92,6 @@ public class AnamneseService {
         if (dto.restricoesMedicas() != null) anamnese.setRestricoesMedicas(dto.restricoesMedicas());
         if (dto.objetivos() != null) anamnese.setObjetivos(dto.objetivos());
         if (dto.observacoes() != null) anamnese.setObservacoes(dto.observacoes());
-        anamnese.setDataAtualizacao(LocalDateTime.now());
 
         return AnamneseResponseDTO.from(anamneseRepository.saveAndFlush(anamnese));
     }

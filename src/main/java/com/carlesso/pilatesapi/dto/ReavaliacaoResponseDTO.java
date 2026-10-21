@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.Reavaliacao;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -22,6 +23,10 @@ public record ReavaliacaoResponseDTO(
         String observacoesGerais,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualizacao,
+        @Schema(description = "E-mail de quem criou o registro; \"system\" para processos automáticos")
+                String criadoPor,
+        @Schema(description = "E-mail de quem fez a última alteração; nulo enquanto não houver alteração")
+                String alteradoPor,
         Long version) {
     public static ReavaliacaoResponseDTO from(Reavaliacao r) {
         return new ReavaliacaoResponseDTO(
@@ -44,6 +49,8 @@ public record ReavaliacaoResponseDTO(
                 r.getObservacoesGerais(),
                 r.getDataCriacao(),
                 r.getDataAtualizacao(),
+                r.getCriadoPor(),
+                r.getAlteradoPor(),
                 r.getVersion());
     }
 }

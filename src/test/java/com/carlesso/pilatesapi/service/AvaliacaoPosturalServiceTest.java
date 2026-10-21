@@ -101,6 +101,11 @@ class AvaliacaoPosturalServiceTest {
         when(avaliacaoPosturalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
+    // atualizar/concluir/cancelar usam saveAndFlush: o listener de auditoria precisa rodar antes de montar a resposta.
+    private void devolverAnaliseAtualizada() {
+        when(avaliacaoPosturalRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+    }
+
     private void setId(Class<?> tipo, Object alvo, Long id) {
         try {
             var field = tipo.getDeclaredField("id");
@@ -189,7 +194,7 @@ class AvaliacaoPosturalServiceTest {
     void atualizar_comLandmarksValidos_devePersistirECalcularMetricas() {
         when(avaliacaoPosturalRepository.findAtivaById(10L))
                 .thenReturn(Optional.of(analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO)));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         // Ombros com Δx = 0.2 e Δy = 0.2 → reta a 45°.
         var dto = new AvaliacaoPosturalUpdateDTO(
@@ -208,14 +213,13 @@ class AvaliacaoPosturalServiceTest {
         assertThat(response.metricas().desnivelQuadrilGraus()).isNull();
         assertThat(response.landmarks()).hasSize(2);
         assertThat(response.observacoes()).isEqualTo("Elevação de ombro D");
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test
     void atualizar_comPontosNivelados_deveCalcularZeroGraus() {
         when(avaliacaoPosturalRepository.findAtivaById(10L))
                 .thenReturn(Optional.of(analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO)));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         var response = service.atualizar(
                 10L,
@@ -230,7 +234,7 @@ class AvaliacaoPosturalServiceTest {
     void atualizar_comProporcaoImagem_deveCorrigirOAnguloPelaRazaoDaFoto() {
         when(avaliacaoPosturalRepository.findAtivaById(10L))
                 .thenReturn(Optional.of(analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO)));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         // Δx normalizado 0.2 * proporção 0.5 = 0.1 efetivo; Δy = 0.2 → atan2(0.2, 0.1).
         var dto = new AvaliacaoPosturalUpdateDTO(
@@ -252,7 +256,7 @@ class AvaliacaoPosturalServiceTest {
     void atualizar_semCalibracao_deveTrazerDesvioApenasNormalizado() {
         when(avaliacaoPosturalRepository.findAtivaById(10L))
                 .thenReturn(Optional.of(analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO)));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         // Ponto médio dos ombros = 0.5; prumo em 0.48 → desvio 0.02.
         var dto = new AvaliacaoPosturalUpdateDTO(
@@ -274,7 +278,7 @@ class AvaliacaoPosturalServiceTest {
     void atualizar_comCalibracao_deveConverterDesvioParaCentimetros() {
         when(avaliacaoPosturalRepository.findAtivaById(10L))
                 .thenReturn(Optional.of(analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO)));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         var dto = new AvaliacaoPosturalUpdateDTO(
                 new BigDecimal("0.48"),
@@ -300,7 +304,7 @@ class AvaliacaoPosturalServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ORELHA");
 
-        verify(avaliacaoPosturalRepository, never()).save(any());
+        verify(avaliacaoPosturalRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -327,7 +331,7 @@ class AvaliacaoPosturalServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("concluída");
 
-        verify(avaliacaoPosturalRepository, never()).save(any());
+        verify(avaliacaoPosturalRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -359,7 +363,7 @@ class AvaliacaoPosturalServiceTest {
         analise.setLandmarks(landmarksCompletosLaterais());
         analise.setFotoContentType("image/jpeg");
         when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         var response = service.concluir(10L);
 
@@ -379,13 +383,12 @@ class AvaliacaoPosturalServiceTest {
     void cancelar_deveFazerExclusaoLogica() {
         AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.CONCLUIDA);
         when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
-        devolverAnaliseSalva();
+        devolverAnaliseAtualizada();
 
         service.cancelar(10L);
 
         assertThat(analise.isAtivo()).isFalse();
-        assertThat(analise.getDataAtualizacao()).isNotNull();
-        verify(avaliacaoPosturalRepository).save(analise);
+        verify(avaliacaoPosturalRepository).saveAndFlush(analise);
     }
 
     @Test

@@ -106,7 +106,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`
 - Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
 - As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente inexistente retorna `404` e paciente inativo `422` (regra comum de `PacienteGuard`), `competencia` no formato `MM/AAAA` (`400`), `numeroNota` no máximo 60 caracteres (`400`), `dataEmissao` não futura (`422`) e `valor`, quando informado, maior que zero (`422`). O upsert é idempotente mesmo sob concorrência: a colisão da constraint única `(paciente, competência)` é repetida automaticamente como atualização
-- Timestamps de auditoria (`dataCriacao`/`dataAtualizacao`) das NFSEs emitidas são preenchidos pelos callbacks `@PrePersist`/`@PreUpdate` da entidade, conforme a convenção do projeto
+- Timestamps e autoria das NFSEs emitidas seguem a [auditoria de criação/alteração](#auditoria-de-criação-e-alteração)
 
 ## Geração de Aulas
 
@@ -188,7 +188,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - `escalaDor` aceita apenas valores inteiros de 0 a 10
 - Consultas e atualizações não filtram por `paciente.ativo`: o histórico de ex-aluno continua acessível
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; campos textuais obrigatórios não aceitam strings em branco quando enviados
-- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
 ## Planos de Tratamento
 
@@ -200,7 +200,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Consultas por ID e por paciente filtram `plano.ativo = true` (soft delete do próprio plano), mas não por `paciente.ativo`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `objetivosTratamento` não aceita strings em branco quando enviado
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca `ativo = false` e preserva o histórico clínico
-- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
 ## Sessões de Pilates/Fisioterapia
 
@@ -215,7 +215,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Atualização parcial: `PUT /sessoes/{id}` aplica apenas campos não-nulos do DTO de update; `status` não faz parte do payload
 - A evolução clínica estruturada deve ser registrada em `/evolucoes-sessao`; o campo legado `sessoes_pilates.evolucao` não faz parte do contrato REST
 - Exclusão é física (DELETE permanente — sem soft delete, pois sessões canceladas por engano devem poder ser removidas) e remove a evolução vinculada quando existir
-- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 - `GET /sessoes?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data`, `horario` e `id` — sessões sem `horario` no fim do dia; filtros opcionais `profissionalId`, `pacienteId`, `tipo` e `status` são combináveis. Diferente das aulas, não filtra `paciente.ativo`: sessão é registro clínico e o histórico do ex-aluno continua visível
 
 ## Evoluções de Sessão
@@ -230,7 +230,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Paciente existente sem nenhuma evolução recebe `200` com lista vazia; apenas paciente inexistente retorna `404`
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - Ao excluir uma sessão, a evolução vinculada é removida junto
-- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
 ### Por que a listagem não é paginada (decisão da #158)
 
@@ -248,7 +248,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Consultas por ID e por paciente não filtram por `paciente.ativo`
 - Listagem por paciente é paginada e, por padrão, sai por `dataReavaliacao DESC, id DESC` — ver [Listagens por paciente](api.md#listagens-por-paciente)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
-- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
 ## Histórico clínico de paciente inativo
 
@@ -268,7 +268,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Campos obrigatórios no PUT: `idioma`, `tema`, `notificacoesEmail`, `notificacoesPush` (Bean Validation `@NotNull`); idioma/tema fora dos enums retornam `400`
 - Identificação do dono é feita exclusivamente por `Authentication.getName()`; e-mail é normalizado para lowercase antes da consulta
 - A FK `preferencias_usuario.user_id` usa `ON DELETE CASCADE` para que a remoção física de um usuário (cenário de teste e cleanup) leve junto suas preferências
-- `dataCriacao` é registrada na criação e `dataAtualizacao` em cada atualização
+- `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
 ## Locking otimista
 
@@ -301,6 +301,27 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
 - **Ranking por profissional:** aulas `realizada = true` entre `inicio` e `fim` (inclusive), do maior total para o menor e, no empate, por nome. Sem os dois parâmetros, usa o mês atual; com só um, período invertido ou acima de 366 dias, `400`. Profissional inativo aparece se teve aulas; aula sem profissional fica de fora.
 - Diferente das demais consultas de aulas, os indicadores **não** excluem pacientes inativos: no histórico, a inativação de hoje apagaria aulas que aconteceram.
 
+## Auditoria de criação e alteração
+
+Autor e momento da criação e da última alteração são gravados automaticamente pelo Spring Data Auditing (#109), na
+superclasse `EntidadeAuditavel`. Nenhum service preenche esses campos, e o que o cliente enviar neles é ignorado.
+
+- **Entidades auditadas:** pacientes, profissionais, planos, pagamentos, aulas, lista de espera, bloqueios de agenda,
+  NFS-e emitidas e os dados clínicos (anamnese, avaliação fisioterapêutica, análise postural, plano de tratamento,
+  sessão, evolução de sessão e reavaliação).
+- **Fora da auditoria:** registros técnicos (`users`, preferências, refresh e reset tokens), a foto da análise
+  postural (a análise em si é auditada) e os contatos de cobrança, que já guardam `registradoPor`/`registradoEm` e
+  nunca são alterados.
+- **Autor:** o e-mail do usuário autenticado. Processos sem usuário — os schedulers de cobrança — gravam `system`.
+- `dataCriacao`/`criadoPor` não mudam depois da criação. `dataAtualizacao`/`alteradoPor` ficam nulos até a primeira
+  alteração e passam a refletir a última.
+- Só alterações que mudam a linha contam: um `PUT` sem nenhum campo diferente não atualiza `dataAtualizacao`. A
+  substituição da foto da análise postural conta como alteração da análise.
+- Registros anteriores à `V43` ficam com autor nulo, e os das tabelas que não tinham timestamp também ficam sem
+  `dataCriacao`: não há como saber quem os criou, nem quando.
+- É só autoria: o que mudou em cada alteração não é guardado. Um histórico de valores (Hibernate Envers) seria um
+  passo separado.
+
 ## Scheduler (processos automáticos)
 
 | Cron (default) | Horário | Ação | Propriedade |
@@ -312,6 +333,8 @@ O vencimento das cobranças geradas pelo scheduler é definido por `app.cobranca
 `APP_COBRANCA_VENCIMENTO_DIAS`, default `10`), somado ao início do período. O tamanho padrão de página nas
 listagens paginadas é controlado por `spring.data.web.pageable.default-page-size`, alimentado pela env
 `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`).
+
+As alterações feitas pelos schedulers são gravadas com autor `system` ([auditoria](#auditoria-de-criação-e-alteração)).
 
 ## Ver também
 

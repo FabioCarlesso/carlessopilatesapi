@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "evolucoes_sessao")
-public class EvolucaoSessao {
+public class EvolucaoSessao extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,17 +60,7 @@ public class EvolucaoSessao {
     @Column(columnDefinition = "TEXT")
     private String observacoesFisioterapeuta;
 
-    @Column(nullable = false)
-    private LocalDateTime dataCriacao;
-
-    private LocalDateTime dataAtualizacao;
-
     public EvolucaoSessao() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
 
     public Long getVersion() {
         return version;
@@ -190,21 +180,5 @@ public class EvolucaoSessao {
 
     public void setObservacoesFisioterapeuta(String observacoesFisioterapeuta) {
         this.observacoesFisioterapeuta = observacoesFisioterapeuta;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

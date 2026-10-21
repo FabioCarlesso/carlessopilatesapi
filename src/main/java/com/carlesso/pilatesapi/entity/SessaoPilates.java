@@ -4,12 +4,11 @@ import com.carlesso.pilatesapi.entity.enums.StatusSessao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "sessoes_pilates")
-public class SessaoPilates {
+public class SessaoPilates extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,17 +55,7 @@ public class SessaoPilates {
     @Column(columnDefinition = "TEXT")
     private String evolucao;
 
-    @Column(nullable = false)
-    private LocalDateTime dataCriacao;
-
-    private LocalDateTime dataAtualizacao;
-
     public SessaoPilates() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
 
     public Long getVersion() {
         return version;
@@ -162,21 +151,5 @@ public class SessaoPilates {
 
     public void setEvolucao(String evolucao) {
         this.evolucao = evolucao;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

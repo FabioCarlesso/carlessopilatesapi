@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
+import com.carlesso.pilatesapi.security.UsuarioAuditorAware;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.PagamentoService;
 import com.carlesso.pilatesapi.support.MetricsTestConfig;
@@ -89,6 +90,22 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void atualizarVencidos_registraSystemComoAutorDaAlteracao() {
+        Paciente paciente = pacienteRepository.save(paciente("Ana", "ana@email.com", "11122233344", true));
+        Plano plano = planoRepository.save(plano(paciente));
+        Pagamento pendente = pagamentoRepository.save(pagamento(
+                paciente, plano, StatusPagamento.PENDENTE, LocalDate.now().minusDays(1)));
+
+        scheduler.atualizarPagamentosVencidos();
+        entityManager.flush();
+        entityManager.clear();
+
+        Pagamento atualizado = pagamentoRepository.findById(pendente.getId()).orElseThrow();
+        assertThat(atualizado.getAlteradoPor()).isEqualTo(UsuarioAuditorAware.SISTEMA);
+        assertThat(atualizado.getDataAtualizacao()).isNotNull();
+    }
+
+    @Test
     void atualizarVencidos_naoAlteraPendenteDentroDoVencimento() {
         Paciente paciente = pacienteRepository.save(paciente("Ana", "ana@email.com", "11122233344", true));
         Plano plano = planoRepository.save(plano(paciente));
@@ -150,6 +167,19 @@ class CobrancaSchedulerIntegrationTest extends PostgresTestcontainerSupport {
         List<Pagamento> pagamentos = pagamentoRepository.findByPacienteId(paciente.getId());
         assertThat(pagamentos).hasSize(1);
         assertThat(pagamentos.get(0).getStatus()).isEqualTo(StatusPagamento.PENDENTE);
+    }
+
+    @Test
+    void gerarCobrancasFuturas_registraSystemComoAutorDaCobranca() {
+        Paciente paciente = pacienteRepository.save(paciente("Bia", "bia@email.com", "22233344455", true));
+        planoRepository.save(plano(paciente));
+
+        scheduler.gerarCobrancasFuturas();
+
+        Pagamento gerado =
+                pagamentoRepository.findByPacienteId(paciente.getId()).get(0);
+        assertThat(gerado.getCriadoPor()).isEqualTo(UsuarioAuditorAware.SISTEMA);
+        assertThat(gerado.getDataCriacao()).isNotNull();
     }
 
     @Test

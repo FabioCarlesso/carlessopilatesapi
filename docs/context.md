@@ -12,6 +12,10 @@ API REST para gerenciar pacientes e profissionais de um estúdio de pilates. Per
 
 ## Modelo de dados
 
+> As tabelas de negócio têm também as colunas de auditoria `data_criacao`, `data_atualizacao`, `criado_por` e
+> `alterado_por` (`V43`, #109); as tabelas abaixo só as listam onde já existiam antes. Ver
+> [`regras-de-negocio.md`](regras-de-negocio.md#auditoria-de-criação-e-alteração).
+
 ### Tabela `pacientes`
 
 | Campo | Tipo | Restrição |
@@ -386,6 +390,7 @@ Consolidadas em [`regras-de-negocio.md`](regras-de-negocio.md), fonte única do 
 - **DDL via Flyway**: `spring.jpa.hibernate.ddl-auto=validate` — o Flyway gerencia o schema; o Hibernate apenas valida.
 - **Deploy pela Railway, sem registry de imagens** (#103): a issue propunha publicar a imagem no GHCR e subir a produção por `docker compose` a partir dela, para que o que roda fosse o que a CI testou e houvesse rollback rápido. A produção, porém, roda na Railway, que builda o `Dockerfile` do commit e já cobre os dois pontos: *Wait for CI* segura o deploy até a CI passar, e o rollback do painel reaproveita a imagem do deploy anterior. Publicar no GHCR só faria sentido trocando a fonte do serviço para imagem, o que traria pacote, tag e credencial para gerir sem ganho real; a diferença que sobra — a Railway rebuildar a partir do mesmo commit em vez de reusar o artefato da CI — é pequena com um `Dockerfile` determinístico. A configuração do serviço vive no painel, e o que ela precisa ter está em [`deploy.md`](deploy.md#produção--railway).
 - **Transações de leitura**: métodos de consulta nos services usam `@Transactional(readOnly = true)` para evitar flush desnecessário e permitir otimizações de conexão.
+- **Autoria com o e-mail do usuário, sem FK e sem renomear as datas** (#109): o autor gravado é o principal que o `JwtAuthenticationFilter` já põe no `SecurityContext` — o e-mail —, então o `AuditorAware` não consulta o banco a cada escrita. Gravar o id exigiria essa consulta e um join para exibir; uma FK para `users` faria a autoria depender do usuário continuar existindo, e o registro de quem alterou um prontuário não pode sumir com ele. As colunas `data_criacao`/`data_atualizacao` existentes foram reaproveitadas, e os campos JSON mantiveram os nomes, porque o frontend os lê e separa pelo nome nos formulários do prontuário; a autoria entrou só como campos novos. `modifyOnCreate = false` preserva o contrato anterior de `dataAtualizacao` nula até a primeira alteração. O histórico de valores (Envers) ficou para uma issue futura.
 - **Indicador de saúde de mail desligado enquanto não houver SMTP**: o starter de mail no classpath registra o `MailHealthIndicator` por padrão. Sem SMTP contratado (`spring.mail.host` vazio), ele falha continuamente e derruba o `/actuator/health` agregado para `DOWN`, ainda que app e banco estejam sãos — os probes seguem `UP` porque usam grupos restritos. Por isso `management.health.mail.enabled=false` é declarado uma vez no `application.properties` principal, valendo para todos os perfis; o `application.properties` de teste repete a chave porque sombreia o principal no classpath, e o `MailHealthPropriedadesTest` guarda essa duplicação obrigatória. Ao contratar SMTP, reative com `=true` no perfil desejado e ajuste o teste junto. O healthcheck externo deve apontar para `/actuator/health/readiness` — ver [`operacao.md`](operacao.md).
 
 ---

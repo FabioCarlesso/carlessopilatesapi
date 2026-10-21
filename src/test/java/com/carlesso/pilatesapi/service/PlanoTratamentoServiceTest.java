@@ -229,7 +229,6 @@ class PlanoTratamentoServiceTest {
         assertThat(response.objetivosTratamento()).isEqualTo("Objetivos atualizados");
         assertThat(response.numeroSessoesPrevistas()).isEqualTo(30);
         assertThat(response.frequenciaSessoes()).isEqualTo("2x por semana");
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test
@@ -264,7 +263,6 @@ class PlanoTratamentoServiceTest {
         service.inativar(1L);
 
         assertThat(p.isAtivo()).isFalse();
-        assertThat(p.getDataAtualizacao()).isNotNull();
     }
 
     @Test

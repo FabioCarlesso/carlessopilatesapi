@@ -71,6 +71,8 @@ class AvaliacaoPosturalControllerTest {
                         new LandmarkDTO(CodigoLandmark.OMBRO_DIR, new BigDecimal("0.603"), new BigDecimal("0.247"))),
                 new MetricasPosturaisDTO(null, new BigDecimal("2.30"), null, null, new BigDecimal("0.0100"), null),
                 LocalDateTime.of(2026, 7, 20, 10, 0),
+                null,
+                "admin@carlessopilates.com",
                 null);
     }
 

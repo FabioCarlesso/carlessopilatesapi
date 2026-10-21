@@ -64,6 +64,8 @@ class AnamneseControllerTest {
                 "Paciente relata estresse",
                 LocalDateTime.of(2026, 1, 15, 10, 0),
                 null,
+                "admin@carlessopilates.com",
+                null,
                 null);
     }
 
@@ -214,6 +216,8 @@ class AnamneseControllerTest {
                 "Paciente relata estresse",
                 LocalDateTime.of(2026, 1, 15, 10, 0),
                 LocalDateTime.of(2026, 3, 10, 9, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
@@ -223,6 +227,40 @@ class AnamneseControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.queixaPrincipal").value("Nova queixa"))
                 .andExpect(jsonPath("$.dataAtualizacao").isNotEmpty());
+    }
+
+    // Contrato consumido pelo frontend (#109): os nomes das datas não mudam e a autoria só acrescenta campos.
+    @Test
+    void atualizar_deveExporDatasEAutoriaNosNomesDoContrato() throws Exception {
+        var updated = new AnamneseResponseDTO(
+                1L,
+                1L,
+                "Maria Souza",
+                "Nova queixa",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Melhorar postura",
+                null,
+                LocalDateTime.of(2026, 1, 15, 10, 0),
+                LocalDateTime.of(2026, 3, 10, 9, 0),
+                "recepcao@carlessopilates.com",
+                "fisio@carlessopilates.com",
+                1L);
+        when(service.atualizar(eq(1L), any())).thenReturn(updated);
+
+        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null, null);
+
+        mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dataCriacao").value("2026-01-15T10:00:00"))
+                .andExpect(jsonPath("$.dataAtualizacao").value("2026-03-10T09:00:00"))
+                .andExpect(jsonPath("$.criadoPor").value("recepcao@carlessopilates.com"))
+                .andExpect(jsonPath("$.alteradoPor").value("fisio@carlessopilates.com"));
     }
 
     @Test

@@ -76,6 +76,21 @@ transações; repositories fazem o acesso a dados. DTOs são records, com factor
 Métodos de leitura em services usam `@Transactional(readOnly = true)` para reduzir flush desnecessário e
 preparar a aplicação para roteamento futuro de leituras.
 
+## Auditoria
+
+Entidades de negócio estendem `EntidadeAuditavel` (pacote `entity`), um `@MappedSuperclass` com `dataCriacao`,
+`dataAtualizacao`, `criadoPor` e `alteradoPor` preenchidos pelo `AuditingEntityListener` do Spring Data. O autor vem
+do `UsuarioAuditorAware` (pacote `security`), que lê o e-mail do `SecurityContext` ou devolve `system`; o
+`@EnableJpaAuditing` fica em `JpaAuditingConfig`, fora da classe principal, para não ser carregado pelos testes
+`@WebMvcTest`.
+
+Dois cuidados ao escrever código novo:
+
+- O listener roda no flush. Um update que monta a resposta a partir da entidade precisa usar `saveAndFlush`, ou a
+  resposta sai com `dataAtualizacao`/`alteradoPor` antigos.
+- UPDATEs em massa (`@Modifying`) não passam pelo listener e precisam gravar data e autor explicitamente, como
+  `SessaoPilatesRepository.transicionarStatusSeAgendada`.
+
 ## Tratamento de erros
 
 Toda resposta de erro segue a [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) e sai como

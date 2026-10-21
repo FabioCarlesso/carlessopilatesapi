@@ -245,7 +245,6 @@ class AvaliacaoFisioterapeuticaServiceTest {
         assertThat(response.queixaFuncional()).isEqualTo("Dor reduzida ao agachar");
         assertThat(response.escalaDor()).isEqualTo(3);
         assertThat(response.diagnosticoFisioterapeutico()).isEqualTo("Disfunção lombopélvica");
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test

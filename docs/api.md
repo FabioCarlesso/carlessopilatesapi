@@ -26,6 +26,18 @@ corpo do update (`PUT /pacientes/{id}`, `PUT /profissionais/{id}`, `PUT /anamnes
 - `GET /users/me/preferencias` de quem nunca salvou devolve os padrões com `version: null`; o primeiro save
   também vai sem versão.
 
+## Autoria (`criadoPor` / `alteradoPor`)
+
+As respostas dos dados clínicos — anamnese, avaliação fisioterapêutica, análise postural, plano de tratamento,
+sessão, evolução de sessão e reavaliação — trazem, ao lado de `dataCriacao` e `dataAtualizacao`:
+
+- `criadoPor`: e-mail de quem criou o registro, ou `system` para processos automáticos;
+- `alteradoPor`: e-mail de quem fez a última alteração, `null` enquanto não houver alteração.
+
+Os quatro campos são só de leitura: enviados no request, são ignorados. `dataCriacao` e `dataAtualizacao` mantêm os
+nomes e o formato de antes da #109, porque o frontend depende deles. Registros anteriores à auditoria vêm com autor
+`null`. As regras de preenchimento estão em [`regras-de-negocio.md`](regras-de-negocio.md#auditoria-de-criação-e-alteração).
+
 ## Autenticação
 
 | Método | Endpoint | Acesso | Descrição |

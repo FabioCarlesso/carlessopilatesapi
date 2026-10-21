@@ -12,7 +12,6 @@ import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -91,7 +90,6 @@ public class PlanoTratamentoService {
         if (dto.frequenciaSessoes() != null) plano.setFrequenciaSessoes(dto.frequenciaSessoes());
         if (dto.responsavelTratamento() != null) plano.setResponsavelTratamento(dto.responsavelTratamento());
         if (dto.observacoes() != null) plano.setObservacoes(dto.observacoes());
-        plano.setDataAtualizacao(LocalDateTime.now());
 
         return PlanoTratamentoResponseDTO.from(planoTratamentoRepository.saveAndFlush(plano));
     }
@@ -100,7 +98,6 @@ public class PlanoTratamentoService {
     public void inativar(Long id) {
         PlanoTratamento plano = encontrar(id);
         plano.setAtivo(false);
-        plano.setDataAtualizacao(LocalDateTime.now());
     }
 
     private PlanoTratamento encontrar(Long id) {

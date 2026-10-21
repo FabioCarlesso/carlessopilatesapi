@@ -65,6 +65,8 @@ class EvolucaoSessaoControllerTest {
                 null,
                 LocalDateTime.of(2026, 5, 10, 10, 30),
                 null,
+                "admin@carlessopilates.com",
+                null,
                 null);
     }
 
@@ -229,6 +231,8 @@ class EvolucaoSessaoControllerTest {
                 null,
                 LocalDateTime.of(2026, 4, 20, 9, 0),
                 null,
+                "admin@carlessopilates.com",
+                null,
                 null);
         when(service.listarPorPaciente(1L)).thenReturn(List.of(responseDTO(), anterior));
 
@@ -283,6 +287,8 @@ class EvolucaoSessaoControllerTest {
                 null,
                 LocalDateTime.of(2026, 5, 10, 10, 30),
                 LocalDateTime.of(2026, 5, 10, 11, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 

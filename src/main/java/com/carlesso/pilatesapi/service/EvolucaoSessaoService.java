@@ -13,7 +13,6 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.VersaoGuard;
-import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -111,7 +110,6 @@ public class EvolucaoSessaoService {
         if (dto.orientacoes() != null) evolucao.setOrientacoes(dto.orientacoes());
         if (dto.observacoesFisioterapeuta() != null)
             evolucao.setObservacoesFisioterapeuta(dto.observacoesFisioterapeuta());
-        evolucao.setDataAtualizacao(LocalDateTime.now());
 
         return EvolucaoSessaoResponseDTO.from(evolucaoRepository.saveAndFlush(evolucao));
     }

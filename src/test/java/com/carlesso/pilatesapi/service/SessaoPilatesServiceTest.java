@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -58,6 +59,9 @@ class SessaoPilatesServiceTest {
 
     @Mock
     private EvolucaoSessaoRepository evolucaoSessaoRepository;
+
+    @Mock
+    private AuditorAware<String> auditorAware;
 
     @InjectMocks
     private SessaoPilatesService service;
@@ -317,7 +321,6 @@ class SessaoPilatesServiceTest {
         assertThat(response.local()).isEqualTo("Sala 1");
         assertThat(response.duracaoMinutos()).isEqualTo(60);
         assertThat(response.status()).isEqualTo(StatusSessao.AGENDADA);
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test
@@ -336,7 +339,7 @@ class SessaoPilatesServiceTest {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(sessaoRepository.transicionarStatusSeAgendada(
-                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class), any()))
                 .thenReturn(1);
 
         SessaoPilatesResponseDTO response = service.realizar(1L);
@@ -344,7 +347,7 @@ class SessaoPilatesServiceTest {
         assertThat(response.status()).isEqualTo(StatusSessao.REALIZADA);
         assertThat(response.dataAtualizacao()).isNotNull();
         verify(sessaoRepository)
-                .transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class));
+                .transicionarStatusSeAgendada(eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class), any());
     }
 
     @Test
@@ -357,7 +360,7 @@ class SessaoPilatesServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida")
                 .hasMessageContaining("REALIZADA");
-        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class), any());
     }
 
     @Test
@@ -370,7 +373,7 @@ class SessaoPilatesServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida")
                 .hasMessageContaining("CANCELADA");
-        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class), any());
     }
 
     @Test
@@ -380,7 +383,7 @@ class SessaoPilatesServiceTest {
         assertThatThrownBy(() -> service.realizar(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
-        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class), any());
     }
 
     @Test
@@ -388,7 +391,7 @@ class SessaoPilatesServiceTest {
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.realizar(1L)).isInstanceOf(ResourceNotFoundException.class);
-        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class), any());
     }
 
     @Test
@@ -398,7 +401,7 @@ class SessaoPilatesServiceTest {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(sessaoRepository.transicionarStatusSeAgendada(
-                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class)))
+                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class), any()))
                 .thenReturn(0);
 
         assertThatThrownBy(() -> service.realizar(1L))
@@ -411,13 +414,42 @@ class SessaoPilatesServiceTest {
         SessaoPilates s = sessao(paciente());
         when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
         when(sessaoRepository.transicionarStatusSeAgendada(
-                        eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class)))
+                        eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class), any()))
                 .thenReturn(1);
 
         SessaoPilatesResponseDTO response = service.cancelar(1L);
 
         assertThat(response.status()).isEqualTo(StatusSessao.CANCELADA);
         assertThat(response.dataAtualizacao()).isNotNull();
+    }
+
+    @Test
+    void realizar_deveGravarUsuarioAutenticadoComoAutorDaAlteracao() {
+        // O UPDATE em massa não passa pelo listener de auditoria: o autor vai explícito na query.
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(auditorAware.getCurrentAuditor()).thenReturn(Optional.of("fisio@carlessopilates.com"));
+        when(sessaoRepository.transicionarStatusSeAgendada(
+                        eq(1L), eq(StatusSessao.REALIZADA), any(LocalDateTime.class), eq("fisio@carlessopilates.com")))
+                .thenReturn(1);
+
+        SessaoPilatesResponseDTO response = service.realizar(1L);
+
+        assertThat(response.alteradoPor()).isEqualTo("fisio@carlessopilates.com");
+    }
+
+    @Test
+    void cancelar_semUsuarioAutenticado_deveGravarSystemComoAutor() {
+        SessaoPilates s = sessao(paciente());
+        when(sessaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(s));
+        when(auditorAware.getCurrentAuditor()).thenReturn(Optional.empty());
+        when(sessaoRepository.transicionarStatusSeAgendada(
+                        eq(1L), eq(StatusSessao.CANCELADA), any(LocalDateTime.class), eq("system")))
+                .thenReturn(1);
+
+        SessaoPilatesResponseDTO response = service.cancelar(1L);
+
+        assertThat(response.alteradoPor()).isEqualTo("system");
     }
 
     @Test
@@ -429,7 +461,7 @@ class SessaoPilatesServiceTest {
         assertThatThrownBy(() -> service.cancelar(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Transição inválida");
-        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class));
+        verify(sessaoRepository, never()).transicionarStatusSeAgendada(any(), any(), any(LocalDateTime.class), any());
     }
 
     @Test
