@@ -50,7 +50,7 @@ class NotaFiscalEmitidaRepositoryTest extends PostgresTestcontainerSupport {
 
         assertThat(nota).isPresent();
         assertThat(nota.get().getNumeroNota()).isEqualTo("NF-1");
-        // dataCriacao é preenchida automaticamente pelo callback @PrePersist (helper não a define).
+        // dataCriacao é preenchida pelo Spring Data Auditing (o helper não a define).
         assertThat(nota.get().getDataCriacao()).isNotNull();
     }
 

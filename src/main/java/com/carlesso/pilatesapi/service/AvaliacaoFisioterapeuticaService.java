@@ -54,7 +54,7 @@ public class AvaliacaoFisioterapeuticaService {
         avaliacao.setTestesFuncionaisRealizados(dto.testesFuncionaisRealizados());
         avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         avaliacao.setObservacoesGerais(dto.observacoesGerais());
-        // dataCriacao definida por @PrePersist na entidade
+        // dataCriacao/criadoPor preenchidos pelo Spring Data Auditing (EntidadeAuditavel)
 
         return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.save(avaliacao));
     }
