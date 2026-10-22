@@ -1,11 +1,10 @@
 package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "anamneses")
-public class Anamnese {
+public class Anamnese extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,11 +48,6 @@ public class Anamnese {
 
     @Column(columnDefinition = "TEXT")
     private String observacoes;
-
-    @Column(nullable = false)
-    private LocalDateTime dataCriacao;
-
-    private LocalDateTime dataAtualizacao;
 
     public Anamnese() {}
 
@@ -151,21 +145,5 @@ public class Anamnese {
 
     public void setObservacoes(String observacoes) {
         this.observacoes = observacoes;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

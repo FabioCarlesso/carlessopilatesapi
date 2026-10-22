@@ -16,7 +16,6 @@ import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.VersaoGuard;
-import java.time.LocalDateTime;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -124,7 +123,6 @@ public class ReavaliacaoService {
         if (dto.pontosAtencao() != null) reavaliacao.setPontosAtencao(dto.pontosAtencao());
         if (dto.ajustesRecomendados() != null) reavaliacao.setAjustesRecomendados(dto.ajustesRecomendados());
         if (dto.observacoesGerais() != null) reavaliacao.setObservacoesGerais(dto.observacoesGerais());
-        reavaliacao.setDataAtualizacao(LocalDateTime.now());
 
         return ReavaliacaoResponseDTO.from(reavaliacaoRepository.saveAndFlush(reavaliacao));
     }

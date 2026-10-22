@@ -11,7 +11,6 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.VersaoGuard;
-import java.time.LocalDateTime;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,7 +54,7 @@ public class AvaliacaoFisioterapeuticaService {
         avaliacao.setTestesFuncionaisRealizados(dto.testesFuncionaisRealizados());
         avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         avaliacao.setObservacoesGerais(dto.observacoesGerais());
-        // dataCriacao definida por @PrePersist na entidade
+        // dataCriacao/criadoPor preenchidos pelo Spring Data Auditing (EntidadeAuditavel)
 
         return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.save(avaliacao));
     }
@@ -98,7 +97,6 @@ public class AvaliacaoFisioterapeuticaService {
         if (dto.diagnosticoFisioterapeutico() != null)
             avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         if (dto.observacoesGerais() != null) avaliacao.setObservacoesGerais(dto.observacoesGerais());
-        avaliacao.setDataAtualizacao(LocalDateTime.now());
 
         return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.saveAndFlush(avaliacao));
     }

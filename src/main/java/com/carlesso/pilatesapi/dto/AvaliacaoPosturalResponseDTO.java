@@ -22,7 +22,11 @@ public record AvaliacaoPosturalResponseDTO(
         List<LandmarkDTO> landmarks,
         MetricasPosturaisDTO metricas,
         LocalDateTime dataCriacao,
-        LocalDateTime dataAtualizacao) {
+        LocalDateTime dataAtualizacao,
+        @Schema(description = "E-mail de quem criou o registro; \"system\" para processos automáticos")
+                String criadoPor,
+        @Schema(description = "E-mail de quem fez a última alteração; nulo enquanto não houver alteração")
+                String alteradoPor) {
 
     public static AvaliacaoPosturalResponseDTO from(
             AvaliacaoPostural a, List<LandmarkDTO> landmarks, MetricasPosturaisDTO metricas) {
@@ -39,6 +43,8 @@ public record AvaliacaoPosturalResponseDTO(
                 landmarks,
                 metricas,
                 a.getDataCriacao(),
-                a.getDataAtualizacao());
+                a.getDataAtualizacao(),
+                a.getCriadoPor(),
+                a.getAlteradoPor());
     }
 }

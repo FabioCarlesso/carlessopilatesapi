@@ -27,21 +27,26 @@ public interface SessaoPilatesRepository extends JpaRepository<SessaoPilates, Lo
     Optional<SessaoPilates> findByIdComPaciente(@Param("id") Long id);
 
     // UPDATE em massa: garante atomicidade da transição de status contra concorrência,
-    // mas bypassa @PreUpdate/lifecycle callbacks da entidade. Por isso `dataAtualizacao`
-    // precisa ser passado explicitamente.
+    // mas bypassa @PreUpdate/lifecycle callbacks da entidade — inclusive o listener de auditoria —
+    // e o @Version. Por isso `dataAtualizacao` e `alteradoPor` são passados explicitamente e a versão
+    // é incrementada na própria query: sem isso, um formulário aberto antes do realizar/cancelar
+    // salvaria por cima da transição sem receber 409.
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
             """
             UPDATE SessaoPilates s
             SET s.status = :novoStatus,
-                s.dataAtualizacao = :dataAtualizacao
+                s.dataAtualizacao = :dataAtualizacao,
+                s.alteradoPor = :alteradoPor,
+                s.version = s.version + 1
             WHERE s.id = :id
               AND s.status = com.carlesso.pilatesapi.entity.enums.StatusSessao.AGENDADA
             """)
     int transicionarStatusSeAgendada(
             @Param("id") Long id,
             @Param("novoStatus") StatusSessao novoStatus,
-            @Param("dataAtualizacao") LocalDateTime dataAtualizacao);
+            @Param("dataAtualizacao") LocalDateTime dataAtualizacao,
+            @Param("alteradoPor") String alteradoPor);
 
     /** Ordenação vem do {@code Pageable}; a contagem é explícita porque não pode carregar os {@code JOIN FETCH}. */
     @Query(

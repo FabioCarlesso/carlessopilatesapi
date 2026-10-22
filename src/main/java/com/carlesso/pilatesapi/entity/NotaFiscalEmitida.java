@@ -3,13 +3,12 @@ package com.carlesso.pilatesapi.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(
         name = "notas_fiscais_emitidas",
         uniqueConstraints = @UniqueConstraint(columnNames = {"paciente_id", "competencia"}))
-public class NotaFiscalEmitida {
+public class NotaFiscalEmitida extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,23 +37,7 @@ public class NotaFiscalEmitida {
     @Column(columnDefinition = "TEXT")
     private String observacoes;
 
-    @Column(name = "data_criacao", nullable = false)
-    private LocalDateTime dataCriacao;
-
-    @Column(name = "data_atualizacao")
-    private LocalDateTime dataAtualizacao;
-
     public NotaFiscalEmitida() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        this.dataAtualizacao = LocalDateTime.now();
-    }
 
     public Long getId() {
         return id;
@@ -106,21 +89,5 @@ public class NotaFiscalEmitida {
 
     public void setObservacoes(String observacoes) {
         this.observacoes = observacoes;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

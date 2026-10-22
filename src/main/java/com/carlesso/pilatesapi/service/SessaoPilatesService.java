@@ -16,6 +16,7 @@ import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PlanoTratamentoRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import com.carlesso.pilatesapi.security.UsuarioAuditorAware;
 import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
@@ -24,6 +25,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import org.springframework.data.auditing.DateTimeProvider;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -40,18 +43,24 @@ public class SessaoPilatesService {
     private final ProfissionalRepository profissionalRepository;
     private final PlanoTratamentoRepository planoTratamentoRepository;
     private final EvolucaoSessaoRepository evolucaoSessaoRepository;
+    private final AuditorAware<String> auditorAware;
+    private final DateTimeProvider dateTimeProvider;
 
     public SessaoPilatesService(
             SessaoPilatesRepository sessaoRepository,
             PacienteRepository pacienteRepository,
             ProfissionalRepository profissionalRepository,
             PlanoTratamentoRepository planoTratamentoRepository,
-            EvolucaoSessaoRepository evolucaoSessaoRepository) {
+            EvolucaoSessaoRepository evolucaoSessaoRepository,
+            AuditorAware<String> auditorAware,
+            DateTimeProvider dateTimeProvider) {
         this.sessaoRepository = sessaoRepository;
         this.pacienteRepository = pacienteRepository;
         this.profissionalRepository = profissionalRepository;
         this.planoTratamentoRepository = planoTratamentoRepository;
         this.evolucaoSessaoRepository = evolucaoSessaoRepository;
+        this.auditorAware = auditorAware;
+        this.dateTimeProvider = dateTimeProvider;
     }
 
     @Transactional
@@ -138,7 +147,6 @@ public class SessaoPilatesService {
         if (dto.local() != null) sessao.setLocal(dto.local());
         if (dto.duracaoMinutos() != null) sessao.setDuracaoMinutos(dto.duracaoMinutos());
         if (dto.observacoes() != null) sessao.setObservacoes(dto.observacoes());
-        sessao.setDataAtualizacao(LocalDateTime.now());
 
         return SessaoPilatesResponseDTO.from(sessaoRepository.saveAndFlush(sessao));
     }
@@ -161,15 +169,16 @@ public class SessaoPilatesService {
                     "Transição inválida: sessão " + sessao.getStatus() + " não pode ser alterada para " + novoStatus);
         }
 
-        LocalDateTime agora = LocalDateTime.now();
-        int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, agora);
+        // Mesmo relógio e mesmo autor do listener de auditoria, que o UPDATE em massa não aciona.
+        LocalDateTime agora = LocalDateTime.from(dateTimeProvider.getNow().orElseGet(LocalDateTime::now));
+        String autor = auditorAware.getCurrentAuditor().orElse(UsuarioAuditorAware.SISTEMA);
+        int atualizadas = sessaoRepository.transicionarStatusSeAgendada(id, novoStatus, agora, autor);
         if (atualizadas == 0) {
             throw new BusinessException("Sessão foi modificada concorrentemente; recarregue e tente novamente");
         }
 
-        sessao.setStatus(novoStatus);
-        sessao.setDataAtualizacao(agora);
-        return SessaoPilatesResponseDTO.from(sessao);
+        // O UPDATE desanexa a entidade (clearAutomatically): a resposta relê o estado gravado, com a versão nova.
+        return SessaoPilatesResponseDTO.from(encontrar(id));
     }
 
     @Transactional

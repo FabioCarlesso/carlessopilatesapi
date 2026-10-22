@@ -271,7 +271,6 @@ class AnamneseServiceTest {
         assertThat(response.queixaPrincipal()).isEqualTo("Nova queixa");
         assertThat(response.historicoCirurgias()).isEqualTo("Nenhuma");
         assertThat(response.objetivos()).isEqualTo("Melhorar postura e reduzir dores");
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test

@@ -2,11 +2,10 @@ package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "planos_tratamento")
-public class PlanoTratamento {
+public class PlanoTratamento extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,19 +43,9 @@ public class PlanoTratamento {
     private String observacoes;
 
     @Column(nullable = false)
-    private LocalDateTime dataCriacao;
-
-    private LocalDateTime dataAtualizacao;
-
-    @Column(nullable = false)
     private boolean ativo = true;
 
     public PlanoTratamento() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
 
     public Long getVersion() {
         return version;
@@ -136,22 +125,6 @@ public class PlanoTratamento {
 
     public void setObservacoes(String observacoes) {
         this.observacoes = observacoes;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 
     public boolean isAtivo() {

@@ -121,13 +121,13 @@ class BloqueioAgendaRepositoryTest extends PostgresTestcontainerSupport {
         BloqueioAgenda salvo = repository.findQueIntersectamPeriodo(INICIO, FIM).getFirst();
 
         assertThat(salvo.isDiaInteiro()).isTrue();
-        // dataCriacao é preenchida pelo callback @PrePersist (o helper não a define).
+        // dataCriacao é preenchida pelo Spring Data Auditing (o helper não a define).
         assertThat(salvo.getDataCriacao()).isNotNull();
         assertThat(salvo.getDataAtualizacao()).isNull();
     }
 
     @Test
-    void atualizar_preencheDataAtualizacaoPeloCallbackPreUpdate() {
+    void atualizar_preencheDataAtualizacaoPelaAuditoria() {
         persistir(LocalDate.of(2026, 9, 7), LocalDate.of(2026, 9, 7), "Independência");
         entityManager.clear();
 

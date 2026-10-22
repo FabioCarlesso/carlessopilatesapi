@@ -47,6 +47,10 @@ A suíte usa dois bancos, conforme o que cada teste precisa exercitar:
   como o **índice parcial de unicidade** da V23 (`WHERE email/cpf IS NOT NULL`), que não
   existe no H2, ficam cobertos.
 
+Testes de repositório usam a meta-anotação `@PostgresDataJpaTest`, que também importa o `JpaAuditingConfig`. O
+slice `@DataJpaTest` não carrega as classes `@Configuration` da aplicação, e sem o Spring Data Auditing as entidades
+auditáveis seriam gravadas sem `data_criacao`.
+
 > Rodar esses testes exige **Docker** disponível na máquina. No CI o runner
 > `ubuntu-latest` já o fornece; localmente, garanta o daemon ativo antes de `mvn verify`.
 

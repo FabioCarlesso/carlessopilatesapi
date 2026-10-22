@@ -65,6 +65,8 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 "Reavaliar em 30 dias",
                 LocalDateTime.of(2026, 4, 20, 10, 0),
                 null,
+                "admin@carlessopilates.com",
+                null,
                 null);
     }
 
@@ -222,6 +224,8 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 "Evoluiu com exercícios",
                 LocalDateTime.of(2026, 4, 20, 10, 0),
                 LocalDateTime.of(2026, 5, 5, 9, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 

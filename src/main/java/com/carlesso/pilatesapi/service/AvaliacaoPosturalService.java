@@ -108,7 +108,7 @@ public class AvaliacaoPosturalService {
         analise.setAvaliacaoFisioterapeutica(avaliacaoFisioterapeutica);
         analise.setVista(dto.vista());
         analise.setStatus(StatusAvaliacaoPostural.RASCUNHO);
-        // dataCriacao definida por @PrePersist na entidade
+        // dataCriacao/criadoPor preenchidos pelo Spring Data Auditing (EntidadeAuditavel)
 
         return montarResposta(avaliacaoPosturalRepository.save(analise));
     }
@@ -139,9 +139,8 @@ public class AvaliacaoPosturalService {
         if (dto.calibracaoCmPorUnidade() != null) analise.setCalibracaoCmPorUnidade(dto.calibracaoCmPorUnidade());
         if (dto.proporcaoImagem() != null) analise.setProporcaoImagem(dto.proporcaoImagem());
         if (dto.observacoes() != null) analise.setObservacoes(dto.observacoes());
-        analise.setDataAtualizacao(LocalDateTime.now());
 
-        return montarResposta(avaliacaoPosturalRepository.save(analise));
+        return montarResposta(avaliacaoPosturalRepository.saveAndFlush(analise));
     }
 
     @Transactional
@@ -163,9 +162,8 @@ public class AvaliacaoPosturalService {
         }
 
         analise.setStatus(StatusAvaliacaoPostural.CONCLUIDA);
-        analise.setDataAtualizacao(LocalDateTime.now());
 
-        return montarResposta(avaliacaoPosturalRepository.save(analise));
+        return montarResposta(avaliacaoPosturalRepository.saveAndFlush(analise));
     }
 
     @Transactional
@@ -173,9 +171,8 @@ public class AvaliacaoPosturalService {
         AvaliacaoPostural analise = encontrar(id);
 
         analise.setAtivo(false);
-        analise.setDataAtualizacao(LocalDateTime.now());
 
-        return montarResposta(avaliacaoPosturalRepository.save(analise));
+        return montarResposta(avaliacaoPosturalRepository.saveAndFlush(analise));
     }
 
     /**
@@ -209,6 +206,8 @@ public class AvaliacaoPosturalService {
         FotoArmazenada salva = fotoStorage.salvar(id, conteudo, contentType, dimensao.largura(), dimensao.altura());
 
         analise.setFotoContentType(contentType);
+        // A substituição da foto mexe só na tabela de fotos; sem tocar a análise, o mesmo content type não a deixaria
+        // suja e o listener de auditoria não registraria a alteração. O valor é sobrescrito no flush.
         analise.setDataAtualizacao(LocalDateTime.now());
         avaliacaoPosturalRepository.save(analise);
 

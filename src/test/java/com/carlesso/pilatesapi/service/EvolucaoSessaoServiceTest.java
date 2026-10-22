@@ -351,7 +351,6 @@ class EvolucaoSessaoServiceTest {
         assertThat(response.dorAntes()).isEqualTo(3);
         assertThat(response.dorDepois()).isEqualTo(1);
         assertThat(response.respostaPaciente()).isEqualTo("Melhorou muito");
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test

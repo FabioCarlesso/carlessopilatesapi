@@ -10,7 +10,6 @@ import com.carlesso.pilatesapi.entity.Reavaliacao;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,8 +59,6 @@ class HistoricoPacienteInativoRepositoryTest extends PostgresTestcontainerSuppor
         anamnese.setPaciente(inativo);
         anamnese.setQueixaPrincipal("Dor lombar");
         anamnese.setObjetivos("Reduzir dor e melhorar postura");
-        // Anamnese não tem @PrePersist: dataCriacao é responsabilidade de quem grava.
-        anamnese.setDataCriacao(LocalDateTime.of(2026, 1, 15, 10, 0));
         Long id = entityManager.persist(anamnese).getId();
         entityManager.flush();
         entityManager.clear();

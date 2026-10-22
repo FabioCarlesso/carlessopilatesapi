@@ -8,7 +8,7 @@ import java.time.LocalTime;
 @Table(
         name = "aulas",
         uniqueConstraints = {@UniqueConstraint(columnNames = {"paciente_id", "data"})})
-public class Aula {
+public class Aula extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

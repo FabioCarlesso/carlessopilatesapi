@@ -19,7 +19,7 @@ import java.time.LocalTime;
 // declará-lo aqui não valida nada e ainda criaria uma segunda fonte de verdade para divergir da migration.
 @Entity
 @Table(name = "lista_espera")
-public class ListaEspera {
+public class ListaEspera extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

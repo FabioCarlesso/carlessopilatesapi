@@ -66,6 +66,8 @@ class SessaoPilatesControllerTest {
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
                 null,
+                "admin@carlessopilates.com",
+                null,
                 null);
     }
 
@@ -272,6 +274,8 @@ class SessaoPilatesControllerTest {
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
                 LocalDateTime.of(2026, 5, 15, 10, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
@@ -321,6 +325,8 @@ class SessaoPilatesControllerTest {
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
                 LocalDateTime.of(2026, 5, 8, 12, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.realizar(1L)).thenReturn(realizada);
 
@@ -369,6 +375,8 @@ class SessaoPilatesControllerTest {
                 "Observação teste",
                 LocalDateTime.of(2026, 5, 4, 10, 0),
                 LocalDateTime.of(2026, 5, 8, 12, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.cancelar(1L)).thenReturn(cancelada);
 

@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 
 public record EvolucaoSessaoResponseDTO(
@@ -21,6 +22,10 @@ public record EvolucaoSessaoResponseDTO(
         String observacoesFisioterapeuta,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualizacao,
+        @Schema(description = "E-mail de quem criou o registro; \"system\" para processos automáticos")
+                String criadoPor,
+        @Schema(description = "E-mail de quem fez a última alteração; nulo enquanto não houver alteração")
+                String alteradoPor,
         Long version) {
     public static EvolucaoSessaoResponseDTO from(EvolucaoSessao e) {
         return new EvolucaoSessaoResponseDTO(
@@ -41,6 +46,8 @@ public record EvolucaoSessaoResponseDTO(
                 e.getObservacoesFisioterapeuta(),
                 e.getDataCriacao(),
                 e.getDataAtualizacao(),
+                e.getCriadoPor(),
+                e.getAlteradoPor(),
                 e.getVersion());
     }
 }

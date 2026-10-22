@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 /**
@@ -20,7 +19,7 @@ import java.time.LocalTime;
 // declará-lo aqui não valida nada e ainda criaria uma segunda fonte de verdade para divergir da migration.
 @Entity
 @Table(name = "bloqueios_agenda")
-public class BloqueioAgenda {
+public class BloqueioAgenda extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,23 +40,7 @@ public class BloqueioAgenda {
     @Column(nullable = false, length = 200)
     private String motivo;
 
-    @Column(name = "data_criacao", nullable = false)
-    private LocalDateTime dataCriacao;
-
-    @Column(name = "data_atualizacao")
-    private LocalDateTime dataAtualizacao;
-
     public BloqueioAgenda() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        this.dataAtualizacao = LocalDateTime.now();
-    }
 
     /** Dia inteiro bloqueado — a ausência de faixa de horário é o que distingue os dois tipos de bloqueio. */
     public boolean isDiaInteiro() {
@@ -106,21 +89,5 @@ public class BloqueioAgenda {
 
     public void setMotivo(String motivo) {
         this.motivo = motivo;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

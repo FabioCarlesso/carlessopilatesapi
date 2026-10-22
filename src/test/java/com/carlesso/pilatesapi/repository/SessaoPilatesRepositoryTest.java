@@ -43,9 +43,15 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
         entityManager.clear();
 
         int primeiraAtualizacao = repository.transicionarStatusSeAgendada(
-                sessao.getId(), StatusSessao.REALIZADA, LocalDateTime.of(2026, 5, 8, 12, 0));
+                sessao.getId(),
+                StatusSessao.REALIZADA,
+                LocalDateTime.of(2026, 5, 8, 12, 0),
+                "admin@carlessopilates.com");
         int segundaAtualizacao = repository.transicionarStatusSeAgendada(
-                sessao.getId(), StatusSessao.CANCELADA, LocalDateTime.of(2026, 5, 8, 12, 1));
+                sessao.getId(),
+                StatusSessao.CANCELADA,
+                LocalDateTime.of(2026, 5, 8, 12, 1),
+                "admin@carlessopilates.com");
 
         assertThat(primeiraAtualizacao).isEqualTo(1);
         assertThat(segundaAtualizacao).isZero();
@@ -62,19 +68,22 @@ class SessaoPilatesRepositoryTest extends PostgresTestcontainerSupport {
         entityManager.clear();
 
         LocalDateTime quando = LocalDateTime.of(2026, 5, 8, 12, 30);
-        int atualizadas = repository.transicionarStatusSeAgendada(sessao.getId(), StatusSessao.CANCELADA, quando);
+        int atualizadas = repository.transicionarStatusSeAgendada(
+                sessao.getId(), StatusSessao.CANCELADA, quando, "recepcao@carlessopilates.com");
 
         assertThat(atualizadas).isEqualTo(1);
         assertThat(repository.findByIdComPaciente(sessao.getId())).get().satisfies(s -> {
             assertThat(s.getStatus()).isEqualTo(StatusSessao.CANCELADA);
             assertThat(s.getDataAtualizacao()).isEqualTo(quando);
+            assertThat(s.getAlteradoPor()).isEqualTo("recepcao@carlessopilates.com");
+            assertThat(s.getVersion()).isEqualTo(sessao.getVersion() + 1);
         });
     }
 
     @Test
     void transicionarStatusSeAgendada_comIdInexistente_deveRetornarZero() {
         int atualizadas = repository.transicionarStatusSeAgendada(
-                999_999L, StatusSessao.REALIZADA, LocalDateTime.of(2026, 5, 8, 12, 0));
+                999_999L, StatusSessao.REALIZADA, LocalDateTime.of(2026, 5, 8, 12, 0), "admin@carlessopilates.com");
 
         assertThat(atualizadas).isZero();
     }

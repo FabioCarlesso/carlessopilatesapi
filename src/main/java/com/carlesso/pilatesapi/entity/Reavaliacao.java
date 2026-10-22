@@ -2,11 +2,10 @@ package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "reavaliacoes")
-public class Reavaliacao {
+public class Reavaliacao extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,17 +58,7 @@ public class Reavaliacao {
     @Column(columnDefinition = "TEXT")
     private String observacoesGerais;
 
-    @Column(nullable = false)
-    private LocalDateTime dataCriacao;
-
-    private LocalDateTime dataAtualizacao;
-
     public Reavaliacao() {}
-
-    @PrePersist
-    void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
 
     public Long getVersion() {
         return version;
@@ -181,21 +170,5 @@ public class Reavaliacao {
 
     public void setObservacoesGerais(String observacoesGerais) {
         this.observacoesGerais = observacoesGerais;
-    }
-
-    public LocalDateTime getDataCriacao() {
-        return dataCriacao;
-    }
-
-    public void setDataCriacao(LocalDateTime dataCriacao) {
-        this.dataCriacao = dataCriacao;
-    }
-
-    public LocalDateTime getDataAtualizacao() {
-        return dataAtualizacao;
-    }
-
-    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
-        this.dataAtualizacao = dataAtualizacao;
     }
 }

@@ -11,7 +11,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "planos")
-public class Plano {
+public class Plano extends EntidadeAuditavel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

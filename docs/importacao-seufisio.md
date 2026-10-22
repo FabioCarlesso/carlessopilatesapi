@@ -84,6 +84,13 @@ python3 scripts/import_evolucoes_seufisio.py --desde 2026-07-01
 
 > A base de atendimentos é grande (ordem de dezenas de milhares no total). Prefira `--desde` nas execuções recorrentes e `--limite-clientes` / `--cliente-id` ao validar mudanças.
 
+## Autoria dos registros importados
+
+Os dois scripts gravam pela API, então a [auditoria](regras-de-negocio.md#auditoria-de-criação-e-alteração) trata a
+carga como qualquer outra escrita: `criadoPor` é o e-mail do usuário usado no `/auth/login` do script, e
+`dataCriacao` é o momento da importação, não a data original no seufisio (a data da sessão continua em `data`). Para
+distinguir a carga das escritas feitas na tela, rode a importação com um usuário `ADMIN` dedicado a ela.
+
 ## Carga da produção (runbook de go-live)
 
 **A produção é populada pelos mesmos scripts, apontando `LOCAL_API_URL` para a API de produção — não por dump do banco de desenvolvimento.** O seufisio é a fonte da verdade enquanto não for desligado, e os scripts são idempotentes, então a carga inicial da produção é apenas a primeira execução do processo recorrente.

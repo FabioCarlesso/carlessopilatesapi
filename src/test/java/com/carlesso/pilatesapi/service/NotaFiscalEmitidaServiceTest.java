@@ -74,7 +74,7 @@ class NotaFiscalEmitidaServiceTest {
         ArgumentCaptor<NotaFiscalEmitida> captor = ArgumentCaptor.forClass(NotaFiscalEmitida.class);
         org.mockito.Mockito.verify(repository).save(captor.capture());
         assertThat(captor.getValue().getCompetencia()).isEqualTo(LocalDate.of(2026, 4, 1));
-        // dataCriacao agora é preenchida pelo callback @PrePersist da entidade (coberto no teste de repositório).
+        // dataCriacao é preenchida pelo Spring Data Auditing (coberto no teste de repositório).
     }
 
     @Test
@@ -101,7 +101,7 @@ class NotaFiscalEmitidaServiceTest {
         assertThat(response.id()).isEqualTo(9L);
         assertThat(response.numeroNota()).isEqualTo("NF-NOVA");
         assertThat(response.dataEmissao()).isEqualTo(LocalDate.of(2026, 4, 20));
-        // dataAtualizacao agora é preenchida pelo callback @PreUpdate da entidade.
+        // dataAtualizacao é preenchida pelo Spring Data Auditing no flush, que não roda com o repositório mockado.
     }
 
     @Test

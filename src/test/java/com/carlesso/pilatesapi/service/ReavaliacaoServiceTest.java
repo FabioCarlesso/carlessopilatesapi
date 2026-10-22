@@ -327,7 +327,6 @@ class ReavaliacaoServiceTest {
         assertThat(response.comparativoAvaliacaoAnterior()).isEqualTo("Evolução excelente");
         assertThat(response.evolucaoDor()).isEqualTo("Sem dor");
         assertThat(response.evolucaoForca()).isEqualTo("Ganho de força nos extensores");
-        assertThat(response.dataAtualizacao()).isNotNull();
     }
 
     @Test

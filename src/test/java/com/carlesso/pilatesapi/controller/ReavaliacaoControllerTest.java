@@ -64,6 +64,8 @@ class ReavaliacaoControllerTest {
                 "Paciente motivado com a evolução",
                 LocalDateTime.of(2026, 5, 1, 10, 0),
                 null,
+                "admin@carlessopilates.com",
+                null,
                 null);
     }
 
@@ -180,6 +182,8 @@ class ReavaliacaoControllerTest {
                 "Paciente motivado com a evolução",
                 LocalDateTime.of(2026, 5, 1, 10, 0),
                 LocalDateTime.of(2026, 5, 10, 9, 0),
+                "admin@carlessopilates.com",
+                "admin@carlessopilates.com",
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
