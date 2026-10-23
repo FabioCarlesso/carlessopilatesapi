@@ -96,7 +96,7 @@ class PreferenciasUsuarioRepositoryTest extends PostgresTestcontainerSupport {
         user.setName("Usuário " + email);
         user.setEmail(email);
         user.setPassword("hash");
-        user.setRole(Role.USER);
+        user.setRole(Role.RECEPCAO);
         user.setAtivo(true);
         return entityManager.persist(user);
     }

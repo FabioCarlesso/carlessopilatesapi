@@ -244,7 +244,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         user.setName("Usuário Teste");
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode("senha1234"));
-        user.setRole(Role.USER);
+        user.setRole(Role.RECEPCAO);
         user.setAtivo(true);
         return userRepository.save(user);
     }

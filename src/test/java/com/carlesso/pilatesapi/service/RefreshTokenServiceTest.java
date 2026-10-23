@@ -323,7 +323,7 @@ class RefreshTokenServiceTest {
         u.setName("Maria");
         u.setEmail("maria@email.com");
         u.setPassword("hash");
-        u.setRole(Role.USER);
+        u.setRole(Role.RECEPCAO);
         u.setAtivo(ativo);
         u.setTokenVersion(tokenVersion);
         ReflectionTestUtils.setField(u, "id", 1L);

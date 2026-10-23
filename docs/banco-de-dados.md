@@ -49,27 +49,30 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V41__add_datas_cadastro_inativacao_pacientes.sql` | Adiciona `data_cadastro` e `data_inativacao` (`DATE`, anuláveis) em `pacientes`, para as séries de novos cadastros e evasão do dashboard (#202). Sem backfill: as linhas existentes ficam nulas e não entram nas séries |
 | `V43__add_auditoria_autoria.sql` | Adiciona `criado_por` e `alterado_por` (`VARCHAR(255)`, anuláveis) nas nove tabelas que já tinham `data_criacao`/`data_atualizacao` — reaproveitando essas colunas e seus valores — e as quatro colunas em `pacientes`, `profissionais`, `planos`, `pagamentos`, `aulas` e `lista_espera` (#109). O autor é o e-mail do usuário, sem FK para `users`, como em `contatos_cobranca.registrado_por`. Sem backfill: linhas existentes ficam com autor e, onde não havia, `data_criacao` nulos |
 | `V40__add_version_to_entidades_editaveis.sql` | Adiciona `version` (`BIGINT NOT NULL DEFAULT 0`) para locking otimista (#101) em `pacientes`, `profissionais`, `anamneses`, `avaliacoes_fisioterapeuticas`, `planos_tratamento`, `sessoes_pilates`, `evolucoes_sessao`, `reavaliacoes`, `users` e `preferencias_usuario`. O `DEFAULT 0` preenche as linhas existentes sem tocar nos dados |
+| `V44__migrar_role_user_para_recepcao.sql` | Converte todo usuário `USER` em `RECEPCAO` (#131). O papel genérico deixou de existir e `RECEPCAO` é o de menor privilégio da equipe, sem acesso a prontuário; quem for `PROFISSIONAL` ou `FINANCEIRO` é promovido depois pelo admin em `PUT /users/{id}` |
 
 ## Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
 | Arquivo | Descrição |
 |---|---|
 | `V7__insert_profissionais_teste.sql` | Carga inicial com 3 profissionais de teste |
-| `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários de teste com perfis `ADMIN` e `USER` (senha: `senha1234`) |
+| `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários de teste com perfis `ADMIN` e `USER` (senha: `senha1234`); a `V44` converte os `USER` em `RECEPCAO` |
+| `V45__atualizar_perfis_usuarios_seed.sql` | Dá aos usuários de teste o papel que o nome descreve: `financeiro@` vira `FINANCEIRO` e `consulta@` vira `PROFISSIONAL`. A `V12` não é editada para não quebrar o checksum de bancos dev já migrados |
 
 > A seed antiga de pacientes (`V2__insert_pacientes_teste.sql`) foi removida em favor da importação a partir de sistemas externos via `scripts/import_seufisio.py`. Para zerar um ambiente dev existente que ainda tenha esses pacientes, derrube o volume com `docker compose down -v` e suba novamente.
 
 ### Usuários de seed (perfil `dev`)
 
-Os usuários criados pela `V12` usam a senha `senha1234` e representam os perfis disponíveis:
+Os usuários criados pela `V12` (com os papéis ajustados pela `V44` e pela `V45`) usam a senha `senha1234` e
+representam os perfis disponíveis:
 
 | E-mail | Perfil |
 |---|---|
 | `admin@carlessopilates.com` | `ADMIN` |
 | `operacional@carlessopilates.com` | `ADMIN` |
-| `recepcao@carlessopilates.com` | `USER` |
-| `financeiro@carlessopilates.com` | `USER` |
-| `consulta@carlessopilates.com` | `USER` |
+| `recepcao@carlessopilates.com` | `RECEPCAO` |
+| `financeiro@carlessopilates.com` | `FINANCEIRO` |
+| `consulta@carlessopilates.com` | `PROFISSIONAL` |
 
 Em produção não há seed: o admin inicial é criado pela aplicação a partir de `APP_INITIAL_ADMIN_EMAIL` e
 `APP_INITIAL_ADMIN_PASSWORD` — ver [`deploy.md`](deploy.md).

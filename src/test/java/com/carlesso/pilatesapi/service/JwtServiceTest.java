@@ -48,7 +48,7 @@ class JwtServiceTest {
         user.setName("Maria");
         user.setEmail("maria@email.com");
         user.setPassword("hash");
-        user.setRole(Role.USER);
+        user.setRole(Role.RECEPCAO);
         return user;
     }
 }

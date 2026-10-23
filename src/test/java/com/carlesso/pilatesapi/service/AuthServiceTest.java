@@ -116,7 +116,7 @@ class AuthServiceTest {
         User user = new User();
         user.setName("Maria");
         user.setEmail("maria@email.com");
-        user.setRole(Role.USER);
+        user.setRole(Role.RECEPCAO);
         user.setAtivo(true);
         return user;
     }

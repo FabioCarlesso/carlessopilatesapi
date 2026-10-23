@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.carlesso.pilatesapi.dto.RoleResponseDTO;
 import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserResponseDTO;
@@ -62,9 +63,16 @@ class UserServiceTest {
     }
 
     @Test
+    void listarRoles_deveOmitirPapelPacienteReservado() {
+        assertThat(service.listarRoles())
+                .extracting(RoleResponseDTO::value)
+                .containsExactly("ADMIN", "PROFISSIONAL", "RECEPCAO", "FINANCEIRO");
+    }
+
+    @Test
     void criar_comEmailNovo_deveRetornarResponseDTO() {
-        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Role.USER);
-        User saved = usuario(1L, "ana@email.com", Role.USER);
+        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Role.RECEPCAO);
+        User saved = usuario(1L, "ana@email.com", Role.RECEPCAO);
         when(repository.existsByEmail("ana@email.com")).thenReturn(false);
         when(passwordEncoder.encode("senha123")).thenReturn("hash");
         when(repository.save(any())).thenReturn(saved);
@@ -72,13 +80,13 @@ class UserServiceTest {
         UserResponseDTO response = service.criar(dto);
 
         assertThat(response.email()).isEqualTo("ana@email.com");
-        assertThat(response.role()).isEqualTo(Role.USER);
+        assertThat(response.role()).isEqualTo(Role.RECEPCAO);
         assertThat(response.ativo()).isTrue();
     }
 
     @Test
     void criar_comEmailDuplicado_deveLancarConflictException() {
-        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Role.USER);
+        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Role.RECEPCAO);
         when(repository.existsByEmail("ana@email.com")).thenReturn(true);
 
         assertThatThrownBy(() -> service.criar(dto))
@@ -88,8 +96,8 @@ class UserServiceTest {
 
     @Test
     void criar_deveNormalizarEmail() {
-        var dto = new UserRequestDTO("Ana", "ANA@EMAIL.COM", "senha123", Role.USER);
-        User saved = usuario(1L, "ana@email.com", Role.USER);
+        var dto = new UserRequestDTO("Ana", "ANA@EMAIL.COM", "senha123", Role.RECEPCAO);
+        User saved = usuario(1L, "ana@email.com", Role.RECEPCAO);
         when(repository.existsByEmail("ana@email.com")).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hash");
         when(repository.save(any())).thenReturn(saved);
@@ -101,7 +109,7 @@ class UserServiceTest {
 
     @Test
     void buscarPorId_comIdExistente_deveRetornarResponseDTO() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         when(repository.findById(1L)).thenReturn(Optional.of(u));
 
         UserResponseDTO response = service.buscarPorId(1L);
@@ -118,7 +126,7 @@ class UserServiceTest {
 
     @Test
     void atualizar_comDadosValidos_deveRetornarResponseAtualizado() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         var dto = new UserUpdateDTO("Novo Nome", null, null, null, null);
         when(repository.findById(1L)).thenReturn(Optional.of(u));
         when(repository.saveAndFlush(any())).thenReturn(u);
@@ -131,7 +139,7 @@ class UserServiceTest {
     @Test
     void atualizar_adminAlterandoProprioRole_deveLancarBusinessException() {
         User admin = usuario(1L, "admin@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
+        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
         when(repository.findById(1L)).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> service.atualizar(1L, dto, "admin@email.com"))
@@ -141,7 +149,7 @@ class UserServiceTest {
 
     @Test
     void inativar_comIdValido_deveSetarAtivoFalse() {
-        User u = usuario(2L, "user@email.com", Role.USER);
+        User u = usuario(2L, "user@email.com", Role.RECEPCAO);
         when(repository.findById(2L)).thenReturn(Optional.of(u));
         when(repository.save(any())).thenReturn(u);
 
@@ -174,7 +182,7 @@ class UserServiceTest {
 
     @Test
     void inativar_usuarioJaInativo_deveSetarAtivoFalseNovamente() {
-        User u = usuario(2L, "user@email.com", Role.USER);
+        User u = usuario(2L, "user@email.com", Role.RECEPCAO);
         u.setAtivo(false);
         when(repository.findById(2L)).thenReturn(Optional.of(u));
         when(repository.save(any())).thenReturn(u);
@@ -230,7 +238,7 @@ class UserServiceTest {
     @Test
     void atualizar_rebaixandoUltimoAdmin_deveLancarBusinessException() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
+        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin));
 
@@ -245,7 +253,7 @@ class UserServiceTest {
     void atualizar_rebaixandoAdminComOutroAdminAtivo_deveAtualizar() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
         User outroAdmin = usuario(3L, "admin3@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
+        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin, outroAdmin));
         when(repository.saveAndFlush(any())).thenReturn(admin);
@@ -258,7 +266,7 @@ class UserServiceTest {
 
     @Test
     void alterarSenha_comDadosValidos_devePersistirNovaSenhaCriptografada() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         u.setPassword("hash-atual");
         var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "novaSenha123");
         when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
@@ -277,7 +285,7 @@ class UserServiceTest {
 
     @Test
     void alterarSenha_comEmailNormalizado_deveBuscarUsuario() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         u.setPassword("hash-atual");
         var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "novaSenha123");
         when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
@@ -293,7 +301,7 @@ class UserServiceTest {
 
     @Test
     void alterarSenha_comSenhaAtualIncorreta_deveLancarBusinessException() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         u.setPassword("hash-atual");
         var dto = new UserAlterarSenhaRequestDTO("errada1234", "novaSenha123", "novaSenha123");
         when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
@@ -308,7 +316,7 @@ class UserServiceTest {
 
     @Test
     void alterarSenha_comConfirmacaoDivergente_deveLancarBusinessException() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         u.setPassword("hash-atual");
         var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "novaSenha123", "outraSenha123");
         when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
@@ -323,7 +331,7 @@ class UserServiceTest {
 
     @Test
     void alterarSenha_reutilizandoSenhaAtual_deveLancarBusinessException() {
-        User u = usuario(1L, "user@email.com", Role.USER);
+        User u = usuario(1L, "user@email.com", Role.RECEPCAO);
         u.setPassword("hash-atual");
         var dto = new UserAlterarSenhaRequestDTO("senhaAtual1", "senhaAtual1", "senhaAtual1");
         when(repository.findByEmail("user@email.com")).thenReturn(Optional.of(u));
@@ -351,7 +359,7 @@ class UserServiceTest {
     void atualizar_rebaixandoAdminInativo_deveAtualizarSemValidarUltimoAdminAtivo() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
         admin.setAtivo(false);
-        var dto = new UserUpdateDTO(null, null, null, Role.USER, null);
+        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.saveAndFlush(any())).thenReturn(admin);
 

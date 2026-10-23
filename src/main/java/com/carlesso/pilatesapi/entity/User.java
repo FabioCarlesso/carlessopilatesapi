@@ -40,7 +40,7 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role = Role.USER;
+    private Role role = Role.RECEPCAO;
 
     @Column(nullable = false)
     private boolean ativo = true;

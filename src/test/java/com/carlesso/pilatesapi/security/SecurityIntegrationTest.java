@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,12 +28,18 @@ import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -89,7 +96,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void login_valido_deveRetornarJwt() throws Exception {
-        criarUsuario("login@email.com", Role.USER);
+        criarUsuario("login@email.com", Role.RECEPCAO);
         var request = new AuthLoginRequestDTO("login@email.com", "senha1234");
 
         mvc.perform(post("/auth/login")
@@ -104,7 +111,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void login_invalido_deveRetornar401() throws Exception {
-        criarUsuario("login@email.com", Role.USER);
+        criarUsuario("login@email.com", Role.RECEPCAO);
         var request = new AuthLoginRequestDTO("login@email.com", "errada123");
 
         mvc.perform(post("/auth/login")
@@ -116,7 +123,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void login_comUsuarioInativo_deveRetornar401() throws Exception {
-        criarUsuario("inativo@email.com", Role.USER, false);
+        criarUsuario("inativo@email.com", Role.RECEPCAO, false);
         var request = new AuthLoginRequestDTO("inativo@email.com", "senha1234");
 
         mvc.perform(post("/auth/login")
@@ -127,7 +134,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void login_aposLimiteDefalhas_deveRetornar429() throws Exception {
-        criarUsuario("brute@email.com", Role.USER);
+        criarUsuario("brute@email.com", Role.RECEPCAO);
         var senhaErrada = new AuthLoginRequestDTO("brute@email.com", "errada123");
 
         for (int i = 0; i < LoginAttemptService.MAX_ATTEMPTS; i++) {
@@ -145,7 +152,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void login_aposSuccesso_deveResetarContador() throws Exception {
-        criarUsuario("reset@email.com", Role.USER);
+        criarUsuario("reset@email.com", Role.RECEPCAO);
         var senhaErrada = new AuthLoginRequestDTO("reset@email.com", "errada123");
         var senhaCorreta = new AuthLoginRequestDTO("reset@email.com", "senha1234");
 
@@ -168,7 +175,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void login_comEmailsDiferentesDoMesmoIp_aposLimitePorIp_deveRetornar429() throws Exception {
-        criarUsuario("legitimo@email.com", Role.USER);
+        criarUsuario("legitimo@email.com", Role.RECEPCAO);
 
         for (int i = 0; i < loginAttemptService.maxAttemptsPorIp(); i++) {
             mvc.perform(post("/auth/login")
@@ -222,12 +229,12 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void usersMe_comTokenValido_deveRetornarUsuarioSemSenha() throws Exception {
-        User user = criarUsuario("me@email.com", Role.USER);
+        User user = criarUsuario("me@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/users/me").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("me@email.com"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.role").value("RECEPCAO"))
                 .andExpect(jsonPath("$.password").doesNotExist());
     }
 
@@ -256,7 +263,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void admin_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("user@email.com", Role.USER);
+        User user = criarUsuario("user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/admin/health").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden())
@@ -284,7 +291,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void usersRoles_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("user@email.com", Role.USER);
+        User user = criarUsuario("user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/users/roles").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
@@ -296,14 +303,15 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(get("/users/roles").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(Role.values().length))
+                .andExpect(jsonPath("$.length()").value(4))
                 .andExpect(jsonPath("$[?(@.value == 'ADMIN')].label").value("Administrador"))
-                .andExpect(jsonPath("$[?(@.value == 'USER')].label").value("Usuário"));
+                .andExpect(jsonPath("$[?(@.value == 'RECEPCAO')].label").value("Recepção"))
+                .andExpect(jsonPath("$[?(@.value == 'PACIENTE')]").isEmpty());
     }
 
     @Test
     void usersListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("user@email.com", Role.USER);
+        User user = criarUsuario("user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/users").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
@@ -312,7 +320,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersCriar_comAdmin_deveCriarUsuarioComRoleInformada() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        var request = new UserRequestDTO("Financeiro", "FINANCEIRO@EMAIL.COM", "senha1234", Role.USER);
+        var request = new UserRequestDTO("Financeiro", "FINANCEIRO@EMAIL.COM", "senha1234", Role.RECEPCAO);
 
         mvc.perform(post("/users")
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -322,7 +330,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(header().exists(HttpHeaders.LOCATION))
                 .andExpect(jsonPath("$.name").value("Financeiro"))
                 .andExpect(jsonPath("$.email").value("financeiro@email.com"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.role").value("RECEPCAO"))
                 .andExpect(jsonPath("$.password").doesNotExist());
 
         User saved = userRepository.findByEmail("financeiro@email.com").orElseThrow();
@@ -332,7 +340,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersAtualizar_comAdmin_deveAlterarPerfilESenha() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        User user = criarUsuario("perfil@email.com", Role.USER);
+        User user = criarUsuario("perfil@email.com", Role.RECEPCAO);
         String tokenAntigo = bearer(user);
         var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN, null);
 
@@ -357,7 +365,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersAtualizar_adminAlterandoProprioRole_deveRetornar422() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        var request = new UserUpdateDTO(null, null, null, Role.USER, null);
+        var request = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
 
         mvc.perform(put("/users/{id}", admin.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -385,21 +393,21 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     void usersAtualizar_rebaixandoAdminInativo_devePermitir() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User adminInativo = criarUsuario("admin-inativo@email.com", Role.ADMIN, false);
-        var request = new UserUpdateDTO(null, null, null, Role.USER, null);
+        var request = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
 
         mvc.perform(put("/users/{id}", adminInativo.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.role").value("RECEPCAO"))
                 .andExpect(jsonPath("$.ativo").value(false));
     }
 
     @Test
     void usersAtualizar_nomeVazio_deveRetornar400() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        User user = criarUsuario("user@email.com", Role.USER);
+        User user = criarUsuario("user@email.com", Role.RECEPCAO);
         var request = new UserUpdateDTO("", null, null, null, null);
 
         mvc.perform(put("/users/{id}", user.getId())
@@ -412,7 +420,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersInativar_comAdmin_deveInativarUsuario() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        User user = criarUsuario("inativar@email.com", Role.USER);
+        User user = criarUsuario("inativar@email.com", Role.RECEPCAO);
 
         mvc.perform(delete("/users/{id}", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isNoContent());
@@ -424,7 +432,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersInativar_deveInvalidarTokenEmitidoAntesDaInativacao() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        User user = criarUsuario("token-inativo@email.com", Role.USER);
+        User user = criarUsuario("token-inativo@email.com", Role.RECEPCAO);
         String tokenEmitidoAntesDaInativacao = bearer(user);
 
         mvc.perform(delete("/users/{id}", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
@@ -445,7 +453,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void alterarSenha_comUsuarioComum_deveTrocarSenhaEPermitirLoginComNovaSenha() throws Exception {
-        User user = criarUsuario("trocasenha@email.com", Role.USER);
+        User user = criarUsuario("trocasenha@email.com", Role.RECEPCAO);
         String tokenAntigo = bearer(user);
         var request = new UserAlterarSenhaRequestDTO("senha1234", "novaSenha123", "novaSenha123");
 
@@ -490,7 +498,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void alterarSenha_comSenhaAtualIncorreta_deveRetornar422() throws Exception {
-        User user = criarUsuario("erradasenha@email.com", Role.USER);
+        User user = criarUsuario("erradasenha@email.com", Role.RECEPCAO);
         var request = new UserAlterarSenhaRequestDTO("errada1234", "novaSenha123", "novaSenha123");
 
         mvc.perform(put("/users/me/senha")
@@ -503,7 +511,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void alterarSenha_comConfirmacaoDivergente_deveRetornar422() throws Exception {
-        User user = criarUsuario("confirmacao@email.com", Role.USER);
+        User user = criarUsuario("confirmacao@email.com", Role.RECEPCAO);
         var request = new UserAlterarSenhaRequestDTO("senha1234", "novaSenha123", "outra123Senha");
 
         mvc.perform(put("/users/me/senha")
@@ -516,7 +524,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void alterarSenha_reutilizandoSenhaAtual_deveRetornar422() throws Exception {
-        User user = criarUsuario("reutiliza@email.com", Role.USER);
+        User user = criarUsuario("reutiliza@email.com", Role.RECEPCAO);
         var request = new UserAlterarSenhaRequestDTO("senha1234", "senha1234", "senha1234");
 
         mvc.perform(put("/users/me/senha")
@@ -529,7 +537,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void alterarSenha_comNovaSenhaCurta_deveRetornar400() throws Exception {
-        User user = criarUsuario("curta@email.com", Role.USER);
+        User user = criarUsuario("curta@email.com", Role.RECEPCAO);
         var request = new UserAlterarSenhaRequestDTO("senha1234", "curta", "curta");
 
         mvc.perform(put("/users/me/senha")
@@ -546,7 +554,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void preferencias_get_comUsuarioComum_deveRetornarPadroes() throws Exception {
-        User user = criarUsuario("prefs-get@email.com", Role.USER);
+        User user = criarUsuario("prefs-get@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/users/me/preferencias").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
@@ -566,7 +574,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void preferencias_put_comUsuarioComum_devePersistirEReturnarValoresAtualizados() throws Exception {
-        User user = criarUsuario("prefs-put@email.com", Role.USER);
+        User user = criarUsuario("prefs-put@email.com", Role.RECEPCAO);
         String payload =
                 """
                 {
@@ -601,7 +609,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void bloqueios_get_comUsuarioComum_deveRetornar200() throws Exception {
-        User user = criarUsuario("bloqueio-leitura@email.com", Role.USER);
+        User user = criarUsuario("bloqueio-leitura@email.com", Role.RECEPCAO);
 
         // A consulta é o que alimenta o aviso de feriado na agenda e na tela de sessão:
         // precisa funcionar para a recepção, não só para o ADMIN que cadastra.
@@ -614,7 +622,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void bloqueios_head_comUsuarioComum_deveSeguirOMesmoGet() throws Exception {
-        User user = criarUsuario("bloqueio-head@email.com", Role.USER);
+        User user = criarUsuario("bloqueio-head@email.com", Role.RECEPCAO);
 
         // O Spring MVC resolve HEAD pelo handler de GET, mas a autorização por URL não faz essa equivalência:
         // sem HttpMethod.HEAD no matcher de leitura, este HEAD cairia na regra de ADMIN e responderia 403.
@@ -627,7 +635,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void bloqueios_post_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("bloqueio-user@email.com", Role.USER);
+        User user = criarUsuario("bloqueio-user@email.com", Role.RECEPCAO);
 
         mvc.perform(
                         post("/bloqueios")
@@ -661,7 +669,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void bloqueios_delete_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("bloqueio-delete@email.com", Role.USER);
+        User user = criarUsuario("bloqueio-delete@email.com", Role.RECEPCAO);
 
         mvc.perform(delete("/bloqueios/1").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
@@ -674,7 +682,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void dashboardResumo_comTokenValido_deveRetornar200() throws Exception {
-        User user = criarUsuario("dashboard@email.com", Role.USER);
+        User user = criarUsuario("dashboard@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
@@ -686,16 +694,18 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void rotaInexistente_comTokenValido_deveRetornar404() throws Exception {
-        User user = criarUsuario("rota@email.com", Role.USER);
+    void rotaNaoMapeadaNaSeguranca_comAdmin_deveRetornar403() throws Exception {
+        User admin = criarUsuario("rota@email.com", Role.ADMIN);
 
-        mvc.perform(get("/rota-que-nao-existe").header(HttpHeaders.AUTHORIZATION, bearer(user)))
-                .andExpect(status().isNotFound());
+        // Menor privilégio: o anyRequest() é denyAll, então nem o ADMIN passa por rota que o SecurityConfig
+        // não cita — controller novo precisa ganhar regra explícita antes de responder.
+        mvc.perform(get("/rota-que-nao-existe").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void rotaInexistenteEmRecursoExistente_comTokenValido_deveRetornar404() throws Exception {
-        User user = criarUsuario("rota2@email.com", Role.USER);
+        User user = criarUsuario("rota2@email.com", Role.RECEPCAO);
 
         mvc.perform(patch("/sessoes/1/inexistente").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isNotFound());
@@ -748,7 +758,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void pagamentosListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("pagamentos-user@email.com", Role.USER);
+        User user = criarUsuario("pagamentos-user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/pagamentos").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden())
@@ -757,9 +767,9 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void pagamentosListar_headComUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("pagamentos-head@email.com", Role.USER);
+        User user = criarUsuario("pagamentos-head@email.com", Role.RECEPCAO);
 
-        // Sem HttpMethod.HEAD no matcher, o HEAD escaparia da regra de ADMIN e cairia no anyRequest().authenticated().
+        // Sem HttpMethod.HEAD no matcher, o HEAD escaparia da regra de ADMIN e cairia na regra de /pagamentos/**.
         mvc.perform(head("/pagamentos").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
     }
@@ -776,9 +786,9 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void pagamentosBuscarPorId_comUsuarioSemRoleAdmin_naoDeveCairNaRegraDeAdmin() throws Exception {
-        User user = criarUsuario("pagamentos-id@email.com", Role.USER);
+        User user = criarUsuario("pagamentos-id@email.com", Role.RECEPCAO);
 
-        // A regra de ADMIN vale só para /pagamentos exato: a busca por ID segue aberta a qualquer autenticado,
+        // A regra de ADMIN vale só para /pagamentos exato: a busca por ID segue aberta à recepção e ao financeiro,
         // então um ID inexistente responde 404, e não 403.
         mvc.perform(get("/pagamentos/999999").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isNotFound());
@@ -786,7 +796,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void pagamentosCriar_comUsuarioSemRoleAdmin_naoDeveCairNaRegraDeAdmin() throws Exception {
-        User user = criarUsuario("pagamentos-post@email.com", Role.USER);
+        User user = criarUsuario("pagamentos-post@email.com", Role.RECEPCAO);
 
         mvc.perform(post("/pagamentos")
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
@@ -797,7 +807,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cobrancas_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("cobrancas-user@email.com", Role.USER);
+        User user = criarUsuario("cobrancas-user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/pagamentos/999999/cobrancas").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
@@ -822,7 +832,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void indicadoresDashboard_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
-        User user = criarUsuario("indicadores-user@email.com", Role.USER);
+        User user = criarUsuario("indicadores-user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/dashboard/indicadores").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isForbidden());
@@ -851,7 +861,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void resumoDashboard_comUsuarioSemRoleAdmin_continuaLiberado() throws Exception {
-        User user = criarUsuario("resumo-user@email.com", Role.USER);
+        User user = criarUsuario("resumo-user@email.com", Role.RECEPCAO);
 
         mvc.perform(get("/dashboard/resumo").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk());
@@ -863,6 +873,63 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
 
         mvc.perform(get("/pagamentos/999999/cobrancas").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
                 .andExpect(status().isNotFound());
+    }
+
+    @ParameterizedTest(name = "{0} {1} -> {2}")
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "GET    | /anamneses/999999                              | PROFISSIONAL",
+                "POST   | /anamneses                                     | PROFISSIONAL",
+                "GET    | /avaliacoes-fisioterapeuticas/999999           | PROFISSIONAL",
+                "GET    | /avaliacoes-posturais/999999                   | PROFISSIONAL",
+                "GET    | /evolucoes-sessao/999999                       | PROFISSIONAL",
+                "GET    | /reavaliacoes/999999                           | PROFISSIONAL",
+                "GET    | /planos-tratamento/999999                      | PROFISSIONAL",
+                "GET    | /pacientes                                     | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "POST   | /pacientes                                     | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "GET    | /aulas/999999                                  | PROFISSIONAL RECEPCAO",
+                "GET    | /sessoes                                       | PROFISSIONAL RECEPCAO",
+                "GET    | /lista-espera                                  | PROFISSIONAL RECEPCAO",
+                "GET    | /bloqueios/999999                              | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "GET    | /planos/999999                                 | RECEPCAO FINANCEIRO",
+                "POST   | /pagamentos                                    | RECEPCAO FINANCEIRO",
+                "GET    | /pagamentos/999999                             | RECEPCAO FINANCEIRO",
+                "GET    | /api/nfse-emitidas/paciente/999999             | FINANCEIRO",
+                "GET    | /api/relatorios/nfse                           | FINANCEIRO",
+                "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",
+                "GET    | /profissionais/999999/relatorio-pagamento/pdf  | FINANCEIRO",
+                "PUT    | /profissionais/999999                          | ",
+                "GET    | /dashboard/resumo                              | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "GET    | /users/me                                      | PROFISSIONAL RECEPCAO FINANCEIRO PACIENTE",
+            })
+    void matrizDePapeis_deveLiberarSoOsPapeisDaArea(String metodo, String rota, String papeisLiberados)
+            throws Exception {
+        // ADMIN entra em todas as áreas; os demais só nas listadas. "Liberado" é não cair em 401/403 —
+        // o status final (200, 400, 404) depende do payload vazio e do ID inexistente, não da autorização.
+        Set<String> liberados = new HashSet<>(Set.of("ADMIN"));
+        if (papeisLiberados != null) {
+            liberados.addAll(Arrays.asList(papeisLiberados.trim().split("\\s+")));
+        }
+
+        for (Role role : Role.values()) {
+            User user = criarUsuario(role.name().toLowerCase() + "@email.com", role);
+            int status = mvc.perform(request(HttpMethod.valueOf(metodo), rota)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andReturn()
+                    .getResponse()
+                    .getStatus();
+
+            if (liberados.contains(role.name())) {
+                assertThat(status).as("%s em %s %s", role, metodo, rota).isNotIn(401, 403);
+            } else {
+                assertThat(status).as("%s em %s %s", role, metodo, rota).isEqualTo(403);
+            }
+        }
     }
 
     private User criarUsuario(String email, Role role) {

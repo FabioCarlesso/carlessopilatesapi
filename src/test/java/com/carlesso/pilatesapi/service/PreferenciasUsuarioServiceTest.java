@@ -43,7 +43,7 @@ class PreferenciasUsuarioServiceTest {
         u.setName("Teste");
         u.setEmail(email);
         u.setPassword("hash");
-        u.setRole(Role.USER);
+        u.setRole(Role.RECEPCAO);
         try {
             var field = User.class.getDeclaredField("id");
             field.setAccessible(true);

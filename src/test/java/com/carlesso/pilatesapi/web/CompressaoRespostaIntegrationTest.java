@@ -128,7 +128,7 @@ class CompressaoRespostaIntegrationTest {
         user.setName("Usuário Teste");
         user.setEmail(EMAIL_LOGIN);
         user.setPassword(passwordEncoder.encode("senha1234"));
-        user.setRole(Role.USER);
+        user.setRole(Role.RECEPCAO);
         user.setAtivo(true);
         userRepository.save(user);
 

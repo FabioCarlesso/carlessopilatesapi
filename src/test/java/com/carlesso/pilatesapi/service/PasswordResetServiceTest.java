@@ -85,7 +85,7 @@ class PasswordResetServiceTest {
         u.setName("Maria");
         u.setEmail(email);
         u.setPassword("hash-atual");
-        u.setRole(Role.USER);
+        u.setRole(Role.RECEPCAO);
         u.setAtivo(ativo);
         try {
             var field = User.class.getDeclaredField("id");

@@ -165,7 +165,7 @@ class LockingOtimistaIntegrationTest extends PostgresTestcontainerSupport {
         user.setName("Usuário Concorrência");
         user.setEmail(UUID.randomUUID() + "@email.com");
         user.setPassword("hash");
-        user.setRole(Role.USER);
+        user.setRole(Role.RECEPCAO);
         user.setAtivo(true);
         return user;
     }
