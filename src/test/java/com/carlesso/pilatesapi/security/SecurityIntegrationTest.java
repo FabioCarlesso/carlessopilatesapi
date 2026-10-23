@@ -234,7 +234,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         mvc.perform(get("/users/me").header(HttpHeaders.AUTHORIZATION, bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("me@email.com"))
-                .andExpect(jsonPath("$.role").value("RECEPCAO"))
+                .andExpect(jsonPath("$.roles[0]").value("RECEPCAO"))
                 .andExpect(jsonPath("$.password").doesNotExist());
     }
 
@@ -320,7 +320,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersCriar_comAdmin_deveCriarUsuarioComRoleInformada() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        var request = new UserRequestDTO("Financeiro", "FINANCEIRO@EMAIL.COM", "senha1234", Role.RECEPCAO);
+        var request = new UserRequestDTO("Financeiro", "FINANCEIRO@EMAIL.COM", "senha1234", Set.of(Role.RECEPCAO));
 
         mvc.perform(post("/users")
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -330,7 +330,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(header().exists(HttpHeaders.LOCATION))
                 .andExpect(jsonPath("$.name").value("Financeiro"))
                 .andExpect(jsonPath("$.email").value("financeiro@email.com"))
-                .andExpect(jsonPath("$.role").value("RECEPCAO"))
+                .andExpect(jsonPath("$.roles[0]").value("RECEPCAO"))
                 .andExpect(jsonPath("$.password").doesNotExist());
 
         User saved = userRepository.findByEmail("financeiro@email.com").orElseThrow();
@@ -338,11 +338,74 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void usersCriar_comVariosPapeis_deveAcumularEDevolverNaOrdemDoEnum() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        var request = new UserRequestDTO(
+                "Fisio e Financeiro", "fisio@email.com", "senha1234", Set.of(Role.FINANCEIRO, Role.PROFISSIONAL));
+
+        mvc.perform(post("/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.roles.length()").value(2))
+                .andExpect(jsonPath("$.roles[0]").value("PROFISSIONAL"))
+                .andExpect(jsonPath("$.roles[1]").value("FINANCEIRO"));
+
+        assertThat(userRepository.findByEmail("fisio@email.com").orElseThrow().getRoles())
+                .containsExactlyInAnyOrder(Role.PROFISSIONAL, Role.FINANCEIRO);
+    }
+
+    @Test
+    void usersCriar_semPapel_deveRetornar400() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+
+        mvc.perform(
+                        post("/users")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"name": "Sem Papel", "email": "sem@email.com", "password": "senha1234", "roles": []}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void usersCriar_comPapelReservado_deveRetornar422() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        var request = new UserRequestDTO("Paciente", "paciente@email.com", "senha1234", Set.of(Role.PACIENTE));
+
+        mvc.perform(post("/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("Papel indisponível para cadastro: PACIENTE"));
+    }
+
+    @Test
+    void papeisAcumulados_devemSomarAsAreasDeCadaUm() throws Exception {
+        User user = criarUsuario("recepcao-financeiro@email.com", Role.RECEPCAO);
+        user.setRoles(Set.of(Role.RECEPCAO, Role.FINANCEIRO));
+        user = userRepository.save(user);
+        String token = bearer(user);
+
+        // RECEPCAO traz a agenda, FINANCEIRO traz a NFSe; nenhum dos dois traz o prontuário.
+        mvc.perform(get("/aulas/999999").header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/relatorios/nfse").header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(r -> assertThat(r.getResponse().getStatus()).isNotIn(401, 403));
+        mvc.perform(get("/anamneses/999999").header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void usersAtualizar_comAdmin_deveAlterarPerfilESenha() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("perfil@email.com", Role.RECEPCAO);
         String tokenAntigo = bearer(user);
-        var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Role.ADMIN, null);
+        var request = new UserUpdateDTO("Perfil Admin", null, "novaSenha123", Set.of(Role.ADMIN), null);
 
         mvc.perform(put("/users/{id}", user.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -350,10 +413,10 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Perfil Admin"))
-                .andExpect(jsonPath("$.role").value("ADMIN"));
+                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
 
         User updated = userRepository.findById(user.getId()).orElseThrow();
-        assertThat(updated.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(updated.getRoles()).containsExactly(Role.ADMIN);
         assertThat(passwordEncoder.matches("novaSenha123", updated.getPassword()))
                 .isTrue();
         assertThat(updated.getTokenVersion()).isEqualTo(user.getTokenVersion() + 1);
@@ -365,7 +428,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void usersAtualizar_adminAlterandoProprioRole_deveRetornar422() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
-        var request = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var request = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
 
         mvc.perform(put("/users/{id}", admin.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -386,21 +449,21 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Novo Nome"))
-                .andExpect(jsonPath("$.role").value("ADMIN"));
+                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
     }
 
     @Test
     void usersAtualizar_rebaixandoAdminInativo_devePermitir() throws Exception {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User adminInativo = criarUsuario("admin-inativo@email.com", Role.ADMIN, false);
-        var request = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var request = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
 
         mvc.perform(put("/users/{id}", adminInativo.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("RECEPCAO"))
+                .andExpect(jsonPath("$.roles[0]").value("RECEPCAO"))
                 .andExpect(jsonPath("$.ativo").value(false));
     }
 
@@ -941,7 +1004,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         user.setName("Usuário Teste");
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode("senha1234"));
-        user.setRole(role);
+        user.setRoles(Set.of(role));
         user.setAtivo(ativo);
         return userRepository.save(user);
     }

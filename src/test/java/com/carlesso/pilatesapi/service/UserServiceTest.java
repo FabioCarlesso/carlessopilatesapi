@@ -22,6 +22,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -47,7 +48,7 @@ class UserServiceTest {
         u.setName("Usuário Teste");
         u.setEmail(email);
         u.setPassword("hash");
-        u.setRole(role);
+        u.setRoles(Set.of(role));
         setId(u, id);
         return u;
     }
@@ -71,7 +72,7 @@ class UserServiceTest {
 
     @Test
     void criar_comEmailNovo_deveRetornarResponseDTO() {
-        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Role.RECEPCAO);
+        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Set.of(Role.RECEPCAO));
         User saved = usuario(1L, "ana@email.com", Role.RECEPCAO);
         when(repository.existsByEmail("ana@email.com")).thenReturn(false);
         when(passwordEncoder.encode("senha123")).thenReturn("hash");
@@ -80,13 +81,13 @@ class UserServiceTest {
         UserResponseDTO response = service.criar(dto);
 
         assertThat(response.email()).isEqualTo("ana@email.com");
-        assertThat(response.role()).isEqualTo(Role.RECEPCAO);
+        assertThat(response.roles()).containsExactly(Role.RECEPCAO);
         assertThat(response.ativo()).isTrue();
     }
 
     @Test
     void criar_comEmailDuplicado_deveLancarConflictException() {
-        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Role.RECEPCAO);
+        var dto = new UserRequestDTO("Ana", "ana@email.com", "senha123", Set.of(Role.RECEPCAO));
         when(repository.existsByEmail("ana@email.com")).thenReturn(true);
 
         assertThatThrownBy(() -> service.criar(dto))
@@ -96,7 +97,7 @@ class UserServiceTest {
 
     @Test
     void criar_deveNormalizarEmail() {
-        var dto = new UserRequestDTO("Ana", "ANA@EMAIL.COM", "senha123", Role.RECEPCAO);
+        var dto = new UserRequestDTO("Ana", "ANA@EMAIL.COM", "senha123", Set.of(Role.RECEPCAO));
         User saved = usuario(1L, "ana@email.com", Role.RECEPCAO);
         when(repository.existsByEmail("ana@email.com")).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hash");
@@ -139,7 +140,7 @@ class UserServiceTest {
     @Test
     void atualizar_adminAlterandoProprioRole_deveLancarBusinessException() {
         User admin = usuario(1L, "admin@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
         when(repository.findById(1L)).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> service.atualizar(1L, dto, "admin@email.com"))
@@ -238,7 +239,7 @@ class UserServiceTest {
     @Test
     void atualizar_rebaixandoUltimoAdmin_deveLancarBusinessException() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin));
 
@@ -250,10 +251,60 @@ class UserServiceTest {
     }
 
     @Test
+    void atualizar_tirandoAdminDeUltimoAdminComOutroPapel_deveLancarBusinessException() {
+        // Continuar com FINANCEIRO não conta: o que importa é o ADMIN sair do conjunto.
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        admin.setRoles(Set.of(Role.ADMIN, Role.FINANCEIRO));
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.FINANCEIRO), null);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin));
+
+        assertThatThrownBy(() -> service.atualizar(2L, dto, "admin@email.com"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível rebaixar o último administrador ativo");
+    }
+
+    @Test
+    void atualizar_acrescentandoPapelAoUltimoAdmin_naoDeveValidarRebaixamento() {
+        User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.ADMIN, Role.PROFISSIONAL), null);
+        when(repository.findById(2L)).thenReturn(Optional.of(admin));
+        when(repository.saveAndFlush(any())).thenReturn(admin);
+
+        service.atualizar(2L, dto, "admin@email.com");
+
+        assertThat(admin.getRoles()).containsExactlyInAnyOrder(Role.ADMIN, Role.PROFISSIONAL);
+        verify(repository, never()).findActiveByRoleForUpdate(Role.ADMIN);
+    }
+
+    @Test
+    void atualizar_comPapelReservado_deveLancarBusinessException() {
+        User user = usuario(2L, "user@email.com", Role.RECEPCAO);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO, Role.PACIENTE), null);
+        when(repository.findById(2L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.atualizar(2L, dto, "admin@email.com"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Papel indisponível para cadastro: PACIENTE");
+        assertThat(user.getRoles()).containsExactly(Role.RECEPCAO);
+    }
+
+    @Test
+    void criar_comPapelReservado_deveLancarBusinessException() {
+        var dto = new UserRequestDTO("Paciente", "paciente@email.com", "senha123", Set.of(Role.PACIENTE));
+        when(repository.existsByEmail("paciente@email.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.criar(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Papel indisponível para cadastro: PACIENTE");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void atualizar_rebaixandoAdminComOutroAdminAtivo_deveAtualizar() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
         User outroAdmin = usuario(3L, "admin3@email.com", Role.ADMIN);
-        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.findActiveByRoleForUpdate(Role.ADMIN)).thenReturn(of(admin, outroAdmin));
         when(repository.saveAndFlush(any())).thenReturn(admin);
@@ -359,7 +410,7 @@ class UserServiceTest {
     void atualizar_rebaixandoAdminInativo_deveAtualizarSemValidarUltimoAdminAtivo() {
         User admin = usuario(2L, "admin2@email.com", Role.ADMIN);
         admin.setAtivo(false);
-        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
         when(repository.findById(2L)).thenReturn(Optional.of(admin));
         when(repository.saveAndFlush(any())).thenReturn(admin);
 

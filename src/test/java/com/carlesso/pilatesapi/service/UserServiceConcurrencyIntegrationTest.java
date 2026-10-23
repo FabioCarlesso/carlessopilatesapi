@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -72,7 +73,7 @@ class UserServiceConcurrencyIntegrationTest extends PostgresTestcontainerSupport
                             && erro.getMessage().equals("Não é possível inativar o último administrador ativo"));
         }
 
-        assertThat(repository.countByRoleAndAtivoTrue(Role.ADMIN)).isEqualTo(1);
+        assertThat(repository.countActiveByRole(Role.ADMIN)).isEqualTo(1);
     }
 
     private Throwable executarCapturandoErro(Runnable runnable) {
@@ -98,7 +99,7 @@ class UserServiceConcurrencyIntegrationTest extends PostgresTestcontainerSupport
         user.setName("Admin Teste");
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode("senha1234"));
-        user.setRole(Role.ADMIN);
+        user.setRoles(Set.of(Role.ADMIN));
         user.setAtivo(true);
         return user;
     }

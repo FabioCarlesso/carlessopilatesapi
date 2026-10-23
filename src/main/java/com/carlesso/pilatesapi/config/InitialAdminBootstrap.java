@@ -5,6 +5,7 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.util.LogMasker;
 import java.util.Locale;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -37,7 +38,7 @@ public class InitialAdminBootstrap implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (repository.countByRoleAndAtivoTrue(Role.ADMIN) > 0) {
+        if (repository.countActiveByRole(Role.ADMIN) > 0) {
             return;
         }
 
@@ -60,7 +61,7 @@ public class InitialAdminBootstrap implements ApplicationRunner {
         admin.setName("Administrador");
         admin.setEmail(email);
         admin.setPassword(passwordEncoder.encode(password));
-        admin.setRole(Role.ADMIN);
+        admin.setRoles(Set.of(Role.ADMIN));
         admin.setAtivo(true);
 
         repository.save(admin);

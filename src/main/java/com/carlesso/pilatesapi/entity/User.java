@@ -1,17 +1,23 @@
 package com.carlesso.pilatesapi.entity;
 
 import com.carlesso.pilatesapi.entity.enums.Role;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -38,9 +44,12 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    /** Papéis acumuláveis (#131); a autoridade de cada requisição sai daqui, não do claim do JWT. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "role", nullable = false, length = 30)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role = Role.RECEPCAO;
+    private Set<Role> roles = new HashSet<>(Set.of(Role.RECEPCAO));
 
     @Column(nullable = false)
     private boolean ativo = true;
@@ -81,12 +90,18 @@ public class User implements UserDetails {
         this.password = password;
     }
 
-    public Role getRole() {
-        return role;
+    public Set<Role> getRoles() {
+        return Collections.unmodifiableSet(roles);
     }
 
-    public void setRole(Role role) {
-        this.role = role;
+    public void setRoles(Set<Role> roles) {
+        // Mexe na coleção que o Hibernate já gerencia em vez de trocá-la por outra instância.
+        this.roles.clear();
+        this.roles.addAll(roles);
+    }
+
+    public boolean hasRole(Role role) {
+        return roles.contains(role);
     }
 
     public boolean isAtivo() {
@@ -111,7 +126,9 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        return roles.stream()
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
+                .toList();
     }
 
     @Override

@@ -8,7 +8,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Autenticação stateless com Spring Security e JWT
 - Senhas são armazenadas com `BCryptPasswordEncoder`
 - O segredo JWT vem de `JWT_SECRET`; não há segredo fixo no código
-- JWT inclui claims `role`, `userId` e `tokenVersion`; a cada requisição o filtro valida se o usuário ainda existe, está ativo e se a versão do token corresponde à versão atual do usuário antes de reconstruir o contexto de segurança
+- JWT inclui claims `roles` (lista), `userId` e `tokenVersion`; a cada requisição o filtro valida se o usuário ainda existe, está ativo e se a versão do token corresponde à versão atual do usuário antes de reconstruir o contexto de segurança
 - O access token é curto (`jwt.expiration-ms`, default 15 min); a sessão é mantida pelo **refresh token** (`jwt.refresh-expiration-ms`, default 7 dias), emitido junto no login. Um token vazado deixa de valer em minutos, sem obrigar o usuário a logar várias vezes ao dia
 - O refresh token é opaco (32 bytes aleatórios, Base64 URL-safe) e persistido em `refresh_tokens` **apenas como hash SHA-256**, como em `password_reset_tokens`
 - `POST /auth/refresh` **rotaciona**: o token apresentado é marcado como usado (`used_at`) e um novo par access + refresh é emitido. Cada login abre uma **família** (`family_id`) que agrupa a cadeia de rotações; o novo refresh token herda a família e ganha prazo cheio a partir da rotação, **limitado ao teto absoluto da sessão** (`jwt.refresh-session-max-ms`, default 30 dias desde o login, gravado em `family_expires_at`). Rotacionar não estende a sessão além do teto, então um token roubado não a mantém viva para sempre
@@ -24,7 +24,8 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Os dois baldes vivem em memória: zeram a cada restart e valem **por instância**. Com mais de uma réplica, cada uma conta separadamente e o limite efetivo se multiplica pelo número de réplicas — escalar horizontalmente exige mover o estado para um armazenamento compartilhado (ex.: Redis)
 - Autorização por papel (#131), com menor privilégio: `PROFISSIONAL` acessa prontuário e agenda, `RECEPCAO` agenda, planos e pagamentos, `FINANCEIRO` planos, pagamentos e NFSe; os três leem pacientes, profissionais, bloqueios e o resumo do dashboard. `ADMIN` acessa tudo. A matriz completa está em [`api.md`](api.md#autorização-por-papel). Rota não citada no `SecurityConfig` é negada a todos (`denyAll`), então controller novo precisa de regra explícita
 - O papel `PACIENTE` existe só como reserva para o portal do paciente (#173): fica fora de `GET /users/roles` e nenhuma rota de negócio o aceita
-- A autoridade vem do banco a cada requisição, não do claim `role` do JWT: mudar o papel de um usuário vale na requisição seguinte, sem esperar o token expirar
+- Um usuário pode acumular papéis e acessa a soma das áreas deles. O conjunto não pode ficar vazio, e `POST`/`PUT /users` recusam papel reservado (`PACIENTE`) com `422`. A proteção do último ADMIN ativo olha a presença de `ADMIN` no conjunto: tirar o `ADMIN` dele é rebaixamento mesmo que outro papel continue
+- A autoridade vem do banco a cada requisição, não do claim `roles` do JWT: mudar o papel de um usuário vale na requisição seguinte, sem esperar o token expirar
 - Não há cadastro público de usuários: `POST /auth/register` foi removido na #132 (criação só por ADMIN em `POST /users`), então não há rota de registro a limitar
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)

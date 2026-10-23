@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -165,7 +166,7 @@ class LockingOtimistaIntegrationTest extends PostgresTestcontainerSupport {
         user.setName("Usuário Concorrência");
         user.setEmail(UUID.randomUUID() + "@email.com");
         user.setPassword("hash");
-        user.setRole(Role.RECEPCAO);
+        user.setRoles(Set.of(Role.RECEPCAO));
         user.setAtivo(true);
         return user;
     }

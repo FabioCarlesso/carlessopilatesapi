@@ -19,6 +19,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PreferenciasUsuarioRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -43,7 +44,7 @@ class PreferenciasUsuarioServiceTest {
         u.setName("Teste");
         u.setEmail(email);
         u.setPassword("hash");
-        u.setRole(Role.RECEPCAO);
+        u.setRoles(Set.of(Role.RECEPCAO));
         try {
             var field = User.class.getDeclaredField("id");
             field.setAccessible(true);

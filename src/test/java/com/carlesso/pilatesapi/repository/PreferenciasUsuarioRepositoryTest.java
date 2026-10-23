@@ -11,6 +11,7 @@ import com.carlesso.pilatesapi.entity.enums.TemaPreferencia;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -96,7 +97,7 @@ class PreferenciasUsuarioRepositoryTest extends PostgresTestcontainerSupport {
         user.setName("Usuário " + email);
         user.setEmail(email);
         user.setPassword("hash");
-        user.setRole(Role.RECEPCAO);
+        user.setRoles(Set.of(Role.RECEPCAO));
         user.setAtivo(true);
         return entityManager.persist(user);
     }

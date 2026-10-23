@@ -51,11 +51,11 @@ nomes e o formato de antes da #109, porque o frontend depende deles. Registros a
 | `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Access e refresh tokens emitidos antes da troca deixam de valer |
 | `GET` | `/users/me/preferencias` | Autenticado | Retorna as preferências do usuário autenticado (idioma, tema e notificações). Usuário sem preferências salvas recebe os valores padrão |
 | `PUT` | `/users/me/preferencias` | Autenticado | Atualiza as preferências do usuário autenticado. Valida `idioma` (`PT_BR`, `EN_US`, `ES_ES`) e `tema` (`CLARO`, `ESCURO`); valores inválidos retornam `400` |
-| `POST` | `/users` | `ADMIN` | Cria usuário com role `ADMIN`, `PROFISSIONAL`, `RECEPCAO` ou `FINANCEIRO` |
+| `POST` | `/users` | `ADMIN` | Cria usuário com um ou mais papéis em `roles` (`ADMIN`, `PROFISSIONAL`, `RECEPCAO`, `FINANCEIRO`). Lista vazia retorna `400`; papel reservado (`PACIENTE`), `422` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
 | `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos. `PACIENTE`, reservada para o portal do paciente (#173), não aparece |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
-| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil. Admin não pode alterar o próprio role nem rebaixar o último ADMIN ativo |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e papéis. `roles`, quando enviado, substitui o conjunto inteiro. Admin não pode alterar os próprios papéis nem tirar `ADMIN` do último ADMIN ativo |
 | `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
@@ -63,7 +63,10 @@ As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens
 
 ### Autorização por papel
 
-`ADMIN` acessa todas as áreas. Os demais papéis acessam só as marcadas; fora delas a resposta é `403`. Rota que o
+`ADMIN` acessa todas as áreas. Os demais papéis acessam só as marcadas; fora delas a resposta é `403`. Um usuário
+pode acumular papéis e acessa a soma das áreas deles — `RECEPCAO` + `FINANCEIRO` abre agenda e NFSe, mas não o
+prontuário. As respostas de usuário (`/users`, `/users/me` e o `user` do login) trazem `roles` como lista, na ordem
+da tabela abaixo. Rota que o
 `SecurityConfig` não cita é negada a todos, inclusive ao `ADMIN` (`denyAll`).
 
 | Rotas | `PROFISSIONAL` | `RECEPCAO` | `FINANCEIRO` |

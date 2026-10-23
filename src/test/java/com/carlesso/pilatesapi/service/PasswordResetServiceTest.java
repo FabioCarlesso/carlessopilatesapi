@@ -27,6 +27,7 @@ import com.carlesso.pilatesapi.repository.UserRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -85,7 +86,7 @@ class PasswordResetServiceTest {
         u.setName("Maria");
         u.setEmail(email);
         u.setPassword("hash-atual");
-        u.setRole(Role.RECEPCAO);
+        u.setRoles(Set.of(Role.RECEPCAO));
         u.setAtivo(ativo);
         try {
             var field = User.class.getDeclaredField("id");

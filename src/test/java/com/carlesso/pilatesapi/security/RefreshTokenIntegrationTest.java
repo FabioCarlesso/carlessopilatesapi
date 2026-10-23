@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -273,7 +274,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         user.setName("Usuário Teste");
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(SENHA));
-        user.setRole(role);
+        user.setRoles(Set.of(role));
         user.setAtivo(true);
         return userRepository.save(user);
     }

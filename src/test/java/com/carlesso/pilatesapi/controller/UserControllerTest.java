@@ -31,6 +31,7 @@ import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -64,7 +65,7 @@ class UserControllerTest {
     private ObjectMapper mapper;
 
     private UserResponseDTO response() {
-        return new UserResponseDTO(1L, "João Silva", "joao@email.com", Role.RECEPCAO, true, null);
+        return new UserResponseDTO(1L, "João Silva", "joao@email.com", List.of(Role.RECEPCAO), true, null);
     }
 
     private Authentication adminAuth() {
@@ -79,7 +80,7 @@ class UserControllerTest {
 
     @Test
     void criar_deveRetornar201ComLocation() throws Exception {
-        var request = new UserRequestDTO("João Silva", "joao@email.com", "senha1234", Role.RECEPCAO);
+        var request = new UserRequestDTO("João Silva", "joao@email.com", "senha1234", Set.of(Role.RECEPCAO));
         when(service.criar(any())).thenReturn(response());
 
         mvc.perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
@@ -87,13 +88,13 @@ class UserControllerTest {
                 .andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.email").value("joao@email.com"))
-                .andExpect(jsonPath("$.role").value("RECEPCAO"))
+                .andExpect(jsonPath("$.roles[0]").value("RECEPCAO"))
                 .andExpect(jsonPath("$.ativo").value(true));
     }
 
     @Test
     void criar_comEmailDuplicado_deveRetornar409() throws Exception {
-        var request = new UserRequestDTO("João Silva", "joao@email.com", "senha1234", Role.RECEPCAO);
+        var request = new UserRequestDTO("João Silva", "joao@email.com", "senha1234", Set.of(Role.RECEPCAO));
         when(service.criar(any())).thenThrow(new ConflictException("E-mail já cadastrado"));
 
         mvc.perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
@@ -148,7 +149,7 @@ class UserControllerTest {
     @Test
     void atualizar_comDadosValidos_deveRetornar200() throws Exception {
         var dto = new UserUpdateDTO("Novo Nome", null, null, null, null);
-        var updated = new UserResponseDTO(1L, "Novo Nome", "joao@email.com", Role.RECEPCAO, true, null);
+        var updated = new UserResponseDTO(1L, "Novo Nome", "joao@email.com", List.of(Role.RECEPCAO), true, null);
         when(service.atualizar(eq(1L), any(), anyString())).thenReturn(updated);
 
         mvc.perform(put("/users/1")
@@ -161,7 +162,7 @@ class UserControllerTest {
 
     @Test
     void atualizar_adminAlterandoProprioRole_deveRetornar422() throws Exception {
-        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
         when(service.atualizar(eq(1L), any(), anyString()))
                 .thenThrow(new BusinessException("Não é possível alterar o próprio perfil de acesso"));
 
@@ -287,7 +288,7 @@ class UserControllerTest {
 
     @Test
     void atualizar_rebaixandoUltimoAdmin_deveRetornar422() throws Exception {
-        var dto = new UserUpdateDTO(null, null, null, Role.RECEPCAO, null);
+        var dto = new UserUpdateDTO(null, null, null, Set.of(Role.RECEPCAO), null);
         when(service.atualizar(eq(2L), any(), anyString()))
                 .thenThrow(new BusinessException("Não é possível rebaixar o último administrador ativo"));
 
