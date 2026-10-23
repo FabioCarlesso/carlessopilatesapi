@@ -18,6 +18,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
+import org.springframework.data.util.TypeInformation;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -70,6 +72,16 @@ class GlobalExceptionHandlerTest {
         ProblemDetail problema = handler.handleNotFound(new ResourceNotFoundException("Paciente não encontrado: 1"));
 
         assertProblema(problema, TipoProblema.NAO_ENCONTRADO, "Paciente não encontrado: 1");
+    }
+
+    @Test
+    void handleOrdenacaoInvalida_campoInexistente_retornaProblemaBadRequest() {
+        var erro = new PropertyReferenceException(
+                "role", TypeInformation.of(com.carlesso.pilatesapi.entity.User.class), List.of());
+
+        ProblemDetail problema = handler.handleOrdenacaoInvalida(erro);
+
+        assertProblema(problema, TipoProblema.REQUISICAO_INVALIDA, "Ordenação inválida: campo 'role' não existe");
     }
 
     @Test

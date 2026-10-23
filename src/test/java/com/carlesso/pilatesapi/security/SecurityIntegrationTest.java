@@ -310,6 +310,18 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void usersListar_ordenandoPeloCampoRoleQueDeixouDeExistir_deveRetornar400() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+
+        // O frontend anterior à #131 ordenava por `role`; sem tratamento a PropertyReferenceException virava 500.
+        mvc.perform(get("/users").param("sort", "role").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.REQUISICAO_INVALIDA.uri().toString()))
+                .andExpect(jsonPath("$.detail").value("Ordenação inválida: campo 'role' não existe"));
+    }
+
+    @Test
     void usersListar_comUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
         User user = criarUsuario("user@email.com", Role.RECEPCAO);
 

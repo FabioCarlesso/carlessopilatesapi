@@ -452,6 +452,9 @@ GET /pacientes?page=0&size=10&sort=nome,asc
 GET /profissionais?page=0&size=10&sort=nome,asc
 ```
 
+`sort` com um campo que o recurso não tem (ex.: `GET /users?sort=role`, campo que deixou de existir com a #131)
+responde `400` `bad-request`, com o nome do campo no `detail`.
+
 O endpoint `GET /pacientes` também suporta filtros opcionais por `nome`, `email`, `cpf`, `telefone` e `ativo`. Quando `ativo` é omitido, retorna apenas pacientes ativos.
 
 ```

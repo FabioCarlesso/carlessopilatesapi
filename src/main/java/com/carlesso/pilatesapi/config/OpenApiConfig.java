@@ -71,9 +71,12 @@ public class OpenApiConfig {
                                 Usuários iniciais para teste no perfil dev:
                                 - admin@carlessopilates.com / senha1234 / ADMIN
                                 - operacional@carlessopilates.com / senha1234 / ADMIN
-                                - recepcao@carlessopilates.com / senha1234 / USER
-                                - financeiro@carlessopilates.com / senha1234 / USER
-                                - consulta@carlessopilates.com / senha1234 / USER
+                                - recepcao@carlessopilates.com / senha1234 / RECEPCAO
+                                - financeiro@carlessopilates.com / senha1234 / FINANCEIRO
+                                - consulta@carlessopilates.com / senha1234 / PROFISSIONAL
+
+                                Cada rota de negócio exige o papel da sua área e responde 403 aos demais; um usuário
+                                pode acumular papéis. A matriz completa está em docs/api.md.
                                 """)
                         .version("v1.0")
                         .contact(new Contact().name("Carlesso Pilates").email("contato@carlessopilates.com.br")));
@@ -100,6 +103,7 @@ public class OpenApiConfig {
             }
             Map<String, Schema> schemas = openApi.getComponents().getSchemas();
             openApi.getPaths().forEach((caminho, path) -> path.readOperations().forEach(operation -> {
+                declararErrosDeAutorizacao(caminho, operation);
                 boolean comVersao = corpoComVersao(operation, schemas);
                 operation.getResponses().forEach((codigo, resposta) -> {
                     if (codigo.startsWith("4") || codigo.startsWith("5")) {
@@ -118,6 +122,26 @@ public class OpenApiConfig {
                                         .content(conteudoProblema("500", caminho)));
             }));
         };
+    }
+
+    /**
+     * 401 e 403 nascem no filter chain, antes do controller, então nenhum {@code @ApiResponse} os declara e o Swagger
+     * UI os exibia como "Undocumented". Toda rota fora de {@code /auth/**} exige token; desde a #131 toda rota de
+     * negócio também exige o papel da área, e só {@code /users/me*} aceita qualquer autenticado. O conteúdo
+     * {@code problem+json} é preenchido logo depois, pelo laço que trata todo 4xx.
+     */
+    static void declararErrosDeAutorizacao(String caminho, io.swagger.v3.oas.models.Operation operation) {
+        if (caminho.startsWith("/auth/")) {
+            return;
+        }
+        operation
+                .getResponses()
+                .putIfAbsent("401", new ApiResponse().description("Token ausente, inválido ou expirado"));
+        if (!caminho.startsWith("/users/me")) {
+            operation
+                    .getResponses()
+                    .putIfAbsent("403", new ApiResponse().description("Usuário sem o papel exigido para a área"));
+        }
     }
 
     private static Content conteudoProblema(String codigo, String caminho) {

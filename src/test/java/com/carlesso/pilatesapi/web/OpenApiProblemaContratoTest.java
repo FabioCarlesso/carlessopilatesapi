@@ -46,6 +46,25 @@ class OpenApiProblemaContratoTest {
     }
 
     @Test
+    void errosDeAutorizacao_documentadosNasRotasProtegidas() throws Exception {
+        String anamnese = "$.paths['/anamneses/{id}'].get.responses";
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(anamnese + "['403'].content" + PROBLEM_JSON + ".example.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()))
+                .andExpect(jsonPath(anamnese + "['401'].content" + PROBLEM_JSON + ".example.type")
+                        .value(TipoProblema.NAO_AUTENTICADO.uri().toString()))
+                // /users/me aceita qualquer autenticado e o login é público: nenhum dos dois responde 403. O 401 do
+                // login é o de credenciais inválidas, declarado pelo próprio controller.
+                .andExpect(jsonPath("$.paths['/users/me'].get.responses['403']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/users/me'].get.responses['401']").exists())
+                .andExpect(
+                        jsonPath("$.paths['/auth/login'].post.responses['403']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/auth/login'].post.responses['401'].description")
+                        .value("Credenciais inválidas"));
+    }
+
+    @Test
     void exemploDeCadaResposta_condizComOCodigo() throws Exception {
         String resposta404 = "$.paths['/pacientes/{id}'].get.responses['404'].content" + PROBLEM_JSON + ".example";
         String resposta400 = "$.paths['/pacientes'].post.responses['400'].content" + PROBLEM_JSON + ".example";
