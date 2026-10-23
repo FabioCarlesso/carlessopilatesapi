@@ -3,6 +3,8 @@
 > **Projeto:** Carlesso Pilates (carlessopilatesapi + carlessopilatesfe)
 > **Status:** Aguardando validação com fisioterapeuta
 > **Data:** Julho/2026
+> **Wireframes:** o PDF com os mockups das 5 telas usado na validação saiu do versionamento e continua acessível no
+> [histórico do git](https://github.com/FabioCarlesso/carlessopilatesapi/blob/3970745/docs/simetrografo-virtual-mockups.pdf).
 
 ## Conceito
 
