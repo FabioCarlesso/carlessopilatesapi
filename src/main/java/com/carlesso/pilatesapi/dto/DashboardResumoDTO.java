@@ -19,7 +19,10 @@ public record DashboardResumoDTO(
             long totalPendentes,
             long totalPagos,
             long totalVencidos,
-            @Schema(description = "Receita confirmada no mês; null para papéis sem acesso financeiro", nullable = true)
+            @Schema(
+                            description = "Receita confirmada no mês; null para papéis sem acesso financeiro",
+                            // OpenAPI 3.1: `null` entra como tipo; `nullable` é ignorado nessa versão.
+                            types = {"number", "null"})
                     BigDecimal receitaMesAtual) {}
 
     public record AulasResumo(long totalRealizadasMesAtual, long totalAgendadasMesAtual) {}

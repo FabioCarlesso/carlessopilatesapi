@@ -18,6 +18,6 @@ public record UserRequestDTO(
         @ArraySchema(
                         schema =
                                 @Schema(
-                                        type = "string",
+                                        types = {"string"},
                                         allowableValues = {"ADMIN", "PROFISSIONAL", "RECEPCAO", "FINANCEIRO"}))
                 @NotEmpty(message = "informe ao menos um papel") Set<@NotNull(message = "papel não pode ser nulo") Role> roles) {}

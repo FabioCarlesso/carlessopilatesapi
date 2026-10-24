@@ -12,14 +12,11 @@ public record UserUpdateDTO(
         @Size(min = 1) String name,
         @Email String email,
         @Size(min = 8) String password,
-        @ArraySchema(
-                        arraySchema =
-                                @Schema(
-                                        description =
-                                                "Substitui o conjunto inteiro de papéis. Ausente: papéis inalterados"),
+        @Schema(description = "Substitui o conjunto inteiro de papéis. Ausente: papéis inalterados")
+                @ArraySchema(
                         schema =
                                 @Schema(
-                                        type = "string",
+                                        types = {"string"},
                                         allowableValues = {"ADMIN", "PROFISSIONAL", "RECEPCAO", "FINANCEIRO"}))
                 @Size(min = 1, message = "informe ao menos um papel") Set<@NotNull(message = "papel não pode ser nulo") Role> roles,
         @Schema(
