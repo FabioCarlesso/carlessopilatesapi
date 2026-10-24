@@ -50,7 +50,8 @@ class PreferenciasUsuarioControllerTest {
     private ObjectMapper mapper;
 
     private Authentication userAuth(String email) {
-        return new UsernamePasswordAuthenticationToken(email, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        return new UsernamePasswordAuthenticationToken(
+                email, null, List.of(new SimpleGrantedAuthority("ROLE_RECEPCAO")));
     }
 
     @Test

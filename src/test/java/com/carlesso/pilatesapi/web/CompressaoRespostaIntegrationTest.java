@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -128,7 +129,7 @@ class CompressaoRespostaIntegrationTest {
         user.setName("Usuário Teste");
         user.setEmail(EMAIL_LOGIN);
         user.setPassword(passwordEncoder.encode("senha1234"));
-        user.setRole(Role.USER);
+        user.setRoles(Set.of(Role.RECEPCAO));
         user.setAtivo(true);
         userRepository.save(user);
 

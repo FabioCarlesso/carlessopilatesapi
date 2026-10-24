@@ -26,6 +26,7 @@ import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.PasswordResetService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -242,6 +243,6 @@ class AuthControllerTest {
     }
 
     private static UserResponseDTO maria() {
-        return new UserResponseDTO(1L, "Maria", "maria@email.com", Role.USER, true, null);
+        return new UserResponseDTO(1L, "Maria", "maria@email.com", List.of(Role.RECEPCAO), true, null);
     }
 }

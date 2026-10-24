@@ -16,6 +16,7 @@ import com.carlesso.pilatesapi.util.LogMasker;
 import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -44,15 +45,20 @@ public class UserService {
             throw new ConflictException("E-mail já cadastrado");
         }
 
+        validarPapeisDisponiveis(dto.roles());
+
         User user = new User();
         user.setName(dto.name());
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(dto.password()));
-        user.setRole(dto.role());
+        user.setRoles(dto.roles());
 
         User salvo = repository.save(user);
         log.info(
-                "Usuário criado: userId={}, email={}, role={}", salvo.getId(), LogMasker.email(email), salvo.getRole());
+                "Usuário criado: userId={}, email={}, roles={}",
+                salvo.getId(),
+                LogMasker.email(email),
+                salvo.getRoles());
         return UserResponseDTO.from(salvo);
     }
 
@@ -85,14 +91,14 @@ public class UserService {
         User user = encontrar(id);
         VersaoGuard.exigirVersaoAtual(dto.version(), user.getVersion(), User.class, id);
 
-        if (user.getEmail().equals(currentEmail)
-                && dto.role() != null
-                && !dto.role().equals(user.getRole())) {
-            throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
-        }
-
-        if (dto.role() != null && !dto.role().equals(user.getRole()) && dto.role() != Role.ADMIN) {
-            validarRemocaoDeAdminAtivo(user, "Não é possível rebaixar o último administrador ativo");
+        if (dto.roles() != null) {
+            validarPapeisDisponiveis(dto.roles());
+            if (user.getEmail().equals(currentEmail) && !dto.roles().equals(user.getRoles())) {
+                throw new BusinessException("Não é possível alterar o próprio perfil de acesso");
+            }
+            if (!dto.roles().contains(Role.ADMIN)) {
+                validarRemocaoDeAdminAtivo(user, "Não é possível rebaixar o último administrador ativo");
+            }
         }
 
         if (dto.email() != null) {
@@ -106,7 +112,7 @@ public class UserService {
         if (dto.password() != null) {
             aplicarNovaSenha(user, dto.password());
         }
-        if (dto.role() != null) user.setRole(dto.role());
+        if (dto.roles() != null) user.setRoles(dto.roles());
 
         return UserResponseDTO.from(repository.saveAndFlush(user));
     }
@@ -157,10 +163,18 @@ public class UserService {
 
     private void validarRemocaoDeAdminAtivo(User user, String mensagem) {
         if (user.isAtivo()
-                && user.getRole() == Role.ADMIN
+                && user.hasRole(Role.ADMIN)
                 && repository.findActiveByRoleForUpdate(Role.ADMIN).size() <= 1) {
             throw new BusinessException(mensagem);
         }
+    }
+
+    // PACIENTE e futuros papéis reservados ficam fora de GET /users/roles; aceitá-los aqui criaria pela
+    // porta dos fundos um acesso que o formulário administrativo não oferece.
+    private void validarPapeisDisponiveis(Set<Role> roles) {
+        roles.stream().filter(role -> !role.isVisivel()).findFirst().ifPresent(role -> {
+            throw new BusinessException("Papel indisponível para cadastro: " + role.name());
+        });
     }
 
     private User encontrar(Long id) {

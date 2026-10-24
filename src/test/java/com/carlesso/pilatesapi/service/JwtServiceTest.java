@@ -11,6 +11,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Date;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class JwtServiceTest {
@@ -35,6 +36,15 @@ class JwtServiceTest {
     }
 
     @Test
+    void generateToken_deveLevarTodosOsPapeisNaOrdemDoEnum() {
+        JwtService service = new JwtService(SECRET, Duration.ofMinutes(15).toMillis());
+        User user = usuario();
+        user.setRoles(Set.of(Role.FINANCEIRO, Role.PROFISSIONAL));
+
+        assertThat(service.extractRoles(service.generateToken(user))).containsExactly("PROFISSIONAL", "FINANCEIRO");
+    }
+
+    @Test
     void tokenComTtlCurtoInjetado_aposExpirar_deveSerRejeitado() {
         JwtService service = new JwtService(SECRET, -1_000);
 
@@ -48,7 +58,7 @@ class JwtServiceTest {
         user.setName("Maria");
         user.setEmail("maria@email.com");
         user.setPassword("hash");
-        user.setRole(Role.USER);
+        user.setRoles(Set.of(Role.RECEPCAO));
         return user;
     }
 }

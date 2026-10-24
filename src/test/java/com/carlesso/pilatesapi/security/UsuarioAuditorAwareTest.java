@@ -23,7 +23,7 @@ class UsuarioAuditorAwareTest {
     void comUsuarioAutenticado_deveRetornarEmail() {
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(
-                        "fisio@carlessopilates.com", null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+                        "fisio@carlessopilates.com", null, List.of(new SimpleGrantedAuthority("ROLE_RECEPCAO"))));
 
         assertThat(auditorAware.getCurrentAuditor()).contains("fisio@carlessopilates.com");
     }

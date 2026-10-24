@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,10 +46,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
         try {
             String username = jwtService.extractUsername(token);
-            String role = jwtService.extractRole(token);
+            List<String> roles = jwtService.extractRoles(token);
             Long tokenVersion = jwtService.extractTokenVersion(token);
             if (username != null
-                    && role != null
+                    && roles != null
                     && tokenVersion != null
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);

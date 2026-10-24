@@ -83,7 +83,7 @@ class AuditoriaEntidadesRepositoryTest extends PostgresTestcontainerSupport {
     private void autenticar(String email) {
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(
-                        email, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+                        email, null, List.of(new SimpleGrantedAuthority("ROLE_RECEPCAO"))));
     }
 
     private Paciente paciente(String email) {

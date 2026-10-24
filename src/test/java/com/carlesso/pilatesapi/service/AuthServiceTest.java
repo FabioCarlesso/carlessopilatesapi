@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.entity.enums.Role;
 import com.carlesso.pilatesapi.exception.TooManyRequestsException;
 import com.carlesso.pilatesapi.metrics.BusinessMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,7 +117,7 @@ class AuthServiceTest {
         User user = new User();
         user.setName("Maria");
         user.setEmail("maria@email.com");
-        user.setRole(Role.USER);
+        user.setRoles(Set.of(Role.RECEPCAO));
         user.setAtivo(true);
         return user;
     }

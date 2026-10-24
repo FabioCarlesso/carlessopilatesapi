@@ -22,6 +22,7 @@ import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
@@ -244,7 +245,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         user.setName("Usuário Teste");
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode("senha1234"));
-        user.setRole(Role.USER);
+        user.setRoles(Set.of(Role.RECEPCAO));
         user.setAtivo(true);
         return userRepository.save(user);
     }

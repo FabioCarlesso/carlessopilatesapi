@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.service;
 
 import com.carlesso.pilatesapi.entity.User;
+import com.carlesso.pilatesapi.entity.enums.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
@@ -8,6 +9,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -35,7 +37,9 @@ public class JwtService {
                 .expiration(Date.from(now.plusMillis(expirationMillis)));
 
         if (userDetails instanceof User user) {
-            builder.claim("role", user.getRole().name())
+            builder.claim(
+                            "roles",
+                            user.getRoles().stream().sorted().map(Role::name).toList())
                     .claim("userId", user.getId())
                     .claim("tokenVersion", user.getTokenVersion());
         }
@@ -47,8 +51,10 @@ public class JwtService {
         return extractAllClaims(token).getSubject();
     }
 
-    public String extractRole(String token) {
-        return extractAllClaims(token).get("role", String.class);
+    /** Papéis do claim {@code roles}, ou {@code null} se o token não o tiver (emitido antes da #131). */
+    public List<String> extractRoles(String token) {
+        List<?> roles = extractAllClaims(token).get("roles", List.class);
+        return roles == null ? null : roles.stream().map(String::valueOf).toList();
     }
 
     public Long extractTokenVersion(String token) {

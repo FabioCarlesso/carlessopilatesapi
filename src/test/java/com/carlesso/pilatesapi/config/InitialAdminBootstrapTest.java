@@ -30,7 +30,7 @@ class InitialAdminBootstrapTest {
     @Test
     void run_comAdminAtivo_naoCriaNovoAdmin() throws Exception {
         var bootstrap = bootstrap("admin@carlessopilates.com", "senha-segura");
-        when(repository.countByRoleAndAtivoTrue(Role.ADMIN)).thenReturn(1L);
+        when(repository.countActiveByRole(Role.ADMIN)).thenReturn(1L);
 
         bootstrap.run(new DefaultApplicationArguments());
 
@@ -40,7 +40,7 @@ class InitialAdminBootstrapTest {
     @Test
     void run_semAdminAtivoEComSenha_criaAdminInicial() throws Exception {
         var bootstrap = bootstrap("ADMIN@CARLESSOPILATES.COM", "senha-segura");
-        when(repository.countByRoleAndAtivoTrue(Role.ADMIN)).thenReturn(0L);
+        when(repository.countActiveByRole(Role.ADMIN)).thenReturn(0L);
         when(repository.existsByEmail("admin@carlessopilates.com")).thenReturn(false);
         when(passwordEncoder.encode("senha-segura")).thenReturn("hash");
 
@@ -52,14 +52,14 @@ class InitialAdminBootstrapTest {
         assertThat(admin.getName()).isEqualTo("Administrador");
         assertThat(admin.getEmail()).isEqualTo("admin@carlessopilates.com");
         assertThat(admin.getPassword()).isEqualTo("hash");
-        assertThat(admin.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(admin.getRoles()).containsExactly(Role.ADMIN);
         assertThat(admin.isAtivo()).isTrue();
     }
 
     @Test
     void run_semAdminAtivoESemSenha_falhaStartup() {
         var bootstrap = bootstrap("admin@carlessopilates.com", "");
-        when(repository.countByRoleAndAtivoTrue(Role.ADMIN)).thenReturn(0L);
+        when(repository.countActiveByRole(Role.ADMIN)).thenReturn(0L);
 
         assertThatThrownBy(() -> bootstrap.run(new DefaultApplicationArguments()))
                 .isInstanceOf(IllegalStateException.class)

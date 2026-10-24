@@ -51,15 +51,40 @@ nomes e o formato de antes da #109, porque o frontend depende deles. Registros a
 | `PUT` | `/users/me/senha` | Autenticado | Troca a própria senha informando `senhaAtual`, `novaSenha` (mín. 8 caracteres) e `confirmacaoNovaSenha`. Retorna `422` para senha atual incorreta, confirmação divergente ou reuso da senha atual. Access e refresh tokens emitidos antes da troca deixam de valer |
 | `GET` | `/users/me/preferencias` | Autenticado | Retorna as preferências do usuário autenticado (idioma, tema e notificações). Usuário sem preferências salvas recebe os valores padrão |
 | `PUT` | `/users/me/preferencias` | Autenticado | Atualiza as preferências do usuário autenticado. Valida `idioma` (`PT_BR`, `EN_US`, `ES_ES`) e `tema` (`CLARO`, `ESCURO`); valores inválidos retornam `400` |
-| `POST` | `/users` | `ADMIN` | Cria usuário com role `USER` ou `ADMIN` |
+| `POST` | `/users` | `ADMIN` | Cria usuário com um ou mais papéis em `roles` (`ADMIN`, `PROFISSIONAL`, `RECEPCAO`, `FINANCEIRO`). Lista vazia retorna `400`; papel reservado (`PACIENTE`), `422` |
 | `GET` | `/users` | `ADMIN` | Lista usuários cadastrados sem expor senha |
-| `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos |
+| `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos. `PACIENTE`, reservada para o portal do paciente (#173), não aparece |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
-| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e perfil. Admin não pode alterar o próprio role nem rebaixar o último ADMIN ativo |
+| `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e papéis. `roles`, quando enviado, substitui o conjunto inteiro. Admin não pode alterar os próprios papéis nem tirar `ADMIN` do último ADMIN ativo |
 | `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
-As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos, expirados ou emitidos antes da última troca/redefinição de senha retornam `401 Unauthorized` — ao receber `401` por expiração, o cliente chama `POST /auth/refresh` e repete a requisição com o novo `accessToken`; usuário sem role `ADMIN` em `/admin/**` e no CRUD de `/users` recebe `403 Forbidden`.
+As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos, expirados ou emitidos antes da última troca/redefinição de senha retornam `401 Unauthorized` — ao receber `401` por expiração, o cliente chama `POST /auth/refresh` e repete a requisição com o novo `accessToken`; usuário autenticado sem o papel da rota recebe `403 Forbidden` (matriz abaixo).
+
+### Autorização por papel
+
+`ADMIN` acessa todas as áreas. Os demais papéis acessam só as marcadas; fora delas a resposta é `403`. Um usuário
+pode acumular papéis e acessa a soma das áreas deles — `RECEPCAO` + `FINANCEIRO` abre agenda e NFSe, mas não o
+prontuário. As respostas de usuário (`/users`, `/users/me` e o `user` do login) trazem `roles` como lista, na ordem
+da tabela abaixo. Rota que o
+`SecurityConfig` não cita é negada a todos, inclusive ao `ADMIN` (`denyAll`).
+
+| Rotas | `PROFISSIONAL` | `RECEPCAO` | `FINANCEIRO` |
+|---|---|---|---|
+| `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/avaliacoes-posturais`, `/evolucoes-sessao`, `/reavaliacoes`, `/planos-tratamento` | ✓ | | |
+| `/pacientes` | ✓ | ✓ | ✓ |
+| `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
+| `GET /bloqueios` | ✓ | ✓ | ✓ |
+| `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
+| `/api/nfse-emitidas`, `/api/relatorios/nfse` | | | ✓ |
+| `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
+| `/profissionais/{id}/relatorio-pagamento` (JSON e PDF) | | | ✓ |
+| `/dashboard/resumo` | ✓ | ✓ | ✓ |
+| `/users/me`, `/users/me/senha`, `/users/me/preferencias` | ✓ | ✓ | ✓ |
+
+Só de `ADMIN`: `/users/**` (exceto `/users/me*`), `/admin/**`, `/actuator/**` além de health/info, escrita em
+`/bloqueios` e `/profissionais`, `GET /pagamentos`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
+`/dashboard/aulas-por-profissional`. `PACIENTE` só acessa `/users/me*` até o portal do paciente existir.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
 
@@ -226,8 +251,8 @@ nada ali — a decisão continua com quem opera, porque exceções (a turma que 
   não existe aqui. Retorna também os bloqueios que começam antes de `inicio` ou terminam depois de `fim` — férias
   coletivas de 20/12 a 05/01 aparecem na consulta de janeiro. Período sem bloqueios retorna `200` com lista vazia.
 - `PUT` substitui o registro inteiro: omitir a faixa de horário devolve o bloqueio para dia inteiro.
-- Escrita exige `ADMIN` (`403` caso contrário); a leitura basta estar autenticado, para que as telas de agenda e de
-  sessão da recepção consigam exibir o aviso.
+- Escrita exige `ADMIN` (`403` caso contrário); a leitura é liberada a toda a equipe, para que as telas de agenda e
+  de sessão da recepção consigam exibir o aviso.
 
 ## Sessões de Pilates/Fisioterapia
 
@@ -295,7 +320,7 @@ consultada por nenhuma outra rota — não bloqueia o cancelamento nem vira sess
   paginada e a resposta é única. Na prática a fila ativa é pequena, então o teto é rede de segurança.
 - `DELETE` é remoção lógica: a entrada some da listagem e o `DELETE` repetido retorna `404`, mas a linha permanece
   para o histórico de quem foi chamado a partir da fila.
-- Escrita e leitura exigem apenas usuário autenticado: quem preenche vaga aberta é a recepção.
+- Escrita e leitura exigem `ADMIN`, `PROFISSIONAL` ou `RECEPCAO`: quem preenche vaga aberta é a recepção.
 
 ## Avaliações Fisioterapêuticas
 
@@ -426,6 +451,9 @@ Os endpoints de listagem suportam os query params padrão do Spring:
 GET /pacientes?page=0&size=10&sort=nome,asc
 GET /profissionais?page=0&size=10&sort=nome,asc
 ```
+
+`sort` com um campo que o recurso não tem (ex.: `GET /users?sort=role`, campo que deixou de existir com a #131)
+responde `400` `bad-request`, com o nome do campo no `detail`.
 
 O endpoint `GET /pacientes` também suporta filtros opcionais por `nome`, `email`, `cpf`, `telefone` e `ativo`. Quando `ativo` é omitido, retorna apenas pacientes ativos.
 
@@ -573,7 +601,7 @@ A resposta de `GET /dashboard/resumo` consolida contadores do banco em um único
 }
 ```
 
-- `receitaMesAtual` — soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente.
+- `receitaMesAtual` — soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente. Só vem preenchida para `ADMIN` e `FINANCEIRO`; para `PROFISSIONAL` e `RECEPCAO` é `null` (os contadores continuam iguais para toda a equipe).
 - `totalAgendadasMesAtual` — aulas com `realizada = false` e `data` dentro do mês corrente vinculadas a pacientes ativos.
 - `totalRealizadasMesAtual` — aulas com `realizada = true` e `data` dentro do mês corrente vinculadas a pacientes ativos.
 

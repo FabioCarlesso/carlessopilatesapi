@@ -34,6 +34,13 @@ public class SecurityConfig {
     static final String ERRO_NAO_AUTENTICADO = "Autenticação necessária para acessar este recurso";
     static final String ERRO_ACESSO_NEGADO = "Acesso negado";
 
+    // Grupos de papéis por área (#131). ADMIN entra em todos; PACIENTE em nenhum.
+    private static final String[] EQUIPE = {"ADMIN", "PROFISSIONAL", "RECEPCAO", "FINANCEIRO"};
+    private static final String[] CLINICA = {"ADMIN", "PROFISSIONAL"};
+    private static final String[] AGENDA = {"ADMIN", "PROFISSIONAL", "RECEPCAO"};
+    private static final String[] COBRANCA = {"ADMIN", "RECEPCAO", "FINANCEIRO"};
+    private static final String[] FISCAL = {"ADMIN", "FINANCEIRO"};
+
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -81,22 +88,21 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**")
                         .hasRole("ADMIN")
                         // Cadastro de bloqueios é tela de ADMIN, mas a consulta precisa ficar
-                        // aberta a qualquer usuário autenticado: é ela que alimenta o aviso de
-                        // feriado nas telas de agenda e de sessão, usadas pela recepção.
-                        // Escolha consciente enquanto a modelagem de papéis da #131 não chega —
-                        // a ordem importa, o matcher de leitura precisa vir antes do geral.
+                        // aberta à equipe: é ela que alimenta o aviso de feriado nas telas de
+                        // agenda e de sessão — a ordem importa, o matcher de leitura precisa vir
+                        // antes do geral.
                         // HEAD entra junto: o Spring MVC o resolve pelo handler de GET, mas a
                         // autorização não faz essa equivalência, e sem citá-lo aqui um HEAD do
                         // mesmo usuário que acabou de fazer GET cairia na regra de ADMIN e daria 403.
                         .requestMatchers(HttpMethod.GET, "/bloqueios", "/bloqueios/**")
-                        .authenticated()
+                        .hasAnyRole(EQUIPE)
                         .requestMatchers(HttpMethod.HEAD, "/bloqueios", "/bloqueios/**")
-                        .authenticated()
+                        .hasAnyRole(EQUIPE)
                         .requestMatchers("/bloqueios", "/bloqueios/**")
                         .hasRole("ADMIN")
                         // Listagem global de pagamentos e contatos de cobrança são da gestão de inadimplência,
                         // tela de ADMIN (#196, #197). Só GET/HEAD em /pagamentos exato: o POST de criação e as
-                        // demais rotas de /pagamentos/** continuam abertas a qualquer usuário autenticado.
+                        // demais rotas de /pagamentos/** seguem a regra financeira mais abaixo.
                         .requestMatchers(HttpMethod.GET, "/pagamentos")
                         .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.HEAD, "/pagamentos")
@@ -104,11 +110,46 @@ public class SecurityConfig {
                         .requestMatchers("/pagamentos/*/cobrancas", "/pagamentos/*/cobrancas/**")
                         .hasRole("ADMIN")
                         // Indicadores históricos são gestão do negócio, tela de ADMIN (#202). O /dashboard/resumo
-                        // segue aberto a qualquer autenticado: alimenta o painel inicial de todos os perfis.
+                        // segue aberto à equipe: alimenta o painel inicial de todos os perfis.
                         .requestMatchers("/dashboard/indicadores", "/dashboard/aulas-por-profissional")
                         .hasRole("ADMIN")
+                        .requestMatchers("/dashboard/resumo")
+                        .hasAnyRole(EQUIPE)
+                        // Papéis de negócio (#131): prontuário só para quem atende, agenda para quem
+                        // atende e para a recepção, dinheiro para recepção e financeiro, NFSe só para
+                        // o financeiro. O cadastro de pacientes é a base comum de toda a equipe.
+                        .requestMatchers(
+                                "/anamneses/**",
+                                "/avaliacoes-fisioterapeuticas/**",
+                                "/avaliacoes-posturais/**",
+                                "/evolucoes-sessao/**",
+                                "/reavaliacoes/**",
+                                "/planos-tratamento/**")
+                        .hasAnyRole(CLINICA)
+                        .requestMatchers("/pacientes", "/pacientes/**")
+                        .hasAnyRole(EQUIPE)
+                        .requestMatchers(
+                                "/aulas", "/aulas/**", "/sessoes", "/sessoes/**", "/lista-espera", "/lista-espera/**")
+                        .hasAnyRole(AGENDA)
+                        .requestMatchers("/planos", "/planos/**", "/pagamentos", "/pagamentos/**")
+                        .hasAnyRole(COBRANCA)
+                        .requestMatchers("/api/nfse-emitidas/**", "/api/relatorios/nfse", "/api/relatorios/nfse/**")
+                        .hasAnyRole(FISCAL)
+                        // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
+                        // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
+                        .requestMatchers(
+                                "/profissionais/*/relatorio-pagamento", "/profissionais/*/relatorio-pagamento/**")
+                        .hasAnyRole(FISCAL)
+                        .requestMatchers(HttpMethod.GET, "/profissionais", "/profissionais/*")
+                        .hasAnyRole(EQUIPE)
+                        .requestMatchers(HttpMethod.HEAD, "/profissionais", "/profissionais/*")
+                        .hasAnyRole(EQUIPE)
+                        .requestMatchers("/profissionais", "/profissionais/**")
+                        .hasRole("ADMIN")
+                        // Menor privilégio: rota que ninguém citou acima é negada, inclusive para
+                        // ADMIN — controller novo precisa entrar aqui com o papel certo.
                         .anyRequest()
-                        .authenticated())
+                        .denyAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(new MetricsScrapeTokenFilter(metricsScrapeToken), JwtAuthenticationFilter.class)
                 .build();

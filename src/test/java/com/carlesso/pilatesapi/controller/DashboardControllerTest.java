@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -19,9 +20,13 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -52,7 +57,7 @@ class DashboardControllerTest {
 
     @Test
     void resumo_retorna200ComEstrutura() throws Exception {
-        when(dashboardService.obterResumo()).thenReturn(resumoCompleto());
+        when(dashboardService.obterResumo(anyBoolean())).thenReturn(resumoCompleto());
 
         mockMvc.perform(get("/dashboard/resumo"))
                 .andExpect(status().isOk())
@@ -69,9 +74,21 @@ class DashboardControllerTest {
                 .andExpect(jsonPath("$.geradoEm").exists());
     }
 
+    @ParameterizedTest
+    @CsvSource({"ADMIN, true", "FINANCEIRO, true", "PROFISSIONAL, false", "RECEPCAO, false"})
+    void resumo_soPedeReceitaParaAdminEFinanceiro(String papel, boolean comReceita) throws Exception {
+        when(dashboardService.obterResumo(anyBoolean())).thenReturn(resumoCompleto());
+        var auth = new UsernamePasswordAuthenticationToken(
+                "user@email.com", null, List.of(new SimpleGrantedAuthority("ROLE_" + papel)));
+
+        mockMvc.perform(get("/dashboard/resumo").principal(auth)).andExpect(status().isOk());
+
+        verify(dashboardService).obterResumo(comReceita);
+    }
+
     @Test
     void resumo_retornaContentTypeJson() throws Exception {
-        when(dashboardService.obterResumo()).thenReturn(resumoCompleto());
+        when(dashboardService.obterResumo(anyBoolean())).thenReturn(resumoCompleto());
 
         mockMvc.perform(get("/dashboard/resumo"))
                 .andExpect(status().isOk())
