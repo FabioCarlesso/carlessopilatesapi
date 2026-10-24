@@ -380,7 +380,9 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                                         """
                                 {"name": "Sem Papel", "email": "sem@email.com", "password": "senha1234", "roles": []}
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos[0].campo").value("roles"))
+                .andExpect(jsonPath("$.campos[0].mensagem").value("informe ao menos um papel"));
     }
 
     @Test

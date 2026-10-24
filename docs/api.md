@@ -601,7 +601,7 @@ A resposta de `GET /dashboard/resumo` consolida contadores do banco em um único
 }
 ```
 
-- `receitaMesAtual` — soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente.
+- `receitaMesAtual` — soma dos pagamentos com status `PAGO` e `dataPagamento` dentro do mês corrente. Só vem preenchida para `ADMIN` e `FINANCEIRO`; para `PROFISSIONAL` e `RECEPCAO` é `null` (os contadores continuam iguais para toda a equipe).
 - `totalAgendadasMesAtual` — aulas com `realizada = false` e `data` dentro do mês corrente vinculadas a pacientes ativos.
 - `totalRealizadasMesAtual` — aulas com `realizada = true` e `data` dentro do mês corrente vinculadas a pacientes ativos.
 

@@ -11,7 +11,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/dashboard")
 public class DashboardController {
 
+    // Papéis que veem a receita do mês no resumo; os demais da equipe recebem receitaMesAtual nula.
+    private static final Set<String> PAPEIS_COM_RECEITA = Set.of("ROLE_ADMIN", "ROLE_FINANCEIRO");
+
     private final DashboardService service;
 
     public DashboardController(DashboardService service) {
@@ -31,14 +37,23 @@ public class DashboardController {
     @Operation(
             summary = "Resumo do dashboard",
             description =
-                    "Retorna contadores e totais consolidados de pacientes, profissionais, pagamentos e aulas para o painel inicial.")
+                    "Retorna contadores e totais consolidados de pacientes, profissionais, pagamentos e aulas para o painel"
+                            + " inicial. `pagamentos.receitaMesAtual` só vem preenchida para ADMIN e FINANCEIRO; para os"
+                            + " demais papéis da equipe é `null`.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Resumo retornado com sucesso"),
         @ApiResponse(responseCode = "401", description = "Token ausente ou inválido")
     })
     @GetMapping("/resumo")
-    public ResponseEntity<DashboardResumoDTO> resumo() {
-        return ResponseEntity.ok(service.obterResumo());
+    public ResponseEntity<DashboardResumoDTO> resumo(Authentication authentication) {
+        return ResponseEntity.ok(service.obterResumo(veReceita(authentication)));
+    }
+
+    private static boolean veReceita(Authentication authentication) {
+        return authentication != null
+                && authentication.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .anyMatch(PAPEIS_COM_RECEITA::contains);
     }
 
     @Operation(

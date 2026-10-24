@@ -33,8 +33,8 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e access e refresh tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
-- A listagem global `GET /pagamentos` (e o `HEAD` equivalente) e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem abertas a qualquer usuário autenticado
-- `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` são restritos a `ADMIN` (`403` para os demais): são gestão do negócio. `GET /dashboard/resumo` segue aberto a qualquer usuário autenticado
+- A listagem global `GET /pagamentos` (e o `HEAD` equivalente) e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem a área de cobrança (`ADMIN`, `RECEPCAO`, `FINANCEIRO`)
+- `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` são restritos a `ADMIN` (`403` para os demais): são gestão do negócio. `GET /dashboard/resumo` é da equipe toda, mas a `receitaMesAtual` só vem preenchida para `ADMIN` e `FINANCEIRO` (`null` para os demais): valor faturado é informação financeira
 
 ## Recuperação de senha (esqueci minha senha)
 
@@ -297,7 +297,7 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
 
 ## Indicadores do dashboard
 
-`GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` segue aberto a qualquer autenticado.
+`GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.
 
 - A janela de `indicadores` tem `meses` meses (padrão 12, de 1 a 24, fora disso `400`) e termina no mês atual, que entra na série. Todo mês da janela aparece nas três séries, com zero quando não houve movimento.
 - **Receita:** soma de `valor` dos pagamentos `PAGO`, pelo mês de `dataPagamento` — o mesmo critério do `receitaMesAtual` do resumo.
