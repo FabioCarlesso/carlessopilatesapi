@@ -18,6 +18,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -73,6 +74,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleBadRequest(IllegalArgumentException e) {
         return Problemas.de(TipoProblema.REQUISICAO_INVALIDA, e.getMessage());
+    }
+
+    /**
+     * {@code sort} com campo que a entidade não tem. O Spring Data só descobre ao montar a consulta, e sem este
+     * handler o erro do cliente virava 500 — como o {@code sort=role} que deixou de existir com a #131.
+     */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ProblemDetail handleOrdenacaoInvalida(PropertyReferenceException e) {
+        return Problemas.de(
+                TipoProblema.REQUISICAO_INVALIDA, "Ordenação inválida: campo '" + e.getPropertyName() + "' não existe");
     }
 
     @ExceptionHandler(ConflictException.class)

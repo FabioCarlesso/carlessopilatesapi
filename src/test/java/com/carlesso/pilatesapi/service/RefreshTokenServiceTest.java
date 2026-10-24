@@ -20,6 +20,7 @@ import com.carlesso.pilatesapi.util.TokenOpaco;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -323,7 +324,7 @@ class RefreshTokenServiceTest {
         u.setName("Maria");
         u.setEmail("maria@email.com");
         u.setPassword("hash");
-        u.setRole(Role.USER);
+        u.setRoles(Set.of(Role.RECEPCAO));
         u.setAtivo(ativo);
         u.setTokenVersion(tokenVersion);
         ReflectionTestUtils.setField(u, "id", 1L);

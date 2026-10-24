@@ -62,7 +62,7 @@ class ActuatorTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
+    @WithMockUser(roles = "RECEPCAO")
     void prometheusEndpointReturns403ForNonAdmin() throws Exception {
         mvc.perform(get("/actuator/prometheus")).andExpect(status().isForbidden());
     }

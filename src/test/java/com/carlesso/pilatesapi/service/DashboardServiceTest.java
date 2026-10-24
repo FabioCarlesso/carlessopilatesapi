@@ -3,6 +3,8 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -68,7 +70,7 @@ class DashboardServiceTest {
         when(aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(eq(false), eq(inicioMes), eq(fimMes)))
                 .thenReturn(12L);
 
-        DashboardResumoDTO resumo = service.obterResumo();
+        DashboardResumoDTO resumo = service.obterResumo(true);
 
         assertThat(resumo.pacientes().totalAtivos()).isEqualTo(8L);
         assertThat(resumo.pacientes().totalInativos()).isEqualTo(2L);
@@ -100,11 +102,22 @@ class DashboardServiceTest {
         when(aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(anyBoolean(), eq(inicioMes), eq(fimMes)))
                 .thenReturn(0L);
 
-        DashboardResumoDTO resumo = service.obterResumo();
+        DashboardResumoDTO resumo = service.obterResumo(true);
 
         assertThat(resumo.pagamentos().receitaMesAtual()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(resumo.aulas().totalRealizadasMesAtual()).isZero();
         assertThat(resumo.aulas().totalAgendadasMesAtual()).isZero();
+    }
+
+    @Test
+    void obterResumo_semReceita_naoConsultaSomaEDevolveNula() {
+        when(pagamentoRepository.countByStatus(any())).thenReturn(3L);
+
+        DashboardResumoDTO resumo = service.obterResumo(false);
+
+        assertThat(resumo.pagamentos().receitaMesAtual()).isNull();
+        assertThat(resumo.pagamentos().totalPendentes()).isEqualTo(3L);
+        verify(pagamentoRepository, never()).sumValorByStatusAndDataPagamentoBetween(any(), any(), any());
     }
 
     @Test
@@ -119,7 +132,7 @@ class DashboardServiceTest {
         when(aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(anyBoolean(), any(), any()))
                 .thenReturn(0L);
 
-        DashboardResumoDTO resumo = service.obterResumo();
+        DashboardResumoDTO resumo = service.obterResumo(true);
 
         assertThat(resumo.geradoEm()).isNotNull();
     }

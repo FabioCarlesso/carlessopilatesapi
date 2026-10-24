@@ -22,9 +22,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmailAndIdNot(String email, Long id);
 
-    long countByRoleAndAtivoTrue(Role role);
+    @Query("select count(u) from User u where :role member of u.roles and u.ativo = true")
+    long countActiveByRole(@Param("role") Role role);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select u from User u where u.role = :role and u.ativo = true")
+    @Query("select u from User u where :role member of u.roles and u.ativo = true")
     List<User> findActiveByRoleForUpdate(@Param("role") Role role);
 }

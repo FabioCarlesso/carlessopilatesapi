@@ -43,8 +43,12 @@ public class DashboardService {
         this.aulaRepository = aulaRepository;
     }
 
+    /**
+     * @param comReceita {@code false} omite a receita do mês ({@code null}): o resumo é de toda a equipe, mas valor
+     *     faturado é informação financeira, só para ADMIN e FINANCEIRO (#131).
+     */
     @Transactional(readOnly = true)
-    public DashboardResumoDTO obterResumo() {
+    public DashboardResumoDTO obterResumo(boolean comReceita) {
         YearMonth mesAtual = YearMonth.now();
         LocalDate inicioMes = mesAtual.atDay(1);
         LocalDate fimMes = mesAtual.atEndOfMonth();
@@ -59,7 +63,10 @@ public class DashboardService {
                 pagamentoRepository.countByStatus(StatusPagamento.PENDENTE),
                 pagamentoRepository.countByStatus(StatusPagamento.PAGO),
                 pagamentoRepository.countByStatus(StatusPagamento.VENCIDO),
-                pagamentoRepository.sumValorByStatusAndDataPagamentoBetween(StatusPagamento.PAGO, inicioMes, fimMes));
+                comReceita
+                        ? pagamentoRepository.sumValorByStatusAndDataPagamentoBetween(
+                                StatusPagamento.PAGO, inicioMes, fimMes)
+                        : null);
 
         var aulas = new DashboardResumoDTO.AulasResumo(
                 aulaRepository.countByRealizadaAndDataBetweenAndPacienteAtivoTrue(true, inicioMes, fimMes),
