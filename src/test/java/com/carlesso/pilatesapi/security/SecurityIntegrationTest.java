@@ -945,6 +945,27 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioFinanceiro_comFinanceiro_geraORelatorioEComRecepcaoNega() throws Exception {
+        User financeiro = criarUsuario("relatorio-financeiro@email.com", Role.FINANCEIRO);
+        User recepcao = criarUsuario("relatorio-recepcao@email.com", Role.RECEPCAO);
+
+        mvc.perform(get("/api/relatorios/financeiro")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receita.total").value(0))
+                .andExpect(jsonPath("$.resultadoLiquido").value(0));
+        mvc.perform(get("/api/relatorios/financeiro")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -974,6 +995,9 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /pagamentos/999999                             | RECEPCAO FINANCEIRO",
                 "GET    | /api/nfse-emitidas/paciente/999999             | FINANCEIRO",
                 "GET    | /api/relatorios/nfse                           | FINANCEIRO",
+                "GET    | /api/relatorios/financeiro                     | FINANCEIRO",
+                "GET    | /api/relatorios/financeiro/pdf                 | FINANCEIRO",
+                "GET    | /api/relatorios/financeiro/xlsx                | FINANCEIRO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",

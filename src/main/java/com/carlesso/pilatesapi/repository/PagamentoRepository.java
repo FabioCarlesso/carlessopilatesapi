@@ -86,6 +86,42 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
     List<ReceitaMensalProjection> sumValorPorMes(
             @Param("status") StatusPagamento status, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 
+    /**
+     * Quantidade e soma dos pagamentos {@code PAGO} com {@code dataPagamento} no período: a receita do relatório
+     * financeiro (#108), no mesmo critério de caixa do dashboard e sem filtro de paciente ativo.
+     */
+    @Query(
+            """
+            select count(p) as quantidade, coalesce(sum(p.valor), 0) as total
+            from Pagamento p
+            where p.status = com.carlesso.pilatesapi.entity.enums.StatusPagamento.PAGO
+              and p.dataPagamento between :inicio and :fim
+            """)
+    TotalPagamentosProjection totalizarRecebidos(@Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    /**
+     * Quantidade e soma dos pagamentos em aberto ({@code PENDENTE} ou {@code VENCIDO}) com {@code dataVencimento} no
+     * período e anterior a {@code hoje}: a inadimplência do relatório financeiro (#108). O {@code PENDENTE} já vencido
+     * entra porque o scheduler que o marca como {@code VENCIDO} só roda com a aplicação acordada.
+     */
+    @Query(
+            """
+            select count(p) as quantidade, coalesce(sum(p.valor), 0) as total
+            from Pagamento p
+            where p.status in (com.carlesso.pilatesapi.entity.enums.StatusPagamento.PENDENTE,
+                               com.carlesso.pilatesapi.entity.enums.StatusPagamento.VENCIDO)
+              and p.dataVencimento between :inicio and :fim
+              and p.dataVencimento < :hoje
+            """)
+    TotalPagamentosProjection totalizarVencidos(
+            @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim, @Param("hoje") LocalDate hoje);
+
+    interface TotalPagamentosProjection {
+        long getQuantidade();
+
+        java.math.BigDecimal getTotal();
+    }
+
     interface ReceitaMensalProjection {
         Integer getAno();
 
