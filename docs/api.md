@@ -56,7 +56,9 @@ nomes e o formato de antes da #109, porque o frontend depende deles. Registros a
 | `GET` | `/users/roles` | `ADMIN` | Lista as roles disponíveis (`value` e `label`) para uso em formulários administrativos. `PACIENTE`, reservada para o portal do paciente (#173), não aparece |
 | `GET` | `/users/{id}` | `ADMIN` | Busca usuário por ID |
 | `PUT` | `/users/{id}` | `ADMIN` | Atualiza nome, e-mail, senha e papéis. `roles`, quando enviado, substitui o conjunto inteiro. Admin não pode alterar os próprios papéis nem tirar `ADMIN` do último ADMIN ativo |
-| `DELETE` | `/users/{id}` | `ADMIN` | Inativa usuário (soft delete). Admin não pode inativar a própria conta nem o último ADMIN ativo |
+| `PATCH` | `/users/{id}/inativar` | `ADMIN` | Inativa usuário (soft delete) e responde `204`. Admin não pode inativar a própria conta nem o último ADMIN ativo (`422`); id inexistente, `404` |
+| `PATCH` | `/users/{id}/ativar` | `ADMIN` | Reativa usuário e responde `204`, inclusive se ele já estiver ativo (idempotente); id inexistente, `404` |
+| `DELETE` | `/users/{id}` | `ADMIN` | **Deprecated** (`deprecated: true` no OpenAPI): use `PATCH /users/{id}/inativar`, com as mesmas regras e respostas. Mantida por compatibilidade |
 | `GET` | `/admin/health` | `ADMIN` | Endpoint inicial administrativo |
 
 As demais rotas de negócio exigem `Authorization: Bearer <accessToken>`. Tokens ausentes, inválidos, expirados ou emitidos antes da última troca/redefinição de senha retornam `401 Unauthorized` — ao receber `401` por expiração, o cliente chama `POST /auth/refresh` e repete a requisição com o novo `accessToken`; usuário autenticado sem o papel da rota recebe `403 Forbidden` (matriz abaixo).
