@@ -78,7 +78,7 @@ da tabela abaixo. Rota que o
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
-| `/api/nfse-emitidas`, `/api/relatorios/nfse` | | | ✓ |
+| `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `/profissionais/{id}/relatorio-pagamento` (JSON e PDF) | | | ✓ |
 | `/dashboard/resumo` | ✓ | ✓ | ✓ |
@@ -439,6 +439,9 @@ existia à época do registro.
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `GET` | `/api/relatorios/nfse` | Gerar relatório de emissão de NFSEs por competência (JSON, CSV ou XLSX) |
+| `GET` | `/api/relatorios/financeiro?inicio=&fim=` | Relatório financeiro consolidado do estúdio: receita × repasses (JSON) |
+| `GET` | `/api/relatorios/financeiro/pdf?inicio=&fim=` | Exportar o relatório financeiro em PDF |
+| `GET` | `/api/relatorios/financeiro/xlsx?inicio=&fim=` | Exportar o relatório financeiro em Excel (XLSX) |
 
 ## NFSE emitidas
 
@@ -671,6 +674,45 @@ Contrato JSON:
 ```
 
 O campo `notaAnteriorEmitida` é preenchido com base nas NFSEs efetivamente registradas: é `true` quando existe uma NFSE emitida para o paciente em uma competência anterior à consultada (ver seção abaixo). CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
+
+## Relatório financeiro — contrato JSON
+
+`GET /api/relatorios/financeiro?inicio=2026-02-01&fim=2026-02-28` (datas inclusivas, até 366 dias) consolida o
+fechamento do estúdio no período. Só `ADMIN` e `FINANCEIRO`. Período ausente, invertido ou acima do teto retorna `400`;
+período sem movimento retorna tudo zerado.
+
+```json
+{
+  "periodo": { "inicio": "2026-02-01", "fim": "2026-02-28" },
+  "receita": { "quantidadePagamentos": 4, "total": 1000.00 },
+  "repasses": {
+    "totalAulas": 8,
+    "total": 90.00,
+    "profissionais": [
+      {
+        "profissionalId": 1,
+        "nome": "Paula Mendes",
+        "percentualPagamentoAula": 45.00,
+        "totalAulas": 8,
+        "quantidadePagamentos": 2,
+        "totalPagamentosBruto": 400.00,
+        "totalProfissional": 90.00
+      }
+    ]
+  },
+  "inadimplencia": { "quantidadePagamentos": 1, "total": 250.00 },
+  "resultadoLiquido": 910.00,
+  "geradoEm": "2026-03-01T10:00:00"
+}
+```
+
+Cada item de `repasses.profissionais` é o `resumo` do [relatório de pagamento](#relatório-de-pagamento--contrato-json-angular-friendly)
+do profissional no mesmo período. Os critérios de cada bloco estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-financeiro-consolidado).
+
+As exportações `/pdf` e `/xlsx` usam o mesmo cálculo e voltam como anexo
+(`Content-Disposition: attachment; filename="relatorio-financeiro-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
+`Resumo` e `Repasses`; o PDF traz as mesmas informações numa página.
 
 ## NFSE emitidas — registro fiscal
 

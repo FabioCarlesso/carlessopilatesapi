@@ -301,6 +301,32 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
   query incrementa a versão explicitamente, e a resposta relê a sessão para já devolver a versão nova.
 - `Pagamento` ficou de fora: suas transições já são protegidas por regras de status e constraints.
 
+## Relatório financeiro consolidado
+
+`GET /api/relatorios/financeiro` (#108) fecha o período do estúdio — antes feito à mão, fora do sistema. É do
+`ADMIN` e do `FINANCEIRO`, a mesma área do relatório de repasse por profissional.
+
+- **Período:** `inicio` e `fim` obrigatórios, inclusivos, até 366 dias (o teto do relatório de pagamento do
+  profissional, que este chama por baixo). Período sem movimento retorna zeros, não erro.
+- **Receita (regime de caixa):** soma de `valor` dos pagamentos `PAGO` com `dataPagamento` no período — o mesmo
+  critério do `receitaMesAtual` e dos indicadores do dashboard. Não filtra paciente ativo: o dinheiro entrou. O
+  critério de competência (`periodoInicio`/`periodoFim` do pagamento) foi descartado porque o fechamento do estúdio é
+  do caixa, e um pacote pago em janeiro para aulas de fevereiro entra em janeiro.
+- **Repasses:** a soma dos relatórios de pagamento por profissional no mesmo período, sem cálculo próprio — o
+  consolidado bate, por construção, com a soma dos individuais. Vale a regra deles: aulas `realizada = true` com
+  `data` no período, de pacientes ativos, com o percentual **atual** do profissional. Profissional inativo entra se
+  teve aula com repasse; quem não teve fica de fora da lista.
+- **Receita e repasse olham datas diferentes:** a receita vai pelo dia em que o dinheiro entrou, o repasse pelo dia
+  da aula. Um pacote pago no fim de um mês tem a receita naquele mês e o repasse espalhado pelos meses das aulas — o
+  resultado de um mês isolado pode oscilar, mesmo com a soma do ano correta.
+- **Inadimplência:** pagamentos em aberto (`PENDENTE` ou `VENCIDO`) com `dataVencimento` no período e anterior a hoje
+  (no fuso do estúdio, `app.fuso-horario`). O `PENDENTE` já vencido entra porque o scheduler que o marca como
+  `VENCIDO` só roda com a aplicação acordada. É foto do momento da consulta: um vencido que foi pago depois deixa de
+  aparecer, e a cobrança vira receita no mês do pagamento.
+- **Resultado líquido:** `receita − repasses`. Pode ser negativo. A inadimplência é informativa e não entra na conta,
+  porque não é dinheiro em caixa.
+- PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Repasses`.
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.
