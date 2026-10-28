@@ -1,10 +1,12 @@
 package com.carlesso.pilatesapi.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -12,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.carlesso.pilatesapi.dto.ContatoCobrancaResponseDTO;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
+import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
@@ -71,6 +74,7 @@ class PagamentoControllerTest {
                 new BigDecimal("200.00"),
                 StatusPagamento.PENDENTE,
                 null,
+                null,
                 LocalDate.now().plusDays(10),
                 LocalDate.now(),
                 LocalDate.now().plusMonths(1).minusDays(1));
@@ -85,6 +89,7 @@ class PagamentoControllerTest {
                 new BigDecimal("200.00"),
                 StatusPagamento.PAGO,
                 LocalDate.now(),
+                FormaPagamento.PIX,
                 LocalDate.now().plusDays(10),
                 LocalDate.now(),
                 LocalDate.now().plusMonths(1).minusDays(1));
@@ -188,19 +193,19 @@ class PagamentoControllerTest {
 
     @Test
     void pagar_retorna200ComStatusPago() throws Exception {
-        when(pagamentoService.pagar(eq(1L), isNull())).thenReturn(pagamentoPago());
+        when(pagamentoService.pagar(eq(1L), isNull(), isNull())).thenReturn(pagamentoPago());
 
         mockMvc.perform(patch("/pagamentos/1/pagar"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAGO"));
 
-        verify(pagamentoService).pagar(1L, null);
+        verify(pagamentoService).pagar(1L, null, null);
     }
 
     @Test
     void pagar_comDataPagamentoNoBody_repassaDataParaService() throws Exception {
         LocalDate dataPagamento = LocalDate.of(2025, 2, 10);
-        when(pagamentoService.pagar(eq(1L), eq(dataPagamento))).thenReturn(pagamentoPago());
+        when(pagamentoService.pagar(eq(1L), eq(dataPagamento), isNull())).thenReturn(pagamentoPago());
 
         mockMvc.perform(
                         patch("/pagamentos/1/pagar")
@@ -212,12 +217,74 @@ class PagamentoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAGO"));
 
-        verify(pagamentoService).pagar(1L, dataPagamento);
+        verify(pagamentoService).pagar(1L, dataPagamento, null);
+    }
+
+    @Test
+    void pagar_comFormaPagamento_repassaFormaEDevolveNaResposta() throws Exception {
+        LocalDate dataPagamento = LocalDate.of(2025, 2, 10);
+        when(pagamentoService.pagar(1L, dataPagamento, FormaPagamento.PIX)).thenReturn(pagamentoPago());
+
+        mockMvc.perform(
+                        patch("/pagamentos/1/pagar")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataPagamento":"2025-02-10","formaPagamento":"PIX"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.formaPagamento").value("PIX"));
+
+        verify(pagamentoService).pagar(1L, dataPagamento, FormaPagamento.PIX);
+    }
+
+    @Test
+    void pagar_semFormaPagamento_respondeComCampoNulo() throws Exception {
+        // Contrato do cliente atual (FE #21): só `dataPagamento` no corpo. Tem que continuar 200, com a forma nula.
+        when(pagamentoService.pagar(1L, LocalDate.of(2025, 2, 10), null)).thenReturn(pagamentoPendente());
+
+        mockMvc.perform(
+                        patch("/pagamentos/1/pagar")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataPagamento":"2025-02-10"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.formaPagamento").value(nullValue()));
+    }
+
+    @Test
+    void pagar_formaPagamentoForaDoEnum_retorna400ProblemDetail() throws Exception {
+        mockMvc.perform(
+                        patch("/pagamentos/1/pagar")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"dataPagamento":"2025-02-10","formaPagamento":"BOLETO"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Corpo da requisição inválido ou malformado"));
+
+        verifyNoInteractions(pagamentoService);
+    }
+
+    @Test
+    void listar_formaPagamentoInvalida_retorna400() throws Exception {
+        mockMvc.perform(get("/pagamentos").param("formaPagamento", "BOLETO"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").exists());
+
+        verifyNoInteractions(pagamentoService);
     }
 
     @Test
     void pagar_jaConfirmado_retorna409() throws Exception {
-        when(pagamentoService.pagar(eq(1L), isNull())).thenThrow(new ConflictException("Pagamento já foi confirmado"));
+        when(pagamentoService.pagar(eq(1L), isNull(), isNull()))
+                .thenThrow(new ConflictException("Pagamento já foi confirmado"));
 
         mockMvc.perform(patch("/pagamentos/1/pagar"))
                 .andExpect(status().isConflict())
@@ -226,7 +293,7 @@ class PagamentoControllerTest {
 
     @Test
     void listar_semParametros_usaOrdenacaoPadraoPorVencimento() throws Exception {
-        when(pagamentoService.listar(isNull(), isNull(), isNull(), isNull(), any()))
+        when(pagamentoService.listar(isNull(), isNull(), isNull(), isNull(), isNull(), any()))
                 .thenReturn(new PageImpl<>(List.of(pagamentoPendente()), PageRequest.of(0, 10), 1));
 
         mockMvc.perform(get("/pagamentos"))
@@ -235,19 +302,20 @@ class PagamentoControllerTest {
                 .andExpect(jsonPath("$.page.totalElements").value(1));
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(pagamentoService).listar(isNull(), isNull(), isNull(), isNull(), captor.capture());
+        verify(pagamentoService).listar(isNull(), isNull(), isNull(), isNull(), isNull(), captor.capture());
         assertSort(captor.getValue(), Sort.by("dataVencimento"));
     }
 
     @Test
     void listar_comFiltros_repassaStatusRepetidosEDatas() throws Exception {
-        when(pagamentoService.listar(any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+        when(pagamentoService.listar(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/pagamentos")
                         .param("status", "PENDENTE", "VENCIDO")
                         .param("vencimentoDe", "2026-01-01")
                         .param("vencimentoAte", "2026-01-31")
                         .param("pacienteId", "7")
+                        .param("formaPagamento", "DINHEIRO")
                         .param("page", "1")
                         .param("size", "20")
                         .param("sort", "valor,desc"))
@@ -260,6 +328,7 @@ class PagamentoControllerTest {
                         eq(LocalDate.of(2026, 1, 1)),
                         eq(LocalDate.of(2026, 1, 31)),
                         eq(7L),
+                        eq(FormaPagamento.DINHEIRO),
                         captor.capture());
         assertSort(captor.getValue(), Sort.by(Sort.Direction.DESC, "valor"));
     }
@@ -273,7 +342,7 @@ class PagamentoControllerTest {
 
     @Test
     void listar_faixaInvertida_retorna400() throws Exception {
-        when(pagamentoService.listar(any(), any(), any(), any(), any()))
+        when(pagamentoService.listar(any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte"));
 
         mockMvc.perform(get("/pagamentos").param("vencimentoDe", "2026-02-01").param("vencimentoAte", "2026-01-01"))

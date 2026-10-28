@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -141,12 +142,56 @@ public class UserController {
     @Operation(
             summary = "Inativar usuário",
             description =
-                    "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado. Admin não pode inativar a própria conta nem o último administrador ativo.")
-    @DeleteMapping("/{id}")
+                    "Requer role ADMIN. Inativa (soft delete) um usuário cadastrado: o login passa a ser recusado e os tokens já emitidos deixam de autorizar rotas protegidas. Admin não pode inativar a própria conta nem o último administrador ativo. Inativar um usuário já inativo também responde 204.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Usuário inativado"),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado"),
+        @ApiResponse(responseCode = "422", description = "Inativação da própria conta ou do último administrador ativo")
+    })
+    @PatchMapping("/{id}/inativar")
     public ResponseEntity<Void> inativar(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
             Authentication authentication) {
         service.inativar(id, authentication.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Reativar usuário",
+            description =
+                    "Requer role ADMIN. Reativa um usuário inativado, que volta a conseguir fazer login. É idempotente: reativar um usuário já ativo também responde 204.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Usuário ativo"),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
+    })
+    @PatchMapping("/{id}/ativar")
+    public ResponseEntity<Void> ativar(
+            @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
+            Authentication authentication) {
+        service.ativar(id, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Mantida só por compatibilidade com clientes antigos.
+     *
+     * @deprecated use {@code PATCH /users/{id}/inativar}, que aplica as mesmas regras.
+     */
+    @Deprecated
+    @Operation(
+            summary = "Inativar usuário (deprecated)",
+            deprecated = true,
+            description =
+                    "Deprecated: use PATCH /users/{id}/inativar, que tem as mesmas regras e respostas. Mantida por compatibilidade. Requer role ADMIN.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Usuário inativado"),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado"),
+        @ApiResponse(responseCode = "422", description = "Inativação da própria conta ou do último administrador ativo")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> inativarPorDelete(
+            @Parameter(description = "ID do usuário", required = true) @PathVariable Long id,
+            Authentication authentication) {
+        return inativar(id, authentication);
     }
 }

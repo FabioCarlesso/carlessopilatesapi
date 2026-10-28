@@ -135,6 +135,10 @@ public class SecurityConfig {
                         .hasAnyRole(COBRANCA)
                         .requestMatchers("/api/nfse-emitidas/**", "/api/relatorios/nfse", "/api/relatorios/nfse/**")
                         .hasAnyRole(FISCAL)
+                        // Relatório financeiro consolidado (#108): receita e repasses de todos os profissionais,
+                        // mesma área do relatório de repasse individual.
+                        .requestMatchers("/api/relatorios/financeiro", "/api/relatorios/financeiro/**")
+                        .hasAnyRole(FISCAL)
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(
@@ -158,8 +162,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationProvider authenticationProvider(
             UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }

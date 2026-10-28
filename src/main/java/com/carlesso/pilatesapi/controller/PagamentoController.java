@@ -5,6 +5,7 @@ import com.carlesso.pilatesapi.dto.ContatoCobrancaResponseDTO;
 import com.carlesso.pilatesapi.dto.PagamentoPagarRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoRequestDTO;
 import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
+import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.service.ContatoCobrancaService;
 import com.carlesso.pilatesapi.service.PagamentoService;
@@ -47,13 +48,15 @@ public class PagamentoController {
                     Listagem global paginada, restrita a `ADMIN`. Todos os filtros são opcionais e combináveis:
                     `status` aceita mais de um valor (`?status=PENDENTE&status=VENCIDO`) e a faixa de vencimento é
                     inclusiva nas duas pontas. A ordenação padrão é `dataVencimento` crescente — os mais atrasados
-                    primeiro; `sort` aceita `dataVencimento`, `valor`, `status` e `paciente.nome`.""")
+                    primeiro; `sort` aceita `dataVencimento`, `valor`, `status` e `paciente.nome`. `formaPagamento` só
+                    encontra pagamentos confirmados com a forma registrada: os anteriores à #215 e os em aberto não
+                    têm forma.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Página retornada com sucesso"),
         @ApiResponse(
                 responseCode = "400",
-                description =
-                        "Faixa de vencimento invertida, status ou data inválidos, ou campo de ordenação não aceito"),
+                description = "Faixa de vencimento invertida, status, forma de pagamento ou data inválidos, ou campo de"
+                        + " ordenação não aceito"),
         @ApiResponse(responseCode = "403", description = "Usuário sem papel ADMIN")
     })
     @GetMapping
@@ -69,9 +72,11 @@ public class PagamentoController {
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate vencimentoAte,
             @Parameter(description = "ID do paciente") @RequestParam(required = false) Long pacienteId,
+            @Parameter(description = "Forma de pagamento registrada na confirmação") @RequestParam(required = false)
+                    FormaPagamento formaPagamento,
             @ParameterObject @SortDefault(sort = "dataVencimento") Pageable pageable) {
-        return ResponseEntity.ok(
-                new PagedModel<>(service.listar(status, vencimentoDe, vencimentoAte, pacienteId, pageable)));
+        return ResponseEntity.ok(new PagedModel<>(
+                service.listar(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento, pageable)));
     }
 
     @Operation(
@@ -122,9 +127,13 @@ public class PagamentoController {
     @Operation(
             summary = "Confirmar pagamento",
             description =
-                    "Marca o pagamento como PAGO e gera automaticamente as aulas do período. A data de pagamento pode ser enviada no corpo da requisição.")
+                    """
+                    Marca o pagamento como PAGO e gera automaticamente as aulas do período. O corpo é opcional:
+                    `dataPagamento` ausente usa a data atual, e `formaPagamento` ausente confirma o pagamento sem forma
+                    registrada.""")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Pagamento confirmado e aulas geradas"),
+        @ApiResponse(responseCode = "400", description = "Corpo malformado, data ou forma de pagamento inválidas"),
         @ApiResponse(responseCode = "404", description = "Pagamento não encontrado"),
         @ApiResponse(responseCode = "409", description = "Pagamento já confirmado"),
         @ApiResponse(responseCode = "422", description = "Pagamento não está PAGO ou paciente está inativo")
@@ -133,7 +142,10 @@ public class PagamentoController {
     public ResponseEntity<PagamentoResponseDTO> pagar(
             @Parameter(description = "ID do pagamento") @PathVariable Long id,
             @RequestBody(required = false) PagamentoPagarRequestDTO dto) {
-        return ResponseEntity.ok(service.pagar(id, dto != null ? dto.dataPagamento() : null));
+        if (dto == null) {
+            return ResponseEntity.ok(service.pagar(id, null, null));
+        }
+        return ResponseEntity.ok(service.pagar(id, dto.dataPagamento(), dto.formaPagamento()));
     }
 
     @Operation(

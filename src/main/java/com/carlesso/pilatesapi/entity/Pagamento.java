@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.entity;
 
+import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -30,6 +31,10 @@ public class Pagamento extends EntidadeAuditavel {
 
     @Column(name = "data_pagamento")
     private LocalDate dataPagamento;
+
+    @Column(name = "forma_pagamento", length = 20)
+    @Enumerated(EnumType.STRING)
+    private FormaPagamento formaPagamento;
 
     @Column(name = "data_vencimento", nullable = false)
     private LocalDate dataVencimento;
@@ -84,6 +89,14 @@ public class Pagamento extends EntidadeAuditavel {
 
     public void setDataPagamento(LocalDate dataPagamento) {
         this.dataPagamento = dataPagamento;
+    }
+
+    public FormaPagamento getFormaPagamento() {
+        return formaPagamento;
+    }
+
+    public void setFormaPagamento(FormaPagamento formaPagamento) {
+        this.formaPagamento = formaPagamento;
     }
 
     public LocalDate getDataVencimento() {

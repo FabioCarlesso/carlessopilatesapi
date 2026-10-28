@@ -124,7 +124,7 @@ public class PacienteService {
 
     private Specification<Paciente> contemIgnorandoCase(String campo, String valor) {
         if (valor == null || valor.isBlank()) {
-            return Specification.where(null);
+            return Specification.unrestricted();
         }
 
         String filtro = "%" + valor.trim().toLowerCase(Locale.ROOT) + "%";

@@ -529,6 +529,68 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void usersInativarEAtivar_semToken_deveRetornar401() throws Exception {
+        mvc.perform(patch("/users/1/inativar")).andExpect(status().isUnauthorized());
+        mvc.perform(patch("/users/1/ativar")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void usersInativarEAtivar_fluxoCompleto_loginRecusadoEDepoisLiberado() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User user = criarUsuario("reativar@email.com", Role.RECEPCAO);
+        String login = mapper.writeValueAsString(new AuthLoginRequestDTO("reativar@email.com", "senha1234"));
+
+        mvc.perform(patch("/users/{id}/inativar", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNoContent());
+        assertThat(userRepository.findById(user.getId()).orElseThrow().isAtivo())
+                .isFalse();
+        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(patch("/users/{id}/ativar", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNoContent());
+        assertThat(userRepository.findById(user.getId()).orElseThrow().isAtivo())
+                .isTrue();
+        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(login))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void usersAtivar_usuarioJaAtivo_deveRetornar204() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+        User user = criarUsuario("ja-ativo@email.com", Role.RECEPCAO);
+
+        mvc.perform(patch("/users/{id}/ativar", user.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNoContent());
+
+        assertThat(userRepository.findById(user.getId()).orElseThrow().isAtivo())
+                .isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"/users/999999/inativar", "/users/999999/ativar"})
+    void usersInativarEAtivar_idInexistente_deveRetornar404ProblemDetail(String rota) throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+
+        mvc.perform(patch(rota).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.NAO_ENCONTRADO.uri().toString()))
+                .andExpect(jsonPath("$.detail").value("Usuário não encontrado: 999999"));
+    }
+
+    @Test
+    void usersInativarPorPatch_adminInativandoPropriaConta_deveRetornar422ComAMensagemDoDelete() throws Exception {
+        User admin = criarUsuario("admin@email.com", Role.ADMIN);
+
+        mvc.perform(patch("/users/{id}/inativar", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
+    }
+
+    @Test
     void alterarSenha_comUsuarioComum_deveTrocarSenhaEPermitirLoginComNovaSenha() throws Exception {
         User user = criarUsuario("trocasenha@email.com", Role.RECEPCAO);
         String tokenAntigo = bearer(user);
@@ -945,6 +1007,27 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioFinanceiro_comFinanceiro_geraORelatorioEComRecepcaoNega() throws Exception {
+        User financeiro = criarUsuario("relatorio-financeiro@email.com", Role.FINANCEIRO);
+        User recepcao = criarUsuario("relatorio-recepcao@email.com", Role.RECEPCAO);
+
+        mvc.perform(get("/api/relatorios/financeiro")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receita.total").value(0))
+                .andExpect(jsonPath("$.resultadoLiquido").value(0));
+        mvc.perform(get("/api/relatorios/financeiro")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -974,6 +1057,9 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /pagamentos/999999                             | RECEPCAO FINANCEIRO",
                 "GET    | /api/nfse-emitidas/paciente/999999             | FINANCEIRO",
                 "GET    | /api/relatorios/nfse                           | FINANCEIRO",
+                "GET    | /api/relatorios/financeiro                     | FINANCEIRO",
+                "GET    | /api/relatorios/financeiro/pdf                 | FINANCEIRO",
+                "GET    | /api/relatorios/financeiro/xlsx                | FINANCEIRO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",
@@ -981,6 +1067,8 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "PUT    | /profissionais/999999                          | ",
                 "GET    | /dashboard/resumo                              | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /users/me                                      | PROFISSIONAL RECEPCAO FINANCEIRO PACIENTE",
+                "PATCH  | /users/999999/inativar                         | ",
+                "PATCH  | /users/999999/ativar                           | ",
             })
     void matrizDePapeis_deveLiberarSoOsPapeisDaArea(String metodo, String rota, String papeisLiberados)
             throws Exception {

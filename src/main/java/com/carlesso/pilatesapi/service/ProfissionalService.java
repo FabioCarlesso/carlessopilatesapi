@@ -235,7 +235,7 @@ public class ProfissionalService {
 
     private Specification<Profissional> contemIgnorandoCase(String campo, String valor) {
         if (valor == null || valor.isBlank()) {
-            return Specification.where(null);
+            return Specification.unrestricted();
         }
 
         String filtro = "%" + valor.trim().toLowerCase(Locale.ROOT) + "%";
@@ -244,7 +244,7 @@ public class ProfissionalService {
 
     private <T> Specification<Profissional> igual(String campo, T valor) {
         if (valor == null) {
-            return Specification.where(null);
+            return Specification.unrestricted();
         }
 
         return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get(campo), valor);

@@ -149,6 +149,52 @@ class UserServiceTest {
     }
 
     @Test
+    void ativar_usuarioInativo_deveSetarAtivoTrue() {
+        User u = usuario(2L, "user@email.com", Role.RECEPCAO);
+        u.setAtivo(false);
+        when(repository.findById(2L)).thenReturn(Optional.of(u));
+        when(repository.save(any())).thenReturn(u);
+
+        service.ativar(2L, "admin@email.com");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().isAtivo()).isTrue();
+    }
+
+    @Test
+    void ativar_usuarioJaAtivo_deveTerminarSemErroESemSalvar() {
+        User u = usuario(2L, "user@email.com", Role.RECEPCAO);
+        when(repository.findById(2L)).thenReturn(Optional.of(u));
+
+        service.ativar(2L, "admin@email.com");
+
+        assertThat(u.isAtivo()).isTrue();
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void ativar_comIdInexistente_deveLancarResourceNotFoundException() {
+        when(repository.findById(anyLong())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.ativar(99L, "admin@email.com"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Usuário não encontrado: 99");
+    }
+
+    @Test
+    void ativar_naoDeveRevogarTokens() {
+        User u = usuario(2L, "user@email.com", Role.RECEPCAO);
+        u.setAtivo(false);
+        long tokenVersionAntes = u.getTokenVersion();
+        when(repository.findById(2L)).thenReturn(Optional.of(u));
+
+        service.ativar(2L, "admin@email.com");
+
+        assertThat(u.getTokenVersion()).isEqualTo(tokenVersionAntes);
+    }
+
+    @Test
     void inativar_comIdValido_deveSetarAtivoFalse() {
         User u = usuario(2L, "user@email.com", Role.RECEPCAO);
         when(repository.findById(2L)).thenReturn(Optional.of(u));

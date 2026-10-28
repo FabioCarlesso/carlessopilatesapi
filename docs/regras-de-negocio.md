@@ -30,6 +30,9 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
+- A inativação é feita por `PATCH /users/{id}/inativar` (o `DELETE /users/{id}` está deprecated e aplica as mesmas regras). Inativar quem já está inativo responde `204`
+- `PATCH /users/{id}/ativar` volta `ativo=true` e o usuário passa a fazer login de novo. A rota é idempotente: reativar quem já está ativo responde `204` sem alterar nada. Não há restrição de quem pode ser reativado, inclusive um ADMIN
+- Inativar e reativar não revogam tokens (`token_version` não muda; decisão da #211). Durante a inativação eles são recusados pelo filtro JWT e pelo refresh, mas os que ainda não expiraram (access de 15 min, refresh de 7 dias) e não foram apresentados durante a inativação voltam a valer após a reativação
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e access e refresh tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
@@ -87,6 +90,9 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período (`UNIQUE plano_id + periodo_inicio`)
 - Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
 - A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
+- A forma de pagamento (`PIX`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `DINHEIRO`, `TRANSFERENCIA`) é registrada na **confirmação**, que é quando ela vira fato, e não na criação: a cobrança nasce no scheduler sem saber como o paciente vai pagar (#215). Serve para conferir o caixa e conciliar com o extrato
+- Por enquanto a forma é **opcional** na confirmação: sem ela o pagamento é confirmado com a forma nula, como antes. Pagamentos confirmados antes da #215 também ficam sem forma — não há como reconstruí-la. Ela passa a ser obrigatória quando o frontend que a envia (carlessopilatesfe#132) estiver publicado
+- O filtro `formaPagamento` da listagem global combina com os demais e só encontra pagamentos com a forma registrada
 - A listagem global (`GET /pagamentos`, #196) ordena por `dataVencimento` crescente por padrão — os mais atrasados primeiro — e sempre acrescenta `id` como último critério: as cobranças nascem em lote com o mesmo vencimento, e sem o desempate uma linha poderia trocar de página entre duas requisições. Os campos ordenáveis são uma lista fechada (`dataVencimento`, `valor`, `status`, `paciente.nome`); campo fora dela retorna `400` em vez de chegar ao Spring Data e virar `500`
 - A faixa `vencimentoDe`/`vencimentoAte` é inclusiva nas duas pontas e pode ser aberta de um dos lados; invertida retorna `400`
 - Dias em atraso não são calculados no backend: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento
@@ -294,6 +300,32 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
   ações recebe `409` ao salvar. Realizar/cancelar sessão é um UPDATE em massa, que não passa pelo `@Version`: a
   query incrementa a versão explicitamente, e a resposta relê a sessão para já devolver a versão nova.
 - `Pagamento` ficou de fora: suas transições já são protegidas por regras de status e constraints.
+
+## Relatório financeiro consolidado
+
+`GET /api/relatorios/financeiro` (#108) fecha o período do estúdio — antes feito à mão, fora do sistema. É do
+`ADMIN` e do `FINANCEIRO`, a mesma área do relatório de repasse por profissional.
+
+- **Período:** `inicio` e `fim` obrigatórios, inclusivos, até 366 dias (o teto do relatório de pagamento do
+  profissional, que este chama por baixo). Período sem movimento retorna zeros, não erro.
+- **Receita (regime de caixa):** soma de `valor` dos pagamentos `PAGO` com `dataPagamento` no período — o mesmo
+  critério do `receitaMesAtual` e dos indicadores do dashboard. Não filtra paciente ativo: o dinheiro entrou. O
+  critério de competência (`periodoInicio`/`periodoFim` do pagamento) foi descartado porque o fechamento do estúdio é
+  do caixa, e um pacote pago em janeiro para aulas de fevereiro entra em janeiro.
+- **Repasses:** a soma dos relatórios de pagamento por profissional no mesmo período, sem cálculo próprio — o
+  consolidado bate, por construção, com a soma dos individuais. Vale a regra deles: aulas `realizada = true` com
+  `data` no período, de pacientes ativos, com o percentual **atual** do profissional. Profissional inativo entra se
+  teve aula com repasse; quem não teve fica de fora da lista.
+- **Receita e repasse olham datas diferentes:** a receita vai pelo dia em que o dinheiro entrou, o repasse pelo dia
+  da aula. Um pacote pago no fim de um mês tem a receita naquele mês e o repasse espalhado pelos meses das aulas — o
+  resultado de um mês isolado pode oscilar, mesmo com a soma do ano correta.
+- **Inadimplência:** pagamentos em aberto (`PENDENTE` ou `VENCIDO`) com `dataVencimento` no período e anterior a hoje
+  (no fuso do estúdio, `app.fuso-horario`). O `PENDENTE` já vencido entra porque o scheduler que o marca como
+  `VENCIDO` só roda com a aplicação acordada. É foto do momento da consulta: um vencido que foi pago depois deixa de
+  aparecer, e a cobrança vira receita no mês do pagamento.
+- **Resultado líquido:** `receita − repasses`. Pode ser negativo. A inadimplência é informativa e não entra na conta,
+  porque não é dinheiro em caixa.
+- PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Repasses`.
 
 ## Indicadores do dashboard
 
