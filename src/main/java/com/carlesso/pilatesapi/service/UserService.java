@@ -161,6 +161,22 @@ public class UserService {
         log.info("Usuário inativado: userId={}, por={}", user.getId(), LogMasker.email(currentEmail));
     }
 
+    /**
+     * Reativa um usuário inativado. É idempotente: um usuário já ativo não é tocado e a chamada termina sem erro.
+     * Não mexe em {@code token_version} (#211 deixou a revogação fora de escopo): enquanto o usuário esteve inativo
+     * os tokens foram recusados por {@code isEnabled()}, e os que ainda não expiraram voltam a valer na reativação.
+     */
+    @Transactional
+    public void ativar(Long id, String currentEmail) {
+        User user = encontrar(id);
+        if (user.isAtivo()) {
+            return;
+        }
+        user.setAtivo(true);
+        repository.save(user);
+        log.info("Usuário reativado: userId={}, por={}", user.getId(), LogMasker.email(currentEmail));
+    }
+
     private void validarRemocaoDeAdminAtivo(User user, String mensagem) {
         if (user.isAtivo()
                 && user.hasRole(Role.ADMIN)

@@ -30,6 +30,9 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Admin não pode inativar a própria conta nem alterar o próprio perfil de acesso (`422 Unprocessable Entity`)
 - O sistema deve manter ao menos um usuário `ADMIN` ativo: não é permitido inativar nem rebaixar para `USER` o último administrador ativo (`422 Unprocessable Entity`)
 - Usuários com `ativo=false` não conseguem fazer login e tokens emitidos antes da inativação deixam de autorizar rotas protegidas
+- A inativação é feita por `PATCH /users/{id}/inativar` (o `DELETE /users/{id}` está deprecated e aplica as mesmas regras). Inativar quem já está inativo responde `204`
+- `PATCH /users/{id}/ativar` volta `ativo=true` e o usuário passa a fazer login de novo. A rota é idempotente: reativar quem já está ativo responde `204` sem alterar nada. Não há restrição de quem pode ser reativado, inclusive um ADMIN
+- Inativar e reativar não revogam tokens (`token_version` não muda; decisão da #211). Durante a inativação eles são recusados pelo filtro JWT e pelo refresh, mas os que ainda não expiraram (access de 15 min, refresh de 7 dias) e não foram apresentados durante a inativação voltam a valer após a reativação
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e access e refresh tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`

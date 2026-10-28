@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -178,7 +179,7 @@ class UserControllerTest {
     void inativar_comIdValido_deveRetornar204() throws Exception {
         doNothing().when(service).inativar(eq(1L), anyString());
 
-        mvc.perform(delete("/users/1").principal(adminAuth())).andExpect(status().isNoContent());
+        mvc.perform(patch("/users/1/inativar").principal(adminAuth())).andExpect(status().isNoContent());
 
         verify(service).inativar(eq(1L), anyString());
     }
@@ -189,7 +190,7 @@ class UserControllerTest {
                 .when(service)
                 .inativar(eq(1L), anyString());
 
-        mvc.perform(delete("/users/1").principal(adminAuth()))
+        mvc.perform(patch("/users/1/inativar").principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
@@ -200,7 +201,7 @@ class UserControllerTest {
                 .when(service)
                 .inativar(eq(99L), anyString());
 
-        mvc.perform(delete("/users/99").principal(adminAuth()))
+        mvc.perform(patch("/users/99/inativar").principal(adminAuth()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Usuário não encontrado: 99"));
     }
@@ -211,9 +212,49 @@ class UserControllerTest {
                 .when(service)
                 .inativar(eq(2L), anyString());
 
-        mvc.perform(delete("/users/2").principal(adminAuth()))
+        mvc.perform(patch("/users/2/inativar").principal(adminAuth()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar o último administrador ativo"));
+    }
+
+    @Test
+    void inativarPorDelete_continuaRespondendo204() throws Exception {
+        doNothing().when(service).inativar(eq(1L), anyString());
+
+        mvc.perform(delete("/users/1").principal(adminAuth())).andExpect(status().isNoContent());
+
+        verify(service).inativar(eq(1L), anyString());
+    }
+
+    @Test
+    void inativarPorDelete_contaPropriaAdmin_deveRetornar422ComAMesmaMensagem() throws Exception {
+        doThrow(new BusinessException("Não é possível inativar a própria conta"))
+                .when(service)
+                .inativar(eq(1L), anyString());
+
+        mvc.perform(delete("/users/1").principal(adminAuth()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
+    }
+
+    @Test
+    void ativar_comIdValido_deveRetornar204() throws Exception {
+        doNothing().when(service).ativar(eq(1L), anyString());
+
+        mvc.perform(patch("/users/1/ativar").principal(adminAuth())).andExpect(status().isNoContent());
+
+        verify(service).ativar(eq(1L), anyString());
+    }
+
+    @Test
+    void ativar_comIdInexistente_deveRetornar404() throws Exception {
+        doThrow(new ResourceNotFoundException("Usuário não encontrado: 99"))
+                .when(service)
+                .ativar(eq(99L), anyString());
+
+        mvc.perform(patch("/users/99/ativar").principal(adminAuth()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Usuário não encontrado: 99"));
     }
 
     @Test
