@@ -11,10 +11,10 @@ evoluções), relatórios de pagamento e de emissão de NFSEs, e um dashboard co
 | Camada | Tecnologia |
 |---|---|
 | Linguagem | Java 21 |
-| Framework | Spring Boot 3.4.5 (Web, Data JPA, Validation, Security, Actuator) |
+| Framework | Spring Boot 3.5.16 (Web, Data JPA, Validation, Security, Actuator) |
 | Banco | PostgreSQL 16 + Flyway |
 | Autenticação | JWT (JJWT 0.12.6) |
-| Documentação | springdoc-openapi 2.8.3 |
+| Documentação | springdoc-openapi 2.10.0 |
 | Relatórios | OpenPDF (PDF) + Apache POI (XLSX) |
 | Métricas | Micrometer + Prometheus |
 | Testes | JUnit 5, Mockito, H2, Testcontainers, JaCoCo |

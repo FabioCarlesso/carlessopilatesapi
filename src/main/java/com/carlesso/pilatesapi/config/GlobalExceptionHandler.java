@@ -178,7 +178,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         Map<String, String> campos = new LinkedHashMap<>();
-        ex.getAllValidationResults().forEach(resultado -> {
+        ex.getParameterValidationResults().forEach(resultado -> {
             String parametro = resultado.getMethodParameter().getParameterName();
             String nome = parametro != null
                     ? parametro

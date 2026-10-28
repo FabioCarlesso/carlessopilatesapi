@@ -7,15 +7,15 @@ Aplicação Spring Boot em camadas, com pacote raiz `com.carlesso.pilatesapi`.
 | Tecnologia | Versão |
 |---|---|
 | Java | 21 |
-| Spring Boot | 3.4.5 |
-| Spring Data JPA | 3.4.5 |
-| Spring Validation | 3.4.5 |
-| Spring Security | 6.4.5 |
-| Spring Boot Actuator | 3.4.5 |
-| Micrometer (registry Prometheus) | 1.14.6 |
+| Spring Boot | 3.5.16 |
+| Spring Data JPA | 3.5.13 |
+| Spring Validation | 3.5.16 |
+| Spring Security | 6.5.11 |
+| Spring Boot Actuator | 3.5.16 |
+| Micrometer (registry Prometheus) | 1.15.12 |
 | PostgreSQL | 16 |
 | Flyway | (via spring-boot-starter-parent) |
-| springdoc-openapi | 2.8.3 |
+| springdoc-openapi | 2.10.0 |
 | JJWT | 0.13.0 |
 | Spring Scheduler | (via spring-boot-starter) |
 | Maven | 3.9 |
