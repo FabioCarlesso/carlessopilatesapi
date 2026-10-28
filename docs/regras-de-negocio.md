@@ -87,6 +87,9 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período (`UNIQUE plano_id + periodo_inicio`)
 - Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
 - A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
+- A forma de pagamento (`PIX`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `DINHEIRO`, `TRANSFERENCIA`) é registrada na **confirmação**, que é quando ela vira fato, e não na criação: a cobrança nasce no scheduler sem saber como o paciente vai pagar (#215). Serve para conferir o caixa e conciliar com o extrato
+- Por enquanto a forma é **opcional** na confirmação: sem ela o pagamento é confirmado com a forma nula, como antes. Pagamentos confirmados antes da #215 também ficam sem forma — não há como reconstruí-la. Ela passa a ser obrigatória quando o frontend que a envia (carlessopilatesfe#132) estiver publicado
+- O filtro `formaPagamento` da listagem global combina com os demais e só encontra pagamentos com a forma registrada
 - A listagem global (`GET /pagamentos`, #196) ordena por `dataVencimento` crescente por padrão — os mais atrasados primeiro — e sempre acrescenta `id` como último critério: as cobranças nascem em lote com o mesmo vencimento, e sem o desempate uma linha poderia trocar de página entre duas requisições. Os campos ordenáveis são uma lista fechada (`dataVencimento`, `valor`, `status`, `paciente.nome`); campo fora dela retorna `400` em vez de chegar ao Spring Data e virar `500`
 - A faixa `vencimentoDe`/`vencimentoAte` é inclusiva nas duas pontas e pode ser aberta de um dos lados; invertida retorna `400`
 - Dias em atraso não são calculados no backend: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento

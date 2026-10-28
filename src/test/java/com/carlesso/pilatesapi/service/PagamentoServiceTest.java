@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
@@ -174,10 +175,47 @@ class PagamentoServiceTest {
         when(pagamentoRepository.findById(1L)).thenReturn(Optional.of(pagamento));
         when(pagamentoRepository.save(any())).thenReturn(pagamento);
 
-        PagamentoResponseDTO response = service.pagar(1L, LocalDate.now());
+        PagamentoResponseDTO response = service.pagar(1L, LocalDate.now(), null);
 
         assertThat(response.status()).isEqualTo(StatusPagamento.PAGO);
         verify(aulaService).gerarAulas(pagamento);
+    }
+
+    @Test
+    void pagar_comForma_gravaEDevolveAForma() {
+        Pagamento pagamento = pagamentoPendente();
+        when(pagamentoRepository.findById(1L)).thenReturn(Optional.of(pagamento));
+
+        PagamentoResponseDTO response = service.pagar(1L, LocalDate.of(2026, 2, 10), FormaPagamento.DINHEIRO);
+
+        assertThat(pagamento.getFormaPagamento()).isEqualTo(FormaPagamento.DINHEIRO);
+        assertThat(response.formaPagamento()).isEqualTo(FormaPagamento.DINHEIRO);
+        assertThat(response.dataPagamento()).isEqualTo(LocalDate.of(2026, 2, 10));
+        verify(pagamentoRepository).save(pagamento);
+    }
+
+    @Test
+    void pagar_semForma_confirmaComFormaNula() {
+        Pagamento pagamento = pagamentoPendente();
+        when(pagamentoRepository.findById(1L)).thenReturn(Optional.of(pagamento));
+
+        PagamentoResponseDTO response = service.pagar(1L, null, null);
+
+        assertThat(response.status()).isEqualTo(StatusPagamento.PAGO);
+        assertThat(response.formaPagamento()).isNull();
+        assertThat(response.dataPagamento()).isEqualTo(LocalDate.now());
+    }
+
+    private Pagamento pagamentoPendente() {
+        Pagamento pagamento = new Pagamento();
+        pagamento.setPaciente(paciente);
+        pagamento.setPlano(plano);
+        pagamento.setValor(new BigDecimal("200.00"));
+        pagamento.setStatus(StatusPagamento.PENDENTE);
+        pagamento.setDataVencimento(LocalDate.now().plusDays(5));
+        pagamento.setPeriodoInicio(LocalDate.now());
+        pagamento.setPeriodoFim(LocalDate.now().plusMonths(1).minusDays(1));
+        return pagamento;
     }
 
     @Test
@@ -193,7 +231,7 @@ class PagamentoServiceTest {
 
         when(pagamentoRepository.findById(1L)).thenReturn(Optional.of(pagamento));
 
-        assertThatThrownBy(() -> service.pagar(1L, null))
+        assertThatThrownBy(() -> service.pagar(1L, null, null))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("já foi confirmado");
     }
@@ -262,7 +300,12 @@ class PagamentoServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pagamento)));
 
         Page<PagamentoResponseDTO> pagina = service.listar(
-                List.of(StatusPagamento.VENCIDO), null, null, null, PageRequest.of(2, 5, Sort.by("dataVencimento")));
+                List.of(StatusPagamento.VENCIDO),
+                null,
+                null,
+                null,
+                null,
+                PageRequest.of(2, 5, Sort.by("dataVencimento")));
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(pagamentoRepository).findAll(any(Specification.class), captor.capture());
@@ -277,7 +320,7 @@ class PagamentoServiceTest {
     @Test
     void listar_faixaDeVencimentoInvertida_lancaIllegalArgument() {
         assertThatThrownBy(() -> service.listar(
-                        null, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 2, 1), null, PageRequest.of(0, 10)))
+                        null, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 2, 1), null, null, PageRequest.of(0, 10)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("vencimentoDe");
 
@@ -286,7 +329,8 @@ class PagamentoServiceTest {
 
     @Test
     void listar_campoDeOrdenacaoNaoAceito_lancaIllegalArgument() {
-        assertThatThrownBy(() -> service.listar(null, null, null, null, PageRequest.of(0, 10, Sort.by("plano.id"))))
+        assertThatThrownBy(
+                        () -> service.listar(null, null, null, null, null, PageRequest.of(0, 10, Sort.by("plano.id"))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("plano.id");
 
@@ -319,7 +363,7 @@ class PagamentoServiceTest {
         when(pagamentoRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        service.listar(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 1L, Pageable.unpaged());
+        service.listar(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 1L, null, Pageable.unpaged());
 
         verify(pagamentoRepository).findAll(any(Specification.class), eq(Pageable.unpaged()));
     }
