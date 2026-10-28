@@ -27,9 +27,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.transaction.TestTransaction;
 
 @PostgresDataJpaTest
@@ -45,7 +45,7 @@ import org.springframework.test.context.transaction.TestTransaction;
         })
 class PagamentoServiceAtomicidadeIntegrationTest extends PostgresTestcontainerSupport {
 
-    @SpyBean
+    @MockitoSpyBean
     private PagamentoRepository pagamentoRepository;
 
     @Autowired
