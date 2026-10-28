@@ -50,6 +50,7 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 | `V43__add_auditoria_autoria.sql` | Adiciona `criado_por` e `alterado_por` (`VARCHAR(255)`, anuláveis) nas nove tabelas que já tinham `data_criacao`/`data_atualizacao` — reaproveitando essas colunas e seus valores — e as quatro colunas em `pacientes`, `profissionais`, `planos`, `pagamentos`, `aulas` e `lista_espera` (#109). O autor é o e-mail do usuário, sem FK para `users`, como em `contatos_cobranca.registrado_por`. Sem backfill: linhas existentes ficam com autor e, onde não havia, `data_criacao` nulos |
 | `V40__add_version_to_entidades_editaveis.sql` | Adiciona `version` (`BIGINT NOT NULL DEFAULT 0`) para locking otimista (#101) em `pacientes`, `profissionais`, `anamneses`, `avaliacoes_fisioterapeuticas`, `planos_tratamento`, `sessoes_pilates`, `evolucoes_sessao`, `reavaliacoes`, `users` e `preferencias_usuario`. O `DEFAULT 0` preenche as linhas existentes sem tocar nos dados |
 | `V44__create_user_roles_table.sql` | Move o papel da coluna `users.role` para a tabela `user_roles` (`user_id`, `role`, PK composta, FK com `ON DELETE CASCADE`), porque um usuário pode acumular papéis (#131), e remove a coluna. Na cópia, o `USER` genérico, que deixou de existir, vira `RECEPCAO` — o papel de menor privilégio da equipe, sem acesso a prontuário; o admin acrescenta `PROFISSIONAL` ou `FINANCEIRO` depois em `PUT /users/{id}` |
+| `V45__add_forma_pagamento_pagamentos.sql` | Adiciona `forma_pagamento` (`VARCHAR(20)`, anulável) em `pagamentos`, gravada na confirmação com um valor do enum `FormaPagamento` (#215). Sem backfill: pagamentos já confirmados não têm como recuperar a forma real e ficam com `null` |
 
 ## Migrations de seed (`db/seed/`) — apenas perfil `dev`
 
@@ -57,13 +58,28 @@ O projeto utiliza **Flyway** para versionamento e execução automática das mig
 |---|---|
 | `V7__insert_profissionais_teste.sql` | Carga inicial com 3 profissionais de teste |
 | `V12__insert_users_perfis_acesso.sql` | Insere 5 usuários de teste com perfis `ADMIN` e `USER` (senha: `senha1234`); a `V44` converte os `USER` em `RECEPCAO` |
-| `V45__atualizar_perfis_usuarios_seed.sql` | Dá aos usuários de teste o papel que o nome descreve: `financeiro@` vira `FINANCEIRO` e `consulta@` vira `PROFISSIONAL`. A `V12` não é editada para não quebrar o checksum de bancos dev já migrados |
+| `V44_1__atualizar_perfis_usuarios_seed.sql` | Dá aos usuários de teste o papel que o nome descreve: `financeiro@` vira `FINANCEIRO` e `consulta@` vira `PROFISSIONAL`. A `V12` não é editada para não quebrar o checksum de bancos dev já migrados |
+
+> **Numeração das seeds.** No perfil `dev` o Flyway lê `db/migration` e `db/seed` no mesmo espaço de versões, então
+> uma seed não pode reaproveitar o número de uma migration estrutural — os números inteiros são das migrations (e há
+> faixas reservadas por issue no roteiro). Seed nova usa a versão decimal logo após a migration de que depende
+> (`V44_1` roda depois da `V44` e antes da `V45`). O `FlywayMigrationsConsistencyTest` verifica as duas pastas juntas.
+>
+> A seed `V44_1` se chamava `V45__atualizar_perfis_usuarios_seed.sql` e colidia com a `V45` estrutural. Num banco
+> dev que já a tinha aplicado como versão 45, apague esse registro antes de subir a aplicação — a seed é idempotente
+> e roda de novo como 44.1, e a `V45` estrutural é aplicada em seguida:
+>
+> ```sql
+> DELETE FROM flyway_schema_history WHERE version = '45' AND script = 'V45__atualizar_perfis_usuarios_seed.sql';
+> ```
+>
+> Alternativa: zerar o volume com `docker compose down -v`.
 
 > A seed antiga de pacientes (`V2__insert_pacientes_teste.sql`) foi removida em favor da importação a partir de sistemas externos via `scripts/import_seufisio.py`. Para zerar um ambiente dev existente que ainda tenha esses pacientes, derrube o volume com `docker compose down -v` e suba novamente.
 
 ### Usuários de seed (perfil `dev`)
 
-Os usuários criados pela `V12` (com os papéis ajustados pela `V44` e pela `V45`) usam a senha `senha1234` e
+Os usuários criados pela `V12` (com os papéis ajustados pela `V44` e pela `V44_1`) usam a senha `senha1234` e
 representam os perfis disponíveis:
 
 | E-mail | Perfil |

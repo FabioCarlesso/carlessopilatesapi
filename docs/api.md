@@ -139,11 +139,26 @@ pagamento copiam esse horário. Sem ele, as aulas nascem sem horário e ficam fo
 | `POST` | `/pagamentos` | Criar pagamento (PENDENTE) |
 | `GET` | `/pagamentos/{id}` | Buscar pagamento por ID |
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente (paginado) |
-| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` opcional no corpo |
-| `GET` | `/pagamentos` | Listagem global paginada (gestão de inadimplência, `ADMIN`); filtros `status`, `vencimentoDe`, `vencimentoAte` e `pacienteId` |
+| `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` e `formaPagamento` opcionais no corpo |
+| `GET` | `/pagamentos` | Listagem global paginada (gestão de inadimplência, `ADMIN`); filtros `status`, `vencimentoDe`, `vencimentoAte`, `pacienteId` e `formaPagamento` |
 | `POST` | `/pagamentos/{id}/cobrancas` | Registrar contato de cobrança do pagamento (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas` | Histórico de contatos de cobrança do pagamento, do mais recente para o mais antigo (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas/{contatoId}` | Buscar contato de cobrança (é o alvo do `Location` devolvido no registro; `ADMIN`) |
+
+### Confirmação e forma de pagamento
+
+```
+PATCH /pagamentos/42/pagar
+{"dataPagamento": "2026-10-10", "formaPagamento": "PIX"}
+```
+
+- O corpo inteiro é opcional. `dataPagamento` ausente usa a data atual; `formaPagamento` ausente ou `null` confirma o
+  pagamento sem forma registrada — é o contrato de quem ainda manda só `{ "dataPagamento" }`.
+- `formaPagamento` aceita `PIX`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `DINHEIRO` e `TRANSFERENCIA`; outro valor retorna
+  `400` (corpo malformado, sem `campos`).
+- Toda resposta de pagamento (`GET /pagamentos/{id}`, as listagens e a própria confirmação) traz `formaPagamento`, que
+  é `null` em pagamentos em aberto e nos confirmados antes da #215.
+- A forma não é aceita no `POST /pagamentos`: a cobrança nasce sem ela.
 
 ### Listagem global e inadimplência
 
@@ -158,6 +173,8 @@ GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&s
   `VENCIDO` retorna `400`.
 - `vencimentoDe` e `vencimentoAte` (`yyyy-MM-dd`) são inclusivos e podem ser usados sozinhos. `vencimentoDe` posterior
   a `vencimentoAte` retorna `400`.
+- `formaPagamento` aceita um valor do enum (fora dele, `400`) e só encontra pagamentos confirmados com a forma
+  registrada: os em aberto e os confirmados sem forma ficam de fora.
 - A resposta é paginada no formato descrito em [Paginação](#paginação), com o mesmo item de `GET /pagamentos/{id}`.
   Dias em atraso não vêm na resposta: o frontend calcula a partir de `dataVencimento`.
 - A ordenação padrão é `dataVencimento,asc` (os mais atrasados primeiro), sempre com `id` como desempate. `sort` aceita
@@ -475,7 +492,7 @@ GET /api/relatorios/nfse?competencia=04/2026&notaAnteriorEmitida=false&formato=X
 ```
 
 O endpoint `GET /pagamentos` (restrito a `ADMIN`) suporta filtros por `status` (repetível), `vencimentoDe`,
-`vencimentoAte` e `pacienteId` — ver [Listagem global e inadimplência](#listagem-global-e-inadimplência).
+`vencimentoAte`, `pacienteId` e `formaPagamento` — ver [Listagem global e inadimplência](#listagem-global-e-inadimplência).
 
 O tamanho padrão de página é controlado por `APP_PAGINACAO_TAMANHO_PADRAO` (default `10`) — ver
 [`deploy.md`](deploy.md#variáveis-de-ambiente). O teto de `size` é `2000` (`spring.data.web.pageable.max-page-size`), fixado porque o frontend pede o

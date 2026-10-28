@@ -17,6 +17,12 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
  * {@code classpath:db/migration}. A suíte roda em H2 com Flyway desabilitado,
  * então uma colisão de versão (dois arquivos {@code V<n>__...}) só apareceria
  * ao subir a aplicação ou no job de CI. Este teste antecipa esse erro.
+ *
+ * <p>O perfil {@code dev} lê {@code db/migration} e {@code db/seed} no mesmo
+ * espaço de versões, e nenhum teste sobe o Flyway com as seeds: uma seed que
+ * reaproveite o número de uma migration estrutural só quebraria o
+ * {@code docker compose} de desenvolvimento. Por isso as duas pastas também são
+ * verificadas juntas.
  */
 class FlywayMigrationsConsistencyTest {
 
@@ -24,7 +30,11 @@ class FlywayMigrationsConsistencyTest {
             Pattern.compile("^V(?<version>[0-9]+(?:[._][0-9]+)*)__.+\\.sql$");
 
     private List<String> migrationFileNames() throws Exception {
-        Resource[] resources = new PathMatchingResourcePatternResolver().getResources("classpath*:db/migration/*.sql");
+        return fileNames("db/migration");
+    }
+
+    private List<String> fileNames(String pasta) throws Exception {
+        Resource[] resources = new PathMatchingResourcePatternResolver().getResources("classpath*:" + pasta + "/*.sql");
         List<String> names = new ArrayList<>();
         for (Resource resource : resources) {
             names.add(resource.getFilename());
@@ -34,9 +44,21 @@ class FlywayMigrationsConsistencyTest {
 
     @Test
     void naoDeveHaverVersoesDuplicadasNasMigrations() throws Exception {
+        assertSemVersoesDuplicadas(migrationFileNames());
+    }
+
+    @Test
+    void naoDeveHaverVersoesDuplicadasEntreMigrationsESeedsDoPerfilDev() throws Exception {
+        List<String> perfilDev = new ArrayList<>(migrationFileNames());
+        perfilDev.addAll(fileNames("db/seed"));
+
+        assertSemVersoesDuplicadas(perfilDev);
+    }
+
+    private void assertSemVersoesDuplicadas(List<String> fileNames) {
         Map<String, List<String>> arquivosPorVersao = new HashMap<>();
 
-        for (String fileName : migrationFileNames()) {
+        for (String fileName : fileNames) {
             Matcher matcher = VERSIONED_MIGRATION.matcher(fileName);
             if (matcher.matches()) {
                 String versao = matcher.group("version").replace('_', '.');

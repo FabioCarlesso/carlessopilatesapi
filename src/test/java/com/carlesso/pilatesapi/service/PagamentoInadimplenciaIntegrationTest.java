@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.entity.ContatoCobranca;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
@@ -93,7 +94,8 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
 
     @Test
     void listar_semFiltros_ordenaPorVencimentoEDesempataPorId() {
-        var pagina = pagamentoService.listar(null, null, null, null, PageRequest.of(0, 10, Sort.by("dataVencimento")));
+        var pagina =
+                pagamentoService.listar(null, null, null, null, null, PageRequest.of(0, 10, Sort.by("dataVencimento")));
 
         // anaVencidoJaneiro e biaPagoJaneiro vencem no mesmo dia: o id é o desempate, e a ordem tem que ser estável.
         assertThat(pagina.getContent())
@@ -113,6 +115,7 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
                 null,
                 null,
                 null,
+                null,
                 PageRequest.of(0, 10, Sort.by("dataVencimento")));
 
         assertThat(pagina.getContent())
@@ -126,6 +129,7 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
                 null,
                 LocalDate.of(2026, 2, 10),
                 LocalDate.of(2026, 3, 10),
+                null,
                 null,
                 PageRequest.of(0, 10, Sort.by("dataVencimento")));
 
@@ -141,6 +145,7 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
                 null,
                 LocalDate.of(2026, 2, 28),
                 ana.getId(),
+                null,
                 PageRequest.of(0, 10, Sort.by("dataVencimento")));
 
         assertThat(pagina.getContent()).extracting(PagamentoResponseDTO::id).containsExactly(anaVencidoJaneiro.getId());
@@ -150,9 +155,9 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
     @Test
     void listar_paginaERespeitaOrdenacaoPorNomeDoPaciente() {
         var primeira = pagamentoService.listar(
-                null, null, null, null, PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "paciente.nome")));
+                null, null, null, null, null, PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "paciente.nome")));
         var segunda = pagamentoService.listar(
-                null, null, null, null, PageRequest.of(1, 3, Sort.by(Sort.Direction.DESC, "paciente.nome")));
+                null, null, null, null, null, PageRequest.of(1, 3, Sort.by(Sort.Direction.DESC, "paciente.nome")));
 
         assertThat(primeira.getContent())
                 .extracting(PagamentoResponseDTO::pacienteNome)
@@ -161,6 +166,51 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
                 .extracting(PagamentoResponseDTO::pacienteNome)
                 .containsExactly("Ana");
         assertThat(primeira.getTotalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void pagar_comForma_persisteNaColunaDaV45EVoltaNoBuscarPorId() {
+        pagamentoService.pagar(anaPendenteMarco.getId(), LocalDate.of(2026, 3, 8), FormaPagamento.PIX);
+        entityManager.flush();
+        entityManager.clear();
+
+        PagamentoResponseDTO lido = pagamentoService.buscarPorId(anaPendenteMarco.getId());
+
+        assertThat(lido.status()).isEqualTo(StatusPagamento.PAGO);
+        assertThat(lido.formaPagamento()).isEqualTo(FormaPagamento.PIX);
+    }
+
+    @Test
+    void pagamentoConfirmadoAntesDaFormaExistir_continuaLegivelComFormaNula() {
+        PagamentoResponseDTO lido = pagamentoService.buscarPorId(biaPagoJaneiro.getId());
+
+        assertThat(lido.status()).isEqualTo(StatusPagamento.PAGO);
+        assertThat(lido.formaPagamento()).isNull();
+    }
+
+    @Test
+    void listar_porFormaPagamento_filtraECombinaComOsDemaisFiltros() {
+        pagamentoService.pagar(anaPendenteMarco.getId(), LocalDate.of(2026, 3, 8), FormaPagamento.DINHEIRO);
+        pagamentoService.pagar(biaVencidoFevereiro.getId(), LocalDate.of(2026, 2, 20), FormaPagamento.DINHEIRO);
+        pagamentoService.pagar(anaVencidoJaneiro.getId(), LocalDate.of(2026, 1, 15), FormaPagamento.PIX);
+        entityManager.flush();
+        entityManager.clear();
+        var ordenacao = PageRequest.of(0, 10, Sort.by("dataVencimento"));
+
+        // biaPagoJaneiro também é PAGO, mas sem forma: não entra em nenhum filtro por forma.
+        assertThat(pagamentoService.listar(null, null, null, null, FormaPagamento.DINHEIRO, ordenacao))
+                .extracting(PagamentoResponseDTO::id)
+                .containsExactly(biaVencidoFevereiro.getId(), anaPendenteMarco.getId());
+        assertThat(pagamentoService.listar(
+                        List.of(StatusPagamento.PAGO), null, null, ana.getId(), FormaPagamento.DINHEIRO, ordenacao))
+                .extracting(PagamentoResponseDTO::id)
+                .containsExactly(anaPendenteMarco.getId());
+        assertThat(pagamentoService.listar(
+                        null, null, LocalDate.of(2026, 2, 28), null, FormaPagamento.DINHEIRO, ordenacao))
+                .extracting(PagamentoResponseDTO::id)
+                .containsExactly(biaVencidoFevereiro.getId());
+        assertThat(pagamentoService.listar(null, null, null, null, FormaPagamento.CARTAO_CREDITO, ordenacao))
+                .isEmpty();
     }
 
     @Test

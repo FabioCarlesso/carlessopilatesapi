@@ -6,6 +6,7 @@ import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
@@ -112,8 +113,12 @@ public class PagamentoService {
         return PagamentoResponseDTO.from(salvo);
     }
 
+    /**
+     * Confirma o pagamento. A forma é registrada aqui, e não na criação, porque só na confirmação ela vira fato (#215).
+     * Por ora é opcional: {@code null} grava o pagamento sem forma, como antes, até o frontend passar a enviá-la.
+     */
     @Transactional
-    public PagamentoResponseDTO pagar(Long id, LocalDate dataPagamento) {
+    public PagamentoResponseDTO pagar(Long id, LocalDate dataPagamento, FormaPagamento formaPagamento) {
         Pagamento pagamento = encontrar(id);
 
         if (pagamento.getStatus() == StatusPagamento.PAGO) {
@@ -123,17 +128,19 @@ public class PagamentoService {
 
         pagamento.setStatus(StatusPagamento.PAGO);
         pagamento.setDataPagamento(dataPagamento != null ? dataPagamento : LocalDate.now());
+        pagamento.setFormaPagamento(formaPagamento);
         pagamentoRepository.save(pagamento);
 
         aulaService.gerarAulas(pagamento);
 
         businessMetrics.registrarPagamentoConfirmado();
         log.info(
-                "Pagamento confirmado: pagamentoId={}, pacienteId={}, valor={}, dataPagamento={}",
+                "Pagamento confirmado: pagamentoId={}, pacienteId={}, valor={}, dataPagamento={}, formaPagamento={}",
                 pagamento.getId(),
                 pagamento.getPaciente().getId(),
                 pagamento.getValor(),
-                pagamento.getDataPagamento());
+                pagamento.getDataPagamento(),
+                pagamento.getFormaPagamento());
         return PagamentoResponseDTO.from(pagamento);
     }
 
@@ -159,13 +166,14 @@ public class PagamentoService {
             LocalDate vencimentoDe,
             LocalDate vencimentoAte,
             Long pacienteId,
+            FormaPagamento formaPagamento,
             Pageable pageable) {
         if (vencimentoDe != null && vencimentoAte != null && vencimentoDe.isAfter(vencimentoAte)) {
             throw new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte");
         }
         return pagamentoRepository
                 .findAll(
-                        filtros(status, vencimentoDe, vencimentoAte, pacienteId),
+                        filtros(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento),
                         PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.ASC))
                 .map(PagamentoResponseDTO::from);
     }
@@ -220,7 +228,11 @@ public class PagamentoService {
     }
 
     private Specification<Pagamento> filtros(
-            List<StatusPagamento> status, LocalDate vencimentoDe, LocalDate vencimentoAte, Long pacienteId) {
+            List<StatusPagamento> status,
+            LocalDate vencimentoDe,
+            LocalDate vencimentoAte,
+            Long pacienteId,
+            FormaPagamento formaPagamento) {
         List<Specification<Pagamento>> filtros = new ArrayList<>();
         if (status != null && !status.isEmpty()) {
             filtros.add((root, query, cb) -> root.get("status").in(status));
@@ -233,6 +245,9 @@ public class PagamentoService {
         }
         if (pacienteId != null) {
             filtros.add((root, query, cb) -> cb.equal(root.get("paciente").get("id"), pacienteId));
+        }
+        if (formaPagamento != null) {
+            filtros.add((root, query, cb) -> cb.equal(root.get("formaPagamento"), formaPagamento));
         }
         return Specification.allOf(filtros);
     }
