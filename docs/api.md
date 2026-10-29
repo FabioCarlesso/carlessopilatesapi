@@ -13,8 +13,9 @@ no schema.
 ## Locking otimista (`version`)
 
 Pacientes, profissionais, anamneses, avaliações fisioterapêuticas, planos de tratamento, sessões, evoluções de
-sessão, reavaliações, usuários e preferências do usuário trazem `version` na resposta e aceitam `version` no
-corpo do update (`PUT /pacientes/{id}`, `PUT /profissionais/{id}`, `PUT /anamneses/{id}`,
+sessão, reavaliações, usuários, preferências do usuário e faixas de disponibilidade dos profissionais trazem
+`version` na resposta e aceitam `version` no corpo do update (`PUT /pacientes/{id}`, `PUT /profissionais/{id}`,
+`PUT /disponibilidades/{id}`, `PUT /anamneses/{id}`,
 `PUT /avaliacoes-fisioterapeuticas/{id}`, `PUT /planos-tratamento/{id}`, `PUT /sessoes/{id}`,
 `PUT /evolucoes-sessao/{id}`, `PUT /reavaliacoes/{id}`, `PUT /users/{id}` e `PUT /users/me/preferencias`).
 
@@ -80,12 +81,13 @@ da tabela abaixo. Rota que o
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
+| `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
 | `/profissionais/{id}/relatorio-pagamento` (JSON e PDF) | | | ✓ |
 | `/dashboard/resumo` | ✓ | ✓ | ✓ |
 | `/users/me`, `/users/me/senha`, `/users/me/preferencias` | ✓ | ✓ | ✓ |
 
 Só de `ADMIN`: `/users/**` (exceto `/users/me*`), `/admin/**`, `/actuator/**` além de health/info, escrita em
-`/bloqueios` e `/profissionais`, `GET /pagamentos`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
+`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
 `/dashboard/aulas-por-profissional`. `PACIENTE` só acessa `/users/me*` até o portal do paciente existir.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
@@ -120,6 +122,35 @@ Apenas `nome` é obrigatório. `email` e `cpf` são opcionais — alguns sistema
 Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula` e `dataInicio`.
 
 `numeroRegistro` é opcional (máx. 30 caracteres), sem validação de formato — acomoda CREFITO, CREF e outros conselhos. No `PUT /profissionais/{id}`, enviá-lo como string vazia limpa o campo; omitir mantém o valor atual.
+
+### Disponibilidade semanal
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/profissionais/{id}/disponibilidades` | Listar as faixas do profissional, ordenadas por dia da semana (segunda a domingo) e `horaInicio` |
+| `POST` | `/profissionais/{id}/disponibilidades` | Cadastrar faixa — exige `ADMIN`; `201` com `Location: /disponibilidades/{id}` |
+| `GET` | `/profissionais/{id}/disponibilidades/verificar?data=AAAA-MM-DD&horario=HH:mm` | Responde `{ "dentroDaDisponibilidade": true\|false }` |
+| `PUT` | `/disponibilidades/{id}` | Atualizar faixa (substituição completa) — exige `ADMIN` |
+| `DELETE` | `/disponibilidades/{id}` | Excluir faixa permanentemente — exige `ADMIN`; `204` |
+
+Corpo do `POST` e do `PUT`: `diaSemana` (nome do `DayOfWeek` em inglês maiúsculo: `MONDAY` … `SUNDAY`),
+`horaInicio` e `horaFim` (`"HH:mm"`, aceita também `"HH:mm:ss"`), todos obrigatórios, e `version` (opcional, só
+conferida no `PUT`). A resposta traz `id`, `profissionalId`, `diaSemana`, `horaInicio`, `horaFim` (serializadas como
+`"HH:mm:ss"`), `version`, `dataCriacao` e `dataAtualizacao`. A disponibilidade **avisa, não impede**: nenhuma rota de
+aula ou sessão a consulta.
+
+- A faixa é semiaberta, `[horaInicio, horaFim)`: `verificar` às 12:00 numa faixa 07:00–12:00 responde `false`.
+- `horaInicio` não anterior a `horaFim` responde `422` (`business-rule`). Campo ausente ou `diaSemana` desconhecido,
+  `400`.
+- Faixa que se sobrepõe a outra do mesmo profissional no mesmo dia responde `409` (`conflict`); faixas que só encostam
+  (12:00–14:00 e 14:00–19:00) são aceitas. No `PUT`, a própria faixa não conta como conflito; `version` divergente
+  responde `409` `concurrent-modification`.
+- Profissional inexistente responde `404` em todas as rotas `/profissionais/{id}/disponibilidades*`; faixa inexistente,
+  `404` no `PUT`/`DELETE`. Profissional inativo responde `422` no `POST` e no `PUT`; a leitura e o `DELETE` seguem
+  liberados.
+- `verificar` usa o dia da semana de `data` e o horário local do estúdio, sem conversão de fuso. Profissional sem
+  nenhuma faixa cadastrada responde `true` — sem configuração, não há aviso. `data` ou `horario` ausentes ou
+  malformados respondem `400`.
 
 ## Planos de Pagamento
 

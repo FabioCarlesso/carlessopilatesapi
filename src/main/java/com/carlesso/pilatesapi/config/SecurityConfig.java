@@ -148,7 +148,22 @@ public class SecurityConfig {
                         .hasAnyRole(EQUIPE)
                         .requestMatchers(HttpMethod.HEAD, "/profissionais", "/profissionais/*")
                         .hasAnyRole(EQUIPE)
+                        // Disponibilidade semanal (#216): mesmo recorte do cadastro de profissionais. A leitura
+                        // (grade e verificação de horário) alimenta o aviso nas telas de agenda e sessão; a escrita
+                        // — POST aqui e PUT/DELETE em /disponibilidades/{id} — é do ADMIN.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/profissionais/*/disponibilidades",
+                                "/profissionais/*/disponibilidades/verificar")
+                        .hasAnyRole(EQUIPE)
+                        .requestMatchers(
+                                HttpMethod.HEAD,
+                                "/profissionais/*/disponibilidades",
+                                "/profissionais/*/disponibilidades/verificar")
+                        .hasAnyRole(EQUIPE)
                         .requestMatchers("/profissionais", "/profissionais/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers("/disponibilidades/**")
                         .hasRole("ADMIN")
                         // Menor privilégio: rota que ninguém citou acima é negada, inclusive para
                         // ADMIN — controller novo precisa entrar aqui com o papel certo.
