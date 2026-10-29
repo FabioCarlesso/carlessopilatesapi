@@ -18,19 +18,26 @@ import com.carlesso.pilatesapi.dto.AuthLoginRequestDTO;
 import com.carlesso.pilatesapi.dto.UserAlterarSenhaRequestDTO;
 import com.carlesso.pilatesapi.dto.UserRequestDTO;
 import com.carlesso.pilatesapi.dto.UserUpdateDTO;
+import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.User;
 import com.carlesso.pilatesapi.entity.enums.Role;
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.exception.TipoProblema;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
+import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
+import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.UserRepository;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,6 +50,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest
@@ -70,6 +78,14 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     @Autowired
     private BloqueioAgendaRepository bloqueioAgendaRepository;
 
+    @Autowired
+    private DisponibilidadeProfissionalRepository disponibilidadeRepository;
+
+    @Autowired
+    private ProfissionalRepository profissionalRepository;
+
+    private Profissional profissionalDisponibilidade;
+
     @BeforeEach
     void setUp() throws Exception {
         userRepository.deleteAll();
@@ -77,6 +93,18 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         // container Postgres compartilhado e vazam para qualquer teste que consulte a tabela depois.
         bloqueioAgendaRepository.deleteAll();
         LoginAttemptServiceTestSupport.limpar(loginAttemptService);
+    }
+
+    // As faixas criadas via HTTP comitam e têm FK para o profissional: sem apagar as duas, vazariam para os demais
+    // testes do container compartilhado e travariam qualquer limpeza de profissionais.
+    @AfterEach
+    void limparDisponibilidade() {
+        if (profissionalDisponibilidade != null) {
+            disponibilidadeRepository.deleteAll(
+                    disponibilidadeRepository.findByProfissionalId(profissionalDisponibilidade.getId()));
+            profissionalRepository.deleteById(profissionalDisponibilidade.getId());
+            profissionalDisponibilidade = null;
+        }
     }
 
     @Test
@@ -815,6 +843,77 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void disponibilidades_semToken_deveRetornar401() throws Exception {
+        mvc.perform(get("/profissionais/1/disponibilidades")).andExpect(status().isUnauthorized());
+        mvc.perform(put("/disponibilidades/1")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void disponibilidades_adminGravaERecepcaoSoLe() throws Exception {
+        User admin = criarUsuario("disp-admin@email.com", Role.ADMIN);
+        User recepcao = criarUsuario("disp-recepcao@email.com", Role.RECEPCAO);
+        Long id = criarProfissionalDisponibilidade().getId();
+
+        // Roteiro manual da #216: segunda 07:00–12:00 e 14:00–19:00; 13:00 fica fora e 15:00 dentro.
+        postarFaixa(admin, id, "MONDAY", "07:00", "12:00")
+                .andExpect(status().isCreated())
+                .andExpect(header().exists(HttpHeaders.LOCATION));
+        postarFaixa(admin, id, "MONDAY", "14:00", "19:00").andExpect(status().isCreated());
+
+        mvc.perform(get("/profissionais/{id}/disponibilidades", id).header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].horaInicio").value("07:00:00"))
+                .andExpect(jsonPath("$[1].horaInicio").value("14:00:00"));
+        // 2026-11-02 é uma segunda-feira.
+        mvc.perform(get("/profissionais/{id}/disponibilidades/verificar", id)
+                        .param("data", "2026-11-02")
+                        .param("horario", "13:00")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dentroDaDisponibilidade").value(false));
+        mvc.perform(get("/profissionais/{id}/disponibilidades/verificar", id)
+                        .param("data", "2026-11-02")
+                        .param("horario", "15:00")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dentroDaDisponibilidade").value(true));
+
+        postarFaixa(recepcao, id, "TUESDAY", "07:00", "12:00")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        postarFaixa(admin, id, "MONDAY", "11:00", "15:00")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value(TipoProblema.CONFLITO.uri().toString()));
+        postarFaixa(admin, id, "MONDAY", "20:00", "20:00")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.REGRA_NEGOCIO.uri().toString()));
+    }
+
+    private ResultActions postarFaixa(User user, Long profissionalId, String dia, String inicio, String fim)
+            throws Exception {
+        return mvc.perform(post("/profissionais/{id}/disponibilidades", profissionalId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"diaSemana\": \"%s\", \"horaInicio\": \"%s\", \"horaFim\": \"%s\"}"
+                        .formatted(dia, inicio, fim)));
+    }
+
+    private Profissional criarProfissionalDisponibilidade() {
+        Profissional profissional = new Profissional();
+        profissional.setNome("Paula Disponibilidade");
+        profissional.setEmail("disp-seguranca@email.com");
+        profissional.setCpf("90000000416");
+        profissional.setTipoContrato(TipoContrato.PJ);
+        profissional.setPercentualPagamentoAula(new BigDecimal("45.00"));
+        profissional.setDataInicio(LocalDate.of(2026, 1, 1));
+        profissionalDisponibilidade = profissionalRepository.save(profissional);
+        return profissionalDisponibilidade;
+    }
+
+    @Test
     void dashboardResumo_semToken_deveRetornar401() throws Exception {
         mvc.perform(get("/dashboard/resumo")).andExpect(status().isUnauthorized());
     }
@@ -1065,6 +1164,11 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento/pdf  | FINANCEIRO",
                 "PUT    | /profissionais/999999                          | ",
+                "GET    | /profissionais/999999/disponibilidades         | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "GET    | /profissionais/999999/disponibilidades/verificar | PROFISSIONAL RECEPCAO FINANCEIRO",
+                "POST   | /profissionais/999999/disponibilidades         | ",
+                "PUT    | /disponibilidades/999999                       | ",
+                "DELETE | /disponibilidades/999999                       | ",
                 "GET    | /dashboard/resumo                              | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /users/me                                      | PROFISSIONAL RECEPCAO FINANCEIRO PACIENTE",
                 "PATCH  | /users/999999/inativar                         | ",
