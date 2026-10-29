@@ -69,6 +69,33 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - O relatório de pagamento é limitado a períodos de até 366 dias e até 5.000 aulas para evitar exportações excessivas em memória
 - A exportação em PDF e XLSX reusa o mesmo cálculo do endpoint JSON. PDF usa OpenPDF; XLSX usa Apache POI (abas `Resumo`, `Pagamentos`, `Aulas`). Os endpoints retornam `Content-Disposition: attachment` com nome `relatorio-pagamento-profissional-{id}-{inicio}-{fim}.{ext}`
 
+## Disponibilidade dos Profissionais
+
+- Cada profissional tem faixas semanais de atendimento: um dia da semana (`DayOfWeek`) e um intervalo de horário
+  `[horaInicio, horaFim)`, no horário local do estúdio (`app.fuso-horario`), sem conversão (#216)
+- **A disponibilidade é informativa, como o bloqueio de agenda.** Não impede gerar, atribuir ou remarcar aula nem
+  agendar sessão: `GET /profissionais/{id}/disponibilidades/verificar` alimenta o aviso do frontend e a decisão
+  continua humana. Exceções por data (férias, folga pontual) são papel do bloqueio de agenda, não desta grade
+- `horaInicio` precisa ser anterior a `horaFim` (`422`); a faixa não atravessa a meia-noite
+- Faixas do mesmo profissional no mesmo dia não se sobrepõem (`409`); encostar é permitido (12:00–14:00 e
+  14:00–19:00). A sobreposição é a interseção estrita `horaInicio < fimNovo AND horaFim > inicioNovo`, e o `PUT`
+  exclui a própria faixa da checagem
+- A checagem de sobreposição é serializada pelo mesmo `SELECT ... FOR UPDATE` no profissional usado pela capacidade
+  por horário (#106): duas gravações simultâneas de faixas que se cruzam leriam a tabela sem a outra e passariam
+  juntas. Foi preferido a uma exclusion constraint porque o PostgreSQL não tem tipo de intervalo para `TIME` — seria
+  preciso montar um `tsrange` sobre uma data fictícia, mais a extensão `btree_gist` para a igualdade de profissional
+  e dia —, e porque o lock mantém um padrão só e a mensagem de erro controlada pela aplicação. O banco ainda garante
+  `hora_inicio < hora_fim` e o domínio de `dia_semana` por `CHECK`
+- Profissional inativo não recebe nem altera faixas (`422`); a leitura e a exclusão continuam liberadas, para limpar a
+  grade de quem saiu
+- `verificar` responde `true` quando o profissional não tem nenhuma faixa: sem configuração, não há aviso. Com faixas
+  cadastradas, um dia sem faixa responde `false`
+- A listagem sai ordenada por dia da semana, de segunda a domingo (ordem do `DayOfWeek`), e por `horaInicio`. A
+  ordenação é feita na aplicação, porque `dia_semana` guarda o nome do dia e a ordem alfabética não é a da semana
+- A exclusão é física: a faixa é configuração, não histórico, e nenhum outro registro a referencia
+- Locking otimista (`version`) e auditoria (`EntidadeAuditavel`) seguem o padrão das demais entidades editáveis
+- Autorização: leitura para toda a equipe, escrita só para `ADMIN` — o mesmo recorte de `/profissionais`
+
 ## Planos de Pagamento
 
 - Tipos e duração: `MENSAL` (1 mês), `TRIMESTRAL` (3 meses), `ANUAL` (12 meses)
