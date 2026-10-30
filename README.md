@@ -1,6 +1,6 @@
 # Carlesso Pilates API
 
-API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates, desenvolvida com Spring Boot 3 e Java 21.
+API REST para gestão de pacientes e profissionais do estúdio Carlesso Pilates, desenvolvida com Spring Boot 4 e Java 21.
 
 Cobre cadastro de pacientes e profissionais, planos de pagamento, cobranças e geração automática de aulas,
 prontuário clínico (anamnese, avaliação fisioterapêutica, análise postural, plano de tratamento, sessões e
@@ -11,10 +11,10 @@ evoluções), relatórios de pagamento e de emissão de NFSEs, e um dashboard co
 | Camada | Tecnologia |
 |---|---|
 | Linguagem | Java 21 |
-| Framework | Spring Boot 3.5.16 (Web, Data JPA, Validation, Security, Actuator) |
+| Framework | Spring Boot 4.1.2 (Web MVC, Data JPA, Validation, Security, Actuator) |
 | Banco | PostgreSQL 16 + Flyway |
 | Autenticação | JWT (JJWT 0.12.6) |
-| Documentação | springdoc-openapi 2.10.0 |
+| Documentação | springdoc-openapi 3.2.0 |
 | Relatórios | OpenPDF (PDF) + Apache POI (XLSX) |
 | Métricas | Micrometer + Prometheus |
 | Testes | JUnit 5, Mockito, H2, Testcontainers, JaCoCo |
