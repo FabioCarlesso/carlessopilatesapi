@@ -10,8 +10,6 @@ import com.carlesso.pilatesapi.entity.enums.StatusAvaliacaoPostural;
 import com.carlesso.pilatesapi.entity.enums.VistaPostural;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @PostgresDataJpaTest
 class AvaliacaoPosturalRepositoryTest extends PostgresTestcontainerSupport {
@@ -48,7 +48,7 @@ class AvaliacaoPosturalRepositoryTest extends PostgresTestcontainerSupport {
     }
 
     @Test
-    void persisteEReleLandmarksJsonbSemPerda() throws JsonProcessingException {
+    void persisteEReleLandmarksJsonbSemPerda() throws JacksonException {
         AvaliacaoPostural analise = analise(VistaPostural.FRENTE);
         analise.setLinhaPrumoX(new BigDecimal("0.512"));
         analise.setCalibracaoCmPorUnidade(new BigDecimal("172.5"));

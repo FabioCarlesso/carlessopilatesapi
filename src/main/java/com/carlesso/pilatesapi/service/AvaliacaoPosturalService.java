@@ -19,9 +19,6 @@ import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.carlesso.pilatesapi.storage.FotoStorage;
 import com.carlesso.pilatesapi.util.MetricasPosturaisCalculator;
 import com.carlesso.pilatesapi.util.PacienteGuard;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -41,6 +38,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Regras do simetrógrafo virtual: a análise vive dentro de uma avaliação
@@ -339,7 +339,7 @@ public class AvaliacaoPosturalService {
     private String serializar(List<LandmarkDTO> landmarks) {
         try {
             return objectMapper.writeValueAsString(landmarks);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Falha ao serializar landmarks da análise postural", e);
         }
     }
@@ -350,7 +350,7 @@ public class AvaliacaoPosturalService {
         }
         try {
             return objectMapper.readValue(json, new TypeReference<List<LandmarkDTO>>() {});
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Falha ao ler landmarks da análise postural", e);
         }
     }
