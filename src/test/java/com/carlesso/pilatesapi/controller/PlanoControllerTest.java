@@ -115,7 +115,7 @@ class PlanoControllerTest {
         mockMvc.perform(post("/planos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Paciente inativo"));
     }
 

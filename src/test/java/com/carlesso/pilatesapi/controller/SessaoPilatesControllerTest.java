@@ -352,7 +352,7 @@ class SessaoPilatesControllerTest {
                         "Transição inválida: sessão CANCELADA não pode ser alterada para REALIZADA"));
 
         mvc.perform(patch("/sessoes/1/realizar"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail")
                         .value("Transição inválida: sessão CANCELADA não pode ser alterada para REALIZADA"));
     }
@@ -402,7 +402,7 @@ class SessaoPilatesControllerTest {
                         "Transição inválida: sessão REALIZADA não pode ser alterada para CANCELADA"));
 
         mvc.perform(patch("/sessoes/1/cancelar"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail")
                         .value("Transição inválida: sessão REALIZADA não pode ser alterada para CANCELADA"));
     }

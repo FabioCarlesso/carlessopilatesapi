@@ -228,7 +228,7 @@ class AvaliacaoPosturalControllerTest {
         mvc.perform(put("/avaliacoes-posturais/10")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Ponto ORELHA não pertence à vista FRENTE"));
     }
 
@@ -240,7 +240,7 @@ class AvaliacaoPosturalControllerTest {
         mvc.perform(put("/avaliacoes-posturais/10")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(updateDTO(null))))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test
@@ -258,7 +258,7 @@ class AvaliacaoPosturalControllerTest {
                 .thenThrow(new BusinessException("Pontos obrigatórios não marcados: [TORNOZELO_ESQ]"));
 
         mvc.perform(patch("/avaliacoes-posturais/10/concluir"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Pontos obrigatórios não marcados: [TORNOZELO_ESQ]"));
     }
 
@@ -322,7 +322,7 @@ class AvaliacaoPosturalControllerTest {
                                 "Foto de análise postural concluída não pode ser substituída; cancele a análise e crie outra: 10"));
 
         mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto").file(arquivoFoto()))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test

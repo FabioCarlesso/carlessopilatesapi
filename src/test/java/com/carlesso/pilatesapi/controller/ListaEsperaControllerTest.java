@@ -148,7 +148,7 @@ class ListaEsperaControllerTest {
         mockMvc.perform(post("/lista-espera")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(corpo())))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Paciente inativo não aceita novos registros clínicos: 1"));
     }
 

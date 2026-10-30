@@ -80,16 +80,16 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         criarUsuario("fluxo@email.com", Role.RECEPCAO);
 
         JsonNode login = login("fluxo@email.com", SENHA);
-        String refresh1 = login.get("refreshToken").asText();
-        acessarUsersMe(login.get("accessToken").asText()).andExpect(status().isOk());
+        String refresh1 = login.get("refreshToken").asString();
+        acessarUsersMe(login.get("accessToken").asString()).andExpect(status().isOk());
 
         // Refresh emite um par novo e válido, diferente do anterior.
         JsonNode rotacao = json(refresh(refresh1).andExpect(status().isOk()));
-        String refresh2 = rotacao.get("refreshToken").asText();
+        String refresh2 = rotacao.get("refreshToken").asString();
         assertThat(refresh2).isNotEqualTo(refresh1);
-        assertThat(rotacao.get("tokenType").asText()).isEqualTo("Bearer");
-        assertThat(rotacao.get("user").get("email").asText()).isEqualTo("fluxo@email.com");
-        acessarUsersMe(rotacao.get("accessToken").asText()).andExpect(status().isOk());
+        assertThat(rotacao.get("tokenType").asString()).isEqualTo("Bearer");
+        assertThat(rotacao.get("user").get("email").asString()).isEqualTo("fluxo@email.com");
+        acessarUsersMe(rotacao.get("accessToken").asString()).andExpect(status().isOk());
 
         // Logo após a rotação, reapresentar o refresh1 é retentativa de boa-fé (resposta perdida,
         // outra aba): 401, mas a sessão continua com o refresh2.
@@ -109,15 +109,15 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
                 .isNotNull());
 
         // Um novo login abre outra família, que o logout revoga.
-        String refresh3 = login("fluxo@email.com", SENHA).get("refreshToken").asText();
+        String refresh3 = login("fluxo@email.com", SENHA).get("refreshToken").asString();
         logout(refresh3).andExpect(status().isNoContent());
         refresh(refresh3).andExpect(status().isUnauthorized());
 
         // Logout com uma cópia já rotacionada também derruba o sucessor.
-        String refresh4 = login("fluxo@email.com", SENHA).get("refreshToken").asText();
+        String refresh4 = login("fluxo@email.com", SENHA).get("refreshToken").asString();
         String refresh5 = json(refresh(refresh4).andExpect(status().isOk()))
                 .get("refreshToken")
-                .asText();
+                .asString();
         logout(refresh4).andExpect(status().isNoContent());
         refresh(refresh5).andExpect(status().isUnauthorized());
 
@@ -130,9 +130,9 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     void refresh_naoDeveAfetarSessaoDeOutroLogin() throws Exception {
         criarUsuario("duas-sessoes@email.com", Role.RECEPCAO);
         String sessaoA =
-                login("duas-sessoes@email.com", SENHA).get("refreshToken").asText();
+                login("duas-sessoes@email.com", SENHA).get("refreshToken").asString();
         String sessaoB =
-                login("duas-sessoes@email.com", SENHA).get("refreshToken").asText();
+                login("duas-sessoes@email.com", SENHA).get("refreshToken").asString();
 
         refresh(sessaoA).andExpect(status().isOk());
         envelhecerUso(sessaoA);
@@ -145,8 +145,8 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     void refresh_aposTrocaDeSenha_deveRetornar401() throws Exception {
         criarUsuario("troca@email.com", Role.RECEPCAO);
         JsonNode login = login("troca@email.com", SENHA);
-        String accessToken = login.get("accessToken").asText();
-        String refreshToken = login.get("refreshToken").asText();
+        String accessToken = login.get("accessToken").asString();
+        String refreshToken = login.get("refreshToken").asString();
 
         mvc.perform(put("/users/me/senha")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
@@ -159,7 +159,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         acessarUsersMe(accessToken).andExpect(status().isUnauthorized());
 
         String novoRefresh =
-                login("troca@email.com", "novaSenha123").get("refreshToken").asText();
+                login("troca@email.com", "novaSenha123").get("refreshToken").asString();
         refresh(novoRefresh).andExpect(status().isOk());
     }
 
@@ -168,7 +168,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
         User user = criarUsuario("sera-inativado@email.com", Role.RECEPCAO);
         String refreshToken =
-                login("sera-inativado@email.com", SENHA).get("refreshToken").asText();
+                login("sera-inativado@email.com", SENHA).get("refreshToken").asString();
 
         mvc.perform(delete("/users/" + user.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtService.generateToken(admin)))
@@ -181,7 +181,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     void refresh_comTokenExpirado_deveRetornar401() throws Exception {
         criarUsuario("expira@email.com", Role.RECEPCAO);
         String refreshToken =
-                login("expira@email.com", SENHA).get("refreshToken").asText();
+                login("expira@email.com", SENHA).get("refreshToken").asString();
 
         RefreshToken salvo = buscar(refreshToken);
         salvo.setExpiresAt(LocalDateTime.now().minusSeconds(1));
@@ -193,10 +193,10 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void limpeza_deveRemoverSessoesVencidasERevogadasAntigasEPreservarAsAtivas() throws Exception {
         criarUsuario("limpeza@email.com", Role.RECEPCAO);
-        String ativa = login("limpeza@email.com", SENHA).get("refreshToken").asText();
-        String vencida = login("limpeza@email.com", SENHA).get("refreshToken").asText();
+        String ativa = login("limpeza@email.com", SENHA).get("refreshToken").asString();
+        String vencida = login("limpeza@email.com", SENHA).get("refreshToken").asString();
         String revogadaAntiga =
-                login("limpeza@email.com", SENHA).get("refreshToken").asText();
+                login("limpeza@email.com", SENHA).get("refreshToken").asString();
 
         RefreshToken tokenVencido = buscar(vencida);
         tokenVencido.setFamilyExpiresAt(LocalDateTime.now().minusMinutes(1));
@@ -221,7 +221,7 @@ class RefreshTokenIntegrationTest extends PostgresTestcontainerSupport {
     @Test
     void refreshToken_naoDevePersistirOTokenEmTextoPuro() throws Exception {
         criarUsuario("hash@email.com", Role.RECEPCAO);
-        String refreshToken = login("hash@email.com", SENHA).get("refreshToken").asText();
+        String refreshToken = login("hash@email.com", SENHA).get("refreshToken").asString();
 
         assertThat(refreshTokenRepository.findAll()).singleElement().satisfies(t -> assertThat(t.getTokenHash())
                 .isEqualTo(TokenOpaco.hash(refreshToken))

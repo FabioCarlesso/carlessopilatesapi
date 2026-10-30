@@ -237,7 +237,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<Object> response =
                 handler.handleException(new MaxUploadSizeExceededException(2L * 1024 * 1024), webRequest);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
         assertProblema(corpo(response), TipoProblema.ARQUIVO_EXCEDIDO, GlobalExceptionHandler.ERRO_UPLOAD_EXCEDIDO);
     }
 

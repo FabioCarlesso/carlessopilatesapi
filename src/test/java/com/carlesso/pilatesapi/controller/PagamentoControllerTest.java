@@ -131,7 +131,7 @@ class PagamentoControllerTest {
         mockMvc.perform(post("/pagamentos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 
@@ -426,7 +426,7 @@ class PagamentoControllerTest {
                                         """
                                 {"dataContato": "2026-02-15", "observacao": "Ligação"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 

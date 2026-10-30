@@ -80,7 +80,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
                         .getResponse()
                         .getContentAsString())
                 .get("refreshToken")
-                .asText();
+                .asString();
 
         mvc.perform(post("/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -138,7 +138,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         mvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(resetRequest)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test
@@ -164,7 +164,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(
                                 new ResetPasswordRequestDTO(tokenAntigo, "novaSenha123", "novaSenha123"))))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
 
         mvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -180,7 +180,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         mvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(resetRequest)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test

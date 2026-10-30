@@ -422,7 +422,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Papel indisponível para cadastro: PACIENTE"));
     }
 
@@ -476,7 +476,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível alterar o próprio perfil de acesso"));
     }
 
@@ -552,7 +552,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
         mvc.perform(delete("/users/{id}", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
@@ -614,7 +614,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
         mvc.perform(patch("/users/{id}/inativar", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
@@ -672,7 +672,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Senha atual incorreta"));
     }
 
@@ -685,7 +685,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Confirmação de senha não confere"));
     }
 
@@ -698,7 +698,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("A nova senha deve ser diferente da senha atual"));
     }
 
@@ -887,7 +887,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.type").value(TipoProblema.CONFLITO.uri().toString()));
         postarFaixa(admin, id, "MONDAY", "20:00", "20:00")
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type")
                         .value(TipoProblema.REGRA_NEGOCIO.uri().toString()));
     }

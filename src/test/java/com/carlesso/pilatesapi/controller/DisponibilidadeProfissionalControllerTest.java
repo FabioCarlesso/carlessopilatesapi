@@ -126,7 +126,7 @@ class DisponibilidadeProfissionalControllerTest {
         mockMvc.perform(post("/profissionais/3/disponibilidades")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CORPO))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("horaInicio deve ser anterior a horaFim"));
     }
 

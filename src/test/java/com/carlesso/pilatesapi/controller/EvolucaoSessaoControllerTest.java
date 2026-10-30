@@ -155,7 +155,7 @@ class EvolucaoSessaoControllerTest {
         mvc.perform(post("/evolucoes-sessao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(requestDTO())))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Paciente inativo não aceita novos registros clínicos: 1"));
     }
 

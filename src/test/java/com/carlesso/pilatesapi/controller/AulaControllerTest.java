@@ -199,7 +199,7 @@ class AulaControllerTest {
                 .thenThrow(new BusinessException("Profissional inativo não pode ser vinculado à aula"));
 
         mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "2"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 
@@ -288,7 +288,7 @@ class AulaControllerTest {
                 .thenThrow(new BusinessException("Profissional inativo não pode ser vinculado à aula"));
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 
