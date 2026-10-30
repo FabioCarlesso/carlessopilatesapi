@@ -28,7 +28,7 @@ Aplicação Spring Boot em camadas, com pacote raiz `com.carlesso.pilatesapi`.
 | JUnit 5 + Mockito | (via spring-boot-starter-test) |
 | H2 (testes) | (in-memory) |
 | Testcontainers (testes) | 2.0.5 (via spring-boot-starter-parent) |
-| JaCoCo (cobertura) | 0.8.15 |
+| JaCoCo (cobertura) | 0.8.16 |
 
 ## Estrutura de pacotes
 
