@@ -21,20 +21,20 @@ import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -80,7 +80,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
                         .getResponse()
                         .getContentAsString())
                 .get("refreshToken")
-                .asText();
+                .asString();
 
         mvc.perform(post("/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -138,7 +138,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         mvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(resetRequest)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test
@@ -164,7 +164,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(
                                 new ResetPasswordRequestDTO(tokenAntigo, "novaSenha123", "novaSenha123"))))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
 
         mvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -180,7 +180,7 @@ class PasswordResetIntegrationTest extends PostgresTestcontainerSupport {
         mvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(resetRequest)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test

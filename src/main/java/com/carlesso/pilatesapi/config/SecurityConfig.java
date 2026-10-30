@@ -4,7 +4,6 @@ import com.carlesso.pilatesapi.exception.TipoProblema;
 import com.carlesso.pilatesapi.security.JwtAuthenticationFilter;
 import com.carlesso.pilatesapi.security.MetricsScrapeTokenFilter;
 import com.carlesso.pilatesapi.security.ProblemaHttpWriter;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +25,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity

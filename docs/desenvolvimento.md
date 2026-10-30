@@ -47,6 +47,13 @@ A suíte usa dois bancos, conforme o que cada teste precisa exercitar:
   como o **índice parcial de unicidade** da V23 (`WHERE email/cpf IS NOT NULL`), que não
   existe no H2, ficam cobertos.
 
+Desde o Spring Boot 4 os slices de teste vêm em módulos separados, e o `pom.xml` declara o par `-test` de cada starter
+em vez do `spring-boot-starter-test` sozinho: `webmvc-test` (`@WebMvcTest`, `@AutoConfigureMockMvc`), `data-jpa-test`
+(`@DataJpaTest`, `@AutoConfigureTestDatabase`), `flyway-test` (Flyway dentro dos slices JDBC), `security-test` e
+`actuator-test` (`@AutoConfigureMetrics`, que liga o export do Prometheus nos testes de Actuator). Um slice novo que não
+encontrar a anotação provavelmente precisa do par `-test` do starter correspondente. O Testcontainers é o 2.x
+(`testcontainers-postgresql`, classe `org.testcontainers.postgresql.PostgreSQLContainer`).
+
 Testes de repositório usam a meta-anotação `@PostgresDataJpaTest`, que também importa o `JpaAuditingConfig`. O
 slice `@DataJpaTest` não carrega as classes `@Configuration` da aplicação, e sem o Spring Data Auditing as entidades
 auditáveis seriam gravadas sem `data_criacao`.

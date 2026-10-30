@@ -30,13 +30,12 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.UserService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
@@ -45,6 +44,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -171,7 +171,7 @@ class UserControllerTest {
                         .principal(adminAuth())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível alterar o próprio perfil de acesso"));
     }
 
@@ -191,7 +191,7 @@ class UserControllerTest {
                 .inativar(eq(1L), anyString());
 
         mvc.perform(patch("/users/1/inativar").principal(adminAuth()))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
@@ -213,7 +213,7 @@ class UserControllerTest {
                 .inativar(eq(2L), anyString());
 
         mvc.perform(patch("/users/2/inativar").principal(adminAuth()))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar o último administrador ativo"));
     }
 
@@ -233,7 +233,7 @@ class UserControllerTest {
                 .inativar(eq(1L), anyString());
 
         mvc.perform(delete("/users/1").principal(adminAuth()))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
@@ -280,7 +280,7 @@ class UserControllerTest {
                         .principal(userAuth("user@email.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Senha atual incorreta"));
     }
 
@@ -295,7 +295,7 @@ class UserControllerTest {
                         .principal(userAuth("user@email.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Confirmação de senha não confere"));
     }
 
@@ -310,7 +310,7 @@ class UserControllerTest {
                         .principal(userAuth("user@email.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("A nova senha deve ser diferente da senha atual"));
     }
 
@@ -337,7 +337,7 @@ class UserControllerTest {
                         .principal(adminAuth())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível rebaixar o último administrador ativo"));
     }
 }

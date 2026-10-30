@@ -26,7 +26,6 @@ import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.carlesso.pilatesapi.storage.FotoStorage;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,6 +43,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class AvaliacaoPosturalServiceTest {

@@ -18,8 +18,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.mapping.PropertyReferenceException;
-import org.springframework.data.util.TypeInformation;
+import org.springframework.data.core.PropertyReferenceException;
+import org.springframework.data.core.TypeInformation;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -237,7 +237,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<Object> response =
                 handler.handleException(new MaxUploadSizeExceededException(2L * 1024 * 1024), webRequest);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
         assertProblema(corpo(response), TipoProblema.ARQUIVO_EXCEDIDO, GlobalExceptionHandler.ERRO_UPLOAD_EXCEDIDO);
     }
 
