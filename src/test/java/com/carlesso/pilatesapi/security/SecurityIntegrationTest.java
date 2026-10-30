@@ -31,7 +31,6 @@ import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.LoginAttemptService;
 import com.carlesso.pilatesapi.service.LoginAttemptServiceTestSupport;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -43,8 +42,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -52,6 +51,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -256,6 +256,21 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void erro_mantemAOrdemDosCamposDoProblemDetail() throws Exception {
+        // O Jackson 3 ordenaria alfabeticamente (detail primeiro); spring.jackson.mapper.sort-properties-alphabetically
+        // mantém a ordem da RFC 9457 que a API sempre usou.
+        String corpo = mvc.perform(get("/users/me"))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(corpo).startsWith("{\"type\":");
+        assertThat(corpo.indexOf("\"title\"")).isLessThan(corpo.indexOf("\"status\""));
+        assertThat(corpo.indexOf("\"status\"")).isLessThan(corpo.indexOf("\"detail\""));
+    }
+
+    @Test
     void usersMe_comTokenValido_deveRetornarUsuarioSemSenha() throws Exception {
         User user = criarUsuario("me@email.com", Role.RECEPCAO);
 
@@ -422,7 +437,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Papel indisponível para cadastro: PACIENTE"));
     }
 
@@ -476,7 +491,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível alterar o próprio perfil de acesso"));
     }
 
@@ -552,7 +567,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
         mvc.perform(delete("/users/{id}", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
@@ -614,7 +629,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
         User admin = criarUsuario("admin@email.com", Role.ADMIN);
 
         mvc.perform(patch("/users/{id}/inativar", admin.getId()).header(HttpHeaders.AUTHORIZATION, bearer(admin)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Não é possível inativar a própria conta"));
     }
 
@@ -672,7 +687,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Senha atual incorreta"));
     }
 
@@ -685,7 +700,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Confirmação de senha não confere"));
     }
 
@@ -698,7 +713,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                         .header(HttpHeaders.AUTHORIZATION, bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("A nova senha deve ser diferente da senha atual"));
     }
 
@@ -887,7 +902,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.type").value(TipoProblema.CONFLITO.uri().toString()));
         postarFaixa(admin, id, "MONDAY", "20:00", "20:00")
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type")
                         .value(TipoProblema.REGRA_NEGOCIO.uri().toString()));
     }

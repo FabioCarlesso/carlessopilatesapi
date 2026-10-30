@@ -21,7 +21,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
 /**
  * Agregações mensais e ranking do dashboard (issue #202) contra o PostgreSQL: o {@code extract} e o {@code group by}

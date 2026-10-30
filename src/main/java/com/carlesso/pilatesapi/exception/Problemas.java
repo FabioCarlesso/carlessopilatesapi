@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.exception;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatusCode;
@@ -14,6 +15,12 @@ public final class Problemas {
 
     public static final String PROPRIEDADE_TIMESTAMP = "timestamp";
     public static final String PROPRIEDADE_CAMPOS = "campos";
+
+    /**
+     * Tipo dos status fora do catálogo. Explícito porque, desde o Spring Framework 7, o {@link ProblemDetail} nasce
+     * sem {@code type} (a RFC 9457 trata a ausência como {@code about:blank}) e o JSON deixaria de trazer o campo.
+     */
+    static final URI TIPO_EM_BRANCO = URI.create("about:blank");
 
     /** Um campo inválido numa resposta de validação. */
     public record CampoInvalido(String campo, String mensagem) {}
@@ -39,6 +46,7 @@ public final class Problemas {
                 .map(tipo -> de(tipo, status, detalhe))
                 .orElseGet(() -> {
                     ProblemDetail problema = ProblemDetail.forStatusAndDetail(status, detalhe);
+                    problema.setType(TIPO_EM_BRANCO);
                     problema.setProperty(PROPRIEDADE_TIMESTAMP, Instant.now());
                     return problema;
                 });

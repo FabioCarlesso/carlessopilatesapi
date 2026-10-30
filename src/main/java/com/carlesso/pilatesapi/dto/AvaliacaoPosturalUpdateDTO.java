@@ -24,4 +24,5 @@ public record AvaliacaoPosturalUpdateDTO(
                         example = "0.75")
                 @Positive BigDecimal proporcaoImagem,
         @Schema(description = "Observações clínicas") String observacoes,
-        @Schema(description = "Pontos marcados; substituem integralmente os anteriores quando enviados") @Valid List<LandmarkDTO> landmarks) {}
+        @Schema(description = "Pontos marcados; substituem integralmente os anteriores quando enviados")
+                List<@Valid LandmarkDTO> landmarks) {}

@@ -23,7 +23,6 @@ import com.carlesso.pilatesapi.service.ContatoCobrancaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.PagamentoService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,8 +30,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +41,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(PagamentoController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -131,7 +131,7 @@ class PagamentoControllerTest {
         mockMvc.perform(post("/pagamentos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 
@@ -426,7 +426,7 @@ class PagamentoControllerTest {
                                         """
                                 {"dataContato": "2026-02-15", "observacao": "Ligação"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 

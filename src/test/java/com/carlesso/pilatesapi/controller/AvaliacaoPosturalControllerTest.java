@@ -22,19 +22,19 @@ import com.carlesso.pilatesapi.service.AvaliacaoPosturalService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(AvaliacaoPosturalController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -228,7 +228,7 @@ class AvaliacaoPosturalControllerTest {
         mvc.perform(put("/avaliacoes-posturais/10")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Ponto ORELHA não pertence à vista FRENTE"));
     }
 
@@ -240,7 +240,7 @@ class AvaliacaoPosturalControllerTest {
         mvc.perform(put("/avaliacoes-posturais/10")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(updateDTO(null))))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test
@@ -258,7 +258,7 @@ class AvaliacaoPosturalControllerTest {
                 .thenThrow(new BusinessException("Pontos obrigatórios não marcados: [TORNOZELO_ESQ]"));
 
         mvc.perform(patch("/avaliacoes-posturais/10/concluir"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("Pontos obrigatórios não marcados: [TORNOZELO_ESQ]"));
     }
 
@@ -322,7 +322,7 @@ class AvaliacaoPosturalControllerTest {
                                 "Foto de análise postural concluída não pode ser substituída; cancele a análise e crie outra: 10"));
 
         mvc.perform(multipart(HttpMethod.PUT, "/avaliacoes-posturais/10/foto").file(arquivoFoto()))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test

@@ -17,19 +17,19 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(AulaController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -199,7 +199,7 @@ class AulaControllerTest {
                 .thenThrow(new BusinessException("Profissional inativo não pode ser vinculado à aula"));
 
         mockMvc.perform(patch("/aulas/1/realizar").param("profissionalId", "2"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 
@@ -288,7 +288,7 @@ class AulaControllerTest {
                 .thenThrow(new BusinessException("Profissional inativo não pode ser vinculado à aula"));
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", 7L))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").exists());
     }
 

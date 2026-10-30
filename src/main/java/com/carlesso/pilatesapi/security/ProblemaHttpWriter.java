@@ -2,7 +2,6 @@ package com.carlesso.pilatesapi.security;
 
 import com.carlesso.pilatesapi.exception.Problemas;
 import com.carlesso.pilatesapi.exception.TipoProblema;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -10,6 +9,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Escreve um {@link ProblemDetail} direto na resposta servlet. Os 401/403 da autorização por URL nascem no filter

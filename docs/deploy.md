@@ -21,6 +21,10 @@ A configuração do serviço fica só no painel da Railway, não no repositório
 2. Acompanhe na aba *Deployments* do serviço (build, deploy e logs).
 3. Verifique: `curl -fsS https://carlessopilatesapi-production.up.railway.app/actuator/health/readiness` deve
    responder `{"status":"UP"}`.
+4. Confira nos logs da subida uma linha do Flyway (`Successfully validated N migrations` ou
+   `Successfully applied N migrations`). Desde o Spring Boot 4 a autoconfiguração do Flyway vem do
+   `spring-boot-starter-flyway`: sem ele a aplicação sobe normalmente e o schema para de evoluir, e a ausência
+   dessas linhas é a única pista.
 
 ### Rollback
 
@@ -168,6 +172,9 @@ JAVA_HOME=/caminho/para/jdk21 mvn spring-boot:run
 | `SMTP_PASSWORD` | - | Senha de autenticação SMTP |
 | `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0` | Flags da JVM no container Docker; o valor **substitui** o padrão por completo — inclua `-XX:MaxRAMPercentage` (ou `-Xmx`) ao customizar |
 | `APP_MEM_LIMIT` | `1g` | Limite de memória do container da aplicação no Docker Compose (a heap da JVM usa 75% desse valor) |
+
+> A migração para o Spring Boot 4 (#214) não renomeou nem removeu nenhuma variável desta tabela, e as variáveis da
+> Railway continuam as mesmas. As propriedades internas que mudaram estão em [`context.md`](context.md#decisões-de-design).
 
 ## Ver também
 

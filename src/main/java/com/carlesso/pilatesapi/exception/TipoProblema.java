@@ -20,9 +20,9 @@ public enum TipoProblema {
     METODO_NAO_PERMITIDO("method-not-allowed", HttpStatus.METHOD_NOT_ALLOWED, "Método não permitido"),
     CONFLITO("conflict", HttpStatus.CONFLICT, "Conflito"),
     CONFLITO_CONCORRENCIA("concurrent-modification", HttpStatus.CONFLICT, "Alteração concorrente"),
-    ARQUIVO_EXCEDIDO("payload-too-large", HttpStatus.PAYLOAD_TOO_LARGE, "Arquivo muito grande"),
+    ARQUIVO_EXCEDIDO("payload-too-large", HttpStatus.CONTENT_TOO_LARGE, "Arquivo muito grande"),
     MIDIA_NAO_SUPORTADA("unsupported-media-type", HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de mídia não suportado"),
-    REGRA_NEGOCIO("business-rule", HttpStatus.UNPROCESSABLE_ENTITY, "Regra de negócio violada"),
+    REGRA_NEGOCIO("business-rule", HttpStatus.UNPROCESSABLE_CONTENT, "Regra de negócio violada"),
     LIMITE_REQUISICOES("rate-limit", HttpStatus.TOO_MANY_REQUESTS, "Muitas requisições"),
     ERRO_INTERNO("internal-error", HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno do servidor");
 

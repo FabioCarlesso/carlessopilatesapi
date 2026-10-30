@@ -7,15 +7,18 @@ Aplicação Spring Boot em camadas, com pacote raiz `com.carlesso.pilatesapi`.
 | Tecnologia | Versão |
 |---|---|
 | Java | 21 |
-| Spring Boot | 3.5.16 |
-| Spring Data JPA | 3.5.13 |
-| Spring Validation | 3.5.16 |
-| Spring Security | 6.5.11 |
-| Spring Boot Actuator | 3.5.16 |
-| Micrometer (registry Prometheus) | 1.15.12 |
+| Spring Boot | 4.1.2 |
+| Spring Framework | 7.0.10 |
+| Spring Data JPA | 4.1.2 |
+| Hibernate ORM | 7.4.13 |
+| Spring Validation | 4.1.2 |
+| Spring Security | 7.1.2 |
+| Spring Boot Actuator | 4.1.2 |
+| Jackson | 3.1.7 (`tools.jackson`); o 2.x segue só para o JJWT e o swagger-core |
+| Micrometer (registry Prometheus) | 1.17.2 |
 | PostgreSQL | 16 |
-| Flyway | (via spring-boot-starter-parent) |
-| springdoc-openapi | 2.10.0 |
+| Flyway | 12.4.0 (via `spring-boot-starter-flyway`) |
+| springdoc-openapi | 3.2.0 |
 | JJWT | 0.13.0 |
 | Spring Scheduler | (via spring-boot-starter) |
 | Maven | 3.9 |
@@ -24,7 +27,7 @@ Aplicação Spring Boot em camadas, com pacote raiz `com.carlesso.pilatesapi`.
 | Apache POI | 5.5.1 |
 | JUnit 5 + Mockito | (via spring-boot-starter-test) |
 | H2 (testes) | (in-memory) |
-| Testcontainers (testes) | (via spring-boot-starter-parent) |
+| Testcontainers (testes) | 2.0.5 (via spring-boot-starter-parent) |
 | JaCoCo (cobertura) | 0.8.15 |
 
 ## Estrutura de pacotes
