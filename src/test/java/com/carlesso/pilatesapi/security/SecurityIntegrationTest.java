@@ -256,6 +256,21 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void erro_mantemAOrdemDosCamposDoProblemDetail() throws Exception {
+        // O Jackson 3 ordenaria alfabeticamente (detail primeiro); spring.jackson.mapper.sort-properties-alphabetically
+        // mantém a ordem da RFC 9457 que a API sempre usou.
+        String corpo = mvc.perform(get("/users/me"))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(corpo).startsWith("{\"type\":");
+        assertThat(corpo.indexOf("\"title\"")).isLessThan(corpo.indexOf("\"status\""));
+        assertThat(corpo.indexOf("\"status\"")).isLessThan(corpo.indexOf("\"detail\""));
+    }
+
+    @Test
     void usersMe_comTokenValido_deveRetornarUsuarioSemSenha() throws Exception {
         User user = criarUsuario("me@email.com", Role.RECEPCAO);
 
