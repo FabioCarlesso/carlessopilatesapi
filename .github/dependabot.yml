@@ -54,9 +54,14 @@ updates:
     # JDK no sufixo, e o Dependabot troca a JDK como se fosse um bump "minor"
     # (ex.: 3.9-eclipse-temurin-21 → 3-eclipse-temurin-26, JDK não-LTS). A JDK
     # de build precisa acompanhar a da CI (setup-java) e a do runtime
-    # (eclipse-temurin:21-jre-alpine), então essa imagem é atualizada à mão.
+    # (eclipse-temurin:21.x-jre-alpine), então essa imagem é atualizada à mão.
+    # No runtime, só bumps dentro da linha LTS: o major do eclipse-temurin é a
+    # linha da JDK, e a #226 chegou a levar a produção para o 24, não-LTS e já
+    # sem atualizações. A troca de linha (ex.: 25 LTS) é decisão à mão.
     ignore:
       - dependency-name: "maven"
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
     groups:
       docker-minor-patch:
         update-types:
