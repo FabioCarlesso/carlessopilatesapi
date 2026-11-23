@@ -10,7 +10,9 @@ RUN mvn clean package -DskipTests -q
 # "-Djarmode=tools" substitui o antigo "layertools", deprecado no Boot 3.4.
 RUN java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted
 
-FROM eclipse-temurin:24-jre-alpine
+# Tag fixada na linha 21 LTS (#225): o Dependabot propõe os bumps seguintes
+# dentro da linha; majors são ignorados em .github/dependabot.yml.
+FROM eclipse-temurin:21.0.13.1_2-jre-alpine
 WORKDIR /app
 
 # Usuário/grupo dedicados sem privilégios para executar a aplicação.
