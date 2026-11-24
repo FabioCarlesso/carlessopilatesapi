@@ -180,6 +180,56 @@ python3 scripts/import_anamneses_seufisio.py --xlsx scripts/arquivos/clientes.xl
 - **Paciente inativo** é reativado só para criar a anamnese e inativado em seguida. Como a API grava a data do dia ao
   inativar, gere e aplique de novo o SQL de [datas](#datas-de-cadastro-e-de-inativação) depois da carga.
 
+### Planos, faturas e agenda (virada para o sistema novo)
+
+No sistema novo a agenda não é importada diretamente: as aulas nascem quando o pagamento de um plano é confirmado
+([geração de aulas](regras-de-negocio.md#geração-de-aulas)). `scripts/import_planos_seufisio.py` recria esse caminho a
+partir de quatro arquivos:
+
+| Arquivo | Onde exportar no seufisio |
+|---|---|
+| `--clientes` | Relatórios → Clientes (o mesmo XLSX das datas) |
+| `--planos` | Relatórios → Clientes → aba **Planos Fixos**, com Periodicidade, Valor, Início plano, Fim plano e Horários Programados marcados → Exportar XLS |
+| `--contas` | Relatórios → Financeiros → **Contas a receber**, com o período de vencimento desejado → Exportar XLS |
+| `--pagas` | Texto `Nº:DD/MM/AAAA:P` (PIX) ou `:D` (dinheiro) por fatura **paga**, lido da tabela da tela: a exportação XLS não traz data nem forma de pagamento |
+
+```bash
+python3 scripts/import_planos_seufisio.py --clientes ... --planos ... --contas ... --pagas ... --dry-run
+python3 scripts/import_planos_seufisio.py --clientes ... --planos ... --contas ... --pagas ...
+```
+
+Para cada cliente ativo com pacote fixo vigente ou já vendido:
+
+1. **Plano** `MENSAL`, com os dias e o horário do pacote mais recente e o menor valor entre pacotes e faturas (a API
+   recusa pagamento menor que o plano). Os nomes dos pacotes do seufisio ("PAC DUPLA 8 AULAS", "VIP CLASS"…) não têm
+   onde ficar.
+2. **Um pagamento por fatura**: todas as em aberto, inclusive as vencidas, e as pagas de pacotes vigentes ou futuros.
+   Faturas pagas de pacotes encerrados são histórico e ficam de fora. Os períodos seguem o ciclo mensal da API,
+   ancorados no início do pacote vigente; a fatura de um pacote conhecido usa o início dele, o que cobre os pacotes
+   bimestrais (uma fatura a cada dois meses).
+3. **Faturas pagas** são confirmadas com a data e a forma do seufisio (data futura vira hoje), o que gera as aulas. As
+   em aberto ficam `PENDENTE`, e o scheduler as marca `VENCIDO`: a agenda desses alunos só aparece quando o pagamento
+   for confirmado no sistema novo.
+4. **Ajuste das aulas**: a API guarda um horário por plano, então as aulas dos dias com outro horário são remarcadas;
+   a profissional do horário é vinculada às aulas futuras, e aulas passadas com sessão importada naquela data são
+   marcadas como realizadas por ela. Esse passo depende das profissionais cadastradas na API e roda de novo a cada
+   execução.
+
+Idempotente: cliente que já tem plano ativo é pulado nos passos 1 a 3, e o passo 4 só altera o que ainda falta.
+
+`--abertas-como-pagas` confirma também as faturas em aberto, com o vencimento como data de pagamento e sem forma de
+pagamento, inclusive nos planos já importados. Use quando o seufisio não era mantido em dia e não há inadimplência
+de fato. Foi o caso da carga de novembro de 2026: todas as faturas em aberto eram de alunos da Claudia, cujos
+pagamentos não eram baixados no seufisio.
+
+Aulas passadas só viram realizadas quando há sessão com evolução naquela data. Sem evolução (faltas, reposições ou
+profissional que não registrava prontuário no seufisio), a aula fica não realizada e sem profissional, e entra como
+"agendada" na série de aulas do dashboard.
+
+**Atenção à virada**: com planos ativos, o scheduler das 07:00 passa a gerar a próxima cobrança de cada plano quando
+faltam 7 dias ou menos para o fim do período. A partir da carga, as cobranças devem ser emitidas só no sistema novo,
+ou o aluno recebe duas.
+
 ## Autoria dos registros importados
 
 Os dois scripts gravam pela API, então a [auditoria](regras-de-negocio.md#auditoria-de-criação-e-alteração) trata a
