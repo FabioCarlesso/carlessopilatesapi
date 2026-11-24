@@ -147,6 +147,39 @@ psql "$DATABASE_URL" -f scripts/arquivos/datas-pacientes.sql
   de fora.
 - Reexecutar é seguro: grava as mesmas datas de novo.
 
+### Anamneses
+
+O seufisio não exporta anamneses em lote. Cada uma é uma página própria (aba **Avaliações** da ficha → ícone
+"abrir" → `/anamnese-personalizada/ver/{matrícula}/{id da anamnese}`). Atenção: o segundo número é o id da anamnese,
+e a página não confere se ela pertence ao cliente da URL; por isso o id tem de vir do botão da ficha, nunca ser
+adivinhado. Na carga de novembro de 2026, cada página foi salva pelo navegador como um JSON
+(`{"cliente", "anamnese", "titulo", "campos": [[rótulo, valor], ...]}`) em `scripts/arquivos/anamneses/`. Os clientes
+com anamnese são os que têm "Sim" na coluna **Avaliações / Anamnese** do XLSX de clientes.
+
+```bash
+python3 scripts/import_anamneses_seufisio.py --xlsx scripts/arquivos/clientes.xlsx \
+    --dir scripts/arquivos/anamneses --dry-run
+python3 scripts/import_anamneses_seufisio.py --xlsx scripts/arquivos/clientes.xlsx \
+    --dir scripts/arquivos/anamneses
+```
+
+| Campo no seufisio | Campo na API |
+|---|---|
+| Objetivo | `objetivos` (obrigatório: "Não informado no seufisio" quando vazio) |
+| Queixa Principal + Queixa Secundária | `queixaPrincipal` (obrigatório: "Não informada no seufisio" quando vazio) |
+| Diagnóstico Médico + História Pregressa de Doenças | `historicoDoencas` |
+| Alergias/Cirurgias | `alergias` (o seufisio tem um campo só para as duas coisas) |
+| Medicamentos em Uso | `medicamentosUso` |
+| Restrições | `restricoesMedicas` |
+| Atividades (Sim/Não/Passado) | `nivelAtividadeFisica`: Ativo, Sedentário ou Ativo no passado |
+| Quais, Avaliação Postural, Força Muscular, Amplitude do Movimento, Perimetria/Exames, Histórico Familiar, OBS Gerais | `observacoes`, uma seção por campo, terminando com a data da anamnese original |
+
+- **Uma anamnese por paciente** é a regra da API. Quando o seufisio tem mais de uma, a mais recente é a principal e as
+  outras entram em `observacoes` como "Anamnese anterior (data)".
+- **Idempotente**: paciente que já tem anamnese na API é pulado. Anamnese sem nenhum campo preenchido também é pulada.
+- **Paciente inativo** é reativado só para criar a anamnese e inativado em seguida. Como a API grava a data do dia ao
+  inativar, gere e aplique de novo o SQL de [datas](#datas-de-cadastro-e-de-inativação) depois da carga.
+
 ## Autoria dos registros importados
 
 Os dois scripts gravam pela API, então a [auditoria](regras-de-negocio.md#auditoria-de-criação-e-alteração) trata a
