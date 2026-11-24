@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.controller;
 
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
+import com.carlesso.pilatesapi.dto.PacienteTomadorRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.service.PacienteService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -110,6 +111,23 @@ public class PacienteController {
             @Parameter(description = "ID do paciente", required = true) @PathVariable Long id) {
         service.ativar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Vincular ou desvincular o tomador da NFSE",
+            description = "`tomadorId` é obrigatório mas anulável: um id vincula, `null` desvincula e omitir o campo"
+                    + " retorna 400. Tomador inativo não recebe vínculo novo (422).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Vínculo atualizado"),
+        @ApiResponse(responseCode = "400", description = "Campo tomadorId ausente"),
+        @ApiResponse(responseCode = "404", description = "Paciente ou tomador não encontrado"),
+        @ApiResponse(responseCode = "422", description = "Tomador inativo")
+    })
+    @PatchMapping("/{id}/tomador")
+    public ResponseEntity<PacienteResponseDTO> vincularTomador(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long id,
+            @RequestBody PacienteTomadorRequestDTO dto) {
+        return ResponseEntity.ok(service.vincularTomador(id, dto.tomadorId()));
     }
 
     @Operation(

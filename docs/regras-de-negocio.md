@@ -56,6 +56,13 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Consultas de aulas não retornam registros associados a pacientes inativos — exceto os indicadores históricos do dashboard (ver [Indicadores do dashboard](#indicadores-do-dashboard))
 - O cadastro grava `dataCadastro` com a data do dia. Inativar grava `dataInativacao` com a data do dia, e inativar quem já está inativo não muda essa data; reativar a limpa
 
+## Tomadores da NFSE
+
+- Tomador é quem recebe a nota quando não é o próprio paciente: o responsável por alunos menores ou a empresa que paga as aulas (#229). **Um tomador atende vários pacientes** — irmãos com o mesmo responsável, funcionários da mesma empresa — e cada pagamento deles continua sendo uma nota
+- `nome` e `cpfCnpj` são obrigatórios. O CPF/CNPJ é gravado só com dígitos e precisa ter 11 ou 14 (`400`); é único entre tomadores (`409`), com `UNIQUE` e `CHECK` de formato no banco. Os dígitos verificadores são conferidos na tela, não na API, como no CPF do paciente
+- O vínculo com o paciente muda só por `PATCH /pacientes/{id}/tomador`, nunca pelo `PUT` do paciente: assim, desmarcar "CPF na nota" não apaga o tomador
+- Tomador inativo não recebe vínculo novo (`422`); os pacientes já vinculados continuam com ele, e as notas deles seguem saindo no tomador. Inativar é soft delete, como em pacientes e profissionais
+
 ## Profissionais
 
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
@@ -136,19 +143,19 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 - O relatório de emissão de NFSEs considera os pagamentos `PAGO` com `dataPagamento` dentro da competência informada, de pacientes **ativos ou inativos**: quem pagou e foi inativado depois continua devendo a nota daquela competência (#229)
 - `competencia` é obrigatória no formato `MM/AAAA`; mês deve estar entre `01` e `12`
-- O relatório retorna `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento`, `Observacoes`, `CPFNaNota` e `Pendencia` (e, no JSON, `pacienteId`)
+- O relatório retorna `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento`, `Observacoes`, `CPFNaNota`, `Pendencia` e `Paciente` (e, no JSON, `pacienteId` e `tomadorId`)
 - **CPF na nota é escolha do paciente** (`cpfNaNota`, padrão `false`, #229). Sem ela, o item sai com `cpfCnpj` nulo — a nota é emitida sem identificar o tomador. Com ela:
-  - havendo **tomador alternativo** (`notaCpfCnpj`, e opcionalmente `notaNome`), saem o CPF/CNPJ e o nome dele — o caso do aluno menor, com a nota no CPF do responsável, ou da empresa que paga as aulas;
+  - havendo **tomador** vinculado (ver [Tomadores](#tomadores-da-nfse)), saem o nome e o CPF/CNPJ dele — o caso do aluno menor, com a nota no responsável, ou da empresa que paga as aulas — e `Paciente` diz de qual aluno é a aula;
   - senão, sai o CPF do paciente;
-  - se o paciente não tem CPF cadastrado, o item sai com `pendencia` preenchida, **sem derrubar o relatório**. Antes, um único paciente sem CPF fazia a competência inteira responder `422`
-- O tomador alternativo é ignorado enquanto `cpfNaNota` for `false`
-- O filtro opcional `cpfNaNota` retorna só quem deseja (`true`) ou não (`false`) CPF na nota
+  - se o paciente não tem CPF nem tomador, o item sai com `pendencia` preenchida, **sem derrubar o relatório**. Antes, um único paciente sem CPF fazia a competência inteira responder `422`
+- O tomador é ignorado enquanto `cpfNaNota` for `false`, mas o vínculo fica guardado: desmarcar e marcar de novo não obriga a escolher o tomador outra vez
+- O filtro opcional `cpfNaNota` retorna só quem deseja (`true`) ou não (`false`) CPF na nota; `tomadorId` retorna as notas de um tomador, de todos os pacientes vinculados
 - `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
 - `NotaAnteriorEmitida` é baseada nas NFSEs emitidas persistidas (`notas_fiscais_emitidas`): `true` quando existe nota registrada para o paciente em competência anterior à consultada
 - O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior emitida
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`
 - Registros sem nome do paciente, valor positivo ou data de pagamento continuam retornando `422 Unprocessable Entity`; a falta de CPF/CNPJ não é mais erro, e sim `pendencia`
-- As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente inexistente retorna `404` e paciente inativo `422` (regra comum de `PacienteGuard`), `competencia` no formato `MM/AAAA` (`400`), `numeroNota` no máximo 60 caracteres (`400`), `dataEmissao` não futura (`422`) e `valor`, quando informado, maior que zero (`422`). O upsert é idempotente mesmo sob concorrência: a colisão da constraint única `(paciente, competência)` é repetida automaticamente como atualização
+- As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente inexistente retorna `404`; paciente **inativo é aceito** (#239), porque quem pagou e foi inativado depois continua devendo a nota da competência e aparece no relatório, `competencia` no formato `MM/AAAA` (`400`), `numeroNota` no máximo 60 caracteres (`400`), `dataEmissao` não futura (`422`) e `valor`, quando informado, maior que zero (`422`). O upsert é idempotente mesmo sob concorrência: a colisão da constraint única `(paciente, competência)` é repetida automaticamente como atualização
 - Timestamps e autoria das NFSEs emitidas seguem a [auditoria de criação/alteração](#auditoria-de-criação-e-alteração)
 
 ## Geração de Aulas
@@ -298,7 +305,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - `ativo = false` em paciente marca um **ex-aluno**, não um registro apagado: todo o prontuário dele continua consultável pela API
 - As consultas por paciente (`/sessoes`, `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/planos-tratamento`, `/reavaliacoes`, `/evolucoes-sessao`, `/api/nfse-emitidas`) validam apenas a **existência** do paciente (`existsById`); `404 Paciente não encontrado` significa que o id realmente não existe
 - Registro ausente para paciente existente usa mensagem própria (ex.: `Anamnese não encontrada para o paciente: {id}`), nunca `Paciente não encontrado`
-- **Criar** novo registro clínico continua exigindo paciente ativo, e os oito pontos de criação respondem igual: `404` quando o paciente não existe, `422` quando existe mas está inativo. A regra fica em `util/PacienteGuard.exigirAtivo`, chamada por sessão, anamnese, avaliação, plano de tratamento, reavaliação, NFSE, evolução e análise postural
+- **Criar** novo registro clínico continua exigindo paciente ativo, e os sete pontos de criação respondem igual: `404` quando o paciente não existe, `422` quando existe mas está inativo. A regra fica em `util/PacienteGuard.exigirAtivo`, chamada por sessão, anamnese, avaliação, plano de tratamento, reavaliação, evolução e análise postural. A NFSE emitida saiu da lista (#239): é registro fiscal de um pagamento já feito e aceita paciente inativo
 - **Atualizar** registro já existente de paciente inativo é permitido — consequência direta de o registro voltar a ser visível
 - Os filtros por `paciente.ativo` permanecem nas consultas **financeiras/operacionais** (aulas, dashboard, relatórios de pagamento e de NFSE), onde excluir ex-alunos é intencional
 

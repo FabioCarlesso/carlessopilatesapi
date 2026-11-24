@@ -52,6 +52,7 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
             select p
             from Pagamento p
             join fetch p.paciente paciente
+            left join fetch paciente.tomador
             where p.status = :status
               and p.dataPagamento between :inicio and :fim
             order by paciente.nome asc, p.dataPagamento asc, p.id asc

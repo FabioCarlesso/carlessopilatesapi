@@ -43,13 +43,10 @@ public class Paciente extends EntidadeAuditavel {
     @Column(name = "cpf_na_nota", nullable = false)
     private boolean cpfNaNota = false;
 
-    /** CPF/CNPJ do tomador alternativo da nota (responsável ou empresa), só dígitos; nulo = o próprio paciente. */
-    @Column(name = "nota_cpf_cnpj", length = 14)
-    private String notaCpfCnpj;
-
-    /** Nome do tomador alternativo; só faz sentido com {@link #notaCpfCnpj}. */
-    @Column(name = "nota_nome")
-    private String notaNome;
+    /** Tomador da NFSE (responsável ou empresa); nulo = a nota sai no próprio paciente. Ver {@link Tomador}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tomador_id")
+    private Tomador tomador;
 
     public Paciente() {}
 
@@ -141,19 +138,11 @@ public class Paciente extends EntidadeAuditavel {
         this.cpfNaNota = cpfNaNota;
     }
 
-    public String getNotaCpfCnpj() {
-        return notaCpfCnpj;
+    public Tomador getTomador() {
+        return tomador;
     }
 
-    public void setNotaCpfCnpj(String notaCpfCnpj) {
-        this.notaCpfCnpj = notaCpfCnpj;
-    }
-
-    public String getNotaNome() {
-        return notaNome;
-    }
-
-    public void setNotaNome(String notaNome) {
-        this.notaNome = notaNome;
+    public void setTomador(Tomador tomador) {
+        this.tomador = tomador;
     }
 }

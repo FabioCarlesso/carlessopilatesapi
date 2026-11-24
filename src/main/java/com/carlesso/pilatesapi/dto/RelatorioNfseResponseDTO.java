@@ -14,4 +14,6 @@ public record RelatorioNfseResponseDTO(
         String observacoes,
         Long pacienteId,
         boolean cpfNaNota,
-        String pendencia) {}
+        String pendencia,
+        String pacienteNome,
+        Long tomadorId) {}

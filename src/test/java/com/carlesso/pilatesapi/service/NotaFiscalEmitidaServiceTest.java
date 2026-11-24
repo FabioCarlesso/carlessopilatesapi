@@ -105,16 +105,18 @@ class NotaFiscalEmitidaServiceTest {
     }
 
     @Test
-    void registrar_pacienteInativo_deveLancarErroDeNegocio() {
+    void registrar_pacienteInativo_deveRegistrarANota() {
+        // Pagou na competência e foi inativado depois: a nota é devida e precisa poder ser registrada (#239).
         Paciente inativo = paciente();
         inativo.setAtivo(false);
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+        when(repository.findByPacienteIdAndCompetencia(1L, LocalDate.of(2026, 4, 1)))
+                .thenReturn(Optional.empty());
+        when(repository.save(any(NotaFiscalEmitida.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var dto = new NotaFiscalEmitidaRequestDTO(1L, "04/2026", "NF-1", LocalDate.of(2026, 4, 15), null, null);
 
-        assertThatThrownBy(() -> service.registrar(dto))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
+        assertThat(service.registrar(dto).numeroNota()).isEqualTo("NF-1");
     }
 
     @Test

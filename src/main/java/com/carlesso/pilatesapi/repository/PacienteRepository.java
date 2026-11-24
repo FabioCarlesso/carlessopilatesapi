@@ -2,6 +2,7 @@ package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.Paciente;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -19,6 +20,18 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long>, JpaSp
     boolean existsByEmail(String email);
 
     boolean existsByCpf(String cpf);
+
+    /** Pacientes vinculados a cada tomador, para a coluna da listagem de tomadores: [tomadorId, total]. */
+    @Query(
+            """
+            select p.tomador.id, count(p)
+            from Paciente p
+            where p.tomador.id in :tomadorIds
+            group by p.tomador.id
+            """)
+    List<Object[]> contarPorTomador(@Param("tomadorIds") Collection<Long> tomadorIds);
+
+    List<Paciente> findByTomadorIdOrderByNomeAsc(Long tomadorId);
 
     /** Novos cadastros por mês de {@code dataCadastro}; pacientes sem a data (anteriores à V41) não entram. */
     @Query(

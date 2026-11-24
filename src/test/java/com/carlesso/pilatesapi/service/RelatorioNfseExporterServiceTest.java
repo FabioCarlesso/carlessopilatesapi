@@ -37,7 +37,9 @@ class RelatorioNfseExporterServiceTest {
                 "",
                 2L,
                 true,
-                "Paciente deseja CPF/CNPJ na nota, mas o CPF não está cadastrado");
+                "Paciente deseja CPF/CNPJ na nota, mas o CPF não está cadastrado",
+                "Paciente",
+                null);
 
         String content = new String(service.exportarCsv(List.of(semCpf)), java.nio.charset.StandardCharsets.UTF_8);
 
@@ -59,6 +61,8 @@ class RelatorioNfseExporterServiceTest {
                 "-observacao",
                 1L,
                 true,
+                null,
+                "Paciente",
                 null);
 
         String content = new String(service.exportarCsv(List.of(itemMalicioso)));
@@ -101,6 +105,8 @@ class RelatorioNfseExporterServiceTest {
                 "",
                 1L,
                 true,
+                null,
+                "Paciente",
                 null);
     }
 }

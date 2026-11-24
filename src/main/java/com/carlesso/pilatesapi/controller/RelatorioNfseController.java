@@ -57,9 +57,13 @@ public class RelatorioNfseController {
             @Parameter(description = "Filtra pacientes que desejam (true) ou não (false) CPF/CNPJ na nota")
                     @RequestParam(required = false)
                     Boolean cpfNaNota,
+            @Parameter(description = "Só as notas deste tomador (pacientes vinculados que desejam CPF na nota)")
+                    @RequestParam(required = false)
+                    Long tomadorId,
             @Parameter(description = "Formato de saída: JSON, CSV ou XLSX") @RequestParam(defaultValue = "JSON")
                     String formato) {
-        List<RelatorioNfseResponseDTO> relatorio = service.gerar(competencia, notaAnteriorEmitida, cpfNaNota);
+        List<RelatorioNfseResponseDTO> relatorio =
+                service.gerar(competencia, notaAnteriorEmitida, cpfNaNota, tomadorId);
         String formatoNormalizado = formato.toUpperCase(Locale.ROOT);
 
         return switch (formatoNormalizado) {

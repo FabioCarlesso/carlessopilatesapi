@@ -145,7 +145,7 @@ class LockingOtimistaIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     private PacienteUpdateDTO atualizacao(String nome, Long version) {
-        return new PacienteUpdateDTO(nome, null, null, null, null, version, null, null, null, null);
+        return new PacienteUpdateDTO(nome, null, null, null, null, version, null, null);
     }
 
     private Paciente salvarPaciente() {

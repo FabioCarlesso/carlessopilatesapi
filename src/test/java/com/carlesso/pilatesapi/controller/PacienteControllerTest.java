@@ -67,6 +67,7 @@ class PacienteControllerTest {
                 null,
                 false,
                 null,
+                null,
                 null);
     }
 
@@ -78,7 +79,6 @@ class PacienteControllerTest {
                 "11912345678",
                 LocalDate.of(1990, 5, 20),
                 new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"),
-                null,
                 null,
                 null);
     }
@@ -104,7 +104,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_semNome_deveRetornar400() throws Exception {
-        var dto = new PacienteRequestDTO(null, "maria@email.com", "12345678900", null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO(null, "maria@email.com", "12345678900", null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -113,7 +113,7 @@ class PacienteControllerTest {
     @Test
     void cadastrar_semCpfEsemEmail_deveCadastrar() throws Exception {
         when(service.cadastrar(any())).thenReturn(responseDTO());
-        var dto = new PacienteRequestDTO("Maria", null, null, null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", null, null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated());
@@ -121,7 +121,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_emailInvalido_deveRetornar400() throws Exception {
-        var dto = new PacienteRequestDTO("Maria", "nao-e-email", "12345678900", null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", "nao-e-email", "12345678900", null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -135,7 +135,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_semNome_deveRetornar400ComDetalheDoCampo() throws Exception {
-        var dto = new PacienteRequestDTO(null, "maria@email.com", null, null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO(null, "maria@email.com", null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
@@ -151,7 +151,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_emailInvalido_deveRetornar400ComDetalheDoCampo() throws Exception {
-        var dto = new PacienteRequestDTO("Maria", "nao-e-email", null, null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", "nao-e-email", null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
@@ -184,7 +184,7 @@ class PacienteControllerTest {
     @Test
     void cadastrar_erroInesperado_deveRetornar500SemVazarDetalhes() throws Exception {
         when(service.cadastrar(any())).thenThrow(new RuntimeException("falha interna do banco"));
-        var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
@@ -266,7 +266,7 @@ class PacienteControllerTest {
 
     @Test
     void atualizar_deveRetornar200ComDadosAtualizados() throws Exception {
-        var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null, null, null, null, null, null);
+        var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null, null, null, null);
         var updated = new PacienteResponseDTO(
                 1L,
                 "Novo Nome",
@@ -278,6 +278,7 @@ class PacienteControllerTest {
                 true,
                 null,
                 false,
+                null,
                 null,
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
@@ -297,7 +298,7 @@ class PacienteControllerTest {
         mvc.perform(put("/pacientes/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(
-                                new PacienteUpdateDTO("Nome", null, null, null, null, null, null, null, null, null))))
+                                new PacienteUpdateDTO("Nome", null, null, null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 
@@ -339,5 +340,39 @@ class PacienteControllerTest {
                 .ativar(99L);
 
         mvc.perform(patch("/pacientes/99/ativar")).andExpect(status().isNotFound());
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /pacientes/{id}/tomador (#229)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void vincularTomador_comId_deveRepassarAoServico() throws Exception {
+        when(service.vincularTomador(1L, 3L)).thenReturn(responseDTO());
+
+        mvc.perform(patch("/pacientes/1/tomador")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tomadorId\":3}"))
+                .andExpect(status().isOk());
+        verify(service).vincularTomador(1L, 3L);
+    }
+
+    @Test
+    void vincularTomador_comNull_deveDesvincular() throws Exception {
+        when(service.vincularTomador(1L, null)).thenReturn(responseDTO());
+
+        mvc.perform(patch("/pacientes/1/tomador")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tomadorId\":null}"))
+                .andExpect(status().isOk());
+        verify(service).vincularTomador(1L, null);
+    }
+
+    @Test
+    void vincularTomador_semOCampo_deveRetornar400() throws Exception {
+        mvc.perform(patch("/pacientes/1/tomador")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 }

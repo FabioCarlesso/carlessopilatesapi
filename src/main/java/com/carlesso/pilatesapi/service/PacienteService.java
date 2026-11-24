@@ -5,9 +5,12 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Tomador;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.repository.TomadorRepository;
 import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDate;
 import java.util.Locale;
@@ -21,9 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class PacienteService {
 
     private final PacienteRepository repository;
+    private final TomadorRepository tomadorRepository;
 
-    public PacienteService(PacienteRepository repository) {
+    public PacienteService(PacienteRepository repository, TomadorRepository tomadorRepository) {
         this.repository = repository;
+        this.tomadorRepository = tomadorRepository;
     }
 
     @Transactional
@@ -42,7 +47,9 @@ public class PacienteService {
         paciente.setDataNascimento(dto.dataNascimento());
         paciente.setDataCadastro(LocalDate.now());
         paciente.setCpfNaNota(Boolean.TRUE.equals(dto.cpfNaNota()));
-        aplicarTomadorNota(paciente, vazioComoNulo(dto.notaCpfCnpj()), vazioComoNulo(dto.notaNome()));
+        if (dto.tomadorId() != null) {
+            paciente.setTomador(tomadorAtivo(dto.tomadorId()));
+        }
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -77,13 +84,6 @@ public class PacienteService {
         if (dto.dataNascimento() != null) paciente.setDataNascimento(dto.dataNascimento());
         atualizarCpf(paciente, dto.cpf());
         if (dto.cpfNaNota() != null) paciente.setCpfNaNota(dto.cpfNaNota());
-        // No PUT parcial, ausente mantém e vazio remove o tomador alternativo da nota.
-        String notaCpfCnpj = dto.notaCpfCnpj() == null ? paciente.getNotaCpfCnpj() : vazioComoNulo(dto.notaCpfCnpj());
-        String notaNome = dto.notaNome() == null ? paciente.getNotaNome() : vazioComoNulo(dto.notaNome());
-        if (dto.notaCpfCnpj() != null && notaCpfCnpj == null && dto.notaNome() == null) {
-            notaNome = null; // remover o CPF/CNPJ do tomador remove também o nome dele
-        }
-        aplicarTomadorNota(paciente, notaCpfCnpj, notaNome);
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -128,17 +128,30 @@ public class PacienteService {
         paciente.setCpf(novo);
     }
 
-    /** Grava o tomador alternativo da NFSE: CPF/CNPJ só com dígitos (11 ou 14) e nome apenas junto com ele. */
-    private void aplicarTomadorNota(Paciente paciente, String cpfCnpj, String nome) {
-        String digitos = cpfCnpj == null ? null : cpfCnpj.replaceAll("\\D", "");
-        if (digitos != null && digitos.length() != 11 && digitos.length() != 14) {
-            throw new IllegalArgumentException("notaCpfCnpj deve ter 11 (CPF) ou 14 (CNPJ) dígitos");
+    /**
+     * Vincula ({@code tomadorId}) ou desvincula ({@code null}) o tomador da NFSE do paciente. Tomador inativo não
+     * recebe vínculo novo; manter o vínculo que já existe com um tomador que foi inativado depois continua valendo.
+     */
+    @Transactional
+    public PacienteResponseDTO vincularTomador(Long id, Long tomadorId) {
+        Paciente paciente = encontrar(id);
+        if (tomadorId == null) {
+            paciente.setTomador(null);
+        } else if (paciente.getTomador() == null
+                || !tomadorId.equals(paciente.getTomador().getId())) {
+            paciente.setTomador(tomadorAtivo(tomadorId));
         }
-        if (nome != null && digitos == null) {
-            throw new IllegalArgumentException("notaNome exige notaCpfCnpj");
+        return PacienteResponseDTO.from(repository.saveAndFlush(paciente));
+    }
+
+    private Tomador tomadorAtivo(Long tomadorId) {
+        Tomador tomador = tomadorRepository
+                .findById(tomadorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tomador não encontrado: " + tomadorId));
+        if (!tomador.isAtivo()) {
+            throw new BusinessException("Tomador inativo não pode ser vinculado: " + tomadorId);
         }
-        paciente.setNotaCpfCnpj(digitos);
-        paciente.setNotaNome(nome);
+        return tomador;
     }
 
     private static String vazioComoNulo(String valor) {

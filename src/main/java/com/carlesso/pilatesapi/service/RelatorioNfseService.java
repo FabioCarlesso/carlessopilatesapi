@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
+import com.carlesso.pilatesapi.entity.Tomador;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
@@ -34,11 +35,14 @@ public class RelatorioNfseService {
 
     /**
      * Pagamentos confirmados na competência, de pacientes ativos ou não (o dinheiro entrou e a nota é devida).
-     * CPF/CNPJ só sai para quem pediu CPF na nota; quem pediu e não tem CPF vira {@code pendencia} no item, em vez
-     * de derrubar o relatório inteiro (#229).
+     * CPF/CNPJ só sai para quem pediu CPF na nota: o do tomador vinculado, se houver, senão o do paciente; quem
+     * pediu e não tem CPF nem tomador vira {@code pendencia} no item, em vez de derrubar o relatório inteiro (#229).
+     * Um tomador com vários pacientes aparece em várias linhas, uma por pagamento; {@code tomadorId} filtra as
+     * notas dele.
      */
     @Transactional(readOnly = true)
-    public List<RelatorioNfseResponseDTO> gerar(String competencia, Boolean notaAnteriorEmitida, Boolean cpfNaNota) {
+    public List<RelatorioNfseResponseDTO> gerar(
+            String competencia, Boolean notaAnteriorEmitida, Boolean cpfNaNota, Long tomadorId) {
         YearMonth periodo = CompetenciaUtils.parse(competencia);
         LocalDate inicio = periodo.atDay(1);
         LocalDate fim = periodo.atEndOfMonth();
@@ -51,6 +55,7 @@ public class RelatorioNfseService {
                 .filter(item ->
                         notaAnteriorEmitida == null || Objects.equals(item.notaAnteriorEmitida(), notaAnteriorEmitida))
                 .filter(item -> cpfNaNota == null || item.cpfNaNota() == cpfNaNota)
+                .filter(item -> tomadorId == null || tomadorId.equals(item.tomadorId()))
                 .toList();
     }
 
@@ -76,13 +81,12 @@ public class RelatorioNfseService {
         String nome = paciente.getNome();
         String cpfCnpj = null;
         String pendencia = null;
-        if (paciente.isCpfNaNota()) {
-            if (paciente.getNotaCpfCnpj() != null) {
-                cpfCnpj = paciente.getNotaCpfCnpj();
-                if (paciente.getNotaNome() != null) {
-                    nome = paciente.getNotaNome();
-                }
-            } else if (paciente.getCpf() != null && !paciente.getCpf().isBlank()) {
+        Tomador tomador = paciente.isCpfNaNota() ? paciente.getTomador() : null;
+        if (tomador != null) {
+            nome = tomador.getNome();
+            cpfCnpj = tomador.getCpfCnpj();
+        } else if (paciente.isCpfNaNota()) {
+            if (paciente.getCpf() != null && !paciente.getCpf().isBlank()) {
                 cpfCnpj = paciente.getCpf();
             } else {
                 pendencia = PENDENCIA_SEM_CPF;
@@ -100,7 +104,9 @@ public class RelatorioNfseService {
                 "",
                 paciente.getId(),
                 paciente.isCpfNaNota(),
-                pendencia);
+                pendencia,
+                paciente.getNome(),
+                tomador == null ? null : tomador.getId());
     }
 
     private void validarDadosParaEmissao(Pagamento pagamento, Paciente paciente) {
