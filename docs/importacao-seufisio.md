@@ -4,6 +4,8 @@ Enquanto a empresa não desliga o `seufisio.com.br`, os dois scripts abaixo traz
 
 Ordem obrigatória: **pacientes primeiro**, evoluções depois (a evolução precisa do paciente já cadastrado).
 
+Se a API do seufisio estiver bloqueada, os mesmos scripts leem as exportações da interface: veja [Sem a API do seufisio](#sem-a-api-do-seufisio-exportações-da-interface).
+
 | Script | O que traz | Chave de idempotência |
 |---|---|---|
 | `scripts/import_seufisio.py` | Clientes → `POST /pacientes` | CPF **ou** e-mail já cadastrado |
@@ -83,6 +85,40 @@ python3 scripts/import_evolucoes_seufisio.py --desde 2026-07-01
 ```
 
 > A base de atendimentos é grande (ordem de dezenas de milhares no total). Prefira `--desde` nas execuções recorrentes e `--limite-clientes` / `--cliente-id` ao validar mudanças.
+
+## Sem a API do seufisio: exportações da interface
+
+Desde novembro de 2026 a API do seufisio responde `403` às chamadas dos scripts, embora o navegador logado continue
+acessando. Os dois scripts leem então as exportações feitas pela própria interface. A gravação na API do sistema novo,
+a idempotência e o relatório final não mudam; muda só a fonte, lida por `scripts/fonte_arquivos_seufisio.py`.
+
+| Script | Exportação no seufisio | Opção |
+|---|---|---|
+| `import_seufisio.py` | Relatórios → Clientes: Situação **Ativos/Inativos**, colunas CPF, Data Nascimento, E-mail, Endereço e Situação marcadas → **Exportar XLSX** | `--xlsx ARQUIVO` |
+| `import_evolucoes_seufisio.py` | Relatórios → Prontuários por profissional: um **Gerar PDF** por profissional, no período desejado | `--pdf ARQUIVO` (repetível) |
+
+```bash
+set -a; source scripts/.env; set +a   # só LOCAL_*; o token do seufisio não é usado
+
+python3 scripts/import_seufisio.py --xlsx scripts/arquivos/clientes.xlsx --dry-run
+python3 scripts/import_seufisio.py --xlsx scripts/arquivos/clientes.xlsx
+
+python3 scripts/import_evolucoes_seufisio.py --pdf "scripts/arquivos/Prontuário de Evolução.pdf" --dry-run
+python3 scripts/import_evolucoes_seufisio.py --pdf "scripts/arquivos/Prontuário de Evolução.pdf"
+```
+
+O que muda em relação à API:
+
+- **Arquivos em `scripts/arquivos/`**, ignorada pelo git: as exportações têm dados de pacientes e texto clínico.
+- **PDF exige o `pdftotext`** (pacote `poppler-utils`); o XLSX é lido só com a biblioteca padrão.
+- **O PDF não tem CPF nem id do seufisio**: o paciente é resolvido só pelo nome normalizado, com a mesma regra de
+  correspondência única do caminho da API. Um nome escrito diferente nos dois sistemas aparece no log como
+  `paciente_nao_encontrado` e não é importado; corrija o cadastro e rode de novo. `--cliente-id` não se aplica.
+- **O PDF corta os parágrafos na largura da página.** O leitor junta de volta as linhas que chegam à largura máxima
+  (~100 caracteres) e descarta o rodapé do seufisio e o cabeçalho de atendimento que o PDF repete quando a página quebra
+  logo depois dele. A data/hora logo abaixo do cliente é a do preenchimento e vai para `dataHoraRegistro`.
+- **O endereço vem numa coluna só** (`Rua Nº 10 - Bairro, Cidade - UF[, CEP]`) e é separado nos campos do contrato.
+- **Prontuários curtos** como "Feriado." ou "Cancelada." são importados como qualquer outro, igual ao caminho da API.
 
 ## Autoria dos registros importados
 

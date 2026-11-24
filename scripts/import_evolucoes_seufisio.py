@@ -72,6 +72,7 @@ from import_seufisio import (  # noqa: E402  (precisa do sys.path acima)
     seufisio_headers,
     short_name,
 )
+from fonte_arquivos_seufisio import prontuarios_dos_pdfs  # noqa: E402
 
 DESCRIPTION = "Importa evoluções (prontuários) do seufisio.com.br para a API carlessopilatesapi."
 PRONTUARIOS_PAGE_SIZE = 200
@@ -192,7 +193,8 @@ def fetch_prontuarios(headers, cliente_id):
 
 def map_to_evolucao(linha, desde=None):
     """(dados, motivo_skip) a partir de uma linha de prontuário do seufisio."""
-    texto = html_para_texto(linha.get("prontuario"))
+    # `prontuario_texto` vem do PDF já em texto puro; da API vem HTML.
+    texto = linha.get("prontuario_texto") or html_para_texto(linha.get("prontuario"))
     if not texto:
         return None, "sem_prontuario"
 
@@ -456,7 +458,13 @@ def parse_args(argv=None):
                         help="Restringe a estes ids de cliente do seufisio (repetível).")
     parser.add_argument("--limite-clientes", type=int,
                         help="Processa no máximo N clientes (útil para validar a carga).")
+    parser.add_argument("--pdf", metavar="ARQUIVO", action="append", dest="pdfs",
+                        help="Lê os prontuários do PDF exportado pela interface do seufisio "
+                             "(Relatórios → Prontuários por profissional) em vez da API "
+                             "deles. Repetível: um PDF por profissional.")
     args = parser.parse_args(argv)
+    if args.pdfs and args.cliente_ids:
+        parser.error("--cliente-id usa o id da API do seufisio e não se aplica a --pdf")
     if args.desde:
         try:
             date.fromisoformat(args.desde)
@@ -476,9 +484,9 @@ def main():
     local_password = os.environ.get("LOCAL_PASSWORD")
     tipo = os.environ.get("SEUFISIO_TIPO_SESSAO", TIPO_SESSAO_PADRAO)
 
-    if not seufisio_token:
-        sys.exit("Variável SEUFISIO_TOKEN obrigatória")
-    if not clinica_id or not version_app:
+    if not args.pdfs and not seufisio_token:
+        sys.exit("Variável SEUFISIO_TOKEN obrigatória (ou use --pdf)")
+    if not args.pdfs and (not clinica_id or not version_app):
         sys.exit("SEUFISIO_CLINICA_ID e SEUFISIO_VERSION_APP obrigatórias "
                  "(headers `setfisio` e `x-version-app` capturados no DevTools)")
     if not local_email or not local_password:
@@ -490,16 +498,25 @@ def main():
         # /sessoes — depois de toda a listagem e paginação, e em 100% das linhas.
         sys.exit(erro_tipo)
 
-    sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
-
     print(f"[1/3] Autenticando em {base_url} e carregando pacientes locais ...")
     token = login_local(base_url, local_email, local_password)
     pacientes = fetch_pacientes_locais(base_url, token)
     por_cpf, por_nome = indexar_para_match(pacientes)
     print(f"      {len(pacientes)} pacientes locais ({len(por_cpf)} com CPF)")
 
-    print(f"[2/3] Listando clientes em {SEUFISIO_BASE}/cliente ...")
-    clientes = list_seufisio(sf_headers)
+    sf_headers = None
+    if args.pdfs:
+        print(f"[2/3] Lendo prontuários de {len(args.pdfs)} PDF(s) ...")
+        do_pdf = prontuarios_dos_pdfs(args.pdfs)
+        # Sem id do seufisio no PDF: o cliente é identificado só pelo nome.
+        # O id é só um índice: o nome não pode aparecer cru nos logs.
+        clientes = [{"id": f"pdf#{i}", "nome": nome, "_linhas": linhas}
+                    for i, (nome, linhas) in enumerate(do_pdf.items(), start=1)]
+        print(f"      {sum(len(c['_linhas']) for c in clientes)} prontuários")
+    else:
+        sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
+        print(f"[2/3] Listando clientes em {SEUFISIO_BASE}/cliente ...")
+        clientes = list_seufisio(sf_headers)
     if args.cliente_ids:
         alvo = set(args.cliente_ids)
         clientes = [c for c in clientes if c.get("id") in alvo]
@@ -534,7 +551,10 @@ def main():
                   f"cpf={mask_cpf(only_digits(cliente.get('cpf')))}] {motivo}")
             continue
 
-        linhas, erro = fetch_prontuarios(sf_headers, cliente_id)
+        if "_linhas" in cliente:
+            linhas, erro = cliente["_linhas"], None
+        else:
+            linhas, erro = fetch_prontuarios(sf_headers, cliente_id)
         if erro:
             fails["prontuarios_indisponivel"] += 1
             print(f"      [fail seufisio_id={cliente_id}] {erro}")
@@ -542,7 +562,8 @@ def main():
 
         total_linhas += len(linhas)
         ok += processar_cliente(cfg, paciente, linhas, skips, fails)
-        time.sleep(RATE_LIMIT_SECONDS)
+        if sf_headers:
+            time.sleep(RATE_LIMIT_SECONDS)
 
     print(f"\nclientes processados: {len(clientes)}")
     print_relatorio(total_linhas, ok, skips, fails, rotulo_ok="evoluções criadas")

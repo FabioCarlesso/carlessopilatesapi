@@ -43,6 +43,10 @@ import urllib.request
 from collections import Counter
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from fonte_arquivos_seufisio import clientes_do_xlsx  # noqa: E402
+
 DESCRIPTION = "Importa pacientes do seufisio.com.br para a API local."
 SEUFISIO_BASE = "https://api.seufisio.com.br/api"
 SITUACAO_ATIVO = 2
@@ -471,6 +475,9 @@ def main():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--dry-run", action="store_true",
                         help="Imprime payloads mascarados sem chamar a API local.")
+    parser.add_argument("--xlsx", metavar="ARQUIVO",
+                        help="Lê os clientes do XLSX exportado pela interface do seufisio "
+                             "(Relatórios → Clientes) em vez da API deles.")
     args = parser.parse_args()
 
     seufisio_token = os.environ.get("SEUFISIO_TOKEN")
@@ -480,27 +487,35 @@ def main():
     local_email = os.environ.get("LOCAL_EMAIL")
     local_password = os.environ.get("LOCAL_PASSWORD")
 
-    if not seufisio_token:
-        sys.exit("Variável SEUFISIO_TOKEN obrigatória")
-    if not clinica_id or not version_app:
+    if not args.xlsx and not seufisio_token:
+        sys.exit("Variável SEUFISIO_TOKEN obrigatória (ou use --xlsx)")
+    if not args.xlsx and (not clinica_id or not version_app):
         sys.exit("SEUFISIO_CLINICA_ID e SEUFISIO_VERSION_APP obrigatórias "
                  "(headers `setfisio` e `x-version-app` capturados no DevTools)")
     if not args.dry_run and (not local_email or not local_password):
         sys.exit("LOCAL_EMAIL e LOCAL_PASSWORD obrigatórias (use --dry-run para testar mapeamento)")
     tem_credenciais_locais = bool(local_email and local_password)
 
-    sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
-
-    print(f"[1/4] Listando clientes em {SEUFISIO_BASE}/cliente ...")
-    clientes = list_seufisio(sf_headers)
-    print(f"      {len(clientes)} clientes encontrados")
-
-    total = len(clientes)
+    total = 0
     skips = Counter()
     fails = Counter()
-
-    print("[2/4] Buscando detalhes ...")
     detalhes = []
+
+    if args.xlsx:
+        print(f"[1/4] Lendo clientes de {args.xlsx} ...")
+        detalhes = clientes_do_xlsx(args.xlsx)
+        total = len(detalhes)
+        print(f"      {total} clientes encontrados")
+        print("[2/4] Detalhes já vêm na planilha")
+        clientes = []
+    else:
+        sf_headers = seufisio_headers(seufisio_token, clinica_id, version_app)
+        print(f"[1/4] Listando clientes em {SEUFISIO_BASE}/cliente ...")
+        clientes = list_seufisio(sf_headers)
+        total = len(clientes)
+        print(f"      {total} clientes encontrados")
+        print("[2/4] Buscando detalhes ...")
+
     for c in clientes:
         cid = c.get("id") if isinstance(c, dict) else None
         if cid is None:
