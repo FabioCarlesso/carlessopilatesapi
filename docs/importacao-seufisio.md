@@ -4,6 +4,8 @@ Enquanto a empresa não desliga o `seufisio.com.br`, os dois scripts abaixo traz
 
 Ordem obrigatória: **pacientes primeiro**, evoluções depois (a evolução precisa do paciente já cadastrado).
 
+Se a API do seufisio estiver bloqueada, os mesmos scripts leem as exportações da interface: veja [Sem a API do seufisio](#sem-a-api-do-seufisio-exportações-da-interface).
+
 | Script | O que traz | Chave de idempotência |
 |---|---|---|
 | `scripts/import_seufisio.py` | Clientes → `POST /pacientes` | CPF **ou** e-mail já cadastrado |
@@ -83,6 +85,153 @@ python3 scripts/import_evolucoes_seufisio.py --desde 2026-07-01
 ```
 
 > A base de atendimentos é grande (ordem de dezenas de milhares no total). Prefira `--desde` nas execuções recorrentes e `--limite-clientes` / `--cliente-id` ao validar mudanças.
+
+## Sem a API do seufisio: exportações da interface
+
+Desde novembro de 2026 a API do seufisio responde `403` às chamadas dos scripts, embora o navegador logado continue
+acessando. Os dois scripts leem então as exportações feitas pela própria interface. A gravação na API do sistema novo,
+a idempotência e o relatório final não mudam; muda só a fonte, lida por `scripts/fonte_arquivos_seufisio.py`.
+
+| Script | Exportação no seufisio | Opção |
+|---|---|---|
+| `import_seufisio.py` | Relatórios → Clientes: Situação **Ativos/Inativos**, colunas CPF, Data Nascimento, E-mail, Endereço e Situação marcadas → **Exportar XLSX** | `--xlsx ARQUIVO` |
+| `import_evolucoes_seufisio.py` | Relatórios → Prontuários por profissional: um **Gerar PDF** por profissional, no período desejado | `--pdf ARQUIVO` (repetível) |
+
+```bash
+set -a; source scripts/.env; set +a   # só LOCAL_*; o token do seufisio não é usado
+
+python3 scripts/import_seufisio.py --xlsx scripts/arquivos/clientes.xlsx --dry-run
+python3 scripts/import_seufisio.py --xlsx scripts/arquivos/clientes.xlsx
+
+python3 scripts/import_evolucoes_seufisio.py --pdf "scripts/arquivos/Prontuário de Evolução.pdf" --dry-run
+python3 scripts/import_evolucoes_seufisio.py --pdf "scripts/arquivos/Prontuário de Evolução.pdf"
+```
+
+O que muda em relação à API:
+
+- **Arquivos em `scripts/arquivos/`**, ignorada pelo git: as exportações têm dados de pacientes e texto clínico.
+- **PDF exige o `pdftotext`** (pacote `poppler-utils`); o XLSX é lido só com a biblioteca padrão.
+- **O PDF não tem CPF nem id do seufisio**: o paciente é resolvido só pelo nome normalizado, com a mesma regra de
+  correspondência única do caminho da API. Um nome escrito diferente nos dois sistemas aparece no log como
+  `paciente_nao_encontrado` e não é importado; corrija o cadastro e rode de novo. `--cliente-id` não se aplica.
+- **O PDF corta os parágrafos na largura da página.** O leitor junta de volta as linhas que chegam à largura máxima
+  (~100 caracteres) e descarta o rodapé do seufisio e o cabeçalho de atendimento que o PDF repete quando a página quebra
+  logo depois dele. A data/hora logo abaixo do cliente é a do preenchimento e vai para `dataHoraRegistro`.
+- **O endereço vem numa coluna só** (`Rua Nº 10 - Bairro, Cidade - UF[, CEP]`) e é separado nos campos do contrato.
+- **Prontuários curtos** como "Feriado." ou "Cancelada." são importados como qualquer outro, igual ao caminho da API.
+
+### Datas de cadastro e de inativação
+
+A API não aceita `dataCadastro` nem `dataInativacao`: o `PacienteService` grava a data do dia ao criar e ao inativar.
+Depois de uma importação, todos os pacientes caem no mês da carga e as séries de novos cadastros e de evasão do
+dashboard ficam com um pico falso. `scripts/gerar_sql_datas_seufisio.py` corrige isso **sem passar pela API**: lê o
+XLSX de clientes, casa cada cliente com o paciente (e-mail, depois nome exato único) e gera um `UPDATE` por paciente
+para rodar direto no banco.
+
+Exporte o XLSX como na tabela acima, marcando também **Cliente desde**, **Cadastro no seufisio** e **Data de
+Inativação**. A data de cadastro é o "Cliente desde", informado pela clínica; o "Cadastro no seufisio" só entra quando
+ele está vazio.
+
+```bash
+python3 scripts/gerar_sql_datas_seufisio.py --xlsx scripts/arquivos/clientes.xlsx
+# revise scripts/arquivos/datas-pacientes.sql e rode no Postgres da Railway
+psql "$DATABASE_URL" -f scripts/arquivos/datas-pacientes.sql
+```
+
+- O script só **lê** a API; quem grava é o `psql`, numa transação única (`BEGIN`/`COMMIT`).
+- Cada `UPDATE` soma 1 em `version`, para que um formulário aberto com a versão antiga receba `409`, e preenche
+  `data_atualizacao` e `alterado_por` com o usuário do `LOCAL_EMAIL`.
+- A data de inativação só é gravada em quem está inativo nos dois sistemas. Cada `UPDATE` também confere a situação no
+  `WHERE` (`AND ativo` / `AND NOT ativo`), então um paciente reativado entre a geração e a execução não é alterado.
+- Situação diferente entre o seufisio e o sistema novo aparece no log como `situacao_divergente`, e o paciente fica
+  de fora.
+- Reexecutar é seguro: grava as mesmas datas de novo.
+
+### Anamneses
+
+O seufisio não exporta anamneses em lote. Cada uma é uma página própria (aba **Avaliações** da ficha → ícone
+"abrir" → `/anamnese-personalizada/ver/{matrícula}/{id da anamnese}`). Atenção: o segundo número é o id da anamnese,
+e a página não confere se ela pertence ao cliente da URL; por isso o id tem de vir do botão da ficha, nunca ser
+adivinhado. Na carga de novembro de 2026, cada página foi salva pelo navegador como um JSON
+(`{"cliente", "anamnese", "titulo", "campos": [[rótulo, valor], ...]}`) em `scripts/arquivos/anamneses/`. Os clientes
+com anamnese são os que têm "Sim" na coluna **Avaliações / Anamnese** do XLSX de clientes.
+
+```bash
+python3 scripts/import_anamneses_seufisio.py --xlsx scripts/arquivos/clientes.xlsx \
+    --dir scripts/arquivos/anamneses --dry-run
+python3 scripts/import_anamneses_seufisio.py --xlsx scripts/arquivos/clientes.xlsx \
+    --dir scripts/arquivos/anamneses
+```
+
+| Campo no seufisio | Campo na API |
+|---|---|
+| Objetivo | `objetivos` (obrigatório: "Não informado no seufisio" quando vazio) |
+| Queixa Principal + Queixa Secundária | `queixaPrincipal` (obrigatório: "Não informada no seufisio" quando vazio) |
+| Diagnóstico Médico + História Pregressa de Doenças | `historicoDoencas` |
+| Alergias/Cirurgias | `alergias` (o seufisio tem um campo só para as duas coisas) |
+| Medicamentos em Uso | `medicamentosUso` |
+| Restrições | `restricoesMedicas` |
+| Atividades (Sim/Não/Passado) | `nivelAtividadeFisica`: Ativo, Sedentário ou Ativo no passado |
+| Quais, Avaliação Postural, Força Muscular, Amplitude do Movimento, Perimetria/Exames, Histórico Familiar, OBS Gerais | `observacoes`, uma seção por campo, terminando com a data da anamnese original |
+
+- **Uma anamnese por paciente** é a regra da API. Quando o seufisio tem mais de uma, a mais recente é a principal e as
+  outras entram em `observacoes` como "Anamnese anterior (data)".
+- **Idempotente**: paciente que já tem anamnese na API é pulado. Anamnese sem nenhum campo preenchido também é pulada.
+- **Paciente inativo** é reativado só para criar a anamnese e inativado em seguida. Como a API grava a data do dia ao
+  inativar, gere e aplique de novo o SQL de [datas](#datas-de-cadastro-e-de-inativação) depois da carga.
+
+### Planos, faturas e agenda (virada para o sistema novo)
+
+No sistema novo a agenda não é importada diretamente: as aulas nascem quando o pagamento de um plano é confirmado
+([geração de aulas](regras-de-negocio.md#geração-de-aulas)). `scripts/import_planos_seufisio.py` recria esse caminho a
+partir de quatro arquivos:
+
+| Arquivo | Onde exportar no seufisio |
+|---|---|
+| `--clientes` | Relatórios → Clientes (o mesmo XLSX das datas) |
+| `--planos` | Relatórios → Clientes → aba **Planos Fixos**, com Periodicidade, Valor, Início plano, Fim plano e Horários Programados marcados → Exportar XLS |
+| `--contas` | Relatórios → Financeiros → **Contas a receber**, com o período de vencimento desejado → Exportar XLS |
+| `--pagas` | Texto `Nº:DD/MM/AAAA:P` (PIX) ou `:D` (dinheiro) por fatura **paga**, lido da tabela da tela: a exportação XLS não traz data nem forma de pagamento |
+
+```bash
+python3 scripts/import_planos_seufisio.py --clientes ... --planos ... --contas ... --pagas ... --dry-run
+python3 scripts/import_planos_seufisio.py --clientes ... --planos ... --contas ... --pagas ...
+```
+
+Para cada cliente ativo com pacote fixo vigente ou já vendido:
+
+1. **Plano** `MENSAL`, com os dias e o horário do pacote mais recente e o menor valor entre pacotes e faturas (a API
+   recusa pagamento menor que o plano). Os nomes dos pacotes do seufisio ("PAC DUPLA 8 AULAS", "VIP CLASS"…) não têm
+   onde ficar.
+2. **Um pagamento por fatura**: todas as em aberto, inclusive as vencidas, e as pagas de pacotes vigentes ou futuros.
+   Faturas pagas de pacotes encerrados são histórico e ficam de fora. Os períodos seguem o ciclo mensal da API,
+   ancorados no início do pacote vigente; a fatura de um pacote conhecido usa o início dele, o que cobre os pacotes
+   bimestrais (uma fatura a cada dois meses).
+3. **Faturas pagas** são confirmadas com a data e a forma do seufisio (data futura vira hoje), o que gera as aulas. As
+   em aberto ficam `PENDENTE`, e o scheduler as marca `VENCIDO`: a agenda desses alunos só aparece quando o pagamento
+   for confirmado no sistema novo.
+4. **Ajuste das aulas**: a API guarda um horário por plano, então as aulas dos dias com outro horário são remarcadas;
+   a profissional do horário é vinculada às aulas futuras, e aulas passadas com sessão importada naquela data são
+   marcadas como realizadas por ela. Esse passo depende das profissionais cadastradas na API e roda de novo a cada
+   execução.
+
+Idempotente: cliente que já tem plano ativo é pulado nos passos 1 a 3, e o passo 4 só altera o que ainda falta.
+
+`--abertas-como-pagas` confirma também as faturas em aberto, com o vencimento como data de pagamento e sem forma de
+pagamento, inclusive nos planos já importados. Use quando o seufisio não era mantido em dia e não há inadimplência
+de fato. Foi o caso da carga de novembro de 2026: todas as faturas em aberto eram de alunos da Claudia, cujos
+pagamentos não eram baixados no seufisio.
+
+Aulas passadas só viram realizadas quando há sessão com evolução naquela data. Sem evolução (faltas, reposições ou
+profissional que não registrava prontuário no seufisio), a aula fica não realizada e sem profissional, e entra como
+"agendada" na série de aulas do dashboard. `--passadas-como-realizadas` marca também essas aulas como realizadas pela
+profissional do horário. Isso entra no relatório de repasse e **não tem volta pela API**: `PATCH /aulas/{id}/realizar`
+não tem rota inversa, e desfazer exige SQL. Na carga de novembro de 2026 a opção foi usada porque as aulas da
+Claudia, que não registrava prontuário, aconteceram de fato.
+
+**Atenção à virada**: com planos ativos, o scheduler das 07:00 passa a gerar a próxima cobrança de cada plano quando
+faltam 7 dias ou menos para o fim do período. A partir da carga, as cobranças devem ser emitidas só no sistema novo,
+ou o aluno recebe duas.
 
 ## Autoria dos registros importados
 

@@ -41,6 +41,7 @@ scripts/*.json
 scripts/*.csv
 scripts/.env
 scripts/__pycache__/
+scripts/arquivos/
 
 ### CodeGraph — índice local, regenerável por `npx @colbymchenry/codegraph init` ###
 /.codegraph
