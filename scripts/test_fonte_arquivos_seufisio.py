@@ -48,7 +48,8 @@ def _xlsx(linhas):
 
 
 CABECALHO = ["Matrícula", "Cliente", "Situação", "Gênero", "Idade", "CPF", "Telefone",
-             "Data Nascimento", "E-mail", "Endereço", "Data de Inativação", "Atendimentos"]
+             "Data Nascimento", "E-mail", "Endereço", "Data de Inativação", "Atendimentos",
+             "Cadastro no seufisio", "Cliente desde"]
 
 
 class ClientesDoXlsxTest(unittest.TestCase):
@@ -57,9 +58,9 @@ class ClientesDoXlsxTest(unittest.TestCase):
             CABECALHO,
             ["7", "Maria Teste", "Ativo", "F", "40", "111.222.333-44", "(45) 99999-0000",
              "01/02/1985", "maria@exemplo.com", "Rua A Nº 10 - Centro, Cascavel - PR,",
-             None, "12"],
+             None, "12", "19/04/2022", "14/04/2022"],
             ["8", "João Teste", "Inativo", "M", "30", None, None, None, None,
-             "Nº - , - ,", "03/04/2026", "3"],
+             "Nº - , - ,", "03/04/2026", "3", "05/05/2022", None],
             [None, None, None, None, None, None, None, None, None, None, None, "15"],
         ])
 
@@ -80,6 +81,13 @@ class ClientesDoXlsxTest(unittest.TestCase):
         self.assertEqual(joao["situacao"], SITUACAO_INATIVO)
         self.assertIsNone(joao["cpf"])
         self.assertIsNone(joao["endereco"])
+
+    def test_datas_de_cadastro_e_inativacao(self):
+        maria, joao = clientes_do_xlsx(self.caminho)
+        self.assertEqual(maria["data_cadastro"], "14/04/2022")  # "Cliente desde" tem prioridade
+        self.assertIsNone(maria["data_inativacao"])
+        self.assertEqual(joao["data_cadastro"], "05/05/2022")  # sem "Cliente desde": cadastro no seufisio
+        self.assertEqual(joao["data_inativacao"], "03/04/2026")
 
     def test_descarta_linha_de_totais(self):
         self.assertEqual(len(clientes_do_xlsx(self.caminho)), 2)

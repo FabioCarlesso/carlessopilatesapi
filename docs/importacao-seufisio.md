@@ -120,6 +120,33 @@ O que muda em relação à API:
 - **O endereço vem numa coluna só** (`Rua Nº 10 - Bairro, Cidade - UF[, CEP]`) e é separado nos campos do contrato.
 - **Prontuários curtos** como "Feriado." ou "Cancelada." são importados como qualquer outro, igual ao caminho da API.
 
+### Datas de cadastro e de inativação
+
+A API não aceita `dataCadastro` nem `dataInativacao`: o `PacienteService` grava a data do dia ao criar e ao inativar.
+Depois de uma importação, todos os pacientes caem no mês da carga e as séries de novos cadastros e de evasão do
+dashboard ficam com um pico falso. `scripts/gerar_sql_datas_seufisio.py` corrige isso **sem passar pela API**: lê o
+XLSX de clientes, casa cada cliente com o paciente (e-mail, depois nome exato único) e gera um `UPDATE` por paciente
+para rodar direto no banco.
+
+Exporte o XLSX como na tabela acima, marcando também **Cliente desde**, **Cadastro no seufisio** e **Data de
+Inativação**. A data de cadastro é o "Cliente desde", informado pela clínica; o "Cadastro no seufisio" só entra quando
+ele está vazio.
+
+```bash
+python3 scripts/gerar_sql_datas_seufisio.py --xlsx scripts/arquivos/clientes.xlsx
+# revise scripts/arquivos/datas-pacientes.sql e rode no Postgres da Railway
+psql "$DATABASE_URL" -f scripts/arquivos/datas-pacientes.sql
+```
+
+- O script só **lê** a API; quem grava é o `psql`, numa transação única (`BEGIN`/`COMMIT`).
+- Cada `UPDATE` soma 1 em `version`, para que um formulário aberto com a versão antiga receba `409`, e preenche
+  `data_atualizacao` e `alterado_por` com o usuário do `LOCAL_EMAIL`.
+- A data de inativação só é gravada em quem está inativo nos dois sistemas. Cada `UPDATE` também confere a situação no
+  `WHERE` (`AND ativo` / `AND NOT ativo`), então um paciente reativado entre a geração e a execução não é alterado.
+- Situação diferente entre o seufisio e o sistema novo aparece no log como `situacao_divergente`, e o paciente fica
+  de fora.
+- Reexecutar é seguro: grava as mesmas datas de novo.
+
 ## Autoria dos registros importados
 
 Os dois scripts gravam pela API, então a [auditoria](regras-de-negocio.md#auditoria-de-criação-e-alteração) trata a

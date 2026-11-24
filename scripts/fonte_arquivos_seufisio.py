@@ -36,6 +36,9 @@ _COLUNAS_XLSX = {
     "data nascimento": "data_nascimento",
     "e-mail": "email",
     "endereco": "endereco_completo",
+    "data de inativacao": "data_inativacao",
+    "cliente desde": "cliente_desde",
+    "cadastro no seufisio": "cadastro_seufisio",
 }
 
 _RE_ATENDIMENTO = re.compile(r"^Atendimento: (\d{2})/(\d{2})/(\d{4}) - (\d{2}:\d{2}) até")
@@ -138,6 +141,10 @@ def clientes_do_xlsx(caminho):
             "telefone": bruto.get("telefone") or None,
             "data_nascimento": bruto.get("data_nascimento") or None,
             "email": bruto.get("email") or None,
+            # "Cliente desde" é a data informada pela clínica; o cadastro no
+            # seufisio é só quando o registro foi criado lá (fallback).
+            "data_cadastro": bruto.get("cliente_desde") or bruto.get("cadastro_seufisio") or None,
+            "data_inativacao": bruto.get("data_inativacao") or None,
         }
         cliente.update(separar_endereco(bruto.get("endereco_completo")))
         clientes.append(cliente)
