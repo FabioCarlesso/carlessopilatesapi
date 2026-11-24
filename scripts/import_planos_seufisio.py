@@ -217,7 +217,8 @@ def profissionais_por_nome(base, token):
     raise SystemExit(f"Falha ao listar profissionais ({status}): {str(corpo)[:200]}")
 
 
-def ajustar_aulas(base, token, paciente_id, plano_id, horarios_dia, profs, hoje, dry, conta):
+def ajustar_aulas(base, token, paciente_id, plano_id, horarios_dia, profs, hoje, dry, conta,
+                  passadas_realizadas=False):
     """Horário do dia, profissional e realização das aulas passadas com sessão."""
     status, pagamentos = _get(base, token, f"/pagamentos/paciente/{paciente_id}?size=100")
     pagamentos = pagamentos.get("content", []) if isinstance(pagamentos, dict) else []
@@ -240,12 +241,13 @@ def ajustar_aulas(base, token, paciente_id, plano_id, horarios_dia, profs, hoje,
         if aula["realizada"]:
             continue
         if dia < hoje:
-            if aula["data"] in dias_com_sessao and prof_id:
-                conta["realizada"] += 1
+            com_sessao = aula["data"] in dias_com_sessao
+            if prof_id and (com_sessao or passadas_realizadas):
+                conta["realizada" if com_sessao else "realizada_sem_sessao"] += 1
                 if not dry:
                     http_json("PATCH", f"{base}/aulas/{aula['id']}/realizar?profissionalId={prof_id}",
                               headers=auth_local(token))
-            elif aula["data"] in dias_com_sessao:
+            elif com_sessao or passadas_realizadas:
                 conta["realizada_aguarda_profissional"] += 1
             else:
                 conta["passada_sem_sessao"] += 1
@@ -284,6 +286,9 @@ def main(argv=None):
         parser.add_argument(f"--{nome}", required=True, metavar="ARQUIVO")
     parser.add_argument("--hoje", default=date.today().isoformat(), metavar="AAAA-MM-DD")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--passadas-como-realizadas", action="store_true",
+                        help="Marca como realizadas, pela profissional do horário, também as aulas passadas "
+                             "sem sessão com evolução (profissional que não registrava prontuário).")
     parser.add_argument("--abertas-como-pagas", action="store_true",
                         help="Confirma também as faturas em aberto, com o vencimento como data de pagamento "
                              "e sem forma. Para quando o seufisio não era mantido em dia, e não havia "
@@ -381,7 +386,7 @@ def main(argv=None):
                 confirmar_abertos(base, token, paciente["id"], plano["id"], args.dry_run, conta, rotulo)
         if plano.get("id"):
             ajustar_aulas(base, token, paciente["id"], plano["id"], horarios_dia, profs, hoje,
-                          args.dry_run, conta)
+                          args.dry_run, conta, args.passadas_como_realizadas)
 
     print()
     for chave, n in sorted(conta.items()):

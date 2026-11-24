@@ -224,7 +224,10 @@ pagamentos não eram baixados no seufisio.
 
 Aulas passadas só viram realizadas quando há sessão com evolução naquela data. Sem evolução (faltas, reposições ou
 profissional que não registrava prontuário no seufisio), a aula fica não realizada e sem profissional, e entra como
-"agendada" na série de aulas do dashboard.
+"agendada" na série de aulas do dashboard. `--passadas-como-realizadas` marca também essas aulas como realizadas pela
+profissional do horário. Isso entra no relatório de repasse e **não tem volta pela API**: `PATCH /aulas/{id}/realizar`
+não tem rota inversa, e desfazer exige SQL. Na carga de novembro de 2026 a opção foi usada porque as aulas da
+Claudia, que não registrava prontuário, aconteceram de fato.
 
 **Atenção à virada**: com planos ativos, o scheduler das 07:00 passa a gerar a próxima cobrança de cada plano quando
 faltam 7 dias ou menos para o fim do período. A partir da carga, as cobranças devem ser emitidas só no sistema novo,
