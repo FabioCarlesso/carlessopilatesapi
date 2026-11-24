@@ -39,6 +39,18 @@ public class Paciente extends EntidadeAuditavel {
     /** Preenchida ao inativar e limpa ao reativar; nula também para inativações anteriores à V41. */
     private LocalDate dataInativacao;
 
+    /** O paciente pediu CPF/CNPJ na NFSE: ver a migration V47 e o relatório de NFSE. */
+    @Column(name = "cpf_na_nota", nullable = false)
+    private boolean cpfNaNota = false;
+
+    /** CPF/CNPJ do tomador alternativo da nota (responsável ou empresa), só dígitos; nulo = o próprio paciente. */
+    @Column(name = "nota_cpf_cnpj", length = 14)
+    private String notaCpfCnpj;
+
+    /** Nome do tomador alternativo; só faz sentido com {@link #notaCpfCnpj}. */
+    @Column(name = "nota_nome")
+    private String notaNome;
+
     public Paciente() {}
 
     public Long getVersion() {
@@ -119,5 +131,29 @@ public class Paciente extends EntidadeAuditavel {
 
     public void setDataInativacao(LocalDate dataInativacao) {
         this.dataInativacao = dataInativacao;
+    }
+
+    public boolean isCpfNaNota() {
+        return cpfNaNota;
+    }
+
+    public void setCpfNaNota(boolean cpfNaNota) {
+        this.cpfNaNota = cpfNaNota;
+    }
+
+    public String getNotaCpfCnpj() {
+        return notaCpfCnpj;
+    }
+
+    public void setNotaCpfCnpj(String notaCpfCnpj) {
+        this.notaCpfCnpj = notaCpfCnpj;
+    }
+
+    public String getNotaNome() {
+        return notaNome;
+    }
+
+    public void setNotaNome(String notaNome) {
+        this.notaNome = notaNome;
     }
 }

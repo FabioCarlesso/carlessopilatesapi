@@ -134,14 +134,20 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 ## NFSE
 
-- O relatório de emissão de NFSEs considera apenas pagamentos `PAGO`, com `dataPagamento` dentro da competência informada e pacientes ativos
+- O relatório de emissão de NFSEs considera os pagamentos `PAGO` com `dataPagamento` dentro da competência informada, de pacientes **ativos ou inativos**: quem pagou e foi inativado depois continua devendo a nota daquela competência (#229)
 - `competencia` é obrigatória no formato `MM/AAAA`; mês deve estar entre `01` e `12`
-- O relatório retorna `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento` e `Observacoes`; nome, CPF/CNPJ, valor pago e data de pagamento vêm do paciente e do pagamento confirmado
+- O relatório retorna `Nome`, `CPF/CNPJ`, `ValorPago`, `Competencia`, `DescricaoServico`, `NotaAnteriorEmitida`, `DataPagamento`, `Observacoes`, `CPFNaNota` e `Pendencia` (e, no JSON, `pacienteId`)
+- **CPF na nota é escolha do paciente** (`cpfNaNota`, padrão `false`, #229). Sem ela, o item sai com `cpfCnpj` nulo — a nota é emitida sem identificar o tomador. Com ela:
+  - havendo **tomador alternativo** (`notaCpfCnpj`, e opcionalmente `notaNome`), saem o CPF/CNPJ e o nome dele — o caso do aluno menor, com a nota no CPF do responsável, ou da empresa que paga as aulas;
+  - senão, sai o CPF do paciente;
+  - se o paciente não tem CPF cadastrado, o item sai com `pendencia` preenchida, **sem derrubar o relatório**. Antes, um único paciente sem CPF fazia a competência inteira responder `422`
+- O tomador alternativo é ignorado enquanto `cpfNaNota` for `false`
+- O filtro opcional `cpfNaNota` retorna só quem deseja (`true`) ou não (`false`) CPF na nota
 - `DescricaoServico` é gerada automaticamente como `Aulas de Pilates - Competência MM/AAAA`
 - `NotaAnteriorEmitida` é baseada nas NFSEs emitidas persistidas (`notas_fiscais_emitidas`): `true` quando existe nota registrada para o paciente em competência anterior à consultada
 - O filtro opcional `notaAnteriorEmitida` permite retornar apenas registros com ou sem nota anterior emitida
 - `formato` aceita `JSON`, `CSV` e `XLSX`; CSV e XLSX retornam `Content-Disposition: attachment` com nome `relatorio-nfse-{MM-AAAA}.{ext}`
-- Registros sem nome do paciente, CPF/CNPJ, valor positivo ou data de pagamento retornam `422 Unprocessable Entity`
+- Registros sem nome do paciente, valor positivo ou data de pagamento continuam retornando `422 Unprocessable Entity`; a falta de CPF/CNPJ não é mais erro, e sim `pendencia`
 - As NFSEs emitidas são registradas via `POST /api/nfse-emitidas` (upsert por `(paciente, competência)`): paciente inexistente retorna `404` e paciente inativo `422` (regra comum de `PacienteGuard`), `competencia` no formato `MM/AAAA` (`400`), `numeroNota` no máximo 60 caracteres (`400`), `dataEmissao` não futura (`422`) e `valor`, quando informado, maior que zero (`422`). O upsert é idempotente mesmo sob concorrência: a colisão da constraint única `(paciente, competência)` é repetida automaticamente como atualização
 - Timestamps e autoria das NFSEs emitidas seguem a [auditoria de criação/alteração](#auditoria-de-criação-e-alteração)
 

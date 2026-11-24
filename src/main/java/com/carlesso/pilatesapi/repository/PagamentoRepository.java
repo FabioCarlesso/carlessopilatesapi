@@ -54,7 +54,6 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
             join fetch p.paciente paciente
             where p.status = :status
               and p.dataPagamento between :inicio and :fim
-              and paciente.ativo = true
             order by paciente.nome asc, p.dataPagamento asc, p.id asc
             """)
     List<Pagamento> findPagamentosConfirmadosParaRelatorioNfse(

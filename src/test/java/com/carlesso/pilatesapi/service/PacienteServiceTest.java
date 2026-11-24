@@ -14,6 +14,7 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import java.time.LocalDate;
@@ -63,7 +64,10 @@ class PacienteServiceTest {
                 "12345678900",
                 "11912345678",
                 LocalDate.of(1990, 5, 20),
-                new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"));
+                new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"),
+                null,
+                null,
+                null);
     }
 
     private void setId(Paciente p, Long id) {
@@ -98,7 +102,7 @@ class PacienteServiceTest {
 
     @Test
     void cadastrar_semEndereco_deveRetornarEnderecoNulo() {
-        var dto = new PacienteRequestDTO("João", "joao@email.com", "98765432100", null, null, null);
+        var dto = new PacienteRequestDTO("João", "joao@email.com", "98765432100", null, null, null, null, null, null);
         Paciente salvo = new Paciente();
         salvo.setNome("João");
         salvo.setEmail("joao@email.com");
@@ -201,7 +205,7 @@ class PacienteServiceTest {
         ReflectionTestUtils.setField(paciente, "version", 3L);
         when(repository.findById(1L)).thenReturn(Optional.of(paciente));
 
-        var dto = new PacienteUpdateDTO("Novo Nome", null, null, null, null, 2L);
+        var dto = new PacienteUpdateDTO("Novo Nome", null, null, null, null, 2L, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(1L, dto)).isInstanceOf(OptimisticLockingFailureException.class);
         assertThat(paciente.getNome()).isEqualTo("Maria Souza");
@@ -215,7 +219,8 @@ class PacienteServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(paciente));
         when(repository.saveAndFlush(paciente)).thenReturn(paciente);
 
-        var response = service.atualizar(1L, new PacienteUpdateDTO("Novo Nome", null, null, null, null, 3L));
+        var response = service.atualizar(
+                1L, new PacienteUpdateDTO("Novo Nome", null, null, null, null, 3L, null, null, null, null));
 
         assertThat(response.nome()).isEqualTo("Novo Nome");
         verify(repository).saveAndFlush(paciente);
@@ -226,12 +231,138 @@ class PacienteServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(paciente()));
         when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new PacienteUpdateDTO("Novo Nome", null, "11999999999", null, null, null);
+        var dto = new PacienteUpdateDTO("Novo Nome", null, "11999999999", null, null, null, null, null, null, null);
         PacienteResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.nome()).isEqualTo("Novo Nome");
         assertThat(response.email()).isEqualTo("maria@email.com");
         assertThat(response.telefone()).isEqualTo("11999999999");
+    }
+
+    // -------------------------------------------------------------------------
+    // CPF e preferência de nota fiscal (#229)
+    // -------------------------------------------------------------------------
+
+    private PacienteUpdateDTO update(String cpf, Boolean cpfNaNota, String notaCpfCnpj, String notaNome) {
+        return new PacienteUpdateDTO(null, null, null, null, null, null, cpf, cpfNaNota, notaCpfCnpj, notaNome);
+    }
+
+    private Paciente salvarComo(Paciente paciente) {
+        when(repository.findById(1L)).thenReturn(Optional.of(paciente));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+        return paciente;
+    }
+
+    @Test
+    void atualizar_semCpf_completaOCpf() {
+        Paciente paciente = paciente();
+        paciente.setCpf(null);
+        salvarComo(paciente);
+        when(repository.existsByCpf("98765432100")).thenReturn(false);
+
+        assertThat(service.atualizar(1L, update("98765432100", null, null, null))
+                        .cpf())
+                .isEqualTo("98765432100");
+    }
+
+    @Test
+    void atualizar_comCpfDeOutroPaciente_deveLancarConflito() {
+        when(repository.findById(1L)).thenReturn(Optional.of(paciente()));
+        when(repository.existsByCpf("98765432100")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.atualizar(1L, update("98765432100", null, null, null)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("CPF");
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void atualizar_comCpfVazioOuIgual_mantemOAtualSemConsultarDuplicidade() {
+        salvarComo(paciente());
+
+        assertThat(service.atualizar(1L, update("", null, null, null)).cpf()).isEqualTo("12345678900");
+        assertThat(service.atualizar(1L, update("12345678900", null, null, null))
+                        .cpf())
+                .isEqualTo("12345678900");
+        verify(repository, never()).existsByCpf(any());
+    }
+
+    @Test
+    void atualizar_tomadorAlternativo_normalizaParaDigitos() {
+        salvarComo(paciente());
+
+        var response = service.atualizar(1L, update(null, true, "12.345.678/0001-99", "Empresa Ltda"));
+
+        assertThat(response.cpfNaNota()).isTrue();
+        assertThat(response.notaCpfCnpj()).isEqualTo("12345678000199");
+        assertThat(response.notaNome()).isEqualTo("Empresa Ltda");
+    }
+
+    @Test
+    void atualizar_notaCpfCnpjComQuantidadeDeDigitosInvalida_deveLancarErro() {
+        when(repository.findById(1L)).thenReturn(Optional.of(paciente()));
+
+        assertThatThrownBy(() -> service.atualizar(1L, update(null, true, "123", null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("11 (CPF) ou 14 (CNPJ)");
+    }
+
+    @Test
+    void atualizar_notaNomeSemNotaCpfCnpj_deveLancarErro() {
+        when(repository.findById(1L)).thenReturn(Optional.of(paciente()));
+
+        assertThatThrownBy(() -> service.atualizar(1L, update(null, true, null, "Empresa Ltda")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("notaNome exige notaCpfCnpj");
+    }
+
+    @Test
+    void atualizar_notaCpfCnpjVazio_removeOTomadorInteiro() {
+        Paciente paciente = paciente();
+        paciente.setCpfNaNota(true);
+        paciente.setNotaCpfCnpj("12345678000199");
+        paciente.setNotaNome("Empresa Ltda");
+        salvarComo(paciente);
+
+        var response = service.atualizar(1L, update(null, null, "", null));
+
+        assertThat(response.notaCpfCnpj()).isNull();
+        assertThat(response.notaNome()).isNull();
+        assertThat(response.cpfNaNota()).isTrue();
+    }
+
+    @Test
+    void atualizar_semCamposDeNota_mantemAPreferenciaAtual() {
+        Paciente paciente = paciente();
+        paciente.setCpfNaNota(true);
+        paciente.setNotaCpfCnpj("12345678000199");
+        salvarComo(paciente);
+
+        var response = service.atualizar(1L, update(null, null, null, null));
+
+        assertThat(response.cpfNaNota()).isTrue();
+        assertThat(response.notaCpfCnpj()).isEqualTo("12345678000199");
+    }
+
+    @Test
+    void cadastrar_comPreferenciaDeNota_gravaOsCampos() {
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        var dto = new PacienteRequestDTO("Aluno Menor", null, null, null, null, null, true, "111.222.333-44", "Mãe");
+
+        var response = service.cadastrar(dto);
+
+        assertThat(response.cpfNaNota()).isTrue();
+        assertThat(response.notaCpfCnpj()).isEqualTo("11122233344");
+        assertThat(response.notaNome()).isEqualTo("Mãe");
+    }
+
+    @Test
+    void cadastrar_semPreferencia_naoDesejaCpfNaNota() {
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.existsByEmail(any())).thenReturn(false);
+        when(repository.existsByCpf(any())).thenReturn(false);
+
+        assertThat(service.cadastrar(requestDTO()).cpfNaNota()).isFalse();
     }
 
     @Test
@@ -240,7 +371,7 @@ class PacienteServiceTest {
         when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var novoEndereco = new EnderecoDTO("Av. Paulista", "1000", "Bela Vista", "São Paulo", "SP", "01310100");
-        var dto = new PacienteUpdateDTO(null, null, null, null, novoEndereco, null);
+        var dto = new PacienteUpdateDTO(null, null, null, null, novoEndereco, null, null, null, null, null);
         PacienteResponseDTO response = service.atualizar(1L, dto);
 
         assertThat(response.endereco().logradouro()).isEqualTo("Av. Paulista");
@@ -251,7 +382,8 @@ class PacienteServiceTest {
     void atualizar_quandoNaoExistente_deveLancarResourceNotFoundException() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.atualizar(99L, new PacienteUpdateDTO(null, null, null, null, null, null)))
+        assertThatThrownBy(() -> service.atualizar(
+                        99L, new PacienteUpdateDTO(null, null, null, null, null, null, null, null, null, null)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
     }

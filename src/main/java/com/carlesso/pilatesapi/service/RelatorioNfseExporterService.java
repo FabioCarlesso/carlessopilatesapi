@@ -27,7 +27,9 @@ public class RelatorioNfseExporterService {
         "DescricaoServico",
         "NotaAnteriorEmitida",
         "DataPagamento",
-        "Observacoes"
+        "Observacoes",
+        "CPFNaNota",
+        "Pendencia"
     };
 
     public byte[] exportarCsv(List<RelatorioNfseResponseDTO> itens) {
@@ -43,7 +45,9 @@ public class RelatorioNfseExporterService {
                             item.descricaoServico(),
                             item.notaAnteriorEmitida().toString(),
                             item.dataPagamento().format(DATE),
-                            item.observacoes())
+                            item.observacoes(),
+                            item.cpfNaNota() ? "Sim" : "Não",
+                            item.pendencia())
                     .map(this::csv)
                     .collect(Collectors.joining(",")));
             csv.append("\n");
@@ -75,6 +79,8 @@ public class RelatorioNfseExporterService {
                 row.createCell(5).setCellValue(item.notaAnteriorEmitida());
                 row.createCell(6).setCellValue(item.dataPagamento().format(DATE));
                 row.createCell(7).setCellValue(item.observacoes());
+                row.createCell(8).setCellValue(item.cpfNaNota() ? "Sim" : "Não");
+                row.createCell(9).setCellValue(item.pendencia());
             }
 
             for (int i = 0; i < HEADERS.length; i++) {

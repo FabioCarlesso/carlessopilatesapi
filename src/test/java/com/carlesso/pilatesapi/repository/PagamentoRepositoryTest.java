@@ -33,7 +33,7 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
     TestEntityManager entityManager;
 
     @Test
-    void findPagamentosConfirmadosParaRelatorioNfse_retornaApenasPagosAtivosNaCompetencia() {
+    void findPagamentosConfirmadosParaRelatorioNfse_retornaPagosNaCompetenciaInclusiveDeInativos() {
         Paciente pacienteAtivo = entityManager.persist(paciente("Ana Ativa", "ana@email.com", "11122233344", true));
         Paciente pacienteInativo =
                 entityManager.persist(paciente("Bia Inativa", "bia@email.com", "55566677788", false));
@@ -49,7 +49,8 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
         entityManager.persist(
                 pagamento(pacienteAtivo, planoAtivoSecundario, StatusPagamento.PENDENTE, LocalDate.of(2026, 4, 12)));
         entityManager.persist(pagamento(pacienteAtivo, planoAtivo, StatusPagamento.PAGO, LocalDate.of(2026, 3, 31)));
-        entityManager.persist(
+        // Paciente inativado depois de pagar continua devendo nota na competência do pagamento (#229).
+        Pagamento pagoPorInativo = entityManager.persist(
                 pagamento(pacienteInativo, planoInativo, StatusPagamento.PAGO, LocalDate.of(2026, 4, 15)));
         entityManager.flush();
         entityManager.clear();
@@ -57,7 +58,9 @@ class PagamentoRepositoryTest extends PostgresTestcontainerSupport {
         var pagamentos = repository.findPagamentosConfirmadosParaRelatorioNfse(
                 StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30));
 
-        assertThat(pagamentos).extracting(Pagamento::getId).containsExactly(pagoNaCompetencia.getId());
+        assertThat(pagamentos)
+                .extracting(Pagamento::getId)
+                .containsExactly(pagoNaCompetencia.getId(), pagoPorInativo.getId());
     }
 
     /**

@@ -30,8 +30,15 @@ public class RelatorioNfseService {
         this.notaFiscalEmitidaRepository = notaFiscalEmitidaRepository;
     }
 
+    static final String PENDENCIA_SEM_CPF = "Paciente deseja CPF/CNPJ na nota, mas o CPF não está cadastrado";
+
+    /**
+     * Pagamentos confirmados na competência, de pacientes ativos ou não (o dinheiro entrou e a nota é devida).
+     * CPF/CNPJ só sai para quem pediu CPF na nota; quem pediu e não tem CPF vira {@code pendencia} no item, em vez
+     * de derrubar o relatório inteiro (#229).
+     */
     @Transactional(readOnly = true)
-    public List<RelatorioNfseResponseDTO> gerar(String competencia, Boolean notaAnteriorEmitida) {
+    public List<RelatorioNfseResponseDTO> gerar(String competencia, Boolean notaAnteriorEmitida, Boolean cpfNaNota) {
         YearMonth periodo = CompetenciaUtils.parse(competencia);
         LocalDate inicio = periodo.atDay(1);
         LocalDate fim = periodo.atEndOfMonth();
@@ -43,6 +50,7 @@ public class RelatorioNfseService {
                 .map(pagamento -> montarItem(pagamento, competencia, pacientesComNotaAnterior))
                 .filter(item ->
                         notaAnteriorEmitida == null || Objects.equals(item.notaAnteriorEmitida(), notaAnteriorEmitida))
+                .filter(item -> cpfNaNota == null || item.cpfNaNota() == cpfNaNota)
                 .toList();
     }
 
@@ -65,23 +73,39 @@ public class RelatorioNfseService {
         Paciente paciente = pagamento.getPaciente();
         validarDadosParaEmissao(pagamento, paciente);
 
+        String nome = paciente.getNome();
+        String cpfCnpj = null;
+        String pendencia = null;
+        if (paciente.isCpfNaNota()) {
+            if (paciente.getNotaCpfCnpj() != null) {
+                cpfCnpj = paciente.getNotaCpfCnpj();
+                if (paciente.getNotaNome() != null) {
+                    nome = paciente.getNotaNome();
+                }
+            } else if (paciente.getCpf() != null && !paciente.getCpf().isBlank()) {
+                cpfCnpj = paciente.getCpf();
+            } else {
+                pendencia = PENDENCIA_SEM_CPF;
+            }
+        }
+
         return new RelatorioNfseResponseDTO(
-                paciente.getNome(),
-                paciente.getCpf(),
+                nome,
+                cpfCnpj,
                 pagamento.getValor(),
                 competencia,
                 "Aulas de Pilates - Competência " + competencia,
                 pacientesComNotaAnterior.contains(paciente.getId()),
                 pagamento.getDataPagamento(),
-                "");
+                "",
+                paciente.getId(),
+                paciente.isCpfNaNota(),
+                pendencia);
     }
 
     private void validarDadosParaEmissao(Pagamento pagamento, Paciente paciente) {
         if (paciente.getNome() == null || paciente.getNome().isBlank()) {
             throw new BusinessException("Nome do paciente deve estar preenchido para emissão da NFSE");
-        }
-        if (paciente.getCpf() == null || paciente.getCpf().isBlank()) {
-            throw new BusinessException("CPF/CNPJ deve estar preenchido para emissão da NFSE");
         }
         if (pagamento.getValor() == null || pagamento.getValor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("ValorPago deve ser maior que zero para emissão da NFSE");

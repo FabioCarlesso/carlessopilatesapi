@@ -105,6 +105,17 @@ O cadastro de usuários é restrito a administradores (`POST /users`); não há 
 
 Apenas `nome` é obrigatório. `email` e `cpf` são opcionais — alguns sistemas externos não fornecem esses dados na [importação inicial](importacao-seufisio.md); quando informado, `email` precisa ter formato válido. O `PUT` é uma atualização parcial: apenas os campos enviados são alterados.
 
+O `PUT` aceita `cpf` para completar o cadastro de quem foi importado sem ele: ausente ou vazio mantém o atual, e CPF de
+outro paciente retorna `409`. Não há como apagar um CPF pelo `PUT`.
+
+Preferência para a NFSE (#229), no `POST`, no `PUT` e na resposta:
+
+| Campo | Regra |
+|---|---|
+| `cpfNaNota` | O paciente deseja CPF/CNPJ na nota. Padrão `false`; no `PUT`, ausente mantém o atual |
+| `notaCpfCnpj` | Tomador alternativo (responsável ou empresa). Aceita máscara e é gravado só com dígitos, que precisam ser 11 ou 14 (`400`). No `PUT`, ausente mantém e vazio remove o tomador (CPF/CNPJ e nome) |
+| `notaNome` | Nome do tomador alternativo, até 255 caracteres. Exige `notaCpfCnpj` (`400`). No `PUT`, ausente mantém e vazio remove |
+
 ## Profissionais
 
 | Método | Endpoint | Descrição |
@@ -685,7 +696,12 @@ Os critérios de cada série e as limitações da série de pacientes estão em 
 
 ## Relatório de emissão de NFSEs
 
-O endpoint `GET /api/relatorios/nfse` exige `competencia` no formato `MM/AAAA` e aceita os filtros opcionais `notaAnteriorEmitida` e `formato` (`JSON`, `CSV` ou `XLSX`). Ele retorna apenas pagamentos confirmados (`PAGO`) com `dataPagamento` dentro da competência informada e pacientes ativos.
+O endpoint `GET /api/relatorios/nfse` exige `competencia` no formato `MM/AAAA` e aceita os filtros opcionais `notaAnteriorEmitida`, `cpfNaNota` e `formato` (`JSON`, `CSV` ou `XLSX`). Ele retorna os pagamentos confirmados (`PAGO`) com `dataPagamento` dentro da competência informada, de pacientes ativos ou inativos.
+
+`cpfCnpj` só vem preenchido para quem deseja CPF na nota (o do tomador alternativo, se houver, senão o do paciente),
+e `nome` passa a ser o do tomador quando ele tem nome. Quem deseja CPF na nota e não tem CPF cadastrado sai com
+`pendencia` preenchida — a falta de CPF não derruba mais o relatório. Regras completas em
+[`regras-de-negocio.md`](regras-de-negocio.md#nfse).
 
 Contrato JSON:
 
@@ -699,12 +715,15 @@ Contrato JSON:
     "descricaoServico": "Aulas de Pilates - Competência 04/2026",
     "notaAnteriorEmitida": false,
     "dataPagamento": "2026-04-10",
-    "observacoes": ""
+    "observacoes": "",
+    "pacienteId": 1,
+    "cpfNaNota": true,
+    "pendencia": null
   }
 ]
 ```
 
-O campo `notaAnteriorEmitida` é preenchido com base nas NFSEs efetivamente registradas: é `true` quando existe uma NFSE emitida para o paciente em uma competência anterior à consultada (ver seção abaixo). CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
+O campo `notaAnteriorEmitida` é preenchido com base nas NFSEs efetivamente registradas: é `true` quando existe uma NFSE emitida para o paciente em uma competência anterior à consultada (ver seção abaixo). CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`, com as colunas `CPFNaNota` (Sim/Não) e `Pendencia` ao final.
 
 ## Relatório financeiro — contrato JSON
 

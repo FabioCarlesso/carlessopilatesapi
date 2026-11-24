@@ -12,7 +12,10 @@ public record PacienteResponseDTO(
         LocalDate dataNascimento,
         EnderecoDTO endereco,
         boolean ativo,
-        Long version) {
+        Long version,
+        boolean cpfNaNota,
+        String notaCpfCnpj,
+        String notaNome) {
     public static PacienteResponseDTO from(Paciente p) {
         EnderecoDTO enderecoDTO = null;
         if (p.getEndereco() != null) {
@@ -33,6 +36,9 @@ public record PacienteResponseDTO(
                 p.getDataNascimento(),
                 enderecoDTO,
                 p.isAtivo(),
-                p.getVersion());
+                p.getVersion(),
+                p.isCpfNaNota(),
+                p.getNotaCpfCnpj(),
+                p.getNotaNome());
     }
 }

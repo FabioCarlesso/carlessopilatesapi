@@ -41,6 +41,8 @@ public class PacienteService {
         paciente.setTelefone(dto.telefone());
         paciente.setDataNascimento(dto.dataNascimento());
         paciente.setDataCadastro(LocalDate.now());
+        paciente.setCpfNaNota(Boolean.TRUE.equals(dto.cpfNaNota()));
+        aplicarTomadorNota(paciente, vazioComoNulo(dto.notaCpfCnpj()), vazioComoNulo(dto.notaNome()));
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -73,6 +75,15 @@ public class PacienteService {
         if (dto.email() != null) paciente.setEmail(dto.email());
         if (dto.telefone() != null) paciente.setTelefone(dto.telefone());
         if (dto.dataNascimento() != null) paciente.setDataNascimento(dto.dataNascimento());
+        atualizarCpf(paciente, dto.cpf());
+        if (dto.cpfNaNota() != null) paciente.setCpfNaNota(dto.cpfNaNota());
+        // No PUT parcial, ausente mantém e vazio remove o tomador alternativo da nota.
+        String notaCpfCnpj = dto.notaCpfCnpj() == null ? paciente.getNotaCpfCnpj() : vazioComoNulo(dto.notaCpfCnpj());
+        String notaNome = dto.notaNome() == null ? paciente.getNotaNome() : vazioComoNulo(dto.notaNome());
+        if (dto.notaCpfCnpj() != null && notaCpfCnpj == null && dto.notaNome() == null) {
+            notaNome = null; // remover o CPF/CNPJ do tomador remove também o nome dele
+        }
+        aplicarTomadorNota(paciente, notaCpfCnpj, notaNome);
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -100,6 +111,38 @@ public class PacienteService {
             paciente.setDataInativacao(LocalDate.now());
         }
         paciente.setAtivo(false);
+    }
+
+    /**
+     * Completa ou troca o CPF. Ausente ou vazio mantém o atual: o cadastro importado do seufisio pode não ter CPF, e
+     * sem esta rota ele nunca seria preenchido. Não há como apagar um CPF pelo PUT.
+     */
+    private void atualizarCpf(Paciente paciente, String cpf) {
+        String novo = vazioComoNulo(cpf);
+        if (novo == null || novo.equals(paciente.getCpf())) {
+            return;
+        }
+        if (repository.existsByCpf(novo)) {
+            throw new ConflictException("CPF já cadastrado");
+        }
+        paciente.setCpf(novo);
+    }
+
+    /** Grava o tomador alternativo da NFSE: CPF/CNPJ só com dígitos (11 ou 14) e nome apenas junto com ele. */
+    private void aplicarTomadorNota(Paciente paciente, String cpfCnpj, String nome) {
+        String digitos = cpfCnpj == null ? null : cpfCnpj.replaceAll("\\D", "");
+        if (digitos != null && digitos.length() != 11 && digitos.length() != 14) {
+            throw new IllegalArgumentException("notaCpfCnpj deve ter 11 (CPF) ou 14 (CNPJ) dígitos");
+        }
+        if (nome != null && digitos == null) {
+            throw new IllegalArgumentException("notaNome exige notaCpfCnpj");
+        }
+        paciente.setNotaCpfCnpj(digitos);
+        paciente.setNotaNome(nome);
+    }
+
+    private static String vazioComoNulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     private Paciente encontrar(Long id) {
