@@ -157,6 +157,10 @@ public class SecurityConfig {
                         // mesma área dele.
                         .requestMatchers("/api/relatorios/recebimentos", "/api/relatorios/recebimentos/**")
                         .hasAnyRole(FISCAL)
+                        // Frequência e faltas por paciente (#233): acompanhamento da recepção, que age antes de o
+                        // aluno desistir; só contagem de aulas, sem dado clínico nem financeiro.
+                        .requestMatchers("/api/relatorios/frequencia", "/api/relatorios/frequencia/**")
+                        .hasAnyRole("ADMIN", "RECEPCAO")
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(

@@ -81,6 +81,7 @@ da tabela abaixo. Rota que o
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
+| `/api/relatorios/frequencia` (JSON e XLSX) | | ✓ | |
 | `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro`, `/api/relatorios/recebimentos` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
@@ -532,6 +533,8 @@ existia à época do registro.
 | `GET` | `/api/relatorios/recebimentos?inicio=&fim=` | Recebimentos do período (pagamentos confirmados por data de pagamento), com totais por forma (JSON) |
 | `GET` | `/api/relatorios/recebimentos/pdf?inicio=&fim=` | Exportar os recebimentos em PDF |
 | `GET` | `/api/relatorios/recebimentos/xlsx?inicio=&fim=` | Exportar os recebimentos em Excel (XLSX) |
+| `GET` | `/api/relatorios/frequencia?inicio=&fim=` | Frequência e faltas por paciente: previstas, realizadas, faltas e taxa de presença (JSON) |
+| `GET` | `/api/relatorios/frequencia/xlsx?inicio=&fim=` | Exportar a frequência por paciente em Excel (XLSX) |
 
 ## NFSE emitidas
 
@@ -928,6 +931,51 @@ por `dataPagamento`, nome do paciente e `pagamentoId`. Os critérios estão em
 As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-recebimentos-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Recebimentos` (com linha de total); o PDF é em paisagem.
+
+## Relatório de frequência — contrato JSON
+
+`GET /api/relatorios/frequencia` (#233), para `ADMIN` e `RECEPCAO`. Parâmetros:
+
+| Parâmetro | Valores | Efeito |
+|---|---|---|
+| `inicio`, `fim` | `YYYY-MM-DD`, obrigatórios | Período das aulas, inclusivo, até 366 dias |
+| `profissionalId` | id | Conta só as aulas desse profissional |
+| `pacienteId` | id | Só esse paciente |
+| `taxaMaxima` | `0`–`100` (aceita decimal) | Só pacientes com presença **abaixo** do valor; fora da faixa, `400` |
+
+Só contam aulas com data anterior a hoje (fuso do estúdio): `consideradoAte` é o menor entre `fim` e ontem. Período
+inteiro no futuro devolve lista vazia e totais zerados, não erro. As linhas vêm pela menor presença, depois mais
+faltas, nome e id.
+
+```json
+{
+  "periodo": { "inicio": "2026-11-01", "fim": "2026-11-30" },
+  "consideradoAte": "2026-11-24",
+  "filtros": { "profissionalId": null, "profissionalNome": null, "pacienteId": null, "taxaMaxima": 75 },
+  "totais": { "pacientes": 1, "aulasPrevistas": 3, "aulasRealizadas": 1, "faltas": 2, "taxaPresenca": 33.3 },
+  "pacientes": [
+    {
+      "pacienteId": 7,
+      "pacienteNome": "Bruno Lima",
+      "ativo": true,
+      "aulasPrevistas": 3,
+      "aulasRealizadas": 1,
+      "faltas": 2,
+      "taxaPresenca": 33.3,
+      "ultimaAulaRealizada": "2026-11-03"
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+- `taxaPresenca` é percentual de 0 a 100 com 1 casa decimal (arredondamento `HALF_UP`), igual no JSON e no XLSX; nos
+  `totais` é `null` quando não há aula considerada. `ultimaAulaRealizada` é `null` quando nenhuma foi realizada.
+- `profissionalNome` vem preenchido quando o `profissionalId` existe.
+- `400` (`application/problem+json`, mensagem em `detail`): período ausente, invertido ou acima de 366 dias,
+  `taxaMaxima` fora de 0–100 ou não numérica, resultado acima de 5.000 linhas.
+- `GET /api/relatorios/frequencia/xlsx` aceita os mesmos parâmetros e devolve
+  `attachment; filename="relatorio-frequencia-{inicio}-{fim}.xlsx"`, com as abas `Resumo` e `Frequência`.
 
 ## NFSE emitidas — registro fiscal
 
