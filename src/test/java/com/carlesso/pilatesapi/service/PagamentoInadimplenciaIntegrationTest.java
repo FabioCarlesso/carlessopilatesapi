@@ -42,7 +42,13 @@ import org.springframework.test.context.TestPropertySource;
  * viram SQL de verdade e a V39 é exercitada pelo Flyway.
  */
 @PostgresDataJpaTest
-@Import({PagamentoService.class, AulaService.class, ContatoCobrancaService.class, MetricsTestConfig.class})
+@Import({
+    PagamentoService.class,
+    AulaService.class,
+    ContatoCobrancaService.class,
+    PagamentoCobrancaExporterService.class,
+    MetricsTestConfig.class
+})
 @EnableConfigurationProperties({AppProperties.class, AgendaProperties.class})
 @TestPropertySource(
         properties = {
@@ -211,6 +217,70 @@ class PagamentoInadimplenciaIntegrationTest extends PostgresTestcontainerSupport
                 .containsExactly(biaVencidoFevereiro.getId());
         assertThat(pagamentoService.listar(null, null, null, null, FormaPagamento.CARTAO_CREDITO, ordenacao))
                 .isEmpty();
+    }
+
+    @Test
+    void listarParaExportacao_trazAsMesmasLinhasDasPaginasSomadas() {
+        var filtro = List.of(StatusPagamento.PENDENTE, StatusPagamento.VENCIDO);
+        Sort ordenacao = Sort.by(Sort.Direction.DESC, "paciente.nome");
+        var primeira = pagamentoService.listar(filtro, null, null, null, null, PageRequest.of(0, 2, ordenacao));
+        var segunda = pagamentoService.listar(filtro, null, null, null, null, PageRequest.of(1, 2, ordenacao));
+
+        List<Pagamento> exportados = pagamentoService.listarParaExportacao(filtro, null, null, null, null, ordenacao);
+
+        var paginasSomadas = java.util.stream.Stream.concat(
+                        primeira.getContent().stream(), segunda.getContent().stream())
+                .map(PagamentoResponseDTO::id)
+                .toList();
+        assertThat(exportados).extracting(Pagamento::getId).containsExactlyElementsOf(paginasSomadas);
+        assertThat(exportados)
+                .extracting(Pagamento::getId)
+                .containsExactly(biaVencidoFevereiro.getId(), anaVencidoJaneiro.getId(), anaPendenteMarco.getId());
+    }
+
+    @Test
+    void listarParaExportacao_renovacoesDaSemana_filtraPendentesPelaFaixaDeVencimento() {
+        List<Pagamento> exportados = pagamentoService.listarParaExportacao(
+                List.of(StatusPagamento.PENDENTE),
+                LocalDate.of(2026, 3, 5),
+                LocalDate.of(2026, 3, 12),
+                null,
+                null,
+                Sort.by("dataVencimento"));
+
+        assertThat(exportados).extracting(Pagamento::getId).containsExactly(anaPendenteMarco.getId());
+        // O paciente vem carregado pelo grafo da consulta: o exporter lê nome e telefone fora da transação.
+        assertThat(exportados.getFirst().getPaciente().getNome()).isEqualTo("Ana");
+    }
+
+    @Test
+    void resumirContatos_agrupaQuantidadeEUltimoContatoPorPagamento() {
+        contatoCobrancaService.registrar(
+                biaVencidoFevereiro.getId(),
+                new ContatoCobrancaRequestDTO(LocalDate.of(2026, 2, 20), "Ligação"),
+                "admin@email.com");
+        contatoCobrancaService.registrar(
+                biaVencidoFevereiro.getId(),
+                new ContatoCobrancaRequestDTO(LocalDate.of(2026, 2, 12), "Mensagem"),
+                "admin@email.com");
+        contatoCobrancaService.registrar(
+                anaVencidoJaneiro.getId(),
+                new ContatoCobrancaRequestDTO(LocalDate.of(2026, 1, 15), "Presencial"),
+                "admin@email.com");
+        entityManager.flush();
+        entityManager.clear();
+
+        var resumos = contatoCobrancaRepository.resumirPorPagamentos(
+                List.of(biaVencidoFevereiro.getId(), anaVencidoJaneiro.getId(), anaPendenteMarco.getId()));
+
+        assertThat(resumos)
+                .extracting(
+                        ContatoCobrancaRepository.ResumoContatosProjection::getPagamentoId,
+                        ContatoCobrancaRepository.ResumoContatosProjection::getQuantidade,
+                        ContatoCobrancaRepository.ResumoContatosProjection::getUltimoContato)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(biaVencidoFevereiro.getId(), 2L, LocalDate.of(2026, 2, 20)),
+                        org.assertj.core.groups.Tuple.tuple(anaVencidoJaneiro.getId(), 1L, LocalDate.of(2026, 1, 15)));
     }
 
     @Test

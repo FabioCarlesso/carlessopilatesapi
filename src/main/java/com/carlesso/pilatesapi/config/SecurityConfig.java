@@ -101,11 +101,12 @@ public class SecurityConfig {
                         .requestMatchers("/bloqueios", "/bloqueios/**")
                         .hasRole("ADMIN")
                         // Listagem global de pagamentos e contatos de cobrança são da gestão de inadimplência,
-                        // tela de ADMIN (#196, #197). Só GET/HEAD em /pagamentos exato: o POST de criação e as
-                        // demais rotas de /pagamentos/** seguem a regra financeira mais abaixo.
-                        .requestMatchers(HttpMethod.GET, "/pagamentos")
+                        // tela de ADMIN (#196, #197), assim como a exportação dela em XLSX (#232). Só GET/HEAD em
+                        // /pagamentos exato e em /pagamentos/xlsx: o POST de criação e as demais rotas de
+                        // /pagamentos/** seguem a regra financeira mais abaixo.
+                        .requestMatchers(HttpMethod.GET, "/pagamentos", "/pagamentos/xlsx")
                         .hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.HEAD, "/pagamentos")
+                        .requestMatchers(HttpMethod.HEAD, "/pagamentos", "/pagamentos/xlsx")
                         .hasRole("ADMIN")
                         .requestMatchers("/pagamentos/*/cobrancas", "/pagamentos/*/cobrancas/**")
                         .hasRole("ADMIN")

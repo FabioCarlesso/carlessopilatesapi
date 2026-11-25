@@ -88,7 +88,7 @@ da tabela abaixo. Rota que o
 | `/users/me`, `/users/me/senha`, `/users/me/preferencias` | ✓ | ✓ | ✓ |
 
 Só de `ADMIN`: `/users/**` (exceto `/users/me*`), `/admin/**`, `/actuator/**` além de health/info, escrita em
-`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
+`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `GET /pagamentos/xlsx`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
 `/dashboard/aulas-por-profissional`. `PACIENTE` só acessa `/users/me*` até o portal do paciente existir.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
@@ -208,6 +208,7 @@ pagamento copiam esse horário. Sem ele, as aulas nascem sem horário e ficam fo
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente (paginado) |
 | `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` e `formaPagamento` opcionais no corpo |
 | `GET` | `/pagamentos` | Listagem global paginada (gestão de inadimplência, `ADMIN`); filtros `status`, `vencimentoDe`, `vencimentoAte`, `pacienteId` e `formaPagamento` |
+| `GET` | `/pagamentos/xlsx` | Exporta em XLSX a listagem global com os mesmos filtros e `sort`, sem paginação (`ADMIN`) |
 | `POST` | `/pagamentos/{id}/cobrancas` | Registrar contato de cobrança do pagamento (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas` | Histórico de contatos de cobrança do pagamento, do mais recente para o mais antigo (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas/{contatoId}` | Buscar contato de cobrança (é o alvo do `Location` devolvido no registro; `ADMIN`) |
@@ -246,6 +247,23 @@ GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&s
   Dias em atraso não vêm na resposta: o frontend calcula a partir de `dataVencimento`.
 - A ordenação padrão é `dataVencimento,asc` (os mais atrasados primeiro), sempre com `id` como desempate. `sort` aceita
   apenas `dataVencimento`, `valor`, `status` e `paciente.nome`; outro campo retorna `400`.
+
+#### Exportação em XLSX
+
+```
+GET /pagamentos/xlsx?status=PENDENTE&vencimentoDe=2026-11-25&vencimentoAte=2026-12-02
+```
+
+- Mesmos parâmetros da listagem (`status` repetível, `vencimentoDe`, `vencimentoAte`, `pacienteId`, `formaPagamento` e
+  `sort`), com as mesmas validações e respostas `400`, mas sem `page`/`size`: a planilha traz todas as linhas do
+  filtro, na mesma ordem da listagem. O exemplo acima lista as renovações da semana.
+- Teto de 5000 pagamentos: acima disso, `400` pedindo para restringir os filtros.
+- Restrita a `ADMIN` (`403` para os demais, inclusive no `HEAD`).
+- Resposta `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` com
+  `Content-Disposition: attachment; filename="cobrancas-<yyyy-MM-dd>.xlsx"` (data de hoje no fuso do estúdio).
+- Uma aba, `Cobranças`: paciente, telefone, valor, vencimento, dias em atraso, status, período (`dd/MM/yyyy a
+  dd/MM/yyyy`), quantidade de contatos de cobrança e data do último contato, e uma linha final de total. Dias em
+  atraso seguem a regra de [regras de negócio](regras-de-negocio.md).
 
 ### Contatos de cobrança
 

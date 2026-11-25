@@ -1038,6 +1038,28 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void pagamentosExportarXlsx_comAdmin_deveRetornarPlanilhaComoAnexo() throws Exception {
+        User admin = criarUsuario("pagamentos-xlsx-admin@email.com", Role.ADMIN);
+
+        // /pagamentos/xlsx não pode cair em /pagamentos/{id}: isso responderia 400 pelo id não numérico.
+        mvc.perform(get("/pagamentos/xlsx")
+                        .param("status", "PENDENTE")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                org.hamcrest.Matchers.startsWith("attachment; filename=\"cobrancas-")));
+    }
+
+    @Test
+    void pagamentosExportarXlsx_headComUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("pagamentos-xlsx-head@email.com", Role.FINANCEIRO);
+
+        mvc.perform(head("/pagamentos/xlsx").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void pagamentosBuscarPorId_comUsuarioSemRoleAdmin_naoDeveCairNaRegraDeAdmin() throws Exception {
         User user = criarUsuario("pagamentos-id@email.com", Role.RECEPCAO);
 
@@ -1169,6 +1191,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /planos/999999                                 | RECEPCAO FINANCEIRO",
                 "POST   | /pagamentos                                    | RECEPCAO FINANCEIRO",
                 "GET    | /pagamentos/999999                             | RECEPCAO FINANCEIRO",
+                "GET    | /pagamentos/xlsx                               | ",
                 "GET    | /api/nfse-emitidas/paciente/999999             | FINANCEIRO",
                 "GET    | /api/relatorios/nfse                           | FINANCEIRO",
                 "GET    | /api/relatorios/financeiro                     | FINANCEIRO",

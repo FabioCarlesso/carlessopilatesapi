@@ -16,6 +16,7 @@ import com.carlesso.pilatesapi.service.ContatoCobrancaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.NotaFiscalEmitidaService;
+import com.carlesso.pilatesapi.service.PagamentoCobrancaExporterService;
 import com.carlesso.pilatesapi.service.PagamentoService;
 import com.carlesso.pilatesapi.service.PlanoTratamentoService;
 import com.carlesso.pilatesapi.service.ReavaliacaoService;
@@ -72,6 +73,9 @@ class PaginacaoSubRecursosControllerTest {
 
     @MockitoBean
     ContatoCobrancaService contatoCobrancaService;
+
+    @MockitoBean
+    PagamentoCobrancaExporterService pagamentoCobrancaExporterService;
 
     @MockitoBean
     PlanoTratamentoService planoTratamentoService;

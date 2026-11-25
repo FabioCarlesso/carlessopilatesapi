@@ -338,6 +338,46 @@ class PagamentoServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void listarParaExportacao_pedeUmaLinhaAlemDoTetoComOrdenacaoEDesempate() {
+        when(pagamentoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.listarParaExportacao(
+                List.of(StatusPagamento.PENDENTE), null, null, null, null, Sort.by(Sort.Direction.DESC, "valor"));
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(pagamentoRepository).findAll(any(Specification.class), captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isZero();
+        assertThat(captor.getValue().getPageSize()).isEqualTo(PagamentoService.LIMITE_EXPORTACAO + 1);
+        assertThat(captor.getValue().getSort())
+                .isEqualTo(Sort.by(Sort.Direction.DESC, "valor").and(Sort.by(Sort.Direction.ASC, "id")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listarParaExportacao_acimaDoTeto_lancaIllegalArgument() {
+        List<Pagamento> acimaDoTeto =
+                java.util.Collections.nCopies(PagamentoService.LIMITE_EXPORTACAO + 1, new Pagamento());
+        when(pagamentoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(acimaDoTeto));
+
+        assertThatThrownBy(() -> service.listarParaExportacao(null, null, null, null, null, Sort.by("dataVencimento")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limitada a " + PagamentoService.LIMITE_EXPORTACAO);
+    }
+
+    @Test
+    void listarParaExportacao_faixaInvertidaOuOrdenacaoNaoAceita_lancaIllegalArgument() {
+        assertThatThrownBy(() -> service.listarParaExportacao(
+                        null, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1), null, null, Sort.unsorted()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.listarParaExportacao(null, null, null, null, null, Sort.by("paciente.cpf")))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(pagamentoRepository);
+    }
+
+    @Test
     void listarPorPaciente_ordenaPorVencimentoDescComDesempatePorId() {
         when(pagamentoRepository.findByPacienteId(eq(1L), any(Pageable.class))).thenReturn(Page.empty());
 
