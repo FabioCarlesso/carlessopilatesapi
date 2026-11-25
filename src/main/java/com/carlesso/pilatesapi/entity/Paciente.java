@@ -39,6 +39,15 @@ public class Paciente extends EntidadeAuditavel {
     /** Preenchida ao inativar e limpa ao reativar; nula também para inativações anteriores à V41. */
     private LocalDate dataInativacao;
 
+    /** O paciente pediu CPF/CNPJ na NFSE: ver a migration V47 e o relatório de NFSE. */
+    @Column(name = "cpf_na_nota", nullable = false)
+    private boolean cpfNaNota = false;
+
+    /** Tomador da NFSE (responsável ou empresa); nulo = a nota sai no próprio paciente. Ver {@link Tomador}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tomador_id")
+    private Tomador tomador;
+
     public Paciente() {}
 
     public Long getVersion() {
@@ -119,5 +128,21 @@ public class Paciente extends EntidadeAuditavel {
 
     public void setDataInativacao(LocalDate dataInativacao) {
         this.dataInativacao = dataInativacao;
+    }
+
+    public boolean isCpfNaNota() {
+        return cpfNaNota;
+    }
+
+    public void setCpfNaNota(boolean cpfNaNota) {
+        this.cpfNaNota = cpfNaNota;
+    }
+
+    public Tomador getTomador() {
+        return tomador;
+    }
+
+    public void setTomador(Tomador tomador) {
+        this.tomador = tomador;
     }
 }

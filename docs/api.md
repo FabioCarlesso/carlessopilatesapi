@@ -76,6 +76,7 @@ da tabela abaixo. Rota que o
 |---|---|---|---|
 | `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/avaliacoes-posturais`, `/evolucoes-sessao`, `/reavaliacoes`, `/planos-tratamento` | ✓ | | |
 | `/pacientes` | ✓ | ✓ | ✓ |
+| `GET /tomadores` (leitura); escrita em `/tomadores` | ✓ (só leitura) | ✓ | ✓ |
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
@@ -104,6 +105,39 @@ O cadastro de usuários é restrito a administradores (`POST /users`); não há 
 | `PATCH` | `/pacientes/{id}/inativar` | Inativar paciente (soft delete) |
 
 Apenas `nome` é obrigatório. `email` e `cpf` são opcionais — alguns sistemas externos não fornecem esses dados na [importação inicial](importacao-seufisio.md); quando informado, `email` precisa ter formato válido. O `PUT` é uma atualização parcial: apenas os campos enviados são alterados.
+
+O `PUT` aceita `cpf` para completar o cadastro de quem foi importado sem ele: ausente ou vazio mantém o atual, e CPF de
+outro paciente retorna `409`. Não há como apagar um CPF pelo `PUT`.
+
+Preferência para a NFSE (#229):
+
+| Campo | Onde | Regra |
+|---|---|---|
+| `cpfNaNota` | `POST`, `PUT`, resposta | O paciente deseja CPF/CNPJ na nota. Padrão `false`; no `PUT`, ausente mantém o atual. Desmarcar **não** desvincula o tomador |
+| `tomadorId` | `POST`, resposta | Tomador da nota ([Tomadores](#tomadores)). No cadastro, vincula; tomador inexistente `404`, inativo `422` |
+| `tomadorNome`, `tomadorCpfCnpj` | resposta | Dados do tomador vinculado, para exibição |
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `PATCH` | `/pacientes/{id}/tomador` | Vincula (`{"tomadorId": 3}`) ou desvincula (`{"tomadorId": null}`) o tomador. O campo é obrigatório mas anulável: omitir retorna `400`, como em `PATCH /aulas/{id}/profissional`. Tomador inativo não recebe vínculo novo (`422`); o vínculo que já existe com um tomador inativado depois continua |
+
+## Tomadores
+
+Quem recebe a NFSE quando não é o próprio paciente: o responsável por alunos menores ou a empresa que paga as aulas
+(#229). **Um tomador atende vários pacientes**, e cada pagamento deles continua sendo uma nota — o relatório de NFSE
+filtra as notas de um tomador por `tomadorId`.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/tomadores` | Cadastrar. `nome` e `cpfCnpj` obrigatórios; CPF/CNPJ com ou sem máscara, gravado só com dígitos, 11 ou 14 (`400`); duplicado `409` |
+| `GET` | `/tomadores` | Listar (paginado, ordenado por nome). Filtros `nome`, `cpfCnpj` (parciais) e `ativo` (omitido = só ativos). Cada item traz `quantidadePacientes` |
+| `GET` | `/tomadores/{id}` | Buscar |
+| `GET` | `/tomadores/{id}/pacientes` | Pacientes vinculados (ativos ou não), por nome |
+| `PUT` | `/tomadores/{id}` | Atualização parcial com `version`: ausente mantém; em `email`, `telefone` e `observacoes`, vazio apaga |
+| `PATCH` | `/tomadores/{id}/ativar` · `/inativar` | Soft delete. Inativar não desvincula os pacientes; só impede vínculos novos |
+
+Leitura (`GET`/`HEAD`) para a equipe toda — o formulário de paciente escolhe o tomador numa lista; escrita para
+`ADMIN`, `RECEPCAO` e `FINANCEIRO`.
 
 ## Profissionais
 
@@ -685,7 +719,12 @@ Os critérios de cada série e as limitações da série de pacientes estão em 
 
 ## Relatório de emissão de NFSEs
 
-O endpoint `GET /api/relatorios/nfse` exige `competencia` no formato `MM/AAAA` e aceita os filtros opcionais `notaAnteriorEmitida` e `formato` (`JSON`, `CSV` ou `XLSX`). Ele retorna apenas pagamentos confirmados (`PAGO`) com `dataPagamento` dentro da competência informada e pacientes ativos.
+O endpoint `GET /api/relatorios/nfse` exige `competencia` no formato `MM/AAAA` e aceita os filtros opcionais `notaAnteriorEmitida`, `cpfNaNota`, `tomadorId` e `formato` (`JSON`, `CSV` ou `XLSX`). Ele retorna os pagamentos confirmados (`PAGO`) com `dataPagamento` dentro da competência informada, de pacientes ativos ou inativos.
+
+`cpfCnpj` só vem preenchido para quem deseja CPF na nota: o do [tomador](#tomadores) vinculado, se houver, senão o do
+paciente. Com tomador, `nome` é o dele e `pacienteNome` diz de qual aluno é a aula. Quem deseja CPF na nota e não tem
+CPF nem tomador sai com `pendencia` preenchida — a falta de CPF não derruba mais o relatório. Regras completas em
+[`regras-de-negocio.md`](regras-de-negocio.md#nfse).
 
 Contrato JSON:
 
@@ -699,12 +738,17 @@ Contrato JSON:
     "descricaoServico": "Aulas de Pilates - Competência 04/2026",
     "notaAnteriorEmitida": false,
     "dataPagamento": "2026-04-10",
-    "observacoes": ""
+    "observacoes": "",
+    "pacienteId": 1,
+    "cpfNaNota": true,
+    "pendencia": null,
+    "pacienteNome": "Ana Souza",
+    "tomadorId": null
   }
 ]
 ```
 
-O campo `notaAnteriorEmitida` é preenchido com base nas NFSEs efetivamente registradas: é `true` quando existe uma NFSE emitida para o paciente em uma competência anterior à consultada (ver seção abaixo). CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`.
+O campo `notaAnteriorEmitida` é preenchido com base nas NFSEs efetivamente registradas: é `true` quando existe uma NFSE emitida para o paciente em uma competência anterior à consultada (ver seção abaixo). CSV e XLSX são retornados como anexo com nome `relatorio-nfse-{MM-AAAA}.{ext}`, com as colunas `CPFNaNota` (Sim/Não), `Pendencia` e `Paciente` ao final.
 
 ## Relatório financeiro — contrato JSON
 
@@ -749,7 +793,7 @@ As exportações `/pdf` e `/xlsx` usam o mesmo cálculo e voltam como anexo
 
 Para que o relatório use dados reais em `notaAnteriorEmitida`, a última NFSE emitida de cada paciente é persistida por competência através de `POST /api/nfse-emitidas`. O registro é idempotente por `(paciente, competência)`: se já existir uma nota para o paciente na competência informada, ela é atualizada; caso contrário, é criada.
 
-- `pacienteId` e `dataEmissao` são obrigatórios; o paciente precisa estar ativo (404 caso contrário). `dataEmissao` não pode ser futura (422 caso contrário).
+- `pacienteId` e `dataEmissao` são obrigatórios; o paciente precisa existir (404 caso contrário) e pode estar inativo: quem pagou e foi inativado depois continua devendo a nota (#239). `dataEmissao` não pode ser futura (422 caso contrário).
 - `competencia` é obrigatória no formato `MM/AAAA` (400 quando fora do formato).
 - `numeroNota` é opcional e limitado a 60 caracteres (400 quando excedido); `valor` e `observacoes` são opcionais; quando informado, `valor` deve ser maior que zero (422 caso contrário).
 - O registro é idempotente por `(paciente, competência)` inclusive sob concorrência: requisições simultâneas para o mesmo par resolvem para uma única nota (a colisão da constraint única é repetida automaticamente como atualização).

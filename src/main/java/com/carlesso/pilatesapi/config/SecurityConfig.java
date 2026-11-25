@@ -128,6 +128,15 @@ public class SecurityConfig {
                         .hasAnyRole(CLINICA)
                         .requestMatchers("/pacientes", "/pacientes/**")
                         .hasAnyRole(EQUIPE)
+                        // Tomadores da NFSE (#229): o formulário de paciente escolhe o tomador numa lista, então a
+                        // leitura é da equipe; o cadastro é de quem cuida de cobrança e nota. HEAD junto com GET pelo
+                        // mesmo motivo dos bloqueios.
+                        .requestMatchers(HttpMethod.GET, "/tomadores", "/tomadores/**")
+                        .hasAnyRole(EQUIPE)
+                        .requestMatchers(HttpMethod.HEAD, "/tomadores", "/tomadores/**")
+                        .hasAnyRole(EQUIPE)
+                        .requestMatchers("/tomadores", "/tomadores/**")
+                        .hasAnyRole(COBRANCA)
                         .requestMatchers(
                                 "/aulas", "/aulas/**", "/sessoes", "/sessoes/**", "/lista-espera", "/lista-espera/**")
                         .hasAnyRole(AGENDA)

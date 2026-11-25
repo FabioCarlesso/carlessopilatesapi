@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import com.carlesso.pilatesapi.dto.RelatorioNfseResponseDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
+import com.carlesso.pilatesapi.entity.Tomador;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
@@ -30,8 +31,18 @@ public class RelatorioNfseService {
         this.notaFiscalEmitidaRepository = notaFiscalEmitidaRepository;
     }
 
+    static final String PENDENCIA_SEM_CPF = "Paciente deseja CPF/CNPJ na nota, mas o CPF não está cadastrado";
+
+    /**
+     * Pagamentos confirmados na competência, de pacientes ativos ou não (o dinheiro entrou e a nota é devida).
+     * CPF/CNPJ só sai para quem pediu CPF na nota: o do tomador vinculado, se houver, senão o do paciente; quem
+     * pediu e não tem CPF nem tomador vira {@code pendencia} no item, em vez de derrubar o relatório inteiro (#229).
+     * Um tomador com vários pacientes aparece em várias linhas, uma por pagamento; {@code tomadorId} filtra as
+     * notas dele.
+     */
     @Transactional(readOnly = true)
-    public List<RelatorioNfseResponseDTO> gerar(String competencia, Boolean notaAnteriorEmitida) {
+    public List<RelatorioNfseResponseDTO> gerar(
+            String competencia, Boolean notaAnteriorEmitida, Boolean cpfNaNota, Long tomadorId) {
         YearMonth periodo = CompetenciaUtils.parse(competencia);
         LocalDate inicio = periodo.atDay(1);
         LocalDate fim = periodo.atEndOfMonth();
@@ -43,6 +54,8 @@ public class RelatorioNfseService {
                 .map(pagamento -> montarItem(pagamento, competencia, pacientesComNotaAnterior))
                 .filter(item ->
                         notaAnteriorEmitida == null || Objects.equals(item.notaAnteriorEmitida(), notaAnteriorEmitida))
+                .filter(item -> cpfNaNota == null || item.cpfNaNota() == cpfNaNota)
+                .filter(item -> tomadorId == null || tomadorId.equals(item.tomadorId()))
                 .toList();
     }
 
@@ -65,23 +78,40 @@ public class RelatorioNfseService {
         Paciente paciente = pagamento.getPaciente();
         validarDadosParaEmissao(pagamento, paciente);
 
+        String nome = paciente.getNome();
+        String cpfCnpj = null;
+        String pendencia = null;
+        Tomador tomador = paciente.isCpfNaNota() ? paciente.getTomador() : null;
+        if (tomador != null) {
+            nome = tomador.getNome();
+            cpfCnpj = tomador.getCpfCnpj();
+        } else if (paciente.isCpfNaNota()) {
+            if (paciente.getCpf() != null && !paciente.getCpf().isBlank()) {
+                cpfCnpj = paciente.getCpf();
+            } else {
+                pendencia = PENDENCIA_SEM_CPF;
+            }
+        }
+
         return new RelatorioNfseResponseDTO(
-                paciente.getNome(),
-                paciente.getCpf(),
+                nome,
+                cpfCnpj,
                 pagamento.getValor(),
                 competencia,
                 "Aulas de Pilates - Competência " + competencia,
                 pacientesComNotaAnterior.contains(paciente.getId()),
                 pagamento.getDataPagamento(),
-                "");
+                "",
+                paciente.getId(),
+                paciente.isCpfNaNota(),
+                pendencia,
+                paciente.getNome(),
+                tomador == null ? null : tomador.getId());
     }
 
     private void validarDadosParaEmissao(Pagamento pagamento, Paciente paciente) {
         if (paciente.getNome() == null || paciente.getNome().isBlank()) {
             throw new BusinessException("Nome do paciente deve estar preenchido para emissão da NFSE");
-        }
-        if (paciente.getCpf() == null || paciente.getCpf().isBlank()) {
-            throw new BusinessException("CPF/CNPJ deve estar preenchido para emissão da NFSE");
         }
         if (pagamento.getValor() == null || pagamento.getValor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("ValorPago deve ser maior que zero para emissão da NFSE");

@@ -58,7 +58,7 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_semEmailEsemCpf_devePersistirViaService() {
-        var dto = new PacienteRequestDTO("Cliente Importado", null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Cliente Importado", null, null, null, null, null, null, null);
 
         var response = service.cadastrar(dto);
 
@@ -71,8 +71,8 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_comCpfDuplicado_deveLancarConflict() {
-        var primeiro = new PacienteRequestDTO("Primeiro", null, "55566677788", null, null, null);
-        var duplicado = new PacienteRequestDTO("Outro", null, "55566677788", null, null, null);
+        var primeiro = new PacienteRequestDTO("Primeiro", null, "55566677788", null, null, null, null, null);
+        var duplicado = new PacienteRequestDTO("Outro", null, "55566677788", null, null, null, null, null);
 
         service.cadastrar(primeiro);
 
@@ -83,8 +83,8 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_comEmailDuplicado_deveLancarConflict() {
-        var primeiro = new PacienteRequestDTO("Primeiro", "duplicado@email.com", null, null, null, null);
-        var duplicado = new PacienteRequestDTO("Outro", "duplicado@email.com", null, null, null, null);
+        var primeiro = new PacienteRequestDTO("Primeiro", "duplicado@email.com", null, null, null, null, null, null);
+        var duplicado = new PacienteRequestDTO("Outro", "duplicado@email.com", null, null, null, null, null, null);
 
         service.cadastrar(primeiro);
 
@@ -95,8 +95,8 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_multiplosSemEmailEsemCpf_devePermitir() {
-        var primeiro = new PacienteRequestDTO("Importado A", null, null, null, null, null);
-        var segundo = new PacienteRequestDTO("Importado B", null, null, null, null, null);
+        var primeiro = new PacienteRequestDTO("Importado A", null, null, null, null, null, null, null);
+        var segundo = new PacienteRequestDTO("Importado B", null, null, null, null, null, null, null);
 
         var r1 = service.cadastrar(primeiro);
         var r2 = service.cadastrar(segundo);

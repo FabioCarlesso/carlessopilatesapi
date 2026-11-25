@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.entity.Tomador;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
@@ -38,6 +39,7 @@ class RelatorioNfseServiceTest {
     void gerar_deveRetornarPagamentosConfirmadosDaCompetencia() {
         Pagamento pagamento =
                 pagamento("Ana Souza", "11122233344", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        pagamento.getPaciente().setCpfNaNota(true);
 
         when(pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(
                         StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
@@ -45,7 +47,7 @@ class RelatorioNfseServiceTest {
         when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(List.of(1L), LocalDate.of(2026, 4, 1)))
                 .thenReturn(List.of(1L));
 
-        var relatorio = service.gerar("04/2026", null);
+        var relatorio = service.gerar("04/2026", null, null, null);
 
         assertThat(relatorio).singleElement().satisfies(item -> {
             assertThat(item.nome()).isEqualTo("Ana Souza");
@@ -56,6 +58,9 @@ class RelatorioNfseServiceTest {
             assertThat(item.notaAnteriorEmitida()).isTrue();
             assertThat(item.dataPagamento()).isEqualTo(LocalDate.of(2026, 4, 10));
             assertThat(item.observacoes()).isEmpty();
+            assertThat(item.pacienteId()).isEqualTo(1L);
+            assertThat(item.cpfNaNota()).isTrue();
+            assertThat(item.pendencia()).isNull();
         });
         verify(notaFiscalEmitidaRepository).findPacienteIdsComNotaEmitidaAntes(List.of(1L), LocalDate.of(2026, 4, 1));
     }
@@ -74,7 +79,7 @@ class RelatorioNfseServiceTest {
         when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(List.of(1L, 2L), LocalDate.of(2026, 4, 1)))
                 .thenReturn(List.of(1L));
 
-        var relatorio = service.gerar("04/2026", false);
+        var relatorio = service.gerar("04/2026", false, null, null);
 
         assertThat(relatorio).singleElement().extracting("nome").isEqualTo("Bia Lima");
         verify(notaFiscalEmitidaRepository)
@@ -83,31 +88,148 @@ class RelatorioNfseServiceTest {
 
     @Test
     void gerar_competenciaObrigatoria_deveLancarErro() {
-        assertThatThrownBy(() -> service.gerar(null, null))
+        assertThatThrownBy(() -> service.gerar(null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("obrigatória");
     }
 
     @Test
     void gerar_competenciaForaDoFormato_deveLancarErro() {
-        assertThatThrownBy(() -> service.gerar("13/2026", null))
+        assertThatThrownBy(() -> service.gerar("13/2026", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("MM/AAAA");
     }
 
     @Test
-    void gerar_semCpf_deveLancarErroDeNegocio() {
-        Pagamento pagamento = pagamento("Ana Souza", "", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+    void gerar_pacienteQueNaoDesejaCpfNaNota_saiSemCpfESemPendencia() {
+        Pagamento pagamento =
+                pagamento("Ana Souza", "11122233344", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        competenciaAbril(pagamento);
 
+        assertThat(service.gerar("04/2026", null, null, null)).singleElement().satisfies(item -> {
+            assertThat(item.nome()).isEqualTo("Ana Souza");
+            assertThat(item.cpfCnpj()).isNull();
+            assertThat(item.cpfNaNota()).isFalse();
+            assertThat(item.pendencia()).isNull();
+        });
+    }
+
+    @Test
+    void gerar_desejaCpfNaNotaSemCpfCadastrado_viraPendenciaSemDerrubarORelatorio() {
+        Pagamento semCpf = pagamento("Ana Souza", "", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        semCpf.getPaciente().setCpfNaNota(true);
+        competenciaAbril(semCpf);
+
+        assertThat(service.gerar("04/2026", null, null, null)).singleElement().satisfies(item -> {
+            assertThat(item.cpfCnpj()).isNull();
+            assertThat(item.cpfNaNota()).isTrue();
+            assertThat(item.pendencia()).isEqualTo(RelatorioNfseService.PENDENCIA_SEM_CPF);
+        });
+    }
+
+    @Test
+    void gerar_comTomadorAlternativo_usaCpfCnpjENomeDoTomador() {
+        Pagamento pagamento = pagamento("Aluno Menor", "", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        pagamento.getPaciente().setCpfNaNota(true);
+        pagamento.getPaciente().setTomador(tomador(3L));
+        competenciaAbril(pagamento);
+
+        assertThat(service.gerar("04/2026", null, null, null)).singleElement().satisfies(item -> {
+            assertThat(item.nome()).isEqualTo("Empresa Exemplo Ltda");
+            assertThat(item.cpfCnpj()).isEqualTo("12345678000199");
+            assertThat(item.pendencia()).isNull();
+            assertThat(item.pacienteNome()).isEqualTo("Aluno Menor");
+            assertThat(item.tomadorId()).isEqualTo(3L);
+        });
+    }
+
+    @Test
+    void gerar_tomadorAlternativoSemPreferencia_eIgnorado() {
+        Pagamento pagamento =
+                pagamento("Ana Souza", "11122233344", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        pagamento.getPaciente().setTomador(tomador(3L));
+        competenciaAbril(pagamento);
+
+        assertThat(service.gerar("04/2026", null, null, null)).singleElement().satisfies(item -> {
+            assertThat(item.nome()).isEqualTo("Ana Souza");
+            assertThat(item.cpfCnpj()).isNull();
+            assertThat(item.tomadorId()).isNull();
+        });
+    }
+
+    @Test
+    void gerar_comFiltroCpfNaNota_restringeAosQueDesejam() {
+        Pagamento deseja = pagamento("Ana Souza", "11122233344", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        deseja.getPaciente().setCpfNaNota(true);
+        Pagamento naoDeseja = pagamento("Bia Lima", "55566677788", new BigDecimal("300.00"), LocalDate.of(2026, 4, 12));
+        ReflectionTestUtils.setField(naoDeseja.getPaciente(), "id", 2L);
+        when(pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(
+                        StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
+                .thenReturn(List.of(deseja, naoDeseja));
+        when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(List.of(1L, 2L), LocalDate.of(2026, 4, 1)))
+                .thenReturn(List.of());
+
+        assertThat(service.gerar("04/2026", null, true, null))
+                .extracting("nome")
+                .containsExactly("Ana Souza");
+        assertThat(service.gerar("04/2026", null, false, null))
+                .extracting("nome")
+                .containsExactly("Bia Lima");
+    }
+
+    @Test
+    void gerar_pagamentoSemDataDePagamento_continuaLancandoErroDeNegocio() {
+        Pagamento pagamento =
+                pagamento("Ana Souza", "11122233344", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        pagamento.setDataPagamento(null);
+        competenciaAbril(pagamento);
+
+        assertThatThrownBy(() -> service.gerar("04/2026", null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("DataPagamento");
+    }
+
+    @Test
+    void gerar_comFiltroTomador_trazAsNotasDeVariosPacientesDoMesmoTomador() {
+        Tomador empresa = tomador(3L);
+        Pagamento ana = pagamento("Ana Souza", "", new BigDecimal("250.00"), LocalDate.of(2026, 4, 10));
+        ana.getPaciente().setCpfNaNota(true);
+        ana.getPaciente().setTomador(empresa);
+        Pagamento bia = pagamento("Bia Lima", "", new BigDecimal("300.00"), LocalDate.of(2026, 4, 12));
+        ReflectionTestUtils.setField(bia.getPaciente(), "id", 2L);
+        bia.getPaciente().setCpfNaNota(true);
+        bia.getPaciente().setTomador(empresa);
+        Pagamento caio = pagamento("Caio Reis", "55566677788", new BigDecimal("300.00"), LocalDate.of(2026, 4, 12));
+        ReflectionTestUtils.setField(caio.getPaciente(), "id", 4L);
+        caio.getPaciente().setCpfNaNota(true);
+        when(pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(
+                        StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
+                .thenReturn(List.of(ana, bia, caio));
+        when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(
+                        List.of(1L, 2L, 4L), LocalDate.of(2026, 4, 1)))
+                .thenReturn(List.of());
+
+        assertThat(service.gerar("04/2026", null, null, 3L))
+                .extracting("pacienteNome", "nome", "cpfCnpj")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Ana Souza", "Empresa Exemplo Ltda", "12345678000199"),
+                        org.assertj.core.groups.Tuple.tuple("Bia Lima", "Empresa Exemplo Ltda", "12345678000199"));
+    }
+
+    private Tomador tomador(Long id) {
+        Tomador t = new Tomador();
+        ReflectionTestUtils.setField(t, "id", id);
+        t.setNome("Empresa Exemplo Ltda");
+        t.setCpfCnpj("12345678000199");
+        return t;
+    }
+
+    private void competenciaAbril(Pagamento pagamento) {
         when(pagamentoRepository.findPagamentosConfirmadosParaRelatorioNfse(
                         StatusPagamento.PAGO, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .thenReturn(List.of(pagamento));
         when(notaFiscalEmitidaRepository.findPacienteIdsComNotaEmitidaAntes(List.of(1L), LocalDate.of(2026, 4, 1)))
                 .thenReturn(List.of());
-
-        assertThatThrownBy(() -> service.gerar("04/2026", null))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("CPF/CNPJ");
     }
 
     private Pagamento pagamento(String nome, String cpf, BigDecimal valor, LocalDate dataPagamento) {

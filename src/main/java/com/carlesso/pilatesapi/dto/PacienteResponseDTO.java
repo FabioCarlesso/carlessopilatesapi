@@ -12,7 +12,11 @@ public record PacienteResponseDTO(
         LocalDate dataNascimento,
         EnderecoDTO endereco,
         boolean ativo,
-        Long version) {
+        Long version,
+        boolean cpfNaNota,
+        Long tomadorId,
+        String tomadorNome,
+        String tomadorCpfCnpj) {
     public static PacienteResponseDTO from(Paciente p) {
         EnderecoDTO enderecoDTO = null;
         if (p.getEndereco() != null) {
@@ -33,6 +37,10 @@ public record PacienteResponseDTO(
                 p.getDataNascimento(),
                 enderecoDTO,
                 p.isAtivo(),
-                p.getVersion());
+                p.getVersion(),
+                p.isCpfNaNota(),
+                p.getTomador() == null ? null : p.getTomador().getId(),
+                p.getTomador() == null ? null : p.getTomador().getNome(),
+                p.getTomador() == null ? null : p.getTomador().getCpfCnpj());
     }
 }

@@ -11,4 +11,9 @@ public record RelatorioNfseResponseDTO(
         String descricaoServico,
         Boolean notaAnteriorEmitida,
         LocalDate dataPagamento,
-        String observacoes) {}
+        String observacoes,
+        Long pacienteId,
+        boolean cpfNaNota,
+        String pendencia,
+        String pacienteNome,
+        Long tomadorId) {}

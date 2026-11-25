@@ -5,9 +5,12 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Tomador;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.repository.TomadorRepository;
 import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDate;
 import java.util.Locale;
@@ -21,9 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class PacienteService {
 
     private final PacienteRepository repository;
+    private final TomadorRepository tomadorRepository;
 
-    public PacienteService(PacienteRepository repository) {
+    public PacienteService(PacienteRepository repository, TomadorRepository tomadorRepository) {
         this.repository = repository;
+        this.tomadorRepository = tomadorRepository;
     }
 
     @Transactional
@@ -41,6 +46,10 @@ public class PacienteService {
         paciente.setTelefone(dto.telefone());
         paciente.setDataNascimento(dto.dataNascimento());
         paciente.setDataCadastro(LocalDate.now());
+        paciente.setCpfNaNota(Boolean.TRUE.equals(dto.cpfNaNota()));
+        if (dto.tomadorId() != null) {
+            paciente.setTomador(tomadorAtivo(dto.tomadorId()));
+        }
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -73,6 +82,8 @@ public class PacienteService {
         if (dto.email() != null) paciente.setEmail(dto.email());
         if (dto.telefone() != null) paciente.setTelefone(dto.telefone());
         if (dto.dataNascimento() != null) paciente.setDataNascimento(dto.dataNascimento());
+        atualizarCpf(paciente, dto.cpf());
+        if (dto.cpfNaNota() != null) paciente.setCpfNaNota(dto.cpfNaNota());
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -100,6 +111,51 @@ public class PacienteService {
             paciente.setDataInativacao(LocalDate.now());
         }
         paciente.setAtivo(false);
+    }
+
+    /**
+     * Completa ou troca o CPF. Ausente ou vazio mantém o atual: o cadastro importado do seufisio pode não ter CPF, e
+     * sem esta rota ele nunca seria preenchido. Não há como apagar um CPF pelo PUT.
+     */
+    private void atualizarCpf(Paciente paciente, String cpf) {
+        String novo = vazioComoNulo(cpf);
+        if (novo == null || novo.equals(paciente.getCpf())) {
+            return;
+        }
+        if (repository.existsByCpf(novo)) {
+            throw new ConflictException("CPF já cadastrado");
+        }
+        paciente.setCpf(novo);
+    }
+
+    /**
+     * Vincula ({@code tomadorId}) ou desvincula ({@code null}) o tomador da NFSE do paciente. Tomador inativo não
+     * recebe vínculo novo; manter o vínculo que já existe com um tomador que foi inativado depois continua valendo.
+     */
+    @Transactional
+    public PacienteResponseDTO vincularTomador(Long id, Long tomadorId) {
+        Paciente paciente = encontrar(id);
+        if (tomadorId == null) {
+            paciente.setTomador(null);
+        } else if (paciente.getTomador() == null
+                || !tomadorId.equals(paciente.getTomador().getId())) {
+            paciente.setTomador(tomadorAtivo(tomadorId));
+        }
+        return PacienteResponseDTO.from(repository.saveAndFlush(paciente));
+    }
+
+    private Tomador tomadorAtivo(Long tomadorId) {
+        Tomador tomador = tomadorRepository
+                .findById(tomadorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tomador não encontrado: " + tomadorId));
+        if (!tomador.isAtivo()) {
+            throw new BusinessException("Tomador inativo não pode ser vinculado: " + tomadorId);
+        }
+        return tomador;
+    }
+
+    private static String vazioComoNulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     private Paciente encontrar(Long id) {

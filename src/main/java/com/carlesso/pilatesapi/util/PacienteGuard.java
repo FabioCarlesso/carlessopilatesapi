@@ -7,10 +7,11 @@ import com.carlesso.pilatesapi.exception.BusinessException;
  * Regra compartilhada de escrita no prontuário: paciente inativo é ex-aluno, e
  * o histórico dele continua legível e editável, mas não recebe registro novo.
  *
- * <p>Existe para que os oito pontos de criação (sessão, anamnese, avaliação,
- * plano de tratamento, reavaliação, NFSE, evolução e análise postural)
- * respondam a mesma coisa: {@code 404} quando o paciente não existe e
- * {@code 422} quando existe mas está inativo. Ver issue #152.
+ * <p>Existe para que os sete pontos de criação de registro clínico (sessão,
+ * anamnese, avaliação, plano de tratamento, reavaliação, evolução e análise
+ * postural) respondam a mesma coisa: {@code 404} quando o paciente não existe e
+ * {@code 422} quando existe mas está inativo. Ver issue #152. A NFSE emitida
+ * saiu da lista na #239: é registro fiscal e aceita paciente inativo.
  */
 public final class PacienteGuard {
 

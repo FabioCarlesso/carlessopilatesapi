@@ -9,7 +9,6 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.NotaFiscalEmitidaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.util.CompetenciaUtils;
-import com.carlesso.pilatesapi.util.PacienteGuard;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -77,7 +76,9 @@ public class NotaFiscalEmitidaService {
         Paciente paciente = pacienteRepository
                 .findById(dto.pacienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
-        PacienteGuard.exigirAtivo(paciente);
+        // Sem PacienteGuard.exigirAtivo: a NFSE é registro fiscal de um pagamento que já aconteceu, não registro
+        // clínico. Quem pagou e foi inativado depois continua devendo a nota da competência e aparece no relatório
+        // de NFSE (#229); sem registrar a nota emitida, notaAnteriorEmitida ficaria errado para ele (#239).
 
         YearMonth periodo = CompetenciaUtils.parse(dto.competencia());
         LocalDate competencia = periodo.atDay(1);

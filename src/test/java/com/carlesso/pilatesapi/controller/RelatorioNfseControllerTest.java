@@ -44,7 +44,7 @@ class RelatorioNfseControllerTest {
 
     @Test
     void gerar_json_deveRetornarRelatorio() throws Exception {
-        when(service.gerar("04/2026", null)).thenReturn(List.of(item()));
+        when(service.gerar("04/2026", null, null, null)).thenReturn(List.of(item()));
 
         mockMvc.perform(get("/api/relatorios/nfse").param("competencia", "04/2026"))
                 .andExpect(status().isOk())
@@ -54,25 +54,40 @@ class RelatorioNfseControllerTest {
                 .andExpect(jsonPath("$[0].competencia").value("04/2026"))
                 .andExpect(jsonPath("$[0].notaAnteriorEmitida").value(false));
 
-        verify(service).gerar("04/2026", null);
+        verify(service).gerar("04/2026", null, null, null);
     }
 
     @Test
     void gerar_comFiltroNotaAnterior_deveRepassarParametro() throws Exception {
-        when(service.gerar("04/2026", true)).thenReturn(List.of(item()));
+        when(service.gerar("04/2026", true, null, null)).thenReturn(List.of(item()));
 
         mockMvc.perform(get("/api/relatorios/nfse")
                         .param("competencia", "04/2026")
                         .param("notaAnteriorEmitida", "true"))
                 .andExpect(status().isOk());
 
-        verify(service).gerar("04/2026", true);
+        verify(service).gerar("04/2026", true, null, null);
+    }
+
+    @Test
+    void gerar_comFiltroCpfNaNota_deveRepassarParametroEExporOsCamposNovos() throws Exception {
+        when(service.gerar("04/2026", null, true, null)).thenReturn(List.of(item()));
+
+        mockMvc.perform(get("/api/relatorios/nfse")
+                        .param("competencia", "04/2026")
+                        .param("cpfNaNota", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].pacienteId").value(1))
+                .andExpect(jsonPath("$[0].cpfNaNota").value(true))
+                .andExpect(jsonPath("$[0].pendencia").doesNotExist());
+
+        verify(service).gerar("04/2026", null, true, null);
     }
 
     @Test
     void gerar_csv_deveRetornarArquivo() throws Exception {
         var relatorio = List.of(item());
-        when(service.gerar("04/2026", null)).thenReturn(relatorio);
+        when(service.gerar("04/2026", null, null, null)).thenReturn(relatorio);
         when(exporter.exportarCsv(relatorio)).thenReturn("Nome\nAna".getBytes());
 
         mockMvc.perform(get("/api/relatorios/nfse")
@@ -87,7 +102,7 @@ class RelatorioNfseControllerTest {
     @Test
     void gerar_xlsx_deveRetornarArquivo() throws Exception {
         var relatorio = List.of(item());
-        when(service.gerar("04/2026", null)).thenReturn(relatorio);
+        when(service.gerar("04/2026", null, null, null)).thenReturn(relatorio);
         when(exporter.exportarXlsx(relatorio)).thenReturn(new byte[] {1, 2, 3});
 
         mockMvc.perform(get("/api/relatorios/nfse")
@@ -101,7 +116,7 @@ class RelatorioNfseControllerTest {
 
     @Test
     void gerar_formatoInvalido_deveRetornar400() throws Exception {
-        when(service.gerar("04/2026", null)).thenReturn(List.of());
+        when(service.gerar("04/2026", null, null, null)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/relatorios/nfse")
                         .param("competencia", "04/2026")
@@ -124,6 +139,11 @@ class RelatorioNfseControllerTest {
                 "Aulas de Pilates - Competência 04/2026",
                 false,
                 LocalDate.of(2026, 4, 10),
-                "");
+                "",
+                1L,
+                true,
+                null,
+                "Paciente",
+                null);
     }
 }

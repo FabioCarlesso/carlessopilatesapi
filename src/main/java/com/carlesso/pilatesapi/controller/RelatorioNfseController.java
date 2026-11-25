@@ -39,11 +39,13 @@ public class RelatorioNfseController {
     @Operation(
             summary = "Gerar relatório de emissão de NFSEs",
             description =
-                    "Retorna pacientes com pagamentos confirmados na competência informada, com dados para emissão manual de NFSE.")
+                    "Retorna os pagamentos confirmados na competência informada, de pacientes ativos ou inativos, com dados"
+                            + " para emissão manual de NFSE. CPF/CNPJ só sai para quem deseja CPF na nota; quem deseja e"
+                            + " não tem CPF cadastrado sai com `pendencia`, sem derrubar o relatório.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Relatório gerado com sucesso"),
         @ApiResponse(responseCode = "400", description = "Competência ou formato inválido"),
-        @ApiResponse(responseCode = "422", description = "Dados obrigatórios ausentes para emissão")
+        @ApiResponse(responseCode = "422", description = "Pagamento sem valor ou sem data de pagamento")
     })
     @GetMapping
     public ResponseEntity<?> gerar(
@@ -52,9 +54,16 @@ public class RelatorioNfseController {
             @Parameter(description = "Filtra registros com ou sem nota anterior emitida")
                     @RequestParam(required = false)
                     Boolean notaAnteriorEmitida,
+            @Parameter(description = "Filtra pacientes que desejam (true) ou não (false) CPF/CNPJ na nota")
+                    @RequestParam(required = false)
+                    Boolean cpfNaNota,
+            @Parameter(description = "Só as notas deste tomador (pacientes vinculados que desejam CPF na nota)")
+                    @RequestParam(required = false)
+                    Long tomadorId,
             @Parameter(description = "Formato de saída: JSON, CSV ou XLSX") @RequestParam(defaultValue = "JSON")
                     String formato) {
-        List<RelatorioNfseResponseDTO> relatorio = service.gerar(competencia, notaAnteriorEmitida);
+        List<RelatorioNfseResponseDTO> relatorio =
+                service.gerar(competencia, notaAnteriorEmitida, cpfNaNota, tomadorId);
         String formatoNormalizado = formato.toUpperCase(Locale.ROOT);
 
         return switch (formatoNormalizado) {
