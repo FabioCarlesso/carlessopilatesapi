@@ -80,7 +80,8 @@ da tabela abaixo. Rota que o
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
-| `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro` | | | ✓ |
+| `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
+| `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro`, `/api/relatorios/recebimentos` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
 | `/profissionais/{id}/relatorio-pagamento` (JSON e PDF) | | | ✓ |
@@ -88,7 +89,7 @@ da tabela abaixo. Rota que o
 | `/users/me`, `/users/me/senha`, `/users/me/preferencias` | ✓ | ✓ | ✓ |
 
 Só de `ADMIN`: `/users/**` (exceto `/users/me*`), `/admin/**`, `/actuator/**` além de health/info, escrita em
-`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
+`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `GET /pagamentos/xlsx`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
 `/dashboard/aulas-por-profissional`. `PACIENTE` só acessa `/users/me*` até o portal do paciente existir.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
@@ -208,6 +209,7 @@ pagamento copiam esse horário. Sem ele, as aulas nascem sem horário e ficam fo
 | `GET` | `/pagamentos/paciente/{id}` | Listar pagamentos do paciente (paginado) |
 | `PATCH` | `/pagamentos/{id}/pagar` | Confirmar pagamento e gerar aulas; aceita `dataPagamento` e `formaPagamento` opcionais no corpo |
 | `GET` | `/pagamentos` | Listagem global paginada (gestão de inadimplência, `ADMIN`); filtros `status`, `vencimentoDe`, `vencimentoAte`, `pacienteId` e `formaPagamento` |
+| `GET` | `/pagamentos/xlsx` | Exporta em XLSX a listagem global com os mesmos filtros e `sort`, sem paginação (`ADMIN`) |
 | `POST` | `/pagamentos/{id}/cobrancas` | Registrar contato de cobrança do pagamento (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas` | Histórico de contatos de cobrança do pagamento, do mais recente para o mais antigo (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas/{contatoId}` | Buscar contato de cobrança (é o alvo do `Location` devolvido no registro; `ADMIN`) |
@@ -246,6 +248,23 @@ GET /pagamentos?status=PENDENTE&status=VENCIDO&vencimentoAte=2026-10-12&page=0&s
   Dias em atraso não vêm na resposta: o frontend calcula a partir de `dataVencimento`.
 - A ordenação padrão é `dataVencimento,asc` (os mais atrasados primeiro), sempre com `id` como desempate. `sort` aceita
   apenas `dataVencimento`, `valor`, `status` e `paciente.nome`; outro campo retorna `400`.
+
+#### Exportação em XLSX
+
+```
+GET /pagamentos/xlsx?status=PENDENTE&vencimentoDe=2026-11-25&vencimentoAte=2026-12-02
+```
+
+- Mesmos parâmetros da listagem (`status` repetível, `vencimentoDe`, `vencimentoAte`, `pacienteId`, `formaPagamento` e
+  `sort`), com as mesmas validações e respostas `400`, mas sem `page`/`size`: a planilha traz todas as linhas do
+  filtro, na mesma ordem da listagem. O exemplo acima lista as renovações da semana.
+- Teto de 5000 pagamentos: acima disso, `400` pedindo para restringir os filtros.
+- Restrita a `ADMIN` (`403` para os demais, inclusive no `HEAD`).
+- Resposta `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` com
+  `Content-Disposition: attachment; filename="cobrancas-<yyyy-MM-dd>.xlsx"` (data de hoje no fuso do estúdio).
+- Uma aba, `Cobranças`: paciente, telefone, valor, vencimento, dias em atraso, status, período (`dd/MM/yyyy a
+  dd/MM/yyyy`), quantidade de contatos de cobrança e data do último contato, e uma linha final de total. Dias em
+  atraso seguem a regra de [regras de negócio](regras-de-negocio.md).
 
 ### Contatos de cobrança
 
@@ -507,6 +526,12 @@ existia à época do registro.
 | `GET` | `/api/relatorios/financeiro?inicio=&fim=` | Relatório financeiro consolidado do estúdio: receita × repasses (JSON) |
 | `GET` | `/api/relatorios/financeiro/pdf?inicio=&fim=` | Exportar o relatório financeiro em PDF |
 | `GET` | `/api/relatorios/financeiro/xlsx?inicio=&fim=` | Exportar o relatório financeiro em Excel (XLSX) |
+| `GET` | `/api/relatorios/pacientes` | Relatório de pacientes: situação, contato, plano, profissional e pendências (JSON) |
+| `GET` | `/api/relatorios/pacientes/pdf` | Exportar o relatório de pacientes em PDF |
+| `GET` | `/api/relatorios/pacientes/xlsx` | Exportar o relatório de pacientes em Excel (XLSX) |
+| `GET` | `/api/relatorios/recebimentos?inicio=&fim=` | Recebimentos do período (pagamentos confirmados por data de pagamento), com totais por forma (JSON) |
+| `GET` | `/api/relatorios/recebimentos/pdf?inicio=&fim=` | Exportar os recebimentos em PDF |
+| `GET` | `/api/relatorios/recebimentos/xlsx?inicio=&fim=` | Exportar os recebimentos em Excel (XLSX) |
 
 ## NFSE emitidas
 
@@ -788,6 +813,121 @@ do profissional no mesmo período. Os critérios de cada bloco estão em
 As exportações `/pdf` e `/xlsx` usam o mesmo cálculo e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-financeiro-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Repasses`; o PDF traz as mesmas informações numa página.
+
+## Relatório de pacientes — contrato JSON
+
+`GET /api/relatorios/pacientes` (#230) lista os pacientes por nome, sem paginação. Só `ADMIN` e `RECEPCAO`. Filtros,
+todos opcionais:
+
+| Parâmetro | Valores | Efeito |
+|---|---|---|
+| `situacao` | `ATIVOS` (padrão), `INATIVOS`, `TODOS` | Situação do cadastro |
+| `semPlanoAtivo` | `true` | Só pacientes **ativos** sem plano ativo, mesmo com `situacao=TODOS` |
+| `cadastroIncompleto` | `true` | Só pacientes com ao menos uma pendência |
+| `mesNascimento` | `1`–`12` | Aniversariantes do mês; fora do intervalo, `400` |
+| `profissionalId` | id | Pacientes cuja próxima aula não realizada é desse profissional |
+
+`false` nos filtros booleanos é o mesmo que ausente. `situacao` inválida ou resultado acima de 5.000 linhas retorna
+`400`.
+
+```json
+{
+  "filtros": {
+    "situacao": "TODOS",
+    "semPlanoAtivo": false,
+    "cadastroIncompleto": false,
+    "mesNascimento": null,
+    "profissionalId": null,
+    "profissionalNome": null
+  },
+  "totais": { "total": 123, "ativos": 47, "inativos": 76, "comPendencia": 30 },
+  "pacientes": [
+    {
+      "id": 7,
+      "nome": "Bruna Souza",
+      "cpf": "12345678901",
+      "telefone": "45999990001",
+      "email": "bruna@email.com",
+      "dataNascimento": "1989-12-03",
+      "idade": 36,
+      "ativo": true,
+      "dataCadastro": "2026-01-10",
+      "dataInativacao": null,
+      "planoAtivo": {
+        "id": 10,
+        "tipo": "MENSAL",
+        "frequenciaSemanal": "DUAS_VEZES",
+        "diasSemana": ["MONDAY", "WEDNESDAY"],
+        "horario": "08:00:00",
+        "valor": 300.00
+      },
+      "profissional": { "id": 5, "nome": "Paula Mendes" },
+      "pendencias": []
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+- `pendencias`: lista de `SEM_CPF`, `SEM_EMAIL`, `SEM_TELEFONE`, `SEM_DATA_NASCIMENTO` e `SEM_PLANO_ATIVO`, nessa
+  ordem.
+- `planoAtivo`, `profissional`, `idade`, `dataNascimento`, `dataCadastro` e `dataInativacao` podem vir `null`.
+- `totais` conta as linhas retornadas, depois dos filtros.
+
+As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
+(`Content-Disposition: attachment; filename="relatorio-pacientes-{situacao}-{data}.{ext}"`, com a situação em
+minúsculas e a data do dia). O XLSX tem as abas `Resumo` e `Pacientes`; o PDF é em paisagem. As regras estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-pacientes).
+## Relatório de recebimentos — contrato JSON
+
+`GET /api/relatorios/recebimentos?inicio=2026-11-01&fim=2026-11-30` lista os pagamentos confirmados no período pela
+**data de pagamento** (datas inclusivas, até 366 dias). Só `ADMIN` e `FINANCEIRO`. Filtros opcionais:
+`formaPagamento` (`PIX`, `DINHEIRO`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `TRANSFERENCIA` ou `NAO_INFORMADA`, para os
+confirmados sem forma registrada) e `pacienteId`. Período ausente, invertido, acima do teto ou com mais de 5.000
+linhas retorna `400`, assim como uma `formaPagamento` fora da lista. Período sem movimento retorna zeros.
+
+```json
+{
+  "periodo": { "inicio": "2026-11-01", "fim": "2026-11-30" },
+  "filtros": { "formaPagamento": null, "pacienteId": null },
+  "resumo": {
+    "quantidadePagamentos": 2,
+    "total": 550.00,
+    "porFormaPagamento": [
+      { "formaPagamento": "PIX", "descricao": "PIX", "quantidade": 1, "total": 300.00 },
+      { "formaPagamento": "DINHEIRO", "descricao": "Dinheiro", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "CARTAO_CREDITO", "descricao": "Cartão de crédito", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "CARTAO_DEBITO", "descricao": "Cartão de débito", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "TRANSFERENCIA", "descricao": "Transferência", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "NAO_INFORMADA", "descricao": "Não informada", "quantidade": 1, "total": 250.00 }
+    ]
+  },
+  "recebimentos": [
+    {
+      "pagamentoId": 10,
+      "pacienteId": 1,
+      "pacienteNome": "Ana Souza",
+      "valor": 300.00,
+      "dataPagamento": "2026-11-05",
+      "formaPagamento": "PIX",
+      "dataVencimento": "2026-11-05",
+      "periodoInicio": "2026-11-01",
+      "periodoFim": "2026-11-30",
+      "planoId": 3,
+      "frequenciaSemanal": "DUAS_VEZES"
+    }
+  ],
+  "geradoEm": "2026-12-01T09:00:00"
+}
+```
+
+`porFormaPagamento` traz sempre as seis formas, nessa ordem, mesmo zeradas; a soma delas é o `total`. As linhas vêm
+por `dataPagamento`, nome do paciente e `pagamentoId`. Os critérios estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-recebimentos).
+
+As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
+(`Content-Disposition: attachment; filename="relatorio-recebimentos-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
+`Resumo` e `Recebimentos` (com linha de total); o PDF é em paisagem.
 
 ## NFSE emitidas — registro fiscal
 

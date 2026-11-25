@@ -101,11 +101,12 @@ public class SecurityConfig {
                         .requestMatchers("/bloqueios", "/bloqueios/**")
                         .hasRole("ADMIN")
                         // Listagem global de pagamentos e contatos de cobrança são da gestão de inadimplência,
-                        // tela de ADMIN (#196, #197). Só GET/HEAD em /pagamentos exato: o POST de criação e as
-                        // demais rotas de /pagamentos/** seguem a regra financeira mais abaixo.
-                        .requestMatchers(HttpMethod.GET, "/pagamentos")
+                        // tela de ADMIN (#196, #197), assim como a exportação dela em XLSX (#232). Só GET/HEAD em
+                        // /pagamentos exato e em /pagamentos/xlsx: o POST de criação e as demais rotas de
+                        // /pagamentos/** seguem a regra financeira mais abaixo.
+                        .requestMatchers(HttpMethod.GET, "/pagamentos", "/pagamentos/xlsx")
                         .hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.HEAD, "/pagamentos")
+                        .requestMatchers(HttpMethod.HEAD, "/pagamentos", "/pagamentos/xlsx")
                         .hasRole("ADMIN")
                         .requestMatchers("/pagamentos/*/cobrancas", "/pagamentos/*/cobrancas/**")
                         .hasRole("ADMIN")
@@ -147,6 +148,14 @@ public class SecurityConfig {
                         // Relatório financeiro consolidado (#108): receita e repasses de todos os profissionais,
                         // mesma área do relatório de repasse individual.
                         .requestMatchers("/api/relatorios/financeiro", "/api/relatorios/financeiro/**")
+                        .hasAnyRole(FISCAL)
+                        // Relatório de pacientes (#230): cadastro, contato e pendências — da recepção, que completa os
+                        // cadastros; não traz dado clínico nem financeiro além do valor do plano.
+                        .requestMatchers("/api/relatorios/pacientes", "/api/relatorios/pacientes/**")
+                        .hasAnyRole("ADMIN", "RECEPCAO")
+                        // Recebimentos do período (#231): a lista por trás da receita do relatório financeiro, na
+                        // mesma área dele.
+                        .requestMatchers("/api/relatorios/recebimentos", "/api/relatorios/recebimentos/**")
                         .hasAnyRole(FISCAL)
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.

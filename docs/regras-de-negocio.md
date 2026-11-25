@@ -36,7 +36,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e access e refresh tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
-- A listagem global `GET /pagamentos` (e o `HEAD` equivalente) e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem a área de cobrança (`ADMIN`, `RECEPCAO`, `FINANCEIRO`)
+- A listagem global `GET /pagamentos` (e o `HEAD` equivalente), a exportação dela em `GET /pagamentos/xlsx` e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem a área de cobrança (`ADMIN`, `RECEPCAO`, `FINANCEIRO`)
 - `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` são restritos a `ADMIN` (`403` para os demais): são gestão do negócio. `GET /dashboard/resumo` é da equipe toda, mas a `receitaMesAtual` só vem preenchida para `ADMIN` e `FINANCEIRO` (`null` para os demais): valor faturado é informação financeira
 
 ## Recuperação de senha (esqueci minha senha)
@@ -129,7 +129,10 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - O filtro `formaPagamento` da listagem global combina com os demais e só encontra pagamentos com a forma registrada
 - A listagem global (`GET /pagamentos`, #196) ordena por `dataVencimento` crescente por padrão — os mais atrasados primeiro — e sempre acrescenta `id` como último critério: as cobranças nascem em lote com o mesmo vencimento, e sem o desempate uma linha poderia trocar de página entre duas requisições. Os campos ordenáveis são uma lista fechada (`dataVencimento`, `valor`, `status`, `paciente.nome`); campo fora dela retorna `400` em vez de chegar ao Spring Data e virar `500`
 - A faixa `vencimentoDe`/`vencimentoAte` é inclusiva nas duas pontas e pode ser aberta de um dos lados; invertida retorna `400`
-- Dias em atraso não são calculados no backend: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento
+- Dias em atraso não vêm na listagem: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento
+- A exportação das cobranças em XLSX (`GET /pagamentos/xlsx`, #232) é a mesma consulta da listagem, com os mesmos filtros, validação e ordenação, mas sem paginação: a planilha traz as mesmas linhas das páginas somadas. Tem teto de **5000** pagamentos; um filtro que passe disso retorna `400` pedindo para restringi-lo, em vez de exportar uma planilha cortada
+- Na planilha, **dias em atraso** = dias corridos de `dataVencimento` até hoje (no fuso do estúdio, `app.fuso-horario`), nunca negativo: `0` para o que vence hoje ou depois e para pagamentos `PAGO`. Um `PENDENTE` que já venceu conta atraso mesmo antes de o scheduler das 06:00 marcá-lo como `VENCIDO`
+- A planilha traz, por pagamento, a quantidade de contatos de cobrança e a data (`dataContato`) do mais recente, e termina com uma linha de total (quantidade e soma dos valores)
 
 ### Contatos de cobrança
 
@@ -366,6 +369,43 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
 - **Resultado líquido:** `receita − repasses`. Pode ser negativo. A inadimplência é informativa e não entra na conta,
   porque não é dinheiro em caixa.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Repasses`.
+
+## Relatório de pacientes
+
+`GET /api/relatorios/pacientes` (#230) é o relatório de cadastro do estúdio, da recepção (`ADMIN` e `RECEPCAO`).
+Não muda a listagem `GET /pacientes`, que continua servindo a tela de cadastro.
+
+- **Situação:** `ATIVOS` por padrão; `TODOS` é a única forma de ver ativos e inativos juntos.
+- **Pendências:** CPF, e-mail ou telefone ausentes ou em branco, data de nascimento ausente e, só para paciente
+  ativo, falta de plano ativo — paciente inativo sem plano não é pendência. `cadastroIncompleto=true` traz quem tem
+  ao menos uma delas.
+- **Sem plano ativo:** `semPlanoAtivo=true` traz só pacientes ativos sem plano com `ativo = true`, qualquer que seja a
+  `situacao`. São os que estão desatualizados ou não estão sendo cobrados.
+- **Plano:** o plano ativo do paciente; se a base tiver dois ativos, vale o de início mais recente.
+- **Profissional:** o da próxima aula não realizada (data a partir de hoje, no fuso `app.fuso-horario`) que tenha
+  profissional definido. Aulas sem profissional são puladas. `profissionalId` filtra por ele.
+- **Aniversariantes:** `mesNascimento` compara só o mês da data de nascimento; quem não tem a data fica de fora.
+- **Idade:** anos completos na data da consulta.
+- **Teto:** sem paginação, porque o volume do estúdio é pequeno. Acima de 5.000 linhas, a resposta é `400`, o mesmo
+  teto dos demais relatórios sem paginação.
+- PDF e XLSX reusam o JSON, com as mesmas linhas e totais.
+## Relatório de recebimentos
+
+`GET /api/relatorios/recebimentos` (#231) é a lista de "quem pagou" no período, para conferir o caixa e conciliar com
+o extrato (PIX/dinheiro). `GET /pagamentos` não serve para isso porque filtra por vencimento. É do `ADMIN` e do
+`FINANCEIRO`, a mesma área do relatório financeiro.
+
+- **Critério:** pagamentos `PAGO` com `dataPagamento` no período, sem filtrar paciente ativo: o mesmo critério da
+  `receita` do relatório financeiro e dos indicadores do dashboard. Sem filtros, o total do relatório é igual à
+  receita do financeiro no mesmo período. `PENDENTE` e `VENCIDO` nunca aparecem.
+- **Período:** `inicio` e `fim` obrigatórios, inclusivos, até 366 dias. Acima de 5.000 linhas a consulta é recusada
+  com `400`, como nas demais respostas sem paginação.
+- **Forma "não informada":** pagamento confirmado sem `formaPagamento` (a forma só passou a ser registrada na
+  confirmação com a #215, e os confirmados na migração do seufisio não a têm) entra como `NAO_INFORMADA`, que também
+  pode ser usada como filtro.
+- **Filtros:** `formaPagamento` e `pacienteId` restringem as linhas e os totais. Com filtro, o total deixa de ser a
+  receita do período e passa a ser o da seleção.
+- PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Recebimentos`.
 
 ## Indicadores do dashboard
 

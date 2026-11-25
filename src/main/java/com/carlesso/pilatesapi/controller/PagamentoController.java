@@ -8,6 +8,7 @@ import com.carlesso.pilatesapi.dto.PagamentoResponseDTO;
 import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.service.ContatoCobrancaService;
+import com.carlesso.pilatesapi.service.PagamentoCobrancaExporterService;
 import com.carlesso.pilatesapi.service.PagamentoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +24,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.SortDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -33,12 +37,20 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequestMapping("/pagamentos")
 public class PagamentoController {
 
+    private static final MediaType XLSX_MEDIA_TYPE =
+            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final PagamentoService service;
     private final ContatoCobrancaService contatoCobrancaService;
+    private final PagamentoCobrancaExporterService cobrancaExporter;
 
-    public PagamentoController(PagamentoService service, ContatoCobrancaService contatoCobrancaService) {
+    public PagamentoController(
+            PagamentoService service,
+            ContatoCobrancaService contatoCobrancaService,
+            PagamentoCobrancaExporterService cobrancaExporter) {
         this.service = service;
         this.contatoCobrancaService = contatoCobrancaService;
+        this.cobrancaExporter = cobrancaExporter;
     }
 
     @Operation(
@@ -77,6 +89,54 @@ public class PagamentoController {
             @ParameterObject @SortDefault(sort = "dataVencimento") Pageable pageable) {
         return ResponseEntity.ok(new PagedModel<>(
                 service.listar(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento, pageable)));
+    }
+
+    @Operation(
+            summary = "Exportar cobranças em XLSX",
+            description =
+                    """
+                    Mesma consulta da listagem global (`GET /pagamentos`), com os mesmos filtros, validação e
+                    ordenação (`sort`, padrão `dataVencimento` crescente com `id` como desempate), mas sem paginação:
+                    a planilha traz todas as linhas do filtro, até 5000. Colunas: paciente, telefone, valor,
+                    vencimento, dias em atraso (0 para pagos e a vencer), status, período, quantidade de contatos de
+                    cobrança e data do último contato, com uma linha de total. Restrito a `ADMIN`.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Planilha gerada (`Content-Disposition: attachment`)"),
+        @ApiResponse(
+                responseCode = "400",
+                description = "Faixa de vencimento invertida, filtro ou ordenação inválidos, ou mais de 5000"
+                        + " pagamentos no filtro"),
+        @ApiResponse(responseCode = "403", description = "Usuário sem papel ADMIN")
+    })
+    @GetMapping("/xlsx")
+    public ResponseEntity<byte[]> exportarXlsx(
+            @Parameter(description = "Filtra por status; pode ser repetido") @RequestParam(required = false)
+                    List<StatusPagamento> status,
+            @Parameter(description = "Vencimento a partir de (`yyyy-MM-dd`, inclusivo)")
+                    @RequestParam(required = false)
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate vencimentoDe,
+            @Parameter(description = "Vencimento até (`yyyy-MM-dd`, inclusivo)")
+                    @RequestParam(required = false)
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate vencimentoAte,
+            @Parameter(description = "ID do paciente") @RequestParam(required = false) Long pacienteId,
+            @Parameter(description = "Forma de pagamento registrada na confirmação") @RequestParam(required = false)
+                    FormaPagamento formaPagamento,
+            // @ParameterObject publica o sort como na listagem (lista opcional de `campo,direção`); sem ele, o
+            // springdoc expunha um objeto Sort obrigatório e o "Try it out" do Swagger recebia 400.
+            @ParameterObject @SortDefault(sort = "dataVencimento") Sort sort) {
+        var pagamentos =
+                service.listarParaExportacao(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento, sort);
+        return ResponseEntity.ok()
+                .contentType(XLSX_MEDIA_TYPE)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(cobrancaExporter.nomeArquivo())
+                                .build()
+                                .toString())
+                .body(cobrancaExporter.exportarXlsx(pagamentos));
     }
 
     @Operation(

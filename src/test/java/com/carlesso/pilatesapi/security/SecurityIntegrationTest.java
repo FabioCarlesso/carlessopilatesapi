@@ -1038,6 +1038,28 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void pagamentosExportarXlsx_comAdmin_deveRetornarPlanilhaComoAnexo() throws Exception {
+        User admin = criarUsuario("pagamentos-xlsx-admin@email.com", Role.ADMIN);
+
+        // /pagamentos/xlsx não pode cair em /pagamentos/{id}: isso responderia 400 pelo id não numérico.
+        mvc.perform(get("/pagamentos/xlsx")
+                        .param("status", "PENDENTE")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                org.hamcrest.Matchers.startsWith("attachment; filename=\"cobrancas-")));
+    }
+
+    @Test
+    void pagamentosExportarXlsx_headComUsuarioSemRoleAdmin_deveRetornar403() throws Exception {
+        User user = criarUsuario("pagamentos-xlsx-head@email.com", Role.FINANCEIRO);
+
+        mvc.perform(head("/pagamentos/xlsx").header(HttpHeaders.AUTHORIZATION, bearer(user)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void pagamentosBuscarPorId_comUsuarioSemRoleAdmin_naoDeveCairNaRegraDeAdmin() throws Exception {
         User user = criarUsuario("pagamentos-id@email.com", Role.RECEPCAO);
 
@@ -1142,6 +1164,58 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioPacientes_comRecepcao_geraORelatorioEComFinanceiroNega() throws Exception {
+        User recepcao = criarUsuario("relatorio-pacientes-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("relatorio-pacientes-financeiro@email.com", Role.FINANCEIRO);
+
+        mvc.perform(get("/api/relatorios/pacientes")
+                        .param("situacao", "TODOS")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filtros.situacao").value("TODOS"))
+                .andExpect(jsonPath("$.totais.total").isNumber());
+        mvc.perform(get("/api/relatorios/pacientes/xlsx").header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                org.hamcrest.Matchers.startsWith(
+                                        "attachment; filename=\"relatorio-pacientes-ativos-")));
+        mvc.perform(get("/api/relatorios/pacientes").header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/relatorios/pacientes")
+                        .param("mesNascimento", "13")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void relatorioRecebimentos_comFinanceiro_geraORelatorioEComRecepcaoNega() throws Exception {
+        User financeiro = criarUsuario("relatorio-recebimentos-financeiro@email.com", Role.FINANCEIRO);
+        User recepcao = criarUsuario("relatorio-recebimentos-recepcao@email.com", Role.RECEPCAO);
+
+        mvc.perform(get("/api/relatorios/recebimentos")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumo.total").value(0))
+                .andExpect(jsonPath("$.resumo.porFormaPagamento.length()").value(6))
+                .andExpect(jsonPath("$.recebimentos").isEmpty());
+        mvc.perform(get("/api/relatorios/recebimentos")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        mvc.perform(get("/api/relatorios/recebimentos")
+                        .param("inicio", "2026-12-01")
+                        .param("fim", "2026-11-01")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -1169,11 +1243,18 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /planos/999999                                 | RECEPCAO FINANCEIRO",
                 "POST   | /pagamentos                                    | RECEPCAO FINANCEIRO",
                 "GET    | /pagamentos/999999                             | RECEPCAO FINANCEIRO",
+                "GET    | /pagamentos/xlsx                               | ",
                 "GET    | /api/nfse-emitidas/paciente/999999             | FINANCEIRO",
                 "GET    | /api/relatorios/nfse                           | FINANCEIRO",
                 "GET    | /api/relatorios/financeiro                     | FINANCEIRO",
                 "GET    | /api/relatorios/financeiro/pdf                 | FINANCEIRO",
                 "GET    | /api/relatorios/financeiro/xlsx                | FINANCEIRO",
+                "GET    | /api/relatorios/pacientes                      | RECEPCAO",
+                "GET    | /api/relatorios/pacientes/pdf                  | RECEPCAO",
+                "GET    | /api/relatorios/pacientes/xlsx                 | RECEPCAO",
+                "GET    | /api/relatorios/recebimentos                   | FINANCEIRO",
+                "GET    | /api/relatorios/recebimentos/pdf               | FINANCEIRO",
+                "GET    | /api/relatorios/recebimentos/xlsx              | FINANCEIRO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",

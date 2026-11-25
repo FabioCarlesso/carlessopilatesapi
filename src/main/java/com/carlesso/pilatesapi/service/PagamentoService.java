@@ -23,6 +23,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -43,6 +44,12 @@ public class PagamentoService {
 
     /** Sem {@code paciente.nome}: na listagem de um único paciente, ordenar pelo nome dele não muda nada. */
     static final Set<String> CAMPOS_ORDENAVEIS_POR_PACIENTE = Set.of("dataVencimento", "valor", "status");
+
+    /**
+     * Teto de linhas da exportação de cobranças (#232). O volume do estúdio fica muito abaixo disso; o teto existe para
+     * um filtro aberto demais não montar uma planilha gigante em memória.
+     */
+    static final int LIMITE_EXPORTACAO = 5_000;
 
     private final PagamentoRepository pagamentoRepository;
     private final PacienteRepository pacienteRepository;
@@ -176,6 +183,37 @@ public class PagamentoService {
                         filtros(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento),
                         PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.ASC))
                 .map(PagamentoResponseDTO::from);
+    }
+
+    /**
+     * Mesma consulta da {@link #listar listagem global}, sem paginação, para a exportação em XLSX (#232): mesmos
+     * filtros, mesma validação e mesma ordenação, então a planilha traz exatamente as linhas das páginas somadas.
+     *
+     * @throws IllegalArgumentException ({@code 400}) com faixa invertida, campo de ordenação não aceito ou mais de
+     *     {@value #LIMITE_EXPORTACAO} pagamentos no filtro
+     */
+    @Transactional(readOnly = true)
+    public List<Pagamento> listarParaExportacao(
+            List<StatusPagamento> status,
+            LocalDate vencimentoDe,
+            LocalDate vencimentoAte,
+            Long pacienteId,
+            FormaPagamento formaPagamento,
+            Sort sort) {
+        if (vencimentoDe != null && vencimentoAte != null && vencimentoDe.isAfter(vencimentoAte)) {
+            throw new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte");
+        }
+        // Uma linha a mais que o teto: se ela vier, o filtro passou do limite, sem precisar de um count separado.
+        Pageable limite = PaginacaoGuard.comDesempatePorId(
+                PageRequest.of(0, LIMITE_EXPORTACAO + 1, sort), CAMPOS_ORDENAVEIS, Sort.Direction.ASC);
+        List<Pagamento> pagamentos = pagamentoRepository
+                .findAll(filtros(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento), limite)
+                .getContent();
+        if (pagamentos.size() > LIMITE_EXPORTACAO) {
+            throw new IllegalArgumentException("Exportação limitada a " + LIMITE_EXPORTACAO
+                    + " pagamentos; restrinja os filtros (status, vencimento ou paciente)");
+        }
+        return pagamentos;
     }
 
     @Transactional
