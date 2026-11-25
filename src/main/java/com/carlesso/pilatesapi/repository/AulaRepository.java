@@ -251,4 +251,18 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
         Long getQuantidadeAulasPagamento();
     }
+
+    /**
+     * Profissional das próximas aulas não realizadas (a partir de {@code hoje}), por paciente, para o relatório de
+     * pacientes (#230). Vem ordenado por paciente, data e horário: a primeira linha de cada paciente é a da próxima
+     * aula com profissional definido.
+     */
+    @Query(
+            """
+            SELECT a.paciente.id AS pacienteId, p.id AS profissionalId, p.nome AS profissionalNome
+            FROM Aula a JOIN a.profissional p
+            WHERE a.realizada = false AND a.data >= :hoje
+            ORDER BY a.paciente.id, a.data, a.horario
+            """)
+    List<ProximaAulaProfissionalProjection> findProfissionaisDasProximasAulas(@Param("hoje") LocalDate hoje);
 }

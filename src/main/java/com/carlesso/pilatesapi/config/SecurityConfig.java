@@ -149,6 +149,10 @@ public class SecurityConfig {
                         // mesma área do relatório de repasse individual.
                         .requestMatchers("/api/relatorios/financeiro", "/api/relatorios/financeiro/**")
                         .hasAnyRole(FISCAL)
+                        // Relatório de pacientes (#230): cadastro, contato e pendências — da recepção, que completa os
+                        // cadastros; não traz dado clínico nem financeiro além do valor do plano.
+                        .requestMatchers("/api/relatorios/pacientes", "/api/relatorios/pacientes/**")
+                        .hasAnyRole("ADMIN", "RECEPCAO")
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(
