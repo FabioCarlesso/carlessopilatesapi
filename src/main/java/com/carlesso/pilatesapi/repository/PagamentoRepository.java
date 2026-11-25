@@ -116,6 +116,23 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
     TotalPagamentosProjection totalizarVencidos(
             @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim, @Param("hoje") LocalDate hoje);
 
+    /**
+     * Pagamentos {@code PAGO} com {@code dataPagamento} no período, com paciente e plano: as linhas do relatório de
+     * recebimentos (#231). Mesmo critério de {@link #totalizarRecebidos}, para que o total bata com a receita do
+     * relatório financeiro. Sem filtro de paciente ativo.
+     */
+    @Query(
+            """
+            select p
+            from Pagamento p
+            join fetch p.paciente paciente
+            join fetch p.plano
+            where p.status = com.carlesso.pilatesapi.entity.enums.StatusPagamento.PAGO
+              and p.dataPagamento between :inicio and :fim
+            order by p.dataPagamento asc, paciente.nome asc, p.id asc
+            """)
+    List<Pagamento> findRecebidosNoPeriodo(@Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
     interface TotalPagamentosProjection {
         long getQuantidade();
 

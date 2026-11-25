@@ -1189,6 +1189,33 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioRecebimentos_comFinanceiro_geraORelatorioEComRecepcaoNega() throws Exception {
+        User financeiro = criarUsuario("relatorio-recebimentos-financeiro@email.com", Role.FINANCEIRO);
+        User recepcao = criarUsuario("relatorio-recebimentos-recepcao@email.com", Role.RECEPCAO);
+
+        mvc.perform(get("/api/relatorios/recebimentos")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumo.total").value(0))
+                .andExpect(jsonPath("$.resumo.porFormaPagamento.length()").value(6))
+                .andExpect(jsonPath("$.recebimentos").isEmpty());
+        mvc.perform(get("/api/relatorios/recebimentos")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        mvc.perform(get("/api/relatorios/recebimentos")
+                        .param("inicio", "2026-12-01")
+                        .param("fim", "2026-11-01")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -1225,6 +1252,9 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /api/relatorios/pacientes                      | RECEPCAO",
                 "GET    | /api/relatorios/pacientes/pdf                  | RECEPCAO",
                 "GET    | /api/relatorios/pacientes/xlsx                 | RECEPCAO",
+                "GET    | /api/relatorios/recebimentos                   | FINANCEIRO",
+                "GET    | /api/relatorios/recebimentos/pdf               | FINANCEIRO",
+                "GET    | /api/relatorios/recebimentos/xlsx              | FINANCEIRO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",
