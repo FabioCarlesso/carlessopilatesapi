@@ -54,7 +54,7 @@ public class RelatorioFrequenciaController {
             @Parameter(description = "Só as aulas deste profissional") @RequestParam(required = false)
                     Long profissionalId,
             @Parameter(description = "Paciente") @RequestParam(required = false) Long pacienteId,
-            @Parameter(description = "Só pacientes com presença abaixo deste percentual (0–100)", example = "75")
+            @Parameter(description = "Só pacientes com presença abaixo deste percentual (0–100), por exemplo 75")
                     @RequestParam(required = false)
                     BigDecimal taxaMaxima) {
         return ResponseEntity.ok(service.gerar(inicio, fim, profissionalId, pacienteId, taxaMaxima));
@@ -77,7 +77,7 @@ public class RelatorioFrequenciaController {
             @Parameter(description = "Só as aulas deste profissional") @RequestParam(required = false)
                     Long profissionalId,
             @Parameter(description = "Paciente") @RequestParam(required = false) Long pacienteId,
-            @Parameter(description = "Só pacientes com presença abaixo deste percentual (0–100)", example = "75")
+            @Parameter(description = "Só pacientes com presença abaixo deste percentual (0–100), por exemplo 75")
                     @RequestParam(required = false)
                     BigDecimal taxaMaxima) {
         byte[] xlsx = exporter.exportarXlsx(service.gerar(inicio, fim, profissionalId, pacienteId, taxaMaxima));
