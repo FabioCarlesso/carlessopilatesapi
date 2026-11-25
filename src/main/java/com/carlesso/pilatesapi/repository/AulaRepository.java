@@ -265,4 +265,31 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             ORDER BY a.paciente.id, a.data, a.horario
             """)
     List<ProximaAulaProfissionalProjection> findProfissionaisDasProximasAulas(@Param("hoje") LocalDate hoje);
+
+    /**
+     * Aulas no período (datas inclusivas), uma linha por aula, para o relatório de frequência (#233). Os filtros de
+     * profissional e paciente são aplicados em memória pelo serviço: o período já limita o volume.
+     */
+    @Query(
+            """
+            SELECT pa.id AS pacienteId, pa.nome AS pacienteNome, pa.ativo AS pacienteAtivo,
+                   pr.id AS profissionalId, a.data AS data, a.realizada AS realizada
+            FROM Aula a JOIN a.paciente pa LEFT JOIN a.profissional pr
+            WHERE a.data BETWEEN :inicio AND :fim
+            """)
+    List<AulaFrequenciaProjection> findParaFrequencia(@Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    interface AulaFrequenciaProjection {
+        Long getPacienteId();
+
+        String getPacienteNome();
+
+        Boolean getPacienteAtivo();
+
+        Long getProfissionalId();
+
+        LocalDate getData();
+
+        Boolean getRealizada();
+    }
 }

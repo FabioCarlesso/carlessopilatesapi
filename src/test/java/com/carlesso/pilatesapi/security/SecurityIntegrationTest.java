@@ -1216,6 +1216,41 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioFrequencia_comRecepcao_geraORelatorioEComFinanceiroNega() throws Exception {
+        User recepcao = criarUsuario("relatorio-frequencia-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("relatorio-frequencia-financeiro@email.com", Role.FINANCEIRO);
+
+        mvc.perform(get("/api/relatorios/frequencia")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totais.pacientes").value(0))
+                .andExpect(jsonPath("$.pacientes").isEmpty());
+        mvc.perform(get("/api/relatorios/frequencia/xlsx")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"relatorio-frequencia-2020-01-01-2020-01-31.xlsx\""));
+        mvc.perform(get("/api/relatorios/frequencia")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        mvc.perform(get("/api/relatorios/frequencia")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .param("taxaMaxima", "101")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -1255,6 +1290,8 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /api/relatorios/recebimentos                   | FINANCEIRO",
                 "GET    | /api/relatorios/recebimentos/pdf               | FINANCEIRO",
                 "GET    | /api/relatorios/recebimentos/xlsx              | FINANCEIRO",
+                "GET    | /api/relatorios/frequencia                     | RECEPCAO",
+                "GET    | /api/relatorios/frequencia/xlsx                | RECEPCAO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",

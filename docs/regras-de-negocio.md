@@ -407,6 +407,25 @@ o extrato (PIX/dinheiro). `GET /pagamentos` não serve para isso porque filtra p
   receita do período e passa a ser o da seleção.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Recebimentos`.
 
+## Relatório de frequência e faltas
+
+`GET /api/relatorios/frequencia` (#233) mostra, por paciente e período, as aulas previstas, realizadas e as faltas,
+para a recepção agir quando um aluno começa a faltar. É do `ADMIN` e da `RECEPCAO`.
+
+- **O que é falta:** a `Aula` só registra `realizada` sim ou não; não há status de falta nem de reposição. Uma aula
+  com data **anterior a hoje** (fuso do estúdio) e `realizada = false` conta como falta. A aula de hoje e as futuras
+  ainda podem ser realizadas e não entram em nenhuma conta, nem como prevista.
+- **Previstas e taxa:** previstas são as aulas do período até ontem; taxa de presença é realizadas / previstas, em
+  percentual com 1 casa decimal (`HALF_UP`). Paciente sem aula prevista no período não aparece. Pacientes inativos com
+  aulas no período aparecem.
+- **Filtros:** `profissionalId` conta só as aulas daquele profissional (aulas sem profissional ficam de fora);
+  `pacienteId` restringe ao paciente; `taxaMaxima` (0–100) traz só quem está **abaixo** do valor, comparando a razão
+  exata, sem o arredondamento (75 não inclui quem tem exatamente 75%).
+- **Ordem:** menor presença primeiro, depois mais faltas, nome e id.
+- **Limites:** período de até 366 dias; acima de 5.000 linhas, `400`.
+- **Dados da migração:** as aulas de out–nov/2026 foram marcadas como realizadas em lote na virada do seufisio, então
+  a frequência só é confiável a partir de 25/11/2026.
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.
