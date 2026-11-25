@@ -367,6 +367,26 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
   porque não é dinheiro em caixa.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Repasses`.
 
+## Relatório de pacientes
+
+`GET /api/relatorios/pacientes` (#230) é o relatório de cadastro do estúdio, da recepção (`ADMIN` e `RECEPCAO`).
+Não muda a listagem `GET /pacientes`, que continua servindo a tela de cadastro.
+
+- **Situação:** `ATIVOS` por padrão; `TODOS` é a única forma de ver ativos e inativos juntos.
+- **Pendências:** CPF, e-mail ou telefone ausentes ou em branco, data de nascimento ausente e, só para paciente
+  ativo, falta de plano ativo — paciente inativo sem plano não é pendência. `cadastroIncompleto=true` traz quem tem
+  ao menos uma delas.
+- **Sem plano ativo:** `semPlanoAtivo=true` traz só pacientes ativos sem plano com `ativo = true`, qualquer que seja a
+  `situacao`. São os que estão desatualizados ou não estão sendo cobrados.
+- **Plano:** o plano ativo do paciente; se a base tiver dois ativos, vale o de início mais recente.
+- **Profissional:** o da próxima aula não realizada (data a partir de hoje, no fuso `app.fuso-horario`) que tenha
+  profissional definido. Aulas sem profissional são puladas. `profissionalId` filtra por ele.
+- **Aniversariantes:** `mesNascimento` compara só o mês da data de nascimento; quem não tem a data fica de fora.
+- **Idade:** anos completos na data da consulta.
+- **Teto:** sem paginação, porque o volume do estúdio é pequeno. Acima de 5.000 linhas, a resposta é `400`, o mesmo
+  teto dos demais relatórios sem paginação.
+- PDF e XLSX reusam o JSON, com as mesmas linhas e totais.
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.

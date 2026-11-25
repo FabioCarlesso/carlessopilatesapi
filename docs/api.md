@@ -81,6 +81,7 @@ da tabela abaixo. Rota que o
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro` | | | ✓ |
+| `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
 | `/profissionais/{id}/relatorio-pagamento` (JSON e PDF) | | | ✓ |
@@ -507,6 +508,9 @@ existia à época do registro.
 | `GET` | `/api/relatorios/financeiro?inicio=&fim=` | Relatório financeiro consolidado do estúdio: receita × repasses (JSON) |
 | `GET` | `/api/relatorios/financeiro/pdf?inicio=&fim=` | Exportar o relatório financeiro em PDF |
 | `GET` | `/api/relatorios/financeiro/xlsx?inicio=&fim=` | Exportar o relatório financeiro em Excel (XLSX) |
+| `GET` | `/api/relatorios/pacientes` | Relatório de pacientes: situação, contato, plano, profissional e pendências (JSON) |
+| `GET` | `/api/relatorios/pacientes/pdf` | Exportar o relatório de pacientes em PDF |
+| `GET` | `/api/relatorios/pacientes/xlsx` | Exportar o relatório de pacientes em Excel (XLSX) |
 
 ## NFSE emitidas
 
@@ -788,6 +792,71 @@ do profissional no mesmo período. Os critérios de cada bloco estão em
 As exportações `/pdf` e `/xlsx` usam o mesmo cálculo e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-financeiro-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Repasses`; o PDF traz as mesmas informações numa página.
+
+## Relatório de pacientes — contrato JSON
+
+`GET /api/relatorios/pacientes` (#230) lista os pacientes por nome, sem paginação. Só `ADMIN` e `RECEPCAO`. Filtros,
+todos opcionais:
+
+| Parâmetro | Valores | Efeito |
+|---|---|---|
+| `situacao` | `ATIVOS` (padrão), `INATIVOS`, `TODOS` | Situação do cadastro |
+| `semPlanoAtivo` | `true` | Só pacientes **ativos** sem plano ativo, mesmo com `situacao=TODOS` |
+| `cadastroIncompleto` | `true` | Só pacientes com ao menos uma pendência |
+| `mesNascimento` | `1`–`12` | Aniversariantes do mês; fora do intervalo, `400` |
+| `profissionalId` | id | Pacientes cuja próxima aula não realizada é desse profissional |
+
+`false` nos filtros booleanos é o mesmo que ausente. `situacao` inválida ou resultado acima de 5.000 linhas retorna
+`400`.
+
+```json
+{
+  "filtros": {
+    "situacao": "TODOS",
+    "semPlanoAtivo": false,
+    "cadastroIncompleto": false,
+    "mesNascimento": null,
+    "profissionalId": null,
+    "profissionalNome": null
+  },
+  "totais": { "total": 123, "ativos": 47, "inativos": 76, "comPendencia": 30 },
+  "pacientes": [
+    {
+      "id": 7,
+      "nome": "Bruna Souza",
+      "cpf": "12345678901",
+      "telefone": "45999990001",
+      "email": "bruna@email.com",
+      "dataNascimento": "1989-12-03",
+      "idade": 36,
+      "ativo": true,
+      "dataCadastro": "2026-01-10",
+      "dataInativacao": null,
+      "planoAtivo": {
+        "id": 10,
+        "tipo": "MENSAL",
+        "frequenciaSemanal": "DUAS_VEZES",
+        "diasSemana": ["MONDAY", "WEDNESDAY"],
+        "horario": "08:00:00",
+        "valor": 300.00
+      },
+      "profissional": { "id": 5, "nome": "Paula Mendes" },
+      "pendencias": []
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+- `pendencias`: lista de `SEM_CPF`, `SEM_EMAIL`, `SEM_TELEFONE`, `SEM_DATA_NASCIMENTO` e `SEM_PLANO_ATIVO`, nessa
+  ordem.
+- `planoAtivo`, `profissional`, `idade`, `dataNascimento`, `dataCadastro` e `dataInativacao` podem vir `null`.
+- `totais` conta as linhas retornadas, depois dos filtros.
+
+As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
+(`Content-Disposition: attachment; filename="relatorio-pacientes-{situacao}-{data}.{ext}"`, com a situação em
+minúsculas e a data do dia). O XLSX tem as abas `Resumo` e `Pacientes`; o PDF é em paisagem. As regras estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-pacientes).
 
 ## NFSE emitidas — registro fiscal
 
