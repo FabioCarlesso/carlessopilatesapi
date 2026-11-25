@@ -157,6 +157,10 @@ public class SecurityConfig {
                         // mesma área dele.
                         .requestMatchers("/api/relatorios/recebimentos", "/api/relatorios/recebimentos/**")
                         .hasAnyRole(FISCAL)
+                        // Aulas realizadas sem evolução (#234): controle do prontuário por profissional, só do ADMIN.
+                        // O profissional não vê nem as próprias: User e Profissional ainda não têm vínculo.
+                        .requestMatchers("/api/relatorios/aulas-sem-evolucao", "/api/relatorios/aulas-sem-evolucao/**")
+                        .hasRole("ADMIN")
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(

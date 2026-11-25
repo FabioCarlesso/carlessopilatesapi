@@ -407,6 +407,26 @@ o extrato (PIX/dinheiro). `GET /pagamentos` não serve para isso porque filtra p
   receita do período e passa a ser o da seleção.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Recebimentos`.
 
+## Relatório de aulas sem evolução
+
+`GET /api/relatorios/aulas-sem-evolucao` (#234) aponta as aulas realizadas que ficaram sem evolução no prontuário. A
+agenda e o repasse ficam na **aula** (`Aula`), e o prontuário na **sessão** (`SessaoPilates`) com a sua evolução
+(`EvolucaoSessao`); os dois cadastros não têm vínculo entre si. É só do `ADMIN`: o profissional ainda não pode ver as
+próprias aulas porque `User` e `Profissional` não têm vínculo.
+
+- **Correspondência aula ↔ sessão:** uma aula `realizada = true` conta como "com evolução" quando existe ao menos uma
+  sessão do **mesmo paciente** na **mesma data** com `EvolucaoSessao` registrada. Vale qualquer sessão do dia, de
+  qualquer profissional e status, e o horário não é comparado.
+- **Só a evolução estruturada conta:** o campo legado `sessoes_pilates.evolucao` (texto livre, fora do contrato REST)
+  é ignorado. Sessão sem `EvolucaoSessao` não basta.
+- **Entram também** aulas de paciente inativo (o controle do prontuário vale para o período em que ele frequentou) e
+  aulas sem profissional, que formam no resumo o grupo `Sem profissional`.
+- **Período:** `inicio` e `fim` obrigatórios, inclusivos, até 366 dias. Acima de 5.000 linhas a consulta é recusada
+  com `400`.
+- **Filtro:** `profissionalId` restringe linhas e resumo às aulas desse profissional.
+- Aulas de out–nov/2026 foram marcadas como realizadas em lote na virada do seufisio e as que não tinham evolução
+  correspondente aparecem aqui (as 28 da Camila, por exemplo).
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.

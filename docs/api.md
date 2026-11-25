@@ -89,7 +89,7 @@ da tabela abaixo. Rota que o
 | `/users/me`, `/users/me/senha`, `/users/me/preferencias` | ✓ | ✓ | ✓ |
 
 Só de `ADMIN`: `/users/**` (exceto `/users/me*`), `/admin/**`, `/actuator/**` além de health/info, escrita em
-`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `GET /pagamentos/xlsx`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
+`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `GET /pagamentos/xlsx`, `/pagamentos/{id}/cobrancas`, `/api/relatorios/aulas-sem-evolucao`, `/dashboard/indicadores` e
 `/dashboard/aulas-por-profissional`. `PACIENTE` só acessa `/users/me*` até o portal do paciente existir.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
@@ -532,6 +532,8 @@ existia à época do registro.
 | `GET` | `/api/relatorios/recebimentos?inicio=&fim=` | Recebimentos do período (pagamentos confirmados por data de pagamento), com totais por forma (JSON) |
 | `GET` | `/api/relatorios/recebimentos/pdf?inicio=&fim=` | Exportar os recebimentos em PDF |
 | `GET` | `/api/relatorios/recebimentos/xlsx?inicio=&fim=` | Exportar os recebimentos em Excel (XLSX) |
+| `GET` | `/api/relatorios/aulas-sem-evolucao?inicio=&fim=` | Aulas realizadas sem evolução registrada, com a quantidade por profissional (JSON) |
+| `GET` | `/api/relatorios/aulas-sem-evolucao/xlsx?inicio=&fim=` | Exportar as aulas sem evolução em Excel (XLSX) |
 
 ## NFSE emitidas
 
@@ -928,6 +930,57 @@ por `dataPagamento`, nome do paciente e `pagamentoId`. Os critérios estão em
 As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-recebimentos-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Recebimentos` (com linha de total); o PDF é em paisagem.
+
+## Relatório de aulas sem evolução — contrato JSON
+
+`GET /api/relatorios/aulas-sem-evolucao?inicio=2026-10-01&fim=2026-11-30` lista as aulas realizadas no período (datas
+inclusivas, até 366 dias) que não têm evolução registrada para o mesmo paciente na mesma data. Só `ADMIN`. Filtro
+opcional: `profissionalId`. Período ausente, invertido, acima do teto ou com mais de 5.000 linhas retorna `400`.
+Período sem aulas retorna zeros.
+
+```json
+{
+  "periodo": { "inicio": "2026-10-01", "fim": "2026-11-30" },
+  "filtros": { "profissionalId": null, "profissionalNome": null },
+  "resumo": {
+    "totalAulas": 2,
+    "porProfissional": [
+      { "profissionalId": 5, "profissionalNome": "Camila", "quantidade": 1 },
+      { "profissionalId": null, "profissionalNome": "Sem profissional", "quantidade": 1 }
+    ]
+  },
+  "aulas": [
+    {
+      "aulaId": 11,
+      "data": "2026-10-05",
+      "horario": "08:00:00",
+      "pacienteId": 7,
+      "pacienteNome": "Ana Souza",
+      "profissionalId": 5,
+      "profissionalNome": "Camila"
+    },
+    {
+      "aulaId": 12,
+      "data": "2026-10-06",
+      "horario": null,
+      "pacienteId": 8,
+      "pacienteNome": "Bruno Lima",
+      "profissionalId": null,
+      "profissionalNome": null
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+As linhas vêm por data, horário (aula sem horário por último) e nome do paciente. `porProfissional` vem por nome do
+profissional, com o grupo `Sem profissional` (`profissionalId` nulo) por último, e soma `totalAulas`. Com
+`profissionalId`, `filtros.profissionalNome` traz o nome dele e linhas e resumo ficam só com as aulas desse
+profissional. O critério está em [`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-aulas-sem-evolução).
+
+A exportação `/xlsx` aceita os mesmos filtros, traz as mesmas linhas e volta como anexo
+(`Content-Disposition: attachment; filename="relatorio-aulas-sem-evolucao-{inicio}-{fim}.xlsx"`), com as abas
+`Resumo` (com a quantidade por profissional) e `Aulas` (com linha de total).
 
 ## NFSE emitidas — registro fiscal
 
