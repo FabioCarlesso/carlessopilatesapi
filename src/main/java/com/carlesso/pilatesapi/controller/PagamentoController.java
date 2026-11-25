@@ -123,9 +123,9 @@ public class PagamentoController {
             @Parameter(description = "ID do paciente") @RequestParam(required = false) Long pacienteId,
             @Parameter(description = "Forma de pagamento registrada na confirmação") @RequestParam(required = false)
                     FormaPagamento formaPagamento,
-            @Parameter(description = "Ordenação, como na listagem (ex.: `paciente.nome,asc`)")
-                    @SortDefault(sort = "dataVencimento")
-                    Sort sort) {
+            // @ParameterObject publica o sort como na listagem (lista opcional de `campo,direção`); sem ele, o
+            // springdoc expunha um objeto Sort obrigatório e o "Try it out" do Swagger recebia 400.
+            @ParameterObject @SortDefault(sort = "dataVencimento") Sort sort) {
         var pagamentos =
                 service.listarParaExportacao(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento, sort);
         return ResponseEntity.ok()
