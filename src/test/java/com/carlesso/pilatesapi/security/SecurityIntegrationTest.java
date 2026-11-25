@@ -35,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -1251,6 +1252,44 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void aulasSemEvolucao_comAdmin_geraORelatorioEOsDemaisPapeisNegam() throws Exception {
+        User admin = criarUsuario("aulas-sem-evolucao-admin@email.com", Role.ADMIN);
+        User recepcao = criarUsuario("aulas-sem-evolucao-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("aulas-sem-evolucao-financeiro@email.com", Role.FINANCEIRO);
+        User profissional = criarUsuario("aulas-sem-evolucao-profissional@email.com", Role.PROFISSIONAL);
+
+        mvc.perform(get("/api/relatorios/aulas-sem-evolucao")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumo.totalAulas").value(0))
+                .andExpect(jsonPath("$.aulas").isEmpty());
+        mvc.perform(get("/api/relatorios/aulas-sem-evolucao/xlsx")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"relatorio-aulas-sem-evolucao-2020-01-01-2020-01-31.xlsx\""));
+        for (User semAcesso : List.of(recepcao, financeiro, profissional)) {
+            mvc.perform(get("/api/relatorios/aulas-sem-evolucao")
+                            .param("inicio", "2020-01-01")
+                            .param("fim", "2020-01-31")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(semAcesso)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.type")
+                            .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        }
+        mvc.perform(get("/api/relatorios/aulas-sem-evolucao")
+                        .param("inicio", "2026-12-01")
+                        .param("fim", "2026-11-01")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -1292,6 +1331,8 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /api/relatorios/recebimentos/xlsx              | FINANCEIRO",
                 "GET    | /api/relatorios/frequencia                     | RECEPCAO",
                 "GET    | /api/relatorios/frequencia/xlsx                | RECEPCAO",
+                "GET    | /api/relatorios/aulas-sem-evolucao             | ",
+                "GET    | /api/relatorios/aulas-sem-evolucao/xlsx        | ",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",

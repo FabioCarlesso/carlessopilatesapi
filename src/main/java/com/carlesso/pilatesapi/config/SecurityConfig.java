@@ -161,6 +161,10 @@ public class SecurityConfig {
                         // aluno desistir; só contagem de aulas, sem dado clínico nem financeiro.
                         .requestMatchers("/api/relatorios/frequencia", "/api/relatorios/frequencia/**")
                         .hasAnyRole("ADMIN", "RECEPCAO")
+                        // Aulas realizadas sem evolução (#234): controle do prontuário por profissional, só do ADMIN.
+                        // O profissional não vê nem as próprias: User e Profissional ainda não têm vínculo.
+                        .requestMatchers("/api/relatorios/aulas-sem-evolucao", "/api/relatorios/aulas-sem-evolucao/**")
+                        .hasRole("ADMIN")
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(
