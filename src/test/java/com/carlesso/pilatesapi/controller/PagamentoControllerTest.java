@@ -22,6 +22,7 @@ import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.ContatoCobrancaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
+import com.carlesso.pilatesapi.service.PagamentoCobrancaExporterService;
 import com.carlesso.pilatesapi.service.PagamentoService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -58,6 +59,9 @@ class PagamentoControllerTest {
 
     @MockitoBean
     ContatoCobrancaService contatoCobrancaService;
+
+    @MockitoBean
+    PagamentoCobrancaExporterService pagamentoCobrancaExporterService;
 
     @MockitoBean
     JwtService jwtService;
@@ -348,6 +352,73 @@ class PagamentoControllerTest {
         mockMvc.perform(get("/pagamentos").param("vencimentoDe", "2026-02-01").param("vencimentoAte", "2026-01-01"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("vencimentoDe não pode ser posterior a vencimentoAte"));
+    }
+
+    @Test
+    void exportarXlsx_retornaPlanilhaComoAnexoERepassaFiltrosEOrdenacaoPadrao() throws Exception {
+        byte[] planilha = {1, 2, 3};
+        when(pagamentoService.listarParaExportacao(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(pagamentoCobrancaExporterService.exportarXlsx(List.of())).thenReturn(planilha);
+        when(pagamentoCobrancaExporterService.nomeArquivo()).thenReturn("cobrancas-2026-11-25.xlsx");
+
+        mockMvc.perform(get("/pagamentos/xlsx")
+                        .param("status", "PENDENTE", "VENCIDO")
+                        .param("vencimentoDe", "2026-11-25")
+                        .param("vencimentoAte", "2026-12-02")
+                        .param("pacienteId", "7")
+                        .param("formaPagamento", "PIX"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"cobrancas-2026-11-25.xlsx\""))
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(content().bytes(planilha));
+
+        verify(pagamentoService)
+                .listarParaExportacao(
+                        List.of(StatusPagamento.PENDENTE, StatusPagamento.VENCIDO),
+                        LocalDate.of(2026, 11, 25),
+                        LocalDate.of(2026, 12, 2),
+                        7L,
+                        FormaPagamento.PIX,
+                        Sort.by("dataVencimento"));
+    }
+
+    @Test
+    void exportarXlsx_naoCaiNaBuscaPorId_eRepassaOrdenacaoInformada() throws Exception {
+        when(pagamentoService.listarParaExportacao(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(pagamentoCobrancaExporterService.exportarXlsx(any())).thenReturn(new byte[0]);
+        when(pagamentoCobrancaExporterService.nomeArquivo()).thenReturn("cobrancas.xlsx");
+
+        mockMvc.perform(get("/pagamentos/xlsx").param("sort", "paciente.nome,desc"))
+                .andExpect(status().isOk());
+
+        verify(pagamentoService)
+                .listarParaExportacao(
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(Sort.by(Sort.Direction.DESC, "paciente.nome")));
+        verifyNoInteractions(contatoCobrancaService);
+    }
+
+    @Test
+    void exportarXlsx_faixaInvertidaOuAcimaDoTeto_retorna400() throws Exception {
+        when(pagamentoService.listarParaExportacao(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte"));
+
+        mockMvc.perform(get("/pagamentos/xlsx")
+                        .param("vencimentoDe", "2026-02-01")
+                        .param("vencimentoAte", "2026-01-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("vencimentoDe não pode ser posterior a vencimentoAte"));
+    }
+
+    @Test
+    void exportarXlsx_statusInvalido_retorna400() throws Exception {
+        mockMvc.perform(get("/pagamentos/xlsx").param("status", "QUITADO")).andExpect(status().isBadRequest());
     }
 
     @Test

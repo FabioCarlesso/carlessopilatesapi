@@ -36,7 +36,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Usuário autenticado pode trocar a própria senha via `PUT /users/me/senha`: precisa informar `senhaAtual`, `novaSenha` (mínimo 8 caracteres) e `confirmacaoNovaSenha`; senha atual incorreta, confirmação divergente ou reuso da senha atual retornam `422 Unprocessable Entity`; a nova senha é armazenada com `BCryptPasswordEncoder` e access e refresh tokens emitidos antes da troca passam a retornar `401 Unauthorized`
 - CORS permite o frontend Angular configurado em `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`), sem `Access-Control-Allow-Credentials`: os tokens viajam no corpo e no header `Authorization`, nunca em cookie
 - Token ausente, inválido ou expirado em rota protegida retorna `401`; usuário sem `ADMIN` em `/admin/**` retorna `403`
-- A listagem global `GET /pagamentos` (e o `HEAD` equivalente) e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem a área de cobrança (`ADMIN`, `RECEPCAO`, `FINANCEIRO`)
+- A listagem global `GET /pagamentos` (e o `HEAD` equivalente), a exportação dela em `GET /pagamentos/xlsx` e as rotas `/pagamentos/{id}/cobrancas/**` são restritas a `ADMIN` (`403` para os demais): são da gestão de inadimplência. O `POST /pagamentos` e as demais rotas de `/pagamentos/**` seguem a área de cobrança (`ADMIN`, `RECEPCAO`, `FINANCEIRO`)
 - `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` são restritos a `ADMIN` (`403` para os demais): são gestão do negócio. `GET /dashboard/resumo` é da equipe toda, mas a `receitaMesAtual` só vem preenchida para `ADMIN` e `FINANCEIRO` (`null` para os demais): valor faturado é informação financeira
 
 ## Recuperação de senha (esqueci minha senha)
@@ -129,7 +129,10 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - O filtro `formaPagamento` da listagem global combina com os demais e só encontra pagamentos com a forma registrada
 - A listagem global (`GET /pagamentos`, #196) ordena por `dataVencimento` crescente por padrão — os mais atrasados primeiro — e sempre acrescenta `id` como último critério: as cobranças nascem em lote com o mesmo vencimento, e sem o desempate uma linha poderia trocar de página entre duas requisições. Os campos ordenáveis são uma lista fechada (`dataVencimento`, `valor`, `status`, `paciente.nome`); campo fora dela retorna `400` em vez de chegar ao Spring Data e virar `500`
 - A faixa `vencimentoDe`/`vencimentoAte` é inclusiva nas duas pontas e pode ser aberta de um dos lados; invertida retorna `400`
-- Dias em atraso não são calculados no backend: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento
+- Dias em atraso não vêm na listagem: derivam de `dataVencimento`, e ordenar por atraso é ordenar por vencimento
+- A exportação das cobranças em XLSX (`GET /pagamentos/xlsx`, #232) é a mesma consulta da listagem, com os mesmos filtros, validação e ordenação, mas sem paginação: a planilha traz as mesmas linhas das páginas somadas. Tem teto de **5000** pagamentos; um filtro que passe disso retorna `400` pedindo para restringi-lo, em vez de exportar uma planilha cortada
+- Na planilha, **dias em atraso** = dias corridos de `dataVencimento` até hoje (no fuso do estúdio, `app.fuso-horario`), nunca negativo: `0` para o que vence hoje ou depois e para pagamentos `PAGO`. Um `PENDENTE` que já venceu conta atraso mesmo antes de o scheduler das 06:00 marcá-lo como `VENCIDO`
+- A planilha traz, por pagamento, a quantidade de contatos de cobrança e a data (`dataContato`) do mais recente, e termina com uma linha de total (quantidade e soma dos valores)
 
 ### Contatos de cobrança
 

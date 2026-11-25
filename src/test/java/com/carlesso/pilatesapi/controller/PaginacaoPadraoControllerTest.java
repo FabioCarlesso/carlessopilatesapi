@@ -11,6 +11,7 @@ import com.carlesso.pilatesapi.service.ContatoCobrancaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import com.carlesso.pilatesapi.service.PacienteService;
+import com.carlesso.pilatesapi.service.PagamentoCobrancaExporterService;
 import com.carlesso.pilatesapi.service.PagamentoService;
 import com.carlesso.pilatesapi.service.ProfissionalService;
 import com.carlesso.pilatesapi.service.RelatorioPagamentoExporterService;
@@ -48,6 +49,9 @@ class PaginacaoPadraoControllerTest {
 
     @MockitoBean
     ContatoCobrancaService contatoCobrancaService;
+
+    @MockitoBean
+    PagamentoCobrancaExporterService pagamentoCobrancaExporterService;
 
     @MockitoBean
     ProfissionalService profissionalService;
