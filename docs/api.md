@@ -80,7 +80,7 @@ da tabela abaixo. Rota que o
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
-| `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro` | | | ✓ |
+| `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro`, `/api/relatorios/recebimentos` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
 | `/profissionais/{id}/relatorio-pagamento` (JSON e PDF) | | | ✓ |
@@ -507,6 +507,9 @@ existia à época do registro.
 | `GET` | `/api/relatorios/financeiro?inicio=&fim=` | Relatório financeiro consolidado do estúdio: receita × repasses (JSON) |
 | `GET` | `/api/relatorios/financeiro/pdf?inicio=&fim=` | Exportar o relatório financeiro em PDF |
 | `GET` | `/api/relatorios/financeiro/xlsx?inicio=&fim=` | Exportar o relatório financeiro em Excel (XLSX) |
+| `GET` | `/api/relatorios/recebimentos?inicio=&fim=` | Recebimentos do período (pagamentos confirmados por data de pagamento), com totais por forma (JSON) |
+| `GET` | `/api/relatorios/recebimentos/pdf?inicio=&fim=` | Exportar os recebimentos em PDF |
+| `GET` | `/api/relatorios/recebimentos/xlsx?inicio=&fim=` | Exportar os recebimentos em Excel (XLSX) |
 
 ## NFSE emitidas
 
@@ -788,6 +791,57 @@ do profissional no mesmo período. Os critérios de cada bloco estão em
 As exportações `/pdf` e `/xlsx` usam o mesmo cálculo e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-financeiro-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Repasses`; o PDF traz as mesmas informações numa página.
+
+## Relatório de recebimentos — contrato JSON
+
+`GET /api/relatorios/recebimentos?inicio=2026-11-01&fim=2026-11-30` lista os pagamentos confirmados no período pela
+**data de pagamento** (datas inclusivas, até 366 dias). Só `ADMIN` e `FINANCEIRO`. Filtros opcionais:
+`formaPagamento` (`PIX`, `DINHEIRO`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `TRANSFERENCIA` ou `NAO_INFORMADA`, para os
+confirmados sem forma registrada) e `pacienteId`. Período ausente, invertido, acima do teto ou com mais de 5.000
+linhas retorna `400`, assim como uma `formaPagamento` fora da lista. Período sem movimento retorna zeros.
+
+```json
+{
+  "periodo": { "inicio": "2026-11-01", "fim": "2026-11-30" },
+  "filtros": { "formaPagamento": null, "pacienteId": null },
+  "resumo": {
+    "quantidadePagamentos": 2,
+    "total": 550.00,
+    "porFormaPagamento": [
+      { "formaPagamento": "PIX", "descricao": "PIX", "quantidade": 1, "total": 300.00 },
+      { "formaPagamento": "DINHEIRO", "descricao": "Dinheiro", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "CARTAO_CREDITO", "descricao": "Cartão de crédito", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "CARTAO_DEBITO", "descricao": "Cartão de débito", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "TRANSFERENCIA", "descricao": "Transferência", "quantidade": 0, "total": 0.00 },
+      { "formaPagamento": "NAO_INFORMADA", "descricao": "Não informada", "quantidade": 1, "total": 250.00 }
+    ]
+  },
+  "recebimentos": [
+    {
+      "pagamentoId": 10,
+      "pacienteId": 1,
+      "pacienteNome": "Ana Souza",
+      "valor": 300.00,
+      "dataPagamento": "2026-11-05",
+      "formaPagamento": "PIX",
+      "dataVencimento": "2026-11-05",
+      "periodoInicio": "2026-11-01",
+      "periodoFim": "2026-11-30",
+      "planoId": 3,
+      "frequenciaSemanal": "DUAS_VEZES"
+    }
+  ],
+  "geradoEm": "2026-12-01T09:00:00"
+}
+```
+
+`porFormaPagamento` traz sempre as seis formas, nessa ordem, mesmo zeradas; a soma delas é o `total`. As linhas vêm
+por `dataPagamento`, nome do paciente e `pagamentoId`. Os critérios estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-recebimentos).
+
+As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
+(`Content-Disposition: attachment; filename="relatorio-recebimentos-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
+`Resumo` e `Recebimentos` (com linha de total); o PDF é em paisagem.
 
 ## NFSE emitidas — registro fiscal
 

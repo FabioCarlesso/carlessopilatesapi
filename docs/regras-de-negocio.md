@@ -367,6 +367,24 @@ paciente se sobrescreviam em silêncio e a alteração de uma se perdia sem avis
   porque não é dinheiro em caixa.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Repasses`.
 
+## Relatório de recebimentos
+
+`GET /api/relatorios/recebimentos` (#231) é a lista de "quem pagou" no período, para conferir o caixa e conciliar com
+o extrato (PIX/dinheiro). `GET /pagamentos` não serve para isso porque filtra por vencimento. É do `ADMIN` e do
+`FINANCEIRO`, a mesma área do relatório financeiro.
+
+- **Critério:** pagamentos `PAGO` com `dataPagamento` no período, sem filtrar paciente ativo: o mesmo critério da
+  `receita` do relatório financeiro e dos indicadores do dashboard. Sem filtros, o total do relatório é igual à
+  receita do financeiro no mesmo período. `PENDENTE` e `VENCIDO` nunca aparecem.
+- **Período:** `inicio` e `fim` obrigatórios, inclusivos, até 366 dias. Acima de 5.000 linhas a consulta é recusada
+  com `400`, como nas demais respostas sem paginação.
+- **Forma "não informada":** pagamento confirmado sem `formaPagamento` (a forma só passou a ser registrada na
+  confirmação com a #215, e os confirmados na migração do seufisio não a têm) entra como `NAO_INFORMADA`, que também
+  pode ser usada como filtro.
+- **Filtros:** `formaPagamento` e `pacienteId` restringem as linhas e os totais. Com filtro, o total deixa de ser a
+  receita do período e passa a ser o da seleção.
+- PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Recebimentos`.
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.

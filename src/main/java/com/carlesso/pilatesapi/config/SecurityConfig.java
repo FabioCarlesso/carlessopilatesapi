@@ -148,6 +148,10 @@ public class SecurityConfig {
                         // mesma área do relatório de repasse individual.
                         .requestMatchers("/api/relatorios/financeiro", "/api/relatorios/financeiro/**")
                         .hasAnyRole(FISCAL)
+                        // Recebimentos do período (#231): a lista por trás da receita do relatório financeiro, na
+                        // mesma área dele.
+                        .requestMatchers("/api/relatorios/recebimentos", "/api/relatorios/recebimentos/**")
+                        .hasAnyRole(FISCAL)
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(
