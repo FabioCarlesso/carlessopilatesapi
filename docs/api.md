@@ -81,6 +81,8 @@ da tabela abaixo. Rota que o
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
+| `/api/relatorios/frequencia` (JSON e XLSX) | | ✓ | |
+| `/api/relatorios/ocupacao` | | ✓ | |
 | `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro`, `/api/relatorios/recebimentos` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
@@ -89,7 +91,7 @@ da tabela abaixo. Rota que o
 | `/users/me`, `/users/me/senha`, `/users/me/preferencias` | ✓ | ✓ | ✓ |
 
 Só de `ADMIN`: `/users/**` (exceto `/users/me*`), `/admin/**`, `/actuator/**` além de health/info, escrita em
-`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `GET /pagamentos/xlsx`, `/pagamentos/{id}/cobrancas`, `/dashboard/indicadores` e
+`/bloqueios`, `/profissionais` e `/disponibilidades` (inclusive `POST /profissionais/{id}/disponibilidades`), `GET /pagamentos`, `GET /pagamentos/xlsx`, `/pagamentos/{id}/cobrancas`, `/api/relatorios/aulas-sem-evolucao`, `/dashboard/indicadores` e
 `/dashboard/aulas-por-profissional`. `PACIENTE` só acessa `/users/me*` até o portal do paciente existir.
 
 O cadastro de usuários é restrito a administradores (`POST /users`); não há registro público. Em desenvolvimento, use um dos [usuários de seed](banco-de-dados.md#usuários-de-seed-perfil-dev); em produção, o admin inicial criado a partir de `APP_INITIAL_ADMIN_*`.
@@ -532,6 +534,11 @@ existia à época do registro.
 | `GET` | `/api/relatorios/recebimentos?inicio=&fim=` | Recebimentos do período (pagamentos confirmados por data de pagamento), com totais por forma (JSON) |
 | `GET` | `/api/relatorios/recebimentos/pdf?inicio=&fim=` | Exportar os recebimentos em PDF |
 | `GET` | `/api/relatorios/recebimentos/xlsx?inicio=&fim=` | Exportar os recebimentos em Excel (XLSX) |
+| `GET` | `/api/relatorios/frequencia?inicio=&fim=` | Frequência e faltas por paciente: previstas, realizadas, faltas e taxa de presença (JSON) |
+| `GET` | `/api/relatorios/frequencia/xlsx?inicio=&fim=` | Exportar a frequência por paciente em Excel (XLSX) |
+| `GET` | `/api/relatorios/aulas-sem-evolucao?inicio=&fim=` | Aulas realizadas sem evolução registrada, com a quantidade por profissional (JSON) |
+| `GET` | `/api/relatorios/aulas-sem-evolucao/xlsx?inicio=&fim=` | Exportar as aulas sem evolução em Excel (XLSX) |
+| `GET` | `/api/relatorios/ocupacao?semana=&profissionalId=` | Ocupação da grade semanal: alunos, vagas e lista de espera por dia, horário e profissional (JSON) |
 
 ## NFSE emitidas
 
@@ -928,6 +935,144 @@ por `dataPagamento`, nome do paciente e `pagamentoId`. Os critérios estão em
 As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-recebimentos-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Recebimentos` (com linha de total); o PDF é em paisagem.
+
+## Relatório de frequência — contrato JSON
+
+`GET /api/relatorios/frequencia` (#233), para `ADMIN` e `RECEPCAO`. Parâmetros:
+
+| Parâmetro | Valores | Efeito |
+|---|---|---|
+| `inicio`, `fim` | `YYYY-MM-DD`, obrigatórios | Período das aulas, inclusivo, até 366 dias |
+| `profissionalId` | id | Conta só as aulas desse profissional |
+| `pacienteId` | id | Só esse paciente |
+| `taxaMaxima` | `0`–`100` (aceita decimal) | Só pacientes com presença **abaixo** do valor; fora da faixa, `400` |
+
+Só contam aulas com data anterior a hoje (fuso do estúdio): `consideradoAte` é o menor entre `fim` e ontem. Período
+inteiro no futuro devolve lista vazia e totais zerados, não erro. As linhas vêm pela menor presença, depois mais
+faltas, nome e id.
+
+```json
+{
+  "periodo": { "inicio": "2026-11-01", "fim": "2026-11-30" },
+  "consideradoAte": "2026-11-24",
+  "filtros": { "profissionalId": null, "profissionalNome": null, "pacienteId": null, "taxaMaxima": 75 },
+  "totais": { "pacientes": 1, "aulasPrevistas": 3, "aulasRealizadas": 1, "faltas": 2, "taxaPresenca": 33.3 },
+  "pacientes": [
+    {
+      "pacienteId": 7,
+      "pacienteNome": "Bruno Lima",
+      "ativo": true,
+      "aulasPrevistas": 3,
+      "aulasRealizadas": 1,
+      "faltas": 2,
+      "taxaPresenca": 33.3,
+      "ultimaAulaRealizada": "2026-11-03"
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+- `taxaPresenca` é percentual de 0 a 100 com 1 casa decimal (arredondamento `HALF_UP`), igual no JSON e no XLSX; nos
+  `totais` é `null` quando não há aula considerada. `ultimaAulaRealizada` é `null` quando nenhuma foi realizada.
+- `profissionalNome` vem preenchido quando o `profissionalId` existe.
+- `400` (`application/problem+json`, mensagem em `detail`): período ausente, invertido ou acima de 366 dias,
+  `taxaMaxima` fora de 0–100 ou não numérica, resultado acima de 5.000 linhas.
+- `GET /api/relatorios/frequencia/xlsx` aceita os mesmos parâmetros e devolve
+  `attachment; filename="relatorio-frequencia-{inicio}-{fim}.xlsx"`, com as abas `Resumo` e `Frequência`.
+
+## Relatório de aulas sem evolução — contrato JSON
+
+`GET /api/relatorios/aulas-sem-evolucao?inicio=2026-10-01&fim=2026-11-30` lista as aulas realizadas no período (datas
+inclusivas, até 366 dias) que não têm evolução registrada para o mesmo paciente na mesma data. Só `ADMIN`. Filtro
+opcional: `profissionalId`. Período ausente, invertido, acima do teto ou com mais de 5.000 linhas retorna `400`.
+Período sem aulas retorna zeros.
+
+```json
+{
+  "periodo": { "inicio": "2026-10-01", "fim": "2026-11-30" },
+  "filtros": { "profissionalId": null, "profissionalNome": null },
+  "resumo": {
+    "totalAulas": 2,
+    "porProfissional": [
+      { "profissionalId": 5, "profissionalNome": "Camila", "quantidade": 1 },
+      { "profissionalId": null, "profissionalNome": "Sem profissional", "quantidade": 1 }
+    ]
+  },
+  "aulas": [
+    {
+      "aulaId": 11,
+      "data": "2026-10-05",
+      "horario": "08:00:00",
+      "pacienteId": 7,
+      "pacienteNome": "Ana Souza",
+      "profissionalId": 5,
+      "profissionalNome": "Camila"
+    },
+    {
+      "aulaId": 12,
+      "data": "2026-10-06",
+      "horario": null,
+      "pacienteId": 8,
+      "pacienteNome": "Bruno Lima",
+      "profissionalId": null,
+      "profissionalNome": null
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+As linhas vêm por data, horário (aula sem horário por último) e nome do paciente. `porProfissional` vem por nome do
+profissional, com o grupo `Sem profissional` (`profissionalId` nulo) por último, e soma `totalAulas`. Com
+`profissionalId`, `filtros.profissionalNome` traz o nome dele e linhas e resumo ficam só com as aulas desse
+profissional. O critério está em [`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-aulas-sem-evolução).
+
+A exportação `/xlsx` aceita os mesmos filtros, traz as mesmas linhas e volta como anexo
+(`Content-Disposition: attachment; filename="relatorio-aulas-sem-evolucao-{inicio}-{fim}.xlsx"`), com as abas
+`Resumo` (com a quantidade por profissional) e `Aulas` (com linha de total).
+
+## Relatório de ocupação da grade — contrato JSON
+
+`GET /api/relatorios/ocupacao` (#235), para `ADMIN` e `RECEPCAO`, mostra a grade da semana: por data, horário e
+profissional, quantos alunos estão marcados, quantas vagas restam e quantos inscritos da lista de espera cobrem aquele
+horário. Parâmetros opcionais: `semana` (qualquer data da semana, `yyyy-MM-dd`; padrão: a semana de hoje no fuso do
+estúdio) e `profissionalId`. Data ou id malformados retornam `400`. Não há exportação.
+
+```json
+{
+  "semana": { "inicio": "2026-11-23", "fim": "2026-11-29" },
+  "capacidadePorHorario": 3,
+  "filtros": { "profissionalId": null, "profissionalNome": null },
+  "totais": { "aulas": 9, "ocupacao": 8, "semProfissional": 1, "capacidade": 9, "vagas": 3 },
+  "celulas": [
+    {
+      "data": "2026-11-23",
+      "diaSemana": "MONDAY",
+      "horario": "08:00:00",
+      "profissional": { "id": 5, "nome": "Paula" },
+      "ocupacao": 2,
+      "capacidade": 3,
+      "vagas": 1,
+      "lotado": false,
+      "dentroDaDisponibilidade": true,
+      "listaEspera": 0,
+      "alunos": [{ "id": 7, "nome": "Bruna" }, { "id": 8, "nome": "Carlos" }]
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+- As células vêm ordenadas por data, horário (sem horário por último) e nome do profissional (sem profissional por
+  último). Os `alunos` de cada célula vêm por nome.
+- `capacidade`, `vagas` e `dentroDaDisponibilidade` são `null` nas células que não contam vaga (sem profissional ou
+  sem horário). Fora da disponibilidade do profissional, `vagas` é `0` e `dentroDaDisponibilidade`, `false`.
+- `totais.ocupacao` soma as células com profissional; `totais.semProfissional`, as aulas sem profissional;
+  `capacidade` e `vagas` somam só as células que contam vaga e estão na disponibilidade.
+
+As regras de agrupamento, disponibilidade e lista de espera estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-ocupação-da-grade).
 
 ## NFSE emitidas — registro fiscal
 

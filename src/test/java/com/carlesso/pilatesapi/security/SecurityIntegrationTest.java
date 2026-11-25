@@ -35,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -1216,6 +1217,100 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioFrequencia_comRecepcao_geraORelatorioEComFinanceiroNega() throws Exception {
+        User recepcao = criarUsuario("relatorio-frequencia-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("relatorio-frequencia-financeiro@email.com", Role.FINANCEIRO);
+
+        mvc.perform(get("/api/relatorios/frequencia")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totais.pacientes").value(0))
+                .andExpect(jsonPath("$.pacientes").isEmpty());
+        mvc.perform(get("/api/relatorios/frequencia/xlsx")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"relatorio-frequencia-2020-01-01-2020-01-31.xlsx\""));
+        mvc.perform(get("/api/relatorios/frequencia")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type")
+                        .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        mvc.perform(get("/api/relatorios/frequencia")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .param("taxaMaxima", "101")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aulasSemEvolucao_comAdmin_geraORelatorioEOsDemaisPapeisNegam() throws Exception {
+        User admin = criarUsuario("aulas-sem-evolucao-admin@email.com", Role.ADMIN);
+        User recepcao = criarUsuario("aulas-sem-evolucao-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("aulas-sem-evolucao-financeiro@email.com", Role.FINANCEIRO);
+        User profissional = criarUsuario("aulas-sem-evolucao-profissional@email.com", Role.PROFISSIONAL);
+
+        mvc.perform(get("/api/relatorios/aulas-sem-evolucao")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumo.totalAulas").value(0))
+                .andExpect(jsonPath("$.aulas").isEmpty());
+        mvc.perform(get("/api/relatorios/aulas-sem-evolucao/xlsx")
+                        .param("inicio", "2020-01-01")
+                        .param("fim", "2020-01-31")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"relatorio-aulas-sem-evolucao-2020-01-01-2020-01-31.xlsx\""));
+        for (User semAcesso : List.of(recepcao, financeiro, profissional)) {
+            mvc.perform(get("/api/relatorios/aulas-sem-evolucao")
+                            .param("inicio", "2020-01-01")
+                            .param("fim", "2020-01-31")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(semAcesso)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.type")
+                            .value(TipoProblema.ACESSO_NEGADO.uri().toString()));
+        }
+        mvc.perform(get("/api/relatorios/aulas-sem-evolucao")
+                        .param("inicio", "2026-12-01")
+                        .param("fim", "2026-11-01")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void relatorioOcupacao_comRecepcao_geraAGradeEComFinanceiroNega() throws Exception {
+        User recepcao = criarUsuario("relatorio-ocupacao-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("relatorio-ocupacao-financeiro@email.com", Role.FINANCEIRO);
+
+        mvc.perform(get("/api/relatorios/ocupacao")
+                        .param("semana", "2026-11-25")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.semana.inicio").value("2026-11-23"))
+                .andExpect(jsonPath("$.semana.fim").value("2026-11-29"))
+                .andExpect(jsonPath("$.capacidadePorHorario").isNumber())
+                .andExpect(jsonPath("$.celulas").isArray());
+        mvc.perform(get("/api/relatorios/ocupacao").header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/relatorios/ocupacao")
+                        .param("semana", "25/11/2026")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -1255,6 +1350,11 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /api/relatorios/recebimentos                   | FINANCEIRO",
                 "GET    | /api/relatorios/recebimentos/pdf               | FINANCEIRO",
                 "GET    | /api/relatorios/recebimentos/xlsx              | FINANCEIRO",
+                "GET    | /api/relatorios/frequencia                     | RECEPCAO",
+                "GET    | /api/relatorios/frequencia/xlsx                | RECEPCAO",
+                "GET    | /api/relatorios/aulas-sem-evolucao             | ",
+                "GET    | /api/relatorios/aulas-sem-evolucao/xlsx        | ",
+                "GET    | /api/relatorios/ocupacao                       | RECEPCAO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",

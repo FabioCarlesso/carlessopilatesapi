@@ -407,6 +407,66 @@ o extrato (PIX/dinheiro). `GET /pagamentos` não serve para isso porque filtra p
   receita do período e passa a ser o da seleção.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Recebimentos`.
 
+## Relatório de frequência e faltas
+
+`GET /api/relatorios/frequencia` (#233) mostra, por paciente e período, as aulas previstas, realizadas e as faltas,
+para a recepção agir quando um aluno começa a faltar. É do `ADMIN` e da `RECEPCAO`.
+
+- **O que é falta:** a `Aula` só registra `realizada` sim ou não; não há status de falta nem de reposição. Uma aula
+  com data **anterior a hoje** (fuso do estúdio) e `realizada = false` conta como falta. A aula de hoje e as futuras
+  ainda podem ser realizadas e não entram em nenhuma conta, nem como prevista.
+- **Previstas e taxa:** previstas são as aulas do período até ontem; taxa de presença é realizadas / previstas, em
+  percentual com 1 casa decimal (`HALF_UP`). Paciente sem aula prevista no período não aparece. Pacientes inativos com
+  aulas no período aparecem.
+- **Filtros:** `profissionalId` conta só as aulas daquele profissional (aulas sem profissional ficam de fora);
+  `pacienteId` restringe ao paciente; `taxaMaxima` (0–100) traz só quem está **abaixo** do valor, comparando a razão
+  exata, sem o arredondamento (75 não inclui quem tem exatamente 75%).
+- **Ordem:** menor presença primeiro, depois mais faltas, nome e id.
+- **Limites:** período de até 366 dias; acima de 5.000 linhas, `400`.
+- **Dados da migração:** as aulas de out–nov/2026 foram marcadas como realizadas em lote na virada do seufisio, então
+  a frequência só é confiável a partir de 25/11/2026.
+
+## Relatório de aulas sem evolução
+
+`GET /api/relatorios/aulas-sem-evolucao` (#234) aponta as aulas realizadas que ficaram sem evolução no prontuário. A
+agenda e o repasse ficam na **aula** (`Aula`), e o prontuário na **sessão** (`SessaoPilates`) com a sua evolução
+(`EvolucaoSessao`); os dois cadastros não têm vínculo entre si. É só do `ADMIN`: o profissional ainda não pode ver as
+próprias aulas porque `User` e `Profissional` não têm vínculo.
+
+- **Correspondência aula ↔ sessão:** uma aula `realizada = true` conta como "com evolução" quando existe ao menos uma
+  sessão do **mesmo paciente** na **mesma data** com `EvolucaoSessao` registrada. Vale qualquer sessão do dia, de
+  qualquer profissional e status, e o horário não é comparado.
+- **Só a evolução estruturada conta:** o campo legado `sessoes_pilates.evolucao` (texto livre, fora do contrato REST)
+  é ignorado. Sessão sem `EvolucaoSessao` não basta.
+- **Entram também** aulas de paciente inativo (o controle do prontuário vale para o período em que ele frequentou) e
+  aulas sem profissional, que formam no resumo o grupo `Sem profissional`.
+- **Período:** `inicio` e `fim` obrigatórios, inclusivos, até 366 dias. Acima de 5.000 linhas a consulta é recusada
+  com `400`.
+- **Filtro:** `profissionalId` restringe linhas e resumo às aulas desse profissional.
+- Aulas de out–nov/2026 foram marcadas como realizadas em lote na virada do seufisio e as que não tinham evolução
+  correspondente aparecem aqui (as 28 da Camila, por exemplo).
+
+## Relatório de ocupação da grade
+
+`GET /api/relatorios/ocupacao` (#235) é a grade semanal que orienta a venda de horários e o uso da lista de espera.
+É do `ADMIN` e da `RECEPCAO`.
+
+- **Base:** as aulas da semana (segunda a domingo da data pedida), as mesmas da agenda (paciente ativo), não os
+  planos. Agrupam-se por data, horário e profissional. **Ocupação** = alunos distintos da célula; **vagas** =
+  `app.agenda.capacidade-por-horario` − ocupação, nunca negativas.
+- **Sem profissional ou sem horário:** a célula aparece, para nenhuma aula sumir da grade, mas não conta vaga
+  (`capacidade` e `vagas` nulas). Sem profissional a aula não ocupa a agenda de ninguém, como na checagem de
+  capacidade (#106); sem horário não há horário a vender.
+- **Disponibilidade:** a mesma regra de `GET /profissionais/{id}/disponibilidades/verificar`. Profissional sem faixas
+  cadastradas está disponível em qualquer horário. Com faixas, a célula está dentro quando alguma faixa do mesmo dia da
+  semana contém o horário de início da aula (`horaInicio <= horario < horaFim`). Fora dela, a célula mostra a
+  ocupação, mas oferece `0` vaga e não soma capacidade nos totais.
+- **Lista de espera:** conta as entradas ativas de pacientes ativos (as mesmas de `GET /lista-espera`) do mesmo dia
+  da semana cuja faixa contém o horário da célula (`horaInicio <= horario < horaFim`). Célula sem horário conta `0`.
+- **Lotado:** ocupação maior ou igual à capacidade.
+- A grade só mostra horários que têm aula na semana: horários livres da disponibilidade, sem nenhum aluno, não viram
+  células.
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.

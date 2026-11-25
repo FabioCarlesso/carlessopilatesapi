@@ -265,4 +265,52 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             ORDER BY a.paciente.id, a.data, a.horario
             """)
     List<ProximaAulaProfissionalProjection> findProfissionaisDasProximasAulas(@Param("hoje") LocalDate hoje);
+
+    /**
+     * Aulas no período (datas inclusivas), uma linha por aula, para o relatório de frequência (#233). Os filtros de
+     * profissional e paciente são aplicados em memória pelo serviço: o período já limita o volume.
+     */
+    @Query(
+            """
+            SELECT pa.id AS pacienteId, pa.nome AS pacienteNome, pa.ativo AS pacienteAtivo,
+                   pr.id AS profissionalId, a.data AS data, a.realizada AS realizada
+            FROM Aula a JOIN a.paciente pa LEFT JOIN a.profissional pr
+            WHERE a.data BETWEEN :inicio AND :fim
+            """)
+    List<AulaFrequenciaProjection> findParaFrequencia(@Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    interface AulaFrequenciaProjection {
+        Long getPacienteId();
+
+        String getPacienteNome();
+
+        Boolean getPacienteAtivo();
+
+        Long getProfissionalId();
+
+        LocalDate getData();
+
+        Boolean getRealizada();
+    }
+
+    /**
+     * Aulas realizadas no período sem evolução registrada para o mesmo paciente na mesma data, para o relatório de
+     * aulas sem evolução (#234). Aula e sessão não têm vínculo: a correspondência é paciente + data, e vale só a
+     * evolução estruturada ({@code EvolucaoSessao}), não o campo legado {@code sessoes_pilates.evolucao}. Inclui
+     * paciente inativo e aula sem profissional; ordena por data, horário (sem horário por último) e paciente.
+     */
+    @Query(
+            """
+            SELECT a.id AS aulaId, a.data AS data, a.horario AS horario,
+                   pa.id AS pacienteId, pa.nome AS pacienteNome,
+                   pr.id AS profissionalId, pr.nome AS profissionalNome
+            FROM Aula a JOIN a.paciente pa LEFT JOIN a.profissional pr
+            WHERE a.realizada = true AND a.data BETWEEN :inicio AND :fim
+              AND NOT EXISTS (
+                  SELECT 1 FROM EvolucaoSessao e JOIN e.sessao s
+                  WHERE s.paciente.id = pa.id AND s.data = a.data)
+            ORDER BY a.data ASC, a.horario ASC NULLS LAST, pa.nome ASC, a.id ASC
+            """)
+    List<AulaSemEvolucaoProjection> findRealizadasSemEvolucao(
+            @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 }

@@ -157,6 +157,18 @@ public class SecurityConfig {
                         // mesma área dele.
                         .requestMatchers("/api/relatorios/recebimentos", "/api/relatorios/recebimentos/**")
                         .hasAnyRole(FISCAL)
+                        // Frequência e faltas por paciente (#233): acompanhamento da recepção, que age antes de o
+                        // aluno desistir; só contagem de aulas, sem dado clínico nem financeiro.
+                        .requestMatchers("/api/relatorios/frequencia", "/api/relatorios/frequencia/**")
+                        .hasAnyRole("ADMIN", "RECEPCAO")
+                        // Aulas realizadas sem evolução (#234): controle do prontuário por profissional, só do ADMIN.
+                        // O profissional não vê nem as próprias: User e Profissional ainda não têm vínculo.
+                        .requestMatchers("/api/relatorios/aulas-sem-evolucao", "/api/relatorios/aulas-sem-evolucao/**")
+                        .hasRole("ADMIN")
+                        // Ocupação da grade (#235): alunos e vagas por horário, para a recepção vender horários e
+                        // usar a lista de espera; não traz dado financeiro nem clínico.
+                        .requestMatchers("/api/relatorios/ocupacao", "/api/relatorios/ocupacao/**")
+                        .hasAnyRole("ADMIN", "RECEPCAO")
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(
