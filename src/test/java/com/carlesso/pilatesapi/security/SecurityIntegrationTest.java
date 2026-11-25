@@ -1216,6 +1216,27 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void relatorioOcupacao_comRecepcao_geraAGradeEComFinanceiroNega() throws Exception {
+        User recepcao = criarUsuario("relatorio-ocupacao-recepcao@email.com", Role.RECEPCAO);
+        User financeiro = criarUsuario("relatorio-ocupacao-financeiro@email.com", Role.FINANCEIRO);
+
+        mvc.perform(get("/api/relatorios/ocupacao")
+                        .param("semana", "2026-11-25")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.semana.inicio").value("2026-11-23"))
+                .andExpect(jsonPath("$.semana.fim").value("2026-11-29"))
+                .andExpect(jsonPath("$.capacidadePorHorario").isNumber())
+                .andExpect(jsonPath("$.celulas").isArray());
+        mvc.perform(get("/api/relatorios/ocupacao").header(HttpHeaders.AUTHORIZATION, bearer(financeiro)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/relatorios/ocupacao")
+                        .param("semana", "25/11/2026")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(recepcao)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void cobrancas_comAdmin_pagamentoInexistente_deveRetornar404() throws Exception {
         User admin = criarUsuario("cobrancas-admin@email.com", Role.ADMIN);
 
@@ -1255,6 +1276,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /api/relatorios/recebimentos                   | FINANCEIRO",
                 "GET    | /api/relatorios/recebimentos/pdf               | FINANCEIRO",
                 "GET    | /api/relatorios/recebimentos/xlsx              | FINANCEIRO",
+                "GET    | /api/relatorios/ocupacao                       | RECEPCAO",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",

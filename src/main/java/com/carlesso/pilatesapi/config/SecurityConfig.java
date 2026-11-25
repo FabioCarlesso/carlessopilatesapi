@@ -157,6 +157,10 @@ public class SecurityConfig {
                         // mesma área dele.
                         .requestMatchers("/api/relatorios/recebimentos", "/api/relatorios/recebimentos/**")
                         .hasAnyRole(FISCAL)
+                        // Ocupação da grade (#235): alunos e vagas por horário, para a recepção vender horários e
+                        // usar a lista de espera; não traz dado financeiro nem clínico.
+                        .requestMatchers("/api/relatorios/ocupacao", "/api/relatorios/ocupacao/**")
+                        .hasAnyRole("ADMIN", "RECEPCAO")
                         // A agenda e o financeiro escolhem profissional numa lista, então a leitura é da
                         // equipe; o relatório de repasse é do financeiro e o cadastro, do ADMIN.
                         .requestMatchers(

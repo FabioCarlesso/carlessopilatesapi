@@ -407,6 +407,27 @@ o extrato (PIX/dinheiro). `GET /pagamentos` não serve para isso porque filtra p
   receita do período e passa a ser o da seleção.
 - PDF e XLSX reusam o cálculo do JSON; o XLSX tem as abas `Resumo` e `Recebimentos`.
 
+## Relatório de ocupação da grade
+
+`GET /api/relatorios/ocupacao` (#235) é a grade semanal que orienta a venda de horários e o uso da lista de espera.
+É do `ADMIN` e da `RECEPCAO`.
+
+- **Base:** as aulas da semana (segunda a domingo da data pedida), as mesmas da agenda (paciente ativo), não os
+  planos. Agrupam-se por data, horário e profissional. **Ocupação** = alunos distintos da célula; **vagas** =
+  `app.agenda.capacidade-por-horario` − ocupação, nunca negativas.
+- **Sem profissional ou sem horário:** a célula aparece, para nenhuma aula sumir da grade, mas não conta vaga
+  (`capacidade` e `vagas` nulas). Sem profissional a aula não ocupa a agenda de ninguém, como na checagem de
+  capacidade (#106); sem horário não há horário a vender.
+- **Disponibilidade:** a mesma regra de `GET /profissionais/{id}/disponibilidades/verificar`. Profissional sem faixas
+  cadastradas está disponível em qualquer horário. Com faixas, a célula está dentro quando alguma faixa do mesmo dia da
+  semana contém o horário de início da aula (`horaInicio <= horario < horaFim`). Fora dela, a célula mostra a
+  ocupação, mas oferece `0` vaga e não soma capacidade nos totais.
+- **Lista de espera:** conta as entradas ativas de pacientes ativos (as mesmas de `GET /lista-espera`) do mesmo dia
+  da semana cuja faixa contém o horário da célula (`horaInicio <= horario < horaFim`). Célula sem horário conta `0`.
+- **Lotado:** ocupação maior ou igual à capacidade.
+- A grade só mostra horários que têm aula na semana: horários livres da disponibilidade, sem nenhum aluno, não viram
+  células.
+
 ## Indicadores do dashboard
 
 `GET /dashboard/indicadores` e `GET /dashboard/aulas-por-profissional` (#202) são restritos a `ADMIN`; o `GET /dashboard/resumo` é da equipe toda, com a `receitaMesAtual` só para `ADMIN` e `FINANCEIRO`.

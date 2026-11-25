@@ -81,6 +81,7 @@ da tabela abaixo. Rota que o
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
+| `/api/relatorios/ocupacao` | | ✓ | |
 | `/api/nfse-emitidas`, `/api/relatorios/nfse`, `/api/relatorios/financeiro`, `/api/relatorios/recebimentos` | | | ✓ |
 | `GET /profissionais`, `GET /profissionais/{id}` | ✓ | ✓ | ✓ |
 | `GET /profissionais/{id}/disponibilidades` (e `/verificar`) | ✓ | ✓ | ✓ |
@@ -532,6 +533,7 @@ existia à época do registro.
 | `GET` | `/api/relatorios/recebimentos?inicio=&fim=` | Recebimentos do período (pagamentos confirmados por data de pagamento), com totais por forma (JSON) |
 | `GET` | `/api/relatorios/recebimentos/pdf?inicio=&fim=` | Exportar os recebimentos em PDF |
 | `GET` | `/api/relatorios/recebimentos/xlsx?inicio=&fim=` | Exportar os recebimentos em Excel (XLSX) |
+| `GET` | `/api/relatorios/ocupacao?semana=&profissionalId=` | Ocupação da grade semanal: alunos, vagas e lista de espera por dia, horário e profissional (JSON) |
 
 ## NFSE emitidas
 
@@ -928,6 +930,48 @@ por `dataPagamento`, nome do paciente e `pagamentoId`. Os critérios estão em
 As exportações `/pdf` e `/xlsx` aceitam os mesmos filtros, trazem as mesmas linhas e totais e voltam como anexo
 (`Content-Disposition: attachment; filename="relatorio-recebimentos-{inicio}-{fim}.{ext}"`). O XLSX tem as abas
 `Resumo` e `Recebimentos` (com linha de total); o PDF é em paisagem.
+
+## Relatório de ocupação da grade — contrato JSON
+
+`GET /api/relatorios/ocupacao` (#235), para `ADMIN` e `RECEPCAO`, mostra a grade da semana: por data, horário e
+profissional, quantos alunos estão marcados, quantas vagas restam e quantos inscritos da lista de espera cobrem aquele
+horário. Parâmetros opcionais: `semana` (qualquer data da semana, `yyyy-MM-dd`; padrão: a semana de hoje no fuso do
+estúdio) e `profissionalId`. Data ou id malformados retornam `400`. Não há exportação.
+
+```json
+{
+  "semana": { "inicio": "2026-11-23", "fim": "2026-11-29" },
+  "capacidadePorHorario": 3,
+  "filtros": { "profissionalId": null, "profissionalNome": null },
+  "totais": { "aulas": 9, "ocupacao": 8, "semProfissional": 1, "capacidade": 9, "vagas": 3 },
+  "celulas": [
+    {
+      "data": "2026-11-23",
+      "diaSemana": "MONDAY",
+      "horario": "08:00:00",
+      "profissional": { "id": 5, "nome": "Paula" },
+      "ocupacao": 2,
+      "capacidade": 3,
+      "vagas": 1,
+      "lotado": false,
+      "dentroDaDisponibilidade": true,
+      "listaEspera": 0,
+      "alunos": [{ "id": 7, "nome": "Bruna" }, { "id": 8, "nome": "Carlos" }]
+    }
+  ],
+  "geradoEm": "2026-11-25T10:00:00"
+}
+```
+
+- As células vêm ordenadas por data, horário (sem horário por último) e nome do profissional (sem profissional por
+  último). Os `alunos` de cada célula vêm por nome.
+- `capacidade`, `vagas` e `dentroDaDisponibilidade` são `null` nas células que não contam vaga (sem profissional ou
+  sem horário). Fora da disponibilidade do profissional, `vagas` é `0` e `dentroDaDisponibilidade`, `false`.
+- `totais.ocupacao` soma as células com profissional; `totais.semProfissional`, as aulas sem profissional;
+  `capacidade` e `vagas` somam só as células que contam vaga e estão na disponibilidade.
+
+As regras de agrupamento, disponibilidade e lista de espera estão em
+[`regras-de-negocio.md`](regras-de-negocio.md#relatório-de-ocupação-da-grade).
 
 ## NFSE emitidas — registro fiscal
 
