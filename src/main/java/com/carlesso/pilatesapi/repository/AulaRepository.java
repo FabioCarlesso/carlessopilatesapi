@@ -28,6 +28,12 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
      * {@code Pageable}; a {@code countQuery} é explícita porque o Spring Data não deriva contagem de uma expressão
      * {@code new}.
      */
+    /** Aulas ainda não realizadas no intervalo (datas inclusivas), candidatas à marcação de feriado (#244). */
+    List<Aula> findByRealizadaFalseAndDataBetween(LocalDate inicio, LocalDate fim);
+
+    /** Aulas marcadas como feriado pelo bloqueio, para desfazer a marcação (#244). */
+    List<Aula> findByBloqueioFeriadoId(Long bloqueioId);
+
     @Query(
             value =
                     """
@@ -40,7 +46,8 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                             a.pagamento.id,
                             a.data,
                             a.horario,
-                            a.realizada)
+                            a.realizada,
+                            a.feriado)
                     FROM Aula a
                     JOIN a.paciente paciente
                     LEFT JOIN a.profissional profissional
@@ -80,7 +87,8 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                     a.pagamento.id,
                     a.data,
                     a.horario,
-                    a.realizada)
+                    a.realizada,
+                    a.feriado)
             FROM Aula a
             JOIN a.paciente paciente
             LEFT JOIN a.profissional profissional
@@ -321,7 +329,7 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
      * Aulas realizadas no período sem evolução registrada para o mesmo paciente na mesma data, para o relatório de
      * aulas sem evolução (#234). Aula e sessão não têm vínculo: a correspondência é paciente + data, e vale só a
      * evolução estruturada ({@code EvolucaoSessao}), não o campo legado {@code sessoes_pilates.evolucao}. Inclui
-     * paciente inativo e aula sem profissional; ordena por data, horário (sem horário por último) e paciente.
+     * paciente inativo e aula sem profissional; exclui a de feriado (#244), que não teve atendimento; ordena por data, horário (sem horário por último) e paciente.
      */
     @Query(
             """
@@ -329,7 +337,7 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                    pa.id AS pacienteId, pa.nome AS pacienteNome,
                    pr.id AS profissionalId, pr.nome AS profissionalNome
             FROM Aula a JOIN a.paciente pa LEFT JOIN a.profissional pr
-            WHERE a.realizada = true AND a.data BETWEEN :inicio AND :fim
+            WHERE a.realizada = true AND a.feriado = false AND a.data BETWEEN :inicio AND :fim
               AND NOT EXISTS (
                   SELECT 1 FROM EvolucaoSessao e JOIN e.sessao s
                   WHERE s.paciente.id = pa.id AND s.data = a.data)

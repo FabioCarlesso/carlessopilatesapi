@@ -205,7 +205,19 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 ## Bloqueios de Agenda
 
 - Registram períodos em que o estúdio não funciona: feriados, manutenção de equipamentos, eventos, férias coletivas
-- **O bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada. A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
+- **Tipo** (#244): `FERIADO` ou `OUTRO` (ausente no corpo = `OUTRO`; os bloqueios anteriores à V48 viraram `OUTRO`)
+- **Feriado de dia inteiro marca as aulas.** A aula que cai num bloqueio `FERIADO` sem faixa de horário fica
+  `realizada = true` e `feriado = true`: o aluno pagou por ela, então **gera repasse** pelo profissional da aula,
+  **consome o pacote** do pagamento e **não é falta** na frequência. Fica fora do relatório de aulas sem evolução,
+  porque não houve atendimento. Feriado parcial (com horário) e bloqueio `OUTRO` não marcam nada
+  - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas; aulas geradas depois para essas datas
+    já nascem marcadas
+  - A aula guarda o bloqueio que a marcou (`bloqueio_feriado_id`). Ao excluir o bloqueio, ou editá-lo mudando
+    período ou tipo, só as aulas que **ele** marcou voltam a não realizadas — uma aula realizada de verdade nunca é
+    tocada. Se outro feriado ainda cobre a data, a aula continua marcada, agora por ele
+  - Como toda aula realizada, a de feriado não pode ser remarcada nem ter o profissional trocado; para isso, desfaça o
+    feriado
+- **Fora o feriado, o bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada. A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
 - Consequência assumida: um feriado no meio do mês continua gerando aula, e cabe à recepção decidir entre manter e remarcar (`PATCH /aulas/{id}/remarcar`). O ganho da funcionalidade é enxergar o conflito na agenda em vez de descobri-lo no dia
 - `dataInicio` e `dataFim` são obrigatórias e ambas inclusivas; um feriado de um dia só repete a mesma data nas duas pontas. `dataFim` anterior a `dataInicio` retorna `400`
 - `horaInicio`/`horaFim` são opcionais e **só valem juntas**: as duas ausentes bloqueiam o dia inteiro (`diaInteiro = true` na resposta), as duas presentes bloqueiam a faixa em cada dia do período. Informar apenas uma retorna `400`, assim como `horaFim` não posterior a `horaInicio`
@@ -214,7 +226,7 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Sobreposição é permitida: "feriado" e "manutenção" no mesmo dia são dois registros legítimos, não um erro
 - `GET /bloqueios?inicio=&fim=` retorna os bloqueios que **intersectam** o período (`dataInicio <= fim AND dataFim >= inicio`), inclusive os que começam antes ou terminam depois dele — férias de 20/12 a 05/01 precisam aparecer na consulta de janeiro. Ordenado por `dataInicio` e `id`, reusando o `PeriodoGuard` de aulas e sessões (período obrigatório e fechado), porém com teto de **366 dias** em vez dos 92 da agenda: o cadastro de feriados é conferido para o ano inteiro de uma vez e rende poucos registros por ano, não milhares por trimestre
 - `PUT /bloqueios/{id}` é substituição completa: omitir `horaInicio`/`horaFim` remove a faixa e devolve o bloqueio para dia inteiro
-- `DELETE /bloqueios/{id}` é exclusão física — o bloqueio não é referenciado por nenhum outro registro, então apagar não deixa órfãos e não afeta aulas ou sessões do período
+- `DELETE /bloqueios/{id}` é exclusão física. Antes de apagar, desfaz a marcação das aulas de feriado que o bloqueio marcou (#244)
 - Autorização: escrita (`POST`, `PUT`, `DELETE`) exige `ADMIN`; a leitura é liberada a toda a equipe (`PROFISSIONAL`, `RECEPCAO`, `FINANCEIRO`) porque é ela que alimenta o aviso nas telas de agenda e sessão usadas pela recepção
 
 ## Lista de Espera
@@ -447,6 +459,7 @@ próprias aulas porque `User` e `Profissional` não têm vínculo.
 - **Correspondência aula ↔ sessão:** uma aula `realizada = true` conta como "com evolução" quando existe ao menos uma
   sessão do **mesmo paciente** na **mesma data** com `EvolucaoSessao` registrada. Vale qualquer sessão do dia, de
   qualquer profissional e status, e o horário não é comparado.
+- **Aula de feriado** (#244) não entra: ela conta como realizada, mas não teve atendimento a evoluir.
 - **Só a evolução estruturada conta:** o campo legado `sessoes_pilates.evolucao` (texto livre, fora do contrato REST)
   é ignorado. Sessão sem `EvolucaoSessao` não basta.
 - **Entram também** aulas de paciente inativo (o controle do prontuário vale para o período em que ele frequentou) e

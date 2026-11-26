@@ -295,6 +295,9 @@ GET /pagamentos/xlsx?status=PENDENTE&vencimentoDe=2026-11-25&vencimentoAte=2026-
 | `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
 | `PATCH` | `/aulas/{id}/remarcar` | Trocar a data e/ou o horário de uma aula ainda não realizada (corpo) |
 
+Toda aula na resposta traz `feriado` (#244): `true` quando um bloqueio `FERIADO` de dia inteiro a marcou, sempre com
+`realizada: true`. Serve para a tela distinguir a aula de feriado de uma realizada com atendimento.
+
 ### Remarcação
 
 `{"data": "2025-02-20", "horario": "08:00"}` move a aula, preservando paciente e `pagamentoId`. `horario` é opcional:
@@ -349,8 +352,10 @@ profissional para um horário lotado retorna `409` com `type` `conflict` e a ocu
 | `PUT` | `/bloqueios/{id}` | Atualizar bloqueio (substituição completa) — exige `ADMIN` |
 | `DELETE` | `/bloqueios/{id}` | Excluir bloqueio permanentemente — exige `ADMIN` |
 
-O bloqueio **avisa, não impede**: nem a geração automática de aulas nem o agendamento de sessões consultam esta
-tabela. `GET /bloqueios` é a consulta que permite ao frontend marcar as datas na agenda e sugerir que não se marque
+O bloqueio **avisa, não impede**: não recusa a geração automática de aulas nem o agendamento de sessões. A exceção é
+o feriado (#244): `tipo` (`FERIADO` ou `OUTRO`, ausente = `OUTRO`) vai no corpo e na resposta, e um `FERIADO` sem
+faixa de horário marca as aulas do período com `realizada: true` e `feriado: true`. Editar ou excluir o bloqueio
+desfaz a marcação das aulas que ele marcou. `GET /bloqueios` é a consulta que permite ao frontend marcar as datas na agenda e sugerir que não se marque
 nada ali — a decisão continua com quem opera, porque exceções (a turma que treina no feriado) são legítimas.
 
 - `horaInicio`/`horaFim` ausentes bloqueiam o dia inteiro e a resposta traz `diaInteiro: true`; presentes, bloqueiam

@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
+import com.carlesso.pilatesapi.entity.BloqueioAgenda;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.Profissional;
@@ -11,6 +12,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
+import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
@@ -20,6 +22,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -36,14 +39,17 @@ public class AulaService {
     private final AulaRepository aulaRepository;
     private final ProfissionalRepository profissionalRepository;
     private final AgendaProperties agendaProperties;
+    private final BloqueioAgendaRepository bloqueioAgendaRepository;
 
     public AulaService(
             AulaRepository aulaRepository,
             ProfissionalRepository profissionalRepository,
-            AgendaProperties agendaProperties) {
+            AgendaProperties agendaProperties,
+            BloqueioAgendaRepository bloqueioAgendaRepository) {
         this.aulaRepository = aulaRepository;
         this.profissionalRepository = profissionalRepository;
         this.agendaProperties = agendaProperties;
+        this.bloqueioAgendaRepository = bloqueioAgendaRepository;
     }
 
     @Transactional
@@ -59,15 +65,21 @@ public class AulaService {
         // entra em jogo quando um profissional é atribuído.
         LocalTime horario = pagamento.getPlano().getHorario();
 
+        List<LocalDate> datas = datasDoPacote(pagamento.getPlano(), pagamento.getPeriodoInicio());
+        List<BloqueioAgenda> feriados = bloqueioAgendaRepository.findFeriadosDiaInteiroQueIntersectam(
+                datas.get(0), datas.get(datas.size() - 1));
+
         List<Aula> aulas = new ArrayList<>();
         // Uma aula que o paciente já tem na data não é duplicada, mas a data conta para o pacote (#243).
-        for (LocalDate data : datasDoPacote(pagamento.getPlano(), pagamento.getPeriodoInicio())) {
+        for (LocalDate data : datas) {
             if (!aulaRepository.existsByPacienteAndData(pagamento.getPaciente(), data)) {
                 Aula aula = new Aula();
                 aula.setPaciente(pagamento.getPaciente());
                 aula.setPagamento(pagamento);
                 aula.setData(data);
                 aula.setHorario(horario);
+                // Aula em feriado já cadastrado nasce realizada (#244).
+                feriadoQueCobre(feriados, data).ifPresent(aula::marcarFeriado);
                 aulas.add(aula);
             }
         }
@@ -110,6 +122,43 @@ public class AulaService {
     public static LocalDate fimDoPacote(Plano plano, LocalDate inicio) {
         List<LocalDate> datas = datasDoPacote(plano, inicio);
         return datas.get(datas.size() - 1);
+    }
+
+    /**
+     * Aplica a marcação de feriado de um bloqueio que foi criado, editado ou excluído (#244). Primeiro desfaz o que o
+     * bloqueio marcou antes — só as aulas que ele marcou, nunca uma realizada de verdade. Depois, se o bloqueio
+     * ({@code null} na exclusão) é feriado de dia inteiro, marca as aulas ainda não realizadas do período dele. Por fim,
+     * as datas desmarcadas que outro feriado ainda cobre voltam a ser marcadas por esse outro.
+     */
+    @Transactional
+    public void sincronizarFeriado(Long bloqueioId, BloqueioAgenda bloqueio) {
+        List<Aula> desmarcadas = bloqueioId == null ? List.of() : aulaRepository.findByBloqueioFeriadoId(bloqueioId);
+        desmarcadas.forEach(Aula::desmarcarFeriado);
+
+        if (bloqueio != null && bloqueio.marcaAulasComoFeriado()) {
+            aulaRepository
+                    .findByRealizadaFalseAndDataBetween(bloqueio.getDataInicio(), bloqueio.getDataFim())
+                    .forEach(aula -> aula.marcarFeriado(bloqueio));
+        }
+
+        List<Aula> soltas = desmarcadas.stream().filter(a -> !a.isRealizada()).toList();
+        if (!soltas.isEmpty()) {
+            LocalDate de =
+                    soltas.stream().map(Aula::getData).min(LocalDate::compareTo).orElseThrow();
+            LocalDate ate =
+                    soltas.stream().map(Aula::getData).max(LocalDate::compareTo).orElseThrow();
+            List<BloqueioAgenda> outros =
+                    bloqueioAgendaRepository.findFeriadosDiaInteiroQueIntersectam(de, ate).stream()
+                            .filter(b -> !Objects.equals(b.getId(), bloqueioId))
+                            .toList();
+            soltas.forEach(aula -> feriadoQueCobre(outros, aula.getData()).ifPresent(aula::marcarFeriado));
+        }
+    }
+
+    private static Optional<BloqueioAgenda> feriadoQueCobre(List<BloqueioAgenda> feriados, LocalDate data) {
+        return feriados.stream()
+                .filter(b -> !data.isBefore(b.getDataInicio()) && !data.isAfter(b.getDataFim()))
+                .findFirst();
     }
 
     @Transactional(readOnly = true)

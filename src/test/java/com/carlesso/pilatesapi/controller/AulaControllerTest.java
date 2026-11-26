@@ -51,7 +51,7 @@ class AulaControllerTest {
     CustomUserDetailsService customUserDetailsService;
 
     private AulaResponseDTO aulaResponse(boolean realizada) {
-        return new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), null, realizada);
+        return new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), null, realizada, false);
     }
 
     @Test
@@ -225,7 +225,8 @@ class AulaControllerTest {
     @Test
     void atribuirProfissional_comProfissionalIdNulo_retorna200SemVinculo() throws Exception {
         when(aulaService.atribuirProfissional(eq(1L), isNull()))
-                .thenReturn(new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false));
+                .thenReturn(new AulaResponseDTO(
+                        1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false));
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", null))
                 .andExpect(status().isOk())
@@ -295,8 +296,8 @@ class AulaControllerTest {
     @Test
     void remarcar_retorna200ComNovaData() throws Exception {
         when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), null))
-                .thenReturn(
-                        new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), null, false));
+                .thenReturn(new AulaResponseDTO(
+                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), null, false, false));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
                 .andExpect(status().isOk())
@@ -330,7 +331,7 @@ class AulaControllerTest {
     void remarcar_comHorario_repassaOHorarioAoService() throws Exception {
         when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0)))
                 .thenReturn(new AulaResponseDTO(
-                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0), false));
+                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0), false, false));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
                 .andExpect(status().isOk())

@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.entity;
 
+import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -7,7 +8,8 @@ import java.time.LocalTime;
 /**
  * Período em que o estúdio não funciona: feriado, manutenção de equipamento, evento, férias coletivas.
  *
- * <p>O bloqueio é <strong>informativo</strong>: não impede a geração automática de aulas nem o agendamento de
+ * <p>O bloqueio é <strong>informativo</strong> (exceto o {@code FERIADO} de dia inteiro, que marca as aulas do
+ * período como realizadas, #244): não impede a geração automática de aulas nem o agendamento de
  * sessões. Existem exceções legítimas — um feriado em que a turma da manhã resolve treinar — e uma recusa
  * automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via
  * {@code GET /bloqueios}, para que a agenda mostre o conflito e a decisão continue humana.
@@ -40,11 +42,29 @@ public class BloqueioAgenda extends EntidadeAuditavel {
     @Column(nullable = false, length = 200)
     private String motivo;
 
+    /** {@code FERIADO} de dia inteiro marca as aulas do período como realizadas (#244). */
+    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private TipoBloqueio tipo = TipoBloqueio.OUTRO;
+
     public BloqueioAgenda() {}
 
     /** Dia inteiro bloqueado — a ausência de faixa de horário é o que distingue os dois tipos de bloqueio. */
     public boolean isDiaInteiro() {
         return horaInicio == null && horaFim == null;
+    }
+
+    /** Feriado parcial, com horário, não marca aulas: só o de dia inteiro (#244). */
+    public boolean marcaAulasComoFeriado() {
+        return tipo == TipoBloqueio.FERIADO && isDiaInteiro();
+    }
+
+    public TipoBloqueio getTipo() {
+        return tipo;
+    }
+
+    public void setTipo(TipoBloqueio tipo) {
+        this.tipo = tipo;
     }
 
     public Long getId() {

@@ -35,6 +35,15 @@ public class Aula extends EntidadeAuditavel {
     @Column(nullable = false)
     private boolean realizada = false;
 
+    /** Caiu num feriado e foi marcada realizada por isso (#244): gera repasse, consome o pacote e não é falta. */
+    @Column(nullable = false)
+    private boolean feriado = false;
+
+    /** Bloqueio que marcou a aula como feriado; é por ele que a marcação é desfeita, sem tocar em aula realizada. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bloqueio_feriado_id")
+    private BloqueioAgenda bloqueioFeriado;
+
     /**
      * A aula tem três escritores concorrentes ({@code realizar}, {@code profissional} e {@code remarcar}) e cada um
      * grava um campo diferente da mesma linha. Sem versão, realizar e remarcar em paralelo se sobrescrevem em
@@ -101,5 +110,27 @@ public class Aula extends EntidadeAuditavel {
 
     public void setRealizada(boolean realizada) {
         this.realizada = realizada;
+    }
+
+    public boolean isFeriado() {
+        return feriado;
+    }
+
+    public BloqueioAgenda getBloqueioFeriado() {
+        return bloqueioFeriado;
+    }
+
+    /** Marca a aula como realizada pelo feriado do {@code bloqueio}. */
+    public void marcarFeriado(BloqueioAgenda bloqueio) {
+        this.realizada = true;
+        this.feriado = true;
+        this.bloqueioFeriado = bloqueio;
+    }
+
+    /** Desfaz a marcação de feriado: a aula volta a não realizada. */
+    public void desmarcarFeriado() {
+        this.realizada = false;
+        this.feriado = false;
+        this.bloqueioFeriado = null;
     }
 }
