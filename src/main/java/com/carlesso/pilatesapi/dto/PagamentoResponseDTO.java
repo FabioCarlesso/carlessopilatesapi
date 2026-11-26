@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.dto;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
+import com.carlesso.pilatesapi.service.AulaService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -17,8 +18,21 @@ public record PagamentoResponseDTO(
         FormaPagamento formaPagamento,
         LocalDate dataVencimento,
         LocalDate periodoInicio,
-        LocalDate periodoFim) {
+        LocalDate periodoFim,
+        int aulasPacote,
+        long aulasRealizadas,
+        long aulasSemProfissional) {
+
+    /** Sem contadores: para o pagamento que ainda não tem aulas (recém-criado ou pendente). */
     public static PagamentoResponseDTO from(Pagamento pagamento) {
+        return from(pagamento, 0, 0);
+    }
+
+    /**
+     * {@code aulasPacote} é o tamanho do pacote do plano (#243); {@code aulasRealizadas} conta as de feriado, que
+     * consomem o pacote; {@code aulasSemProfissional} são as ainda não realizadas sem profissional (#245).
+     */
+    public static PagamentoResponseDTO from(Pagamento pagamento, long aulasRealizadas, long aulasSemProfissional) {
         return new PagamentoResponseDTO(
                 pagamento.getId(),
                 pagamento.getPaciente().getId(),
@@ -30,6 +44,9 @@ public record PagamentoResponseDTO(
                 pagamento.getFormaPagamento(),
                 pagamento.getDataVencimento(),
                 pagamento.getPeriodoInicio(),
-                pagamento.getPeriodoFim());
+                pagamento.getPeriodoFim(),
+                AulaService.tamanhoDoPacote(pagamento.getPlano()),
+                aulasRealizadas,
+                aulasSemProfissional);
     }
 }

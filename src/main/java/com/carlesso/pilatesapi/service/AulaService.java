@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Pagamento;
+import com.carlesso.pilatesapi.entity.Plano;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.exception.BusinessException;
@@ -13,6 +14,7 @@ import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -53,30 +55,61 @@ public class AulaService {
             throw new BusinessException("Paciente inativo não pode ter aulas geradas");
         }
 
-        var diasSemana = pagamento.getPlano().getDiasSemana();
         // A aula nasce sem profissional, então o horário copiado do plano não passa pela regra de capacidade: ela só
         // entra em jogo quando um profissional é atribuído.
         LocalTime horario = pagamento.getPlano().getHorario();
-        LocalDate inicio = pagamento.getPeriodoInicio();
-        LocalDate fim = pagamento.getPeriodoFim();
 
         List<Aula> aulas = new ArrayList<>();
-        LocalDate data = inicio;
-        while (!data.isAfter(fim)) {
-            if (diasSemana.contains(data.getDayOfWeek())) {
-                if (!aulaRepository.existsByPacienteAndData(pagamento.getPaciente(), data)) {
-                    Aula aula = new Aula();
-                    aula.setPaciente(pagamento.getPaciente());
-                    aula.setPagamento(pagamento);
-                    aula.setData(data);
-                    aula.setHorario(horario);
-                    aulas.add(aula);
-                }
+        // Uma aula que o paciente já tem na data não é duplicada, mas a data conta para o pacote (#243).
+        for (LocalDate data : datasDoPacote(pagamento.getPlano(), pagamento.getPeriodoInicio())) {
+            if (!aulaRepository.existsByPacienteAndData(pagamento.getPaciente(), data)) {
+                Aula aula = new Aula();
+                aula.setPaciente(pagamento.getPaciente());
+                aula.setPagamento(pagamento);
+                aula.setData(data);
+                aula.setHorario(horario);
+                aulas.add(aula);
             }
-            data = data.plusDays(1);
         }
 
         return aulaRepository.saveAll(aulas);
+    }
+
+    /**
+     * Tamanho do pacote de aulas de um pagamento do plano (#243): {@code aulasPorMes} da frequência (4, 8 ou 12) vezes
+     * os meses do tipo (MENSAL ×1, TRIMESTRAL ×3, ANUAL ×12).
+     */
+    public static int tamanhoDoPacote(Plano plano) {
+        return plano.getFrequenciaSemanal().getAulasPorMes() * plano.getTipo().getMeses();
+    }
+
+    /**
+     * Datas do pacote de aulas de um pagamento que começa em {@code inicio}: as próximas ocorrências dos
+     * {@code diasSemana} do plano, a partir de {@code inicio} inclusive, até completar {@link #tamanhoDoPacote}. A
+     * última data é o {@code periodoFim} do pagamento — geração e cálculo do período usam este único método para não
+     * divergirem.
+     */
+    public static List<LocalDate> datasDoPacote(Plano plano, LocalDate inicio) {
+        Set<DayOfWeek> dias = plano.getDiasSemana() == null ? Set.of() : Set.copyOf(plano.getDiasSemana());
+        if (dias.isEmpty()) {
+            throw new BusinessException("Plano sem dias da semana não gera pacote de aulas");
+        }
+        int tamanho = tamanhoDoPacote(plano);
+        List<LocalDate> datas = new ArrayList<>(tamanho);
+        LocalDate data = inicio;
+        while (datas.size() < tamanho) {
+            if (dias.contains(data.getDayOfWeek())) {
+                datas.add(data);
+            }
+            data = data.plusDays(1);
+        }
+        return datas;
+    }
+
+    /** Último dia do pacote que começa em {@code inicio}: o {@code periodoFim} do pagamento. */
+    public static LocalDate fimDoPacote(Plano plano, LocalDate inicio) {
+        List<LocalDate> datas = datasDoPacote(plano, inicio);
+        return datas.get(datas.size() - 1);
     }
 
     @Transactional(readOnly = true)

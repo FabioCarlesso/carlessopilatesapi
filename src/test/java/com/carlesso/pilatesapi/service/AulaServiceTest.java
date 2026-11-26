@@ -204,6 +204,80 @@ class AulaServiceTest {
     }
 
     @Test
+    void gerarAulas_mesComCincoSegundas_geraSoOPacoteDeQuatro() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.UMA_VEZ);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY));
+        pagamentoPago.setPeriodoInicio(LocalDate.of(2026, 3, 1)); // segundas: 2, 9, 16, 23 e 30
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        assertThat(aulas)
+                .extracting(Aula::getData)
+                .containsExactly(
+                        LocalDate.of(2026, 3, 2),
+                        LocalDate.of(2026, 3, 9),
+                        LocalDate.of(2026, 3, 16),
+                        LocalDate.of(2026, 3, 23));
+    }
+
+    @Test
+    void gerarAulas_aulaExistenteContaParaOPacote() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.UMA_VEZ);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY));
+        pagamentoPago.setPeriodoInicio(LocalDate.of(2026, 3, 1));
+        when(aulaRepository.existsByPacienteAndData(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1).equals(LocalDate.of(2026, 3, 9)));
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        // A do dia 9 já existe e consome uma vaga do pacote: a do dia 30 não é gerada.
+        assertThat(aulas)
+                .extracting(Aula::getData)
+                .containsExactly(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 16), LocalDate.of(2026, 3, 23));
+    }
+
+    @Test
+    void tamanhoDoPacote_multiplicaAulasPorMesPelosMesesDoTipo() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.TRES_VEZES);
+        assertThat(AulaService.tamanhoDoPacote(plano)).isEqualTo(12);
+        plano.setTipo(TipoPagamento.TRIMESTRAL);
+        assertThat(AulaService.tamanhoDoPacote(plano)).isEqualTo(36);
+        plano.setFrequenciaSemanal(FrequenciaSemanal.DUAS_VEZES);
+        plano.setTipo(TipoPagamento.ANUAL);
+        assertThat(AulaService.tamanhoDoPacote(plano)).isEqualTo(96);
+    }
+
+    @Test
+    void datasDoPacote_tresVezesCruzandoAViradaDoAno() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.TRES_VEZES);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY));
+
+        List<LocalDate> datas = AulaService.datasDoPacote(plano, LocalDate.of(2026, 12, 20));
+
+        assertThat(datas).hasSize(12).isSorted().doesNotHaveDuplicates();
+        assertThat(datas.get(0)).isEqualTo(LocalDate.of(2026, 12, 21));
+        assertThat(AulaService.fimDoPacote(plano, LocalDate.of(2026, 12, 20))).isEqualTo(LocalDate.of(2027, 1, 15));
+    }
+
+    @Test
+    void datasDoPacote_trimestralDuasVezes_geraVinteEQuatro() {
+        plano.setTipo(TipoPagamento.TRIMESTRAL);
+
+        assertThat(AulaService.datasDoPacote(plano, LocalDate.of(2025, 2, 1))).hasSize(24);
+    }
+
+    @Test
+    void datasDoPacote_planoSemDias_lancaBusinessException() {
+        plano.setDiasSemana(List.of());
+
+        assertThatThrownBy(() -> AulaService.datasDoPacote(plano, LocalDate.of(2025, 2, 1)))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     void gerarAulas_pagamentoPendente_lancaExcecao() {
         pagamentoPago.setStatus(StatusPagamento.PENDENTE);
 

@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -132,6 +133,29 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
             GROUP BY a.pagamento.id
             """)
     List<Object[]> countGroupedByPagamentoId(@Param("ids") List<Long> ids);
+
+    /**
+     * Contadores das aulas de cada pagamento para o {@code PagamentoResponseDTO} (#243): quantas já foram realizadas
+     * (inclui as de feriado) e quantas, ainda por realizar, estão sem profissional. Uma consulta para a página toda.
+     */
+    @Query(
+            """
+            SELECT a.pagamento.id AS pagamentoId,
+                   SUM(CASE WHEN a.realizada = true THEN 1 ELSE 0 END) AS realizadas,
+                   SUM(CASE WHEN a.realizada = false AND a.profissional IS NULL THEN 1 ELSE 0 END) AS semProfissional
+            FROM Aula a
+            WHERE a.pagamento.id IN :ids
+            GROUP BY a.pagamento.id
+            """)
+    List<ContadoresAulasPagamentoProjection> contarPorPagamento(@Param("ids") Collection<Long> ids);
+
+    interface ContadoresAulasPagamentoProjection {
+        Long getPagamentoId();
+
+        Long getRealizadas();
+
+        Long getSemProfissional();
+    }
 
     @Query(
             """

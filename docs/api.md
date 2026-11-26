@@ -216,6 +216,14 @@ pagamento copiam esse horário. Sem ele, as aulas nascem sem horário e ficam fo
 | `GET` | `/pagamentos/{id}/cobrancas` | Histórico de contatos de cobrança do pagamento, do mais recente para o mais antigo (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas/{contatoId}` | Buscar contato de cobrança (é o alvo do `Location` devolvido no registro; `ADMIN`) |
 
+### Pacote de aulas
+
+Toda resposta de pagamento traz o pacote do plano (#243):
+
+- `periodoFim`: data da última aula do pacote (pagamentos criados antes da #243 mantêm o fim do mês).
+- `aulasPacote`: tamanho do pacote — 4, 8 ou 12 aulas por mês, vezes os meses do tipo do plano.
+- `aulasRealizadas`: aulas do pagamento já realizadas, inclusive as de feriado. Com `aulasPacote`, dá o "X de N".
+
 ### Confirmação e forma de pagamento
 
 ```

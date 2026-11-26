@@ -20,6 +20,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.metrics.BusinessMetrics;
+import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
@@ -57,6 +58,9 @@ class PagamentoServiceTest {
     @Mock
     AulaService aulaService;
 
+    @Mock
+    AulaRepository aulaRepository;
+
     PagamentoService service;
 
     private Paciente paciente;
@@ -69,7 +73,13 @@ class PagamentoServiceTest {
         businessMetrics = new BusinessMetrics(new SimpleMeterRegistry());
         appProperties = new AppProperties(new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 10));
         service = new PagamentoService(
-                pagamentoRepository, pacienteRepository, planoRepository, aulaService, appProperties, businessMetrics);
+                pagamentoRepository,
+                pacienteRepository,
+                planoRepository,
+                aulaService,
+                aulaRepository,
+                appProperties,
+                businessMetrics);
 
         paciente = new Paciente();
         paciente.setNome("Ana");
@@ -240,7 +250,13 @@ class PagamentoServiceTest {
     void gerarCobrancasFuturas_usaVencimentoDiasConfigurado() {
         appProperties = new AppProperties(new AppProperties.Cobranca("0 0 6 * * *", "0 0 7 * * *", 15));
         service = new PagamentoService(
-                pagamentoRepository, pacienteRepository, planoRepository, aulaService, appProperties, businessMetrics);
+                pagamentoRepository,
+                pacienteRepository,
+                planoRepository,
+                aulaService,
+                aulaRepository,
+                appProperties,
+                businessMetrics);
 
         when(planoRepository.findByAtivoTrue()).thenReturn(List.of(plano));
         when(pagamentoRepository.findTopByPlanoOrderByPeriodoFimDesc(plano)).thenReturn(Optional.empty());
@@ -406,5 +422,67 @@ class PagamentoServiceTest {
         service.listar(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 1L, null, Pageable.unpaged());
 
         verify(pagamentoRepository).findAll(any(Specification.class), eq(Pageable.unpaged()));
+    }
+
+    @Test
+    void criarPagamento_periodoFimNaUltimaAulaDoPacote() {
+        // Março de 2026 tem cinco segundas (2, 9, 16, 23, 30): o pacote 1x/semana termina na quarta, dia 23.
+        plano.setFrequenciaSemanal(FrequenciaSemanal.UMA_VEZ);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY));
+        LocalDate inicio = LocalDate.of(2026, 3, 1);
+        var dto = new PagamentoRequestDTO(1L, 1L, new BigDecimal("200.00"), inicio.plusDays(10), inicio);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
+        when(planoRepository.findById(1L)).thenReturn(Optional.of(plano));
+        ArgumentCaptor<Pagamento> captor = ArgumentCaptor.forClass(Pagamento.class);
+        when(pagamentoRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        PagamentoResponseDTO response = service.criar(dto);
+
+        assertThat(captor.getValue().getPeriodoFim()).isEqualTo(LocalDate.of(2026, 3, 23));
+        assertThat(response.aulasPacote()).isEqualTo(4);
+        assertThat(response.aulasRealizadas()).isZero();
+    }
+
+    @Test
+    void gerarCobrancasFuturas_renovacaoComecaNoDiaSeguinteEFechaNoPacote() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.UMA_VEZ);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY));
+        Pagamento anterior = new Pagamento();
+        anterior.setPlano(plano);
+        anterior.setPeriodoInicio(LocalDate.now().minusDays(27));
+        anterior.setPeriodoFim(LocalDate.now());
+        when(planoRepository.findByAtivoTrue()).thenReturn(List.of(plano));
+        when(pagamentoRepository.findTopByPlanoOrderByPeriodoFimDesc(plano)).thenReturn(Optional.of(anterior));
+        ArgumentCaptor<Pagamento> captor = ArgumentCaptor.forClass(Pagamento.class);
+        when(pagamentoRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service.gerarCobrancasFuturas()).isEqualTo(1);
+
+        Pagamento renovacao = captor.getValue();
+        assertThat(renovacao.getPeriodoInicio()).isEqualTo(LocalDate.now().plusDays(1));
+        assertThat(renovacao.getPeriodoFim())
+                .isEqualTo(AulaService.fimDoPacote(plano, LocalDate.now().plusDays(1)))
+                .isEqualTo(AulaService.datasDoPacote(plano, LocalDate.now().plusDays(1))
+                        .get(3))
+                .isAfter(renovacao.getPeriodoInicio());
+    }
+
+    @Test
+    void buscarPorId_preencheContadoresDoPacote() {
+        Pagamento pagamento = new Pagamento();
+        pagamento.setPaciente(paciente);
+        pagamento.setPlano(plano);
+        when(pagamentoRepository.findById(1L)).thenReturn(Optional.of(pagamento));
+        var contadores = org.mockito.Mockito.mock(AulaRepository.ContadoresAulasPagamentoProjection.class);
+        when(contadores.getPagamentoId()).thenReturn(null);
+        when(contadores.getRealizadas()).thenReturn(3L);
+        when(contadores.getSemProfissional()).thenReturn(2L);
+        when(aulaRepository.contarPorPagamento(any())).thenReturn(List.of(contadores));
+
+        PagamentoResponseDTO response = service.buscarPorId(1L);
+
+        assertThat(response.aulasPacote()).isEqualTo(8);
+        assertThat(response.aulasRealizadas()).isEqualTo(3);
+        assertThat(response.aulasSemProfissional()).isEqualTo(2);
     }
 }

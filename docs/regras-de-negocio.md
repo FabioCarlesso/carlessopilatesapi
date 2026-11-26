@@ -111,18 +111,27 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 ## Frequência de Aulas
 
-| Frequência | Vezes/semana | Aulas/mês (referência) |
+| Frequência | Vezes/semana | Aulas por mês (pacote) |
 |---|---|---|
 | `UMA_VEZ` | 1 | 4 |
 | `DUAS_VEZES` | 2 | 8 |
 | `TRES_VEZES` | 3 | 12 |
+
+O plano é mensal, mas com **limite de aulas** (#243): cada pagamento cobre um pacote de `aulasPorMes × meses do tipo`
+aulas (MENSAL ×1, TRIMESTRAL ×3, ANUAL ×12). Consumido o pacote, começa o pagamento seguinte (a renovação). Um mês
+com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeira do pacote seguinte.
 
 ## Pagamentos
 
 - Status: `PENDENTE` → `PAGO` ou `VENCIDO`
 - Valor não pode ser menor que o valor do plano
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período (`UNIQUE plano_id + periodo_inicio`)
-- Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
+- Ao confirmar (`PAGO`), as aulas do pacote são geradas automaticamente
+- `periodoFim` é a **data da última aula do pacote** (#243), calculada na criação e na renovação pelo mesmo método que
+  gera as aulas, para os dois nunca divergirem. Antes da #243 era o fim do mês de calendário; os pagamentos já
+  existentes não foram recalculados (decisão de 2026-11-26) e mantêm o `periodoFim` antigo
+- Toda resposta de pagamento traz `aulasPacote` (tamanho do pacote do plano) e `aulasRealizadas` (aulas do pagamento
+  já realizadas, inclusive as de feriado), para a tela mostrar "X de N"
 - A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
 - A forma de pagamento (`PIX`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `DINHEIRO`, `TRANSFERENCIA`) é registrada na **confirmação**, que é quando ela vira fato, e não na criação: a cobrança nasce no scheduler sem saber como o paciente vai pagar (#215). Serve para conferir o caixa e conciliar com o extrato
 - Por enquanto a forma é **opcional** na confirmação: sem ela o pagamento é confirmado com a forma nula, como antes. Pagamentos confirmados antes da #215 também ficam sem forma — não há como reconstruí-la. Ela passa a ser obrigatória quando o frontend que a envia (carlessopilatesfe#132) estiver publicado
@@ -163,8 +172,10 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 ## Geração de Aulas
 
-- Aulas geradas com base nos dias da semana do plano e no período do pagamento, percorrendo dia a dia entre `periodoInicio` e `periodoFim`
-- Sem duplicatas: ignora datas onde o paciente já tem aula registrada
+- Aulas geradas nos dias da semana do plano, a partir de `periodoInicio`, até completar o pacote (#243) — a última
+  data é o `periodoFim`
+- Sem duplicatas: ignora datas onde o paciente já tem aula registrada, mas a data **conta para o pacote** (a aula já
+  existente ocupa a vaga)
 - Cada aula gerada recebe o `horario` do plano — um único horário para todos os `diasSemana` (#106). Plano sem horário gera aulas sem horário, que continuam válidas e consultáveis; o horário entra depois, aula a aula, por `PATCH /aulas/{id}/remarcar`. Planos não têm edição, então mudar o horário de um aluno exige novo plano, e as aulas já geradas mantêm o horário antigo
 - O paciente continua com no máximo **uma aula por dia**: a constraint `(paciente_id, data)` foi mantida com a chegada do horário, e com ela a regra de colisão da remarcação (#170)
 - Requer paciente ativo e pagamento `PAGO`
@@ -507,7 +518,7 @@ superclasse `EntidadeAuditavel`. Nenhum service preenche esses campos, e o que o
 | Cron (default) | Horário | Ação | Propriedade |
 |---|---|---|---|
 | `0 0 6 * * *` | 06:00 todo dia | Marca como `VENCIDO` pagamentos `PENDENTE` com `dataVencimento` passada | `app.cobranca.cron-vencidos` (env `APP_COBRANCA_CRON_VENCIDOS`) |
-| `0 0 7 * * *` | 07:00 todo dia | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual | `app.cobranca.cron-cobrancas-futuras` (env `APP_COBRANCA_CRON_COBRANCAS_FUTURAS`) |
+| `0 0 7 * * *` | 07:00 todo dia | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual; a renovação começa no dia seguinte ao `periodoFim` anterior e termina na última aula do novo pacote (#243) | `app.cobranca.cron-cobrancas-futuras` (env `APP_COBRANCA_CRON_COBRANCAS_FUTURAS`) |
 
 O vencimento das cobranças geradas pelo scheduler é definido por `app.cobranca.vencimento-dias` (env
 `APP_COBRANCA_VENCIMENTO_DIAS`, default `10`), somado ao início do período. O tamanho padrão de página nas
