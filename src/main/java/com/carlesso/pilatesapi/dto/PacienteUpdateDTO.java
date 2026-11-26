@@ -27,4 +27,10 @@ public record PacienteUpdateDTO(
                                 "O paciente deseja CPF/CNPJ na NFSE. Ausente: mantém o atual. Desmarcar não desvincula o"
                                         + " tomador: o vínculo só muda por PATCH /pacientes/{id}/tomador",
                         example = "true")
-                Boolean cpfNaNota) {}
+                Boolean cpfNaNota,
+        @Schema(
+                        description =
+                                "Fisioterapeuta padrão (#245). Ausente: mantém o atual. Para remover o padrão, use"
+                                        + " PATCH /pacientes/{id}/profissional-padrao com profissionalId null",
+                        example = "7")
+                Long profissionalPadraoId) {}

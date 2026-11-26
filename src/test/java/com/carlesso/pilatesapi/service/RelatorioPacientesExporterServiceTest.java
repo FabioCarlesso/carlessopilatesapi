@@ -110,6 +110,7 @@ class RelatorioPacientesExporterServiceTest {
                         LocalTime.of(8, 0),
                         new BigDecimal("300.00")),
                 new RelatorioPacientesDTO.ProfissionalResumo(5L, "Paula Mendes"),
+                null,
                 List.of());
     }
 
@@ -125,6 +126,7 @@ class RelatorioPacientesExporterServiceTest {
                 false,
                 null,
                 LocalDate.of(2026, 10, 1),
+                null,
                 null,
                 null,
                 List.of(PendenciaCadastroPaciente.SEM_CPF, PendenciaCadastroPaciente.SEM_EMAIL));

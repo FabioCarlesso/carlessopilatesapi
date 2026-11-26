@@ -14,6 +14,7 @@ import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
+import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
@@ -43,6 +44,9 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
     ProfissionalRepository profissionalRepository;
 
     @Autowired
+    DisponibilidadeProfissionalRepository disponibilidadeRepository;
+
+    @Autowired
     TestEntityManager entityManager;
 
     AulaService aulaService;
@@ -53,7 +57,11 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
     @BeforeEach
     void setUp() {
         aulaService = new AulaService(
-                aulaRepository, profissionalRepository, new AgendaProperties(60, 3), bloqueioRepository);
+                aulaRepository,
+                profissionalRepository,
+                new AgendaProperties(60, 3),
+                bloqueioRepository,
+                disponibilidadeRepository);
         bloqueioService = new BloqueioAgendaService(bloqueioRepository, aulaService);
     }
 

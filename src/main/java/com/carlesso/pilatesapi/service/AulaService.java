@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
+import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
@@ -40,12 +41,15 @@ public class AulaService {
     private final ProfissionalRepository profissionalRepository;
     private final AgendaProperties agendaProperties;
     private final BloqueioAgendaRepository bloqueioAgendaRepository;
+    private final DisponibilidadeProfissionalRepository disponibilidadeRepository;
 
     public AulaService(
             AulaRepository aulaRepository,
             ProfissionalRepository profissionalRepository,
             AgendaProperties agendaProperties,
-            BloqueioAgendaRepository bloqueioAgendaRepository) {
+            BloqueioAgendaRepository bloqueioAgendaRepository,
+            DisponibilidadeProfissionalRepository disponibilidadeRepository) {
+        this.disponibilidadeRepository = disponibilidadeRepository;
         this.aulaRepository = aulaRepository;
         this.profissionalRepository = profissionalRepository;
         this.agendaProperties = agendaProperties;
@@ -61,11 +65,12 @@ public class AulaService {
             throw new BusinessException("Paciente inativo não pode ter aulas geradas");
         }
 
-        // A aula nasce sem profissional, então o horário copiado do plano não passa pela regra de capacidade: ela só
-        // entra em jogo quando um profissional é atribuído.
+        // A aula nasce com o fisioterapeuta padrão do paciente (#245) quando ele tem vaga e disponibilidade no horário;
+        // senão, sem profissional, e a capacidade só entra em jogo quando alguém for atribuído.
         LocalTime horario = pagamento.getPlano().getHorario();
 
         List<LocalDate> datas = datasDoPacote(pagamento.getPlano(), pagamento.getPeriodoInicio());
+        Profissional padrao = travarPadraoAtivo(pagamento.getPaciente().getProfissionalPadrao());
         List<BloqueioAgenda> feriados = bloqueioAgendaRepository.findFeriadosDiaInteiroQueIntersectam(
                 datas.get(0), datas.get(datas.size() - 1));
 
@@ -80,6 +85,7 @@ public class AulaService {
                 aula.setHorario(horario);
                 // Aula em feriado já cadastrado nasce realizada (#244).
                 feriadoQueCobre(feriados, data).ifPresent(aula::marcarFeriado);
+                aula.setProfissional(profissionalPadraoParaAula(padrao, aula));
                 aulas.add(aula);
             }
         }
@@ -153,6 +159,50 @@ public class AulaService {
                             .toList();
             soltas.forEach(aula -> feriadoQueCobre(outros, aula.getData()).ifPresent(aula::marcarFeriado));
         }
+    }
+
+    /**
+     * O padrão do paciente (#245), travado como em {@link #exigirVagaNoHorario} para gerações concorrentes não
+     * passarem da capacidade. Profissional inativo não é usado: as aulas nascem sem profissional.
+     */
+    private Profissional travarPadraoAtivo(Profissional padrao) {
+        if (padrao == null) {
+            return null;
+        }
+        return profissionalRepository
+                .findByIdForUpdate(padrao.getId())
+                .filter(Profissional::isAtivo)
+                .orElse(null);
+    }
+
+    /**
+     * Profissional com que a aula gerada nasce: o padrão, se ele tem vaga no horário e o horário cabe na
+     * disponibilidade dele. Senão a aula nasce sem profissional, como antes da #245, e entra em
+     * {@code aulasSemProfissional} do pagamento. Aula sem horário não disputa agenda e recebe o padrão; a de feriado
+     * também, sem checagem, porque ninguém comparece e o repasse vai para o profissional da aula.
+     */
+    private Profissional profissionalPadraoParaAula(Profissional padrao, Aula aula) {
+        if (padrao == null || aula.getHorario() == null || aula.isFeriado()) {
+            return padrao;
+        }
+        if (!dentroDaDisponibilidade(padrao, aula.getData(), aula.getHorario())) {
+            return null;
+        }
+        return ocupadasNoHorario(aula, padrao, aula.getData(), aula.getHorario())
+                        < agendaProperties.capacidadePorHorario()
+                ? padrao
+                : null;
+    }
+
+    /** Sem disponibilidade cadastrada não há restrição, como em {@code GET /disponibilidades/verificar} (#216). */
+    private boolean dentroDaDisponibilidade(Profissional profissional, LocalDate data, LocalTime horario) {
+        if (!disponibilidadeRepository.existsByProfissionalId(profissional.getId())) {
+            return true;
+        }
+        return disponibilidadeRepository
+                .findByProfissionalIdAndDiaSemana(profissional.getId(), data.getDayOfWeek())
+                .stream()
+                .anyMatch(faixa -> faixa.contem(horario));
     }
 
     private static Optional<BloqueioAgenda> feriadoQueCobre(List<BloqueioAgenda> feriados, LocalDate data) {
@@ -290,21 +340,29 @@ public class AulaService {
             return;
         }
         profissionalRepository.findByIdForUpdate(profissional.getId());
-        int duracao = agendaProperties.duracaoAulaMinutos();
-        LocalTime de = horario.minusMinutes(duracao);
-        LocalTime ate = horario.plusMinutes(duracao);
-        long ocupadas = aulaRepository.countConcorrentesDoProfissional(
-                profissional.getId(),
-                data,
-                de.isAfter(horario) ? null : de,
-                ate.isBefore(horario) ? null : ate,
-                aula.getId());
+        long ocupadas = ocupadasNoHorario(aula, profissional, data, horario);
         int capacidade = agendaProperties.capacidadePorHorario();
         if (ocupadas >= capacidade) {
             throw new ConflictException(
                     "Profissional %s já atende %d aula(s) em %s às %s; a capacidade por horário é %d"
                             .formatted(profissional.getNome(), ocupadas, data, horario, capacidade));
         }
+    }
+
+    /**
+     * Aulas do profissional que disputam o horário. A aula ainda não salva (geração) não tem id: {@code -1} evita
+     * o {@code a.id <> NULL}, que no SQL não é verdadeiro para nenhuma linha e zeraria a contagem.
+     */
+    private long ocupadasNoHorario(Aula aula, Profissional profissional, LocalDate data, LocalTime horario) {
+        int duracao = agendaProperties.duracaoAulaMinutos();
+        LocalTime de = horario.minusMinutes(duracao);
+        LocalTime ate = horario.plusMinutes(duracao);
+        return aulaRepository.countConcorrentesDoProfissional(
+                profissional.getId(),
+                data,
+                de.isAfter(horario) ? null : de,
+                ate.isBefore(horario) ? null : ate,
+                aula.getId() != null ? aula.getId() : -1L);
     }
 
     private static boolean mesmoProfissional(Profissional novo, Profissional atual) {

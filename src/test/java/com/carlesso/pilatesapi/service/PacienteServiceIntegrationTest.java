@@ -34,14 +34,14 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void listar_semStatusRetornaAtivosPorPadrao() {
-        var resultado = service.listar(null, null, null, null, null, PageRequest.of(0, 10));
+        var resultado = service.listar(null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertThat(resultado.getContent()).extracting("nome").containsExactlyInAnyOrder("Maria Souza", "João Silva");
     }
 
     @Test
     void listar_filtraPorCamposTextuaisEStatus() {
-        var resultado = service.listar("mari", "email.com", "987", "1199", false, PageRequest.of(0, 10));
+        var resultado = service.listar("mari", "email.com", "987", "1199", false, null, PageRequest.of(0, 10));
 
         assertThat(resultado.getContent()).singleElement().satisfies(paciente -> {
             assertThat(paciente.nome()).isEqualTo("Mariana Lima");
@@ -51,14 +51,14 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void listar_filtroNomeEmBranco_deveIgnorarFiltro() {
-        var resultado = service.listar("   ", null, null, null, null, PageRequest.of(0, 10));
+        var resultado = service.listar("   ", null, null, null, null, null, PageRequest.of(0, 10));
 
         assertThat(resultado.getContent()).extracting("nome").containsExactlyInAnyOrder("Maria Souza", "João Silva");
     }
 
     @Test
     void cadastrar_semEmailEsemCpf_devePersistirViaService() {
-        var dto = new PacienteRequestDTO("Cliente Importado", null, null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Cliente Importado", null, null, null, null, null, null, null, null);
 
         var response = service.cadastrar(dto);
 
@@ -71,8 +71,8 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_comCpfDuplicado_deveLancarConflict() {
-        var primeiro = new PacienteRequestDTO("Primeiro", null, "55566677788", null, null, null, null, null);
-        var duplicado = new PacienteRequestDTO("Outro", null, "55566677788", null, null, null, null, null);
+        var primeiro = new PacienteRequestDTO("Primeiro", null, "55566677788", null, null, null, null, null, null);
+        var duplicado = new PacienteRequestDTO("Outro", null, "55566677788", null, null, null, null, null, null);
 
         service.cadastrar(primeiro);
 
@@ -83,8 +83,10 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_comEmailDuplicado_deveLancarConflict() {
-        var primeiro = new PacienteRequestDTO("Primeiro", "duplicado@email.com", null, null, null, null, null, null);
-        var duplicado = new PacienteRequestDTO("Outro", "duplicado@email.com", null, null, null, null, null, null);
+        var primeiro =
+                new PacienteRequestDTO("Primeiro", "duplicado@email.com", null, null, null, null, null, null, null);
+        var duplicado =
+                new PacienteRequestDTO("Outro", "duplicado@email.com", null, null, null, null, null, null, null);
 
         service.cadastrar(primeiro);
 
@@ -95,8 +97,8 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void cadastrar_multiplosSemEmailEsemCpf_devePermitir() {
-        var primeiro = new PacienteRequestDTO("Importado A", null, null, null, null, null, null, null);
-        var segundo = new PacienteRequestDTO("Importado B", null, null, null, null, null, null, null);
+        var primeiro = new PacienteRequestDTO("Importado A", null, null, null, null, null, null, null, null);
+        var segundo = new PacienteRequestDTO("Importado B", null, null, null, null, null, null, null, null);
 
         var r1 = service.cadastrar(primeiro);
         var r2 = service.cadastrar(segundo);
@@ -106,8 +108,8 @@ class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Test
     void listar_semAtivoNaoRetornaTodosPacientes() {
-        var ativos = service.listar(null, null, null, null, null, PageRequest.of(0, 10));
-        var inativos = service.listar(null, null, null, null, false, PageRequest.of(0, 10));
+        var ativos = service.listar(null, null, null, null, null, null, PageRequest.of(0, 10));
+        var inativos = service.listar(null, null, null, null, false, null, PageRequest.of(0, 10));
 
         assertThat(ativos.getTotalElements()).isEqualTo(2);
         assertThat(inativos.getTotalElements()).isEqualTo(1);

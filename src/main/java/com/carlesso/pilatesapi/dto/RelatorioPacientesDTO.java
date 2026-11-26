@@ -37,6 +37,7 @@ public record RelatorioPacientesDTO(
             LocalDate dataInativacao,
             PlanoAtivo planoAtivo,
             ProfissionalResumo profissional,
+            ProfissionalResumo profissionalPadrao,
             List<PendenciaCadastroPaciente> pendencias) {}
 
     public record PlanoAtivo(

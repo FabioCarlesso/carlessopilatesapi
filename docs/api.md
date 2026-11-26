@@ -120,8 +120,14 @@ Preferência para a NFSE (#229):
 | `tomadorId` | `POST`, resposta | Tomador da nota ([Tomadores](#tomadores)). No cadastro, vincula; tomador inexistente `404`, inativo `422` |
 | `tomadorNome`, `tomadorCpfCnpj` | resposta | Dados do tomador vinculado, para exibição |
 
+Fisioterapeuta padrão (#245): `profissionalPadraoId` no `POST` vincula; no `PUT`, ausente ou nulo **mantém** o atual
+(o `PUT` é parcial), então remover o padrão é pelo `PATCH /pacientes/{id}/profissional-padrao`. A resposta traz
+`profissionalPadraoId` e `profissionalPadraoNome`. `GET /pacientes?profissionalId=7` lista só os pacientes com esse
+padrão, combinável com os demais filtros.
+
 | Método | Endpoint | Descrição |
 |---|---|---|
+| `PATCH` | `/pacientes/{id}/profissional-padrao` | Define (`{"profissionalId": 7}`) ou remove (`{"profissionalId": null}`) o fisioterapeuta padrão (#245). Campo obrigatório mas anulável (omitir = `400`); profissional inexistente `404`, inativo `422` |
 | `PATCH` | `/pacientes/{id}/tomador` | Vincula (`{"tomadorId": 3}`) ou desvincula (`{"tomadorId": null}`) o tomador. O campo é obrigatório mas anulável: omitir retorna `400`, como em `PATCH /aulas/{id}/profissional`. Tomador inativo não recebe vínculo novo (`422`); o vínculo que já existe com um tomador inativado depois continua |
 
 ## Tomadores
@@ -223,6 +229,8 @@ Toda resposta de pagamento traz o pacote do plano (#243):
 - `periodoFim`: data da última aula do pacote (pagamentos criados antes da #243 mantêm o fim do mês).
 - `aulasPacote`: tamanho do pacote — 4, 8 ou 12 aulas por mês, vezes os meses do tipo do plano.
 - `aulasRealizadas`: aulas do pagamento já realizadas, inclusive as de feriado. Com `aulasPacote`, dá o "X de N".
+- `aulasSemProfissional`: aulas do pagamento ainda não realizadas e sem profissional — por exemplo, as que o
+  fisioterapeuta padrão não pôde assumir por lotação ou indisponibilidade (#245). Acima de zero, a tela avisa.
 
 ### Confirmação e forma de pagamento
 

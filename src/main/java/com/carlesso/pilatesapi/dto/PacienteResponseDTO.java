@@ -16,7 +16,9 @@ public record PacienteResponseDTO(
         boolean cpfNaNota,
         Long tomadorId,
         String tomadorNome,
-        String tomadorCpfCnpj) {
+        String tomadorCpfCnpj,
+        Long profissionalPadraoId,
+        String profissionalPadraoNome) {
     public static PacienteResponseDTO from(Paciente p) {
         EnderecoDTO enderecoDTO = null;
         if (p.getEndereco() != null) {
@@ -41,6 +43,12 @@ public record PacienteResponseDTO(
                 p.isCpfNaNota(),
                 p.getTomador() == null ? null : p.getTomador().getId(),
                 p.getTomador() == null ? null : p.getTomador().getNome(),
-                p.getTomador() == null ? null : p.getTomador().getCpfCnpj());
+                p.getTomador() == null ? null : p.getTomador().getCpfCnpj(),
+                p.getProfissionalPadrao() == null
+                        ? null
+                        : p.getProfissionalPadrao().getId(),
+                p.getProfissionalPadrao() == null
+                        ? null
+                        : p.getProfissionalPadrao().getNome());
     }
 }

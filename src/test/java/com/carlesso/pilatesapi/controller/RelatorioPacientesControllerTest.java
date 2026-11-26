@@ -157,6 +157,7 @@ class RelatorioPacientesControllerTest {
                         LocalTime.of(8, 0),
                         new BigDecimal("300.00")),
                 new RelatorioPacientesDTO.ProfissionalResumo(5L, "Paula Mendes"),
+                null,
                 List.of(PendenciaCadastroPaciente.SEM_CPF, PendenciaCadastroPaciente.SEM_DATA_NASCIMENTO));
         return new RelatorioPacientesDTO(
                 new RelatorioPacientesDTO.Filtros(situacao, false, false, null, null, null),

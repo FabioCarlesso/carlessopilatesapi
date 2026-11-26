@@ -55,6 +55,11 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Pacientes **inativos** não recebem novas cobranças nem têm aulas geradas
 - Consultas de aulas não retornam registros associados a pacientes inativos — exceto os indicadores históricos do dashboard (ver [Indicadores do dashboard](#indicadores-do-dashboard))
 - O cadastro grava `dataCadastro` com a data do dia. Inativar grava `dataInativacao` com a data do dia, e inativar quem já está inativo não muda essa data; reativar a limpa
+- **Fisioterapeuta padrão** (#245): opcional. As aulas geradas pelo pagamento nascem com ele; trocar o profissional
+  de uma aula é exceção (folga, ausência) e não muda o padrão, e trocar o padrão não muda as aulas já geradas
+  - Vínculo novo exige profissional ativo (`422`). O padrão que já existe continua mesmo se o profissional for
+    inativado depois, mas a geração não usa profissional inativo: as aulas nascem sem profissional
+  - Os pacientes anteriores à V49 ficam sem padrão; a recepção escolhe
 
 ## Tomadores da NFSE
 
@@ -176,6 +181,11 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
   data é o `periodoFim`
 - Sem duplicatas: ignora datas onde o paciente já tem aula registrada, mas a data **conta para o pacote** (a aula já
   existente ocupa a vaga)
+- Cada aula gerada nasce com o **fisioterapeuta padrão** do paciente (#245), desde que ele esteja ativo, o horário
+  caiba na disponibilidade dele (sem disponibilidade cadastrada, não há restrição) e ele tenha vaga pela capacidade por
+  horário. Senão a aula nasce sem profissional, e o pagamento informa quantas ficaram assim em
+  `aulasSemProfissional`. A checagem trava o profissional (`SELECT ... FOR UPDATE`), como a atribuição manual. Aula sem
+  horário ou de feriado recebe o padrão sem checagem: não disputa agenda
 - Cada aula gerada recebe o `horario` do plano — um único horário para todos os `diasSemana` (#106). Plano sem horário gera aulas sem horário, que continuam válidas e consultáveis; o horário entra depois, aula a aula, por `PATCH /aulas/{id}/remarcar`. Planos não têm edição, então mudar o horário de um aluno exige novo plano, e as aulas já geradas mantêm o horário antigo
 - O paciente continua com no máximo **uma aula por dia**: a constraint `(paciente_id, data)` foi mantida com a chegada do horário, e com ela a regra de colisão da remarcação (#170)
 - Requer paciente ativo e pagamento `PAGO`
@@ -406,7 +416,8 @@ Não muda a listagem `GET /pacientes`, que continua servindo a tela de cadastro.
   `situacao`. São os que estão desatualizados ou não estão sendo cobrados.
 - **Plano:** o plano ativo do paciente; se a base tiver dois ativos, vale o de início mais recente.
 - **Profissional:** o da próxima aula não realizada (data a partir de hoje, no fuso `app.fuso-horario`) que tenha
-  profissional definido. Aulas sem profissional são puladas. `profissionalId` filtra por ele.
+  profissional definido. Aulas sem profissional são puladas. `profissionalId` filtra pelo **fisioterapeuta padrão** (#245) ou, para
+  quem não tem esse padrão, pelo profissional das próximas aulas. Cada item traz também `profissionalPadrao` (`id`, `nome`).
 - **Aniversariantes:** `mesNascimento` compara só o mês da data de nascimento; quem não tem a data fica de fora.
 - **Idade:** anos completos na data da consulta.
 - **Teto:** sem paginação, porque o volume do estúdio é pequeno. Acima de 5.000 linhas, a resposta é `400`, o mesmo

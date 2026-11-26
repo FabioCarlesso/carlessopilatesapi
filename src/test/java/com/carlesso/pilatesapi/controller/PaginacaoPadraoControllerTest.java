@@ -70,12 +70,13 @@ class PaginacaoPadraoControllerTest {
 
     @Test
     void pacientes_semSize_usaTamanhoConfiguradoEOrdenacaoPadrao() throws Exception {
-        when(pacienteService.listar(any(), any(), any(), any(), any(), any())).thenReturn(Page.empty());
+        when(pacienteService.listar(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Page.empty());
 
         mockMvc.perform(get("/pacientes")).andExpect(status().isOk());
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(pacienteService).listar(any(), any(), any(), any(), any(), captor.capture());
+        verify(pacienteService).listar(any(), any(), any(), any(), any(), any(), captor.capture());
         assertPagina(captor.getValue(), Sort.by("nome"));
     }
 
