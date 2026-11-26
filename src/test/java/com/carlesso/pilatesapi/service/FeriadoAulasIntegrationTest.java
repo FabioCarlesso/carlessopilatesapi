@@ -144,6 +144,21 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     @Test
+    void editarFeriado_soOMotivo_mantemAMarcacao() {
+        Long aula = aula(pagamento(paciente("Ana")), FERIADO, false);
+        limpar();
+        Long bloqueio = bloqueioService.criar(feriado(FERIADO, FERIADO)).id();
+        limpar();
+
+        bloqueioService.atualizar(
+                bloqueio,
+                new BloqueioAgendaRequestDTO(FERIADO, FERIADO, null, null, "Proclamação", TipoBloqueio.FERIADO));
+        limpar();
+
+        assertFeriado(aula, bloqueio);
+    }
+
+    @Test
     void gerarAulas_aulaEmFeriadoJaCadastradoNasceMarcadaEConsomeOPacote() {
         Paciente ana = paciente("Ana");
         Pagamento pagamento = pagamento(ana);

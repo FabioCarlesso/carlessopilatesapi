@@ -256,12 +256,12 @@ class AulaServiceTest {
     @Test
     void tamanhoDoPacote_multiplicaAulasPorMesPelosMesesDoTipo() {
         plano.setFrequenciaSemanal(FrequenciaSemanal.TRES_VEZES);
-        assertThat(AulaService.tamanhoDoPacote(plano)).isEqualTo(12);
+        assertThat(plano.getTamanhoDoPacote()).isEqualTo(12);
         plano.setTipo(TipoPagamento.TRIMESTRAL);
-        assertThat(AulaService.tamanhoDoPacote(plano)).isEqualTo(36);
+        assertThat(plano.getTamanhoDoPacote()).isEqualTo(36);
         plano.setFrequenciaSemanal(FrequenciaSemanal.DUAS_VEZES);
         plano.setTipo(TipoPagamento.ANUAL);
-        assertThat(AulaService.tamanhoDoPacote(plano)).isEqualTo(96);
+        assertThat(plano.getTamanhoDoPacote()).isEqualTo(96);
     }
 
     @Test

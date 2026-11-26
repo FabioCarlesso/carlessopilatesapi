@@ -3,7 +3,6 @@ package com.carlesso.pilatesapi.dto;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.enums.FormaPagamento;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
-import com.carlesso.pilatesapi.service.AulaService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -45,7 +44,7 @@ public record PagamentoResponseDTO(
                 pagamento.getDataVencimento(),
                 pagamento.getPeriodoInicio(),
                 pagamento.getPeriodoFim(),
-                AulaService.tamanhoDoPacote(pagamento.getPlano()),
+                pagamento.getPlano().getTamanhoDoPacote(),
                 aulasRealizadas,
                 aulasSemProfissional);
     }

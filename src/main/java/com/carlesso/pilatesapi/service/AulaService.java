@@ -94,16 +94,9 @@ public class AulaService {
     }
 
     /**
-     * Tamanho do pacote de aulas de um pagamento do plano (#243): {@code aulasPorMes} da frequência (4, 8 ou 12) vezes
-     * os meses do tipo (MENSAL ×1, TRIMESTRAL ×3, ANUAL ×12).
-     */
-    public static int tamanhoDoPacote(Plano plano) {
-        return plano.getFrequenciaSemanal().getAulasPorMes() * plano.getTipo().getMeses();
-    }
-
-    /**
      * Datas do pacote de aulas de um pagamento que começa em {@code inicio}: as próximas ocorrências dos
-     * {@code diasSemana} do plano, a partir de {@code inicio} inclusive, até completar {@link #tamanhoDoPacote}. A
+     * {@code diasSemana} do plano, a partir de {@code inicio} inclusive, até completar
+     * {@link Plano#getTamanhoDoPacote()}. A
      * última data é o {@code periodoFim} do pagamento — geração e cálculo do período usam este único método para não
      * divergirem.
      */
@@ -112,7 +105,7 @@ public class AulaService {
         if (dias.isEmpty()) {
             throw new BusinessException("Plano sem dias da semana não gera pacote de aulas");
         }
-        int tamanho = tamanhoDoPacote(plano);
+        int tamanho = plano.getTamanhoDoPacote();
         List<LocalDate> datas = new ArrayList<>(tamanho);
         LocalDate data = inicio;
         while (datas.size() < tamanho) {
