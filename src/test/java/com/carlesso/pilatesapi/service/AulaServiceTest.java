@@ -11,6 +11,7 @@ import static org.mockito.Mockito.*;
 import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
+import com.carlesso.pilatesapi.entity.BloqueioAgenda;
 import com.carlesso.pilatesapi.entity.DisponibilidadeProfissional;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
@@ -803,6 +804,23 @@ class AulaServiceTest {
         assertThat(aula.getProfissional()).isSameAs(atribuido);
         verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
         verify(profissionalRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void atribuirProfissional_aulaDeFeriado_atribuiSemConferirCapacidade() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        aula.marcarFeriado(new BloqueioAgenda());
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        var response = service.atribuirProfissional(1L, 1L);
+
+        // Sem atendimento, o profissional da aula de feriado só define quem recebe o repasse (#244).
+        assertThat(response.profissionalId()).isEqualTo(1L);
+        assertThat(aula.isRealizada()).isTrue();
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
     }
 
     @Test

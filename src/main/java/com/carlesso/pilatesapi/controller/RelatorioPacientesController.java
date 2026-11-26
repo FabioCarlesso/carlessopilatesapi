@@ -55,7 +55,8 @@ public class RelatorioPacientesController {
                     Boolean cadastroIncompleto,
             @Parameter(description = "Mês de nascimento (1–12), para aniversariantes") @RequestParam(required = false)
                     Integer mesNascimento,
-            @Parameter(description = "Profissional das próximas aulas do paciente") @RequestParam(required = false)
+            @Parameter(description = "Fisioterapeuta padrão do paciente ou profissional das próximas aulas (#245)")
+                    @RequestParam(required = false)
                     Long profissionalId) {
         return ResponseEntity.ok(
                 service.gerar(situacao, semPlanoAtivo, cadastroIncompleto, mesNascimento, profissionalId));

@@ -127,7 +127,8 @@ public class RelatorioPacientesService {
                             || paciente.getDataNascimento().getMonthValue() != mesNascimento)) {
                 continue;
             }
-            // O filtro considera o padrão (#245) e, para quem ainda não tem padrão, o profissional das próximas aulas.
+            // O filtro casa pelo padrão (#245) ou pelo profissional das próximas aulas: quem cobre a folga do padrão
+            // também enxerga o paciente.
             if (profissionalId != null
                     && !profissionalId.equals(padraoId)
                     && (profissional == null || !profissionalId.equals(profissional.id()))) {

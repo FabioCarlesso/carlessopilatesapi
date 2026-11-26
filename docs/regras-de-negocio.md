@@ -210,7 +210,7 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Nenhuma constraint do banco garante a capacidade, então a checagem trava o profissional (`SELECT ... FOR UPDATE`) antes de contar: duas atribuições simultâneas ao mesmo horário são serializadas em vez de passarem juntas do limite (`AulaCapacidadeConcurrencyIntegrationTest`)
 - `Aula` tem locking otimista (`@Version`, coluna `version` da `V34`). As três rotas de escrita — `realizar`, `profissional` e `remarcar` — gravam campos diferentes da mesma linha, e sem versão duas recepcionistas simultâneas se sobrescrevem em silêncio. O caso caro é realizar e remarcar ao mesmo tempo: a aula fica realizada numa data em que não foi ministrada e o erro segue direto para o repasse, que agrupa por `data`. Quem perde a corrida recebe `409` e refaz sobre o estado novo
 - `GET /aulas?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data`, `horario` e `id` — aulas sem `horario` no fim do dia; filtros opcionais `profissionalId`, `pacienteId` e `realizada` são combináveis. A consulta projeta direto no DTO para não arrastar a cadeia EAGER `pagamento → plano → diasSemana`
-- A geração **não** consulta bloqueios de agenda: feriado e manutenção são avisos, não impedimentos (ver *Bloqueios de Agenda*)
+- A geração não deixa de criar aula por causa de bloqueio: manutenção e evento são avisos. A única consulta é ao `FERIADO` de dia inteiro, que faz a aula nascer marcada como feriado (ver *Bloqueios de Agenda*)
 
 ## Bloqueios de Agenda
 
@@ -220,14 +220,18 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
   `realizada = true` e `feriado = true`: o aluno pagou por ela, então **gera repasse** pelo profissional da aula,
   **consome o pacote** do pagamento e **não é falta** na frequência. Fica fora do relatório de aulas sem evolução,
   porque não houve atendimento. Feriado parcial (com horário) e bloqueio `OUTRO` não marcam nada
-  - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas; aulas geradas depois para essas datas
-    já nascem marcadas
+  - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas. Aulas geradas depois para essas datas
+    já nascem marcadas, e uma aula **remarcada** para uma data de feriado também é marcada na hora. Assim, toda aula
+    pendente num feriado é de feriado, e o resultado não depende de o bloqueio ser editado depois. A turma que treina
+    no feriado é registrada com o bloqueio como `OUTRO`
+  - A aula marcada sem profissional recebe o fisioterapeuta padrão ativo do paciente, porque o repasse precisa de dono
   - A aula guarda o bloqueio que a marcou (`bloqueio_feriado_id`). Ao excluir o bloqueio, ou editá-lo mudando
     período ou tipo, só as aulas que **ele** marcou voltam a não realizadas — uma aula realizada de verdade nunca é
     tocada. Se outro feriado ainda cobre a data, a aula continua marcada, agora por ele
-  - Como toda aula realizada, a de feriado não pode ser remarcada nem ter o profissional trocado; para isso, desfaça o
-    feriado
-- **Fora o feriado, o bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada. A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
+  - Como toda aula realizada, a de feriado não pode ser remarcada; para isso, desfaça o feriado. O profissional, ao
+    contrário, **pode** ser atribuído ou trocado: ele só define quem recebe o repasse, então a troca não confere vaga
+    no horário. A aula de feriado sem profissional entra em `aulasSemProfissional` do pagamento
+- **Fora o feriado, o bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada (a remarcação para um feriado marca a aula, como descrito acima). A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
 - Consequência assumida: um feriado no meio do mês continua gerando aula, e cabe à recepção decidir entre manter e remarcar (`PATCH /aulas/{id}/remarcar`). O ganho da funcionalidade é enxergar o conflito na agenda em vez de descobri-lo no dia
 - `dataInicio` e `dataFim` são obrigatórias e ambas inclusivas; um feriado de um dia só repete a mesma data nas duas pontas. `dataFim` anterior a `dataInicio` retorna `400`
 - `horaInicio`/`horaFim` são opcionais e **só valem juntas**: as duas ausentes bloqueiam o dia inteiro (`diaInteiro = true` na resposta), as duas presentes bloqueiam a faixa em cada dia do período. Informar apenas uma retorna `400`, assim como `horaFim` não posterior a `horaInicio`

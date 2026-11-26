@@ -29,7 +29,8 @@ public record PagamentoResponseDTO(
 
     /**
      * {@code aulasPacote} é o tamanho do pacote do plano (#243); {@code aulasRealizadas} conta as de feriado, que
-     * consomem o pacote; {@code aulasSemProfissional} são as ainda não realizadas sem profissional (#245).
+     * consomem o pacote; {@code aulasSemProfissional} são as sem profissional ainda não realizadas ou de feriado, que aceitam
+     * a atribuição (#245).
      */
     public static PagamentoResponseDTO from(Pagamento pagamento, long aulasRealizadas, long aulasSemProfissional) {
         return new PagamentoResponseDTO(

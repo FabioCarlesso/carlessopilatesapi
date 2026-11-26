@@ -229,8 +229,8 @@ Toda resposta de pagamento traz o pacote do plano (#243):
 - `periodoFim`: data da última aula do pacote (pagamentos criados antes da #243 mantêm o fim do mês).
 - `aulasPacote`: tamanho do pacote — 4, 8 ou 12 aulas por mês, vezes os meses do tipo do plano.
 - `aulasRealizadas`: aulas do pagamento já realizadas, inclusive as de feriado. Com `aulasPacote`, dá o "X de N".
-- `aulasSemProfissional`: aulas do pagamento ainda não realizadas e sem profissional — por exemplo, as que o
-  fisioterapeuta padrão não pôde assumir por lotação ou indisponibilidade (#245). Acima de zero, a tela avisa.
+- `aulasSemProfissional`: aulas do pagamento sem profissional, ainda não realizadas ou de feriado — por exemplo, as
+  que o fisioterapeuta padrão não pôde assumir por lotação ou indisponibilidade (#245). Acima de zero, a tela avisa.
 
 ### Confirmação e forma de pagamento
 
@@ -300,11 +300,12 @@ GET /pagamentos/xlsx?status=PENDENTE&vencimentoDe=2026-11-25&vencimentoAte=2026-
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente (paginado) |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
-| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
+| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada ou de feriado (corpo; na de feriado, sem checar vaga) |
 | `PATCH` | `/aulas/{id}/remarcar` | Trocar a data e/ou o horário de uma aula ainda não realizada (corpo) |
 
 Toda aula na resposta traz `feriado` (#244): `true` quando um bloqueio `FERIADO` de dia inteiro a marcou, sempre com
-`realizada: true`. Serve para a tela distinguir a aula de feriado de uma realizada com atendimento.
+`realizada: true`. Serve para a tela distinguir a aula de feriado de uma realizada com atendimento. Remarcar para uma
+data de feriado devolve a aula já com `realizada: true` e `feriado: true`.
 
 ### Remarcação
 

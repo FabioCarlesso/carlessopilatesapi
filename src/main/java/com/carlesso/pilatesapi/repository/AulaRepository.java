@@ -22,18 +22,18 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
     Optional<Aula> findByIdAndPacienteAtivoTrue(Long id);
 
-    /**
-     * Aulas do paciente, paginadas. Projeta no DTO pela mesma razão de {@link #findAgendaPorPeriodo}: carregar a
-     * entidade arrastaria a cadeia EAGER {@code pagamento} → {@code plano} → {@code diasSemana}. A ordenação vem do
-     * {@code Pageable}; a {@code countQuery} é explícita porque o Spring Data não deriva contagem de uma expressão
-     * {@code new}.
-     */
     /** Aulas ainda não realizadas no intervalo (datas inclusivas), candidatas à marcação de feriado (#244). */
     List<Aula> findByRealizadaFalseAndDataBetween(LocalDate inicio, LocalDate fim);
 
     /** Aulas marcadas como feriado pelo bloqueio, para desfazer a marcação (#244). */
     List<Aula> findByBloqueioFeriadoId(Long bloqueioId);
 
+    /**
+     * Aulas do paciente, paginadas. Projeta no DTO pela mesma razão de {@link #findAgendaPorPeriodo}: carregar a
+     * entidade arrastaria a cadeia EAGER {@code pagamento} → {@code plano} → {@code diasSemana}. A ordenação vem do
+     * {@code Pageable}; a {@code countQuery} é explícita porque o Spring Data não deriva contagem de uma expressão
+     * {@code new}.
+     */
     @Query(
             value =
                     """
@@ -144,13 +144,15 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
     /**
      * Contadores das aulas de cada pagamento para o {@code PagamentoResponseDTO} (#243): quantas já foram realizadas
-     * (inclui as de feriado) e quantas, ainda por realizar, estão sem profissional. Uma consulta para a página toda.
+     * (inclui as de feriado) e quantas estão sem profissional — as ainda por realizar e as de feriado, que geram repasse
+     * e por isso ainda aceitam a atribuição (#244). Uma consulta para a página toda.
      */
     @Query(
             """
             SELECT a.pagamento.id AS pagamentoId,
                    SUM(CASE WHEN a.realizada = true THEN 1 ELSE 0 END) AS realizadas,
-                   SUM(CASE WHEN a.realizada = false AND a.profissional IS NULL THEN 1 ELSE 0 END) AS semProfissional
+                   SUM(CASE WHEN a.profissional IS NULL AND (a.realizada = false OR a.feriado = true)
+                            THEN 1 ELSE 0 END) AS semProfissional
             FROM Aula a
             WHERE a.pagamento.id IN :ids
             GROUP BY a.pagamento.id

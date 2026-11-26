@@ -8,9 +8,11 @@ import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
+import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.FrequenciaSemanal;
 import com.carlesso.pilatesapi.entity.enums.StatusPagamento;
 import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
+import com.carlesso.pilatesapi.entity.enums.TipoContrato;
 import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
@@ -186,6 +188,60 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
                 .satisfies(c -> assertThat(c.getRealizadas()).isEqualTo(1L));
     }
 
+    @Test
+    void feriado_aulaSemProfissionalRecebeOPadraoESemPadraoAceitaAtribuicao() {
+        Profissional camila = entityManager.persist(profissional("Camila"));
+        Paciente comPadrao = paciente("Ana");
+        comPadrao.setProfissionalPadrao(camila);
+        Pagamento semPadrao = pagamento(paciente("Bruno"));
+        Long daAna = aula(pagamento(comPadrao), FERIADO, false);
+        Long doBruno = aula(semPadrao, FERIADO, false);
+        limpar();
+
+        bloqueioService.criar(feriado(FERIADO, FERIADO));
+        limpar();
+
+        // Realizada pelo feriado, a aula gera repasse: sem profissional, ele não teria dono.
+        assertThat(aulaRepository
+                        .findById(daAna)
+                        .orElseThrow()
+                        .getProfissional()
+                        .getId())
+                .isEqualTo(camila.getId());
+        assertThat(aulaRepository.findById(doBruno).orElseThrow().getProfissional())
+                .isNull();
+        assertThat(aulaRepository.contarPorPagamento(List.of(semPadrao.getId())))
+                .singleElement()
+                .satisfies(c -> assertThat(c.getSemProfissional()).isEqualTo(1L));
+
+        assertThat(aulaService.atribuirProfissional(doBruno, camila.getId()).profissionalId())
+                .isEqualTo(camila.getId());
+        limpar();
+        assertThat(aulaRepository.contarPorPagamento(List.of(semPadrao.getId())))
+                .singleElement()
+                .satisfies(c -> assertThat(c.getSemProfissional()).isZero());
+    }
+
+    @Test
+    void remarcarParaFeriado_marcaAAulaNaHoraEEditarOMotivoNaoMudaNada() {
+        Long aula = aula(pagamento(paciente("Ana")), FERIADO.plusDays(1), false);
+        Long bloqueio = bloqueioService.criar(feriado(FERIADO, FERIADO)).id();
+        limpar();
+
+        var remarcada = aulaService.remarcar(aula, FERIADO, LocalTime.of(10, 0));
+        limpar();
+
+        assertThat(remarcada.feriado()).isTrue();
+        assertThat(remarcada.realizada()).isTrue();
+        assertFeriado(aula, bloqueio);
+
+        bloqueioService.atualizar(
+                bloqueio,
+                new BloqueioAgendaRequestDTO(FERIADO, FERIADO, null, null, "Outro nome", TipoBloqueio.FERIADO));
+        limpar();
+        assertFeriado(aula, bloqueio);
+    }
+
     private void assertFeriado(Long aulaId, Long bloqueioId) {
         Aula aula = aulaRepository.findById(aulaId).orElseThrow();
         assertThat(aula.isRealizada()).isTrue();
@@ -246,5 +302,17 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
         aula.setData(data);
         aula.setRealizada(realizada);
         return entityManager.persist(aula).getId();
+    }
+
+    private Profissional profissional(String nome) {
+        sequencial++;
+        Profissional profissional = new Profissional();
+        profissional.setNome(nome);
+        profissional.setEmail(nome.toLowerCase() + sequencial + "@feriado.com");
+        profissional.setCpf(String.format("8%010d", sequencial));
+        profissional.setTipoContrato(TipoContrato.AUTONOMO);
+        profissional.setPercentualPagamentoAula(new BigDecimal("50.00"));
+        profissional.setDataInicio(LocalDate.of(2026, 1, 1));
+        return profissional;
     }
 }

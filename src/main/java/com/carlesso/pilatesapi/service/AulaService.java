@@ -137,7 +137,7 @@ public class AulaService {
         if (bloqueio != null && bloqueio.marcaAulasComoFeriado()) {
             aulaRepository
                     .findByRealizadaFalseAndDataBetween(bloqueio.getDataInicio(), bloqueio.getDataFim())
-                    .forEach(aula -> aula.marcarFeriado(bloqueio));
+                    .forEach(aula -> marcarFeriado(aula, bloqueio));
         }
 
         List<Aula> soltas = desmarcadas.stream().filter(a -> !a.isRealizada()).toList();
@@ -150,7 +150,22 @@ public class AulaService {
                     bloqueioAgendaRepository.findFeriadosDiaInteiroQueIntersectam(de, ate).stream()
                             .filter(b -> !Objects.equals(b.getId(), bloqueioId))
                             .toList();
-            soltas.forEach(aula -> feriadoQueCobre(outros, aula.getData()).ifPresent(aula::marcarFeriado));
+            soltas.forEach(aula -> feriadoQueCobre(outros, aula.getData()).ifPresent(b -> marcarFeriado(aula, b)));
+        }
+    }
+
+    /**
+     * Marca a aula como feriado. A aula sem profissional recebe o padrão ativo do paciente (#245): realizada, ela gera
+     * repasse, e sem profissional o repasse não teria dono. Sem padrão, segue sem profissional e continua aceitando a
+     * atribuição em {@link #atribuirProfissional}.
+     */
+    private void marcarFeriado(Aula aula, BloqueioAgenda bloqueio) {
+        aula.marcarFeriado(bloqueio);
+        if (aula.getProfissional() == null) {
+            Profissional padrao = aula.getPaciente().getProfissionalPadrao();
+            if (padrao != null && padrao.isAtivo()) {
+                aula.setProfissional(padrao);
+            }
         }
     }
 
@@ -262,10 +277,16 @@ public class AulaService {
     @Transactional
     public AulaResponseDTO atribuirProfissional(Long id, Long profissionalId) {
         Aula aula = encontrar(id);
-        if (aula.isRealizada()) {
+        // A aula de feriado é realizada sem atendimento: o profissional define só quem recebe o repasse (#244), então a
+        // troca continua aberta e não disputa vaga no horário.
+        if (aula.isRealizada() && !aula.isFeriado()) {
             throw new ConflictException("Aula já realizada não pode ter o profissional alterado");
         }
         Profissional profissional = resolverProfissional(profissionalId);
+        if (aula.isFeriado()) {
+            aula.setProfissional(profissional);
+            return AulaResponseDTO.from(aula);
+        }
         // Reatribuir quem já está na aula não ocupa vaga nova. Sem este atalho, um horário que passou da capacidade
         // por um realizar (que não confere vaga) recusaria com 409 uma operação que não muda nada.
         if (mesmoProfissional(profissional, aula.getProfissional())) {
@@ -304,9 +325,20 @@ public class AulaService {
         if (mudaData && aulaRepository.existsByPacienteAndData(aula.getPaciente(), novaData)) {
             throw new ConflictException(conflitoDeData(novaData));
         }
-        exigirVagaNoHorario(aula, aula.getProfissional(), novaData, horario);
+        // Remarcar para um feriado de dia inteiro marca a aula, como na geração e no cadastro do feriado (#244): toda
+        // aula
+        // pendente num FERIADO é de feriado, e não depende de o bloqueio ser editado depois. Sem atendimento, a vaga
+        // no horário não é conferida.
+        Optional<BloqueioAgenda> feriado = mudaData
+                ? feriadoQueCobre(
+                        bloqueioAgendaRepository.findFeriadosDiaInteiroQueIntersectam(novaData, novaData), novaData)
+                : Optional.empty();
+        if (feriado.isEmpty()) {
+            exigirVagaNoHorario(aula, aula.getProfissional(), novaData, horario);
+        }
         aula.setData(novaData);
         aula.setHorario(horario);
+        feriado.ifPresent(b -> marcarFeriado(aula, b));
         // A checagem acima não fecha a janela entre o exists e o update — a constraint (paciente_id, data) é a única
         // garantia real. Sem este flush a violação só apareceria no commit, longe deste catch, e escaparia como 500.
         try {
