@@ -9,6 +9,8 @@ import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Reavaliacao;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
+import com.carlesso.pilatesapi.entity.TesteFuncionalRealizado;
+import com.carlesso.pilatesapi.entity.enums.CampoOpcoesAvaliacao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.lowagie.text.pdf.PdfReader;
 import com.lowagie.text.pdf.parser.PdfTextExtractor;
@@ -20,6 +22,23 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ProntuarioPdfExporterServiceTest {
+
+    @Test
+    void opcoesEstruturadas_saemComOsRotulosDoCatalogoEOComplemento() {
+        assertThat(ProntuarioPdfExporterService.opcoes(
+                        CampoOpcoesAvaliacao.REGIOES_DOR, List.of("CERVICAL", "OMBRO_DIREITO"), " Pior à noite "))
+                .isEqualTo("Cervical, Ombro direito. Pior à noite");
+        assertThat(ProntuarioPdfExporterService.opcao(CampoOpcoesAvaliacao.EQUILIBRIO, "ALTERACAO_LEVE", null))
+                .isEqualTo("Alteração leve");
+        assertThat(ProntuarioPdfExporterService.testesFuncionais(
+                        List.of(new TesteFuncionalRealizado("SCHOBER", "POSITIVO")), null))
+                .isEqualTo("Schober (positivo)");
+        // Valor que saiu do catálogo continua legível; sem nada, o campo não sai.
+        assertThat(ProntuarioPdfExporterService.opcoes(CampoOpcoesAvaliacao.REGIOES_DOR, List.of("ANTIGA"), null))
+                .isEqualTo("ANTIGA");
+        assertThat(ProntuarioPdfExporterService.opcoes(CampoOpcoesAvaliacao.REGIOES_DOR, List.of(), " "))
+                .isNull();
+    }
 
     private static final LocalDateTime GERADO_EM = LocalDateTime.of(2026, 11, 27, 10, 30);
 

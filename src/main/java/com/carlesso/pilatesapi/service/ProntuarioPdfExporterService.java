@@ -4,10 +4,14 @@ import com.carlesso.pilatesapi.entity.Anamnese;
 import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
+import com.carlesso.pilatesapi.entity.ExameFisicoOpcoes;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Reavaliacao;
 import com.carlesso.pilatesapi.entity.SessaoPilates;
+import com.carlesso.pilatesapi.entity.TesteFuncionalRealizado;
+import com.carlesso.pilatesapi.entity.enums.CampoOpcoesAvaliacao;
+import com.carlesso.pilatesapi.entity.enums.OpcaoAvaliacao;
 import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.lowagie.text.Chunk;
 import com.lowagie.text.Document;
@@ -229,6 +233,25 @@ public class ProntuarioPdfExporterService {
                 anamnese.getObjetivos(),
                 "Observações: ",
                 anamnese.getObservacoes());
+        campos(
+                document,
+                rotuloOpcoes(CampoOpcoesAvaliacao.REGIOES_DOR),
+                opcoes(CampoOpcoesAvaliacao.REGIOES_DOR, anamnese.getRegioesDor(), anamnese.getRegioesDorComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.CONDICOES_SAUDE),
+                opcoes(
+                        CampoOpcoesAvaliacao.CONDICOES_SAUDE,
+                        anamnese.getCondicoesSaude(),
+                        anamnese.getCondicoesSaudeComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.NIVEL_ATIVIDADE_FISICA),
+                opcao(
+                        CampoOpcoesAvaliacao.NIVEL_ATIVIDADE_FISICA,
+                        anamnese.getNivelAtividadeFisicaOpcao(),
+                        anamnese.getNivelAtividadeFisicaComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.OBJETIVOS),
+                opcoes(
+                        CampoOpcoesAvaliacao.OBJETIVOS,
+                        anamnese.getObjetivosOpcoes(),
+                        anamnese.getObjetivosComplemento()));
     }
 
     private void avaliacao(Document document, AvaliacaoFisioterapeutica avaliacao) throws DocumentException {
@@ -258,6 +281,7 @@ public class ProntuarioPdfExporterService {
                 avaliacao.getTestesFuncionaisRealizados(),
                 "Observações gerais: ",
                 avaliacao.getObservacoesGerais());
+        exameFisico(document, avaliacao.getExameFisicoOpcoes());
     }
 
     private void plano(Document document, PlanoTratamento plano) throws DocumentException {
@@ -302,6 +326,88 @@ public class ProntuarioPdfExporterService {
                 reavaliacao.getAjustesRecomendados(),
                 "Observações gerais: ",
                 reavaliacao.getObservacoesGerais());
+        campos(
+                document,
+                rotuloOpcoes(CampoOpcoesAvaliacao.REGIOES_DOR),
+                opcoes(
+                        CampoOpcoesAvaliacao.REGIOES_DOR,
+                        reavaliacao.getRegioesDor(),
+                        reavaliacao.getRegioesDorComplemento()));
+        exameFisico(document, reavaliacao.getExameFisicoOpcoes());
+    }
+
+    /**
+     * Campos estruturados do exame físico (#248), comuns à avaliação e à reavaliação. Saem com os rótulos do catálogo,
+     * para a fiscalização ler "Hiperlordose lombar" e não {@code HIPERLORDOSE_LOMBAR}; campo vazio não sai.
+     */
+    private void exameFisico(Document document, ExameFisicoOpcoes exame) throws DocumentException {
+        if (exame == null) {
+            return;
+        }
+        campos(
+                document,
+                rotuloOpcoes(CampoOpcoesAvaliacao.ACHADOS_POSTURAIS),
+                opcoes(
+                        CampoOpcoesAvaliacao.ACHADOS_POSTURAIS,
+                        exame.getAchadosPosturais(),
+                        exame.getAchadosPosturaisComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.PADRAO_RESPIRATORIO),
+                opcao(
+                        CampoOpcoesAvaliacao.PADRAO_RESPIRATORIO,
+                        exame.getPadraoRespiratorioOpcao(),
+                        exame.getPadraoRespiratorioComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.EQUILIBRIO),
+                opcao(CampoOpcoesAvaliacao.EQUILIBRIO, exame.getEquilibrioOpcao(), exame.getEquilibrioComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.COORDENACAO_MOTORA),
+                opcao(
+                        CampoOpcoesAvaliacao.COORDENACAO_MOTORA,
+                        exame.getCoordenacaoMotoraOpcao(),
+                        exame.getCoordenacaoMotoraComplemento()),
+                rotuloOpcoes(CampoOpcoesAvaliacao.TESTES_FUNCIONAIS),
+                testesFuncionais(exame.getTestesFuncionais(), exame.getTestesFuncionaisComplemento()));
+    }
+
+    static String rotuloOpcoes(CampoOpcoesAvaliacao campo) {
+        return campo.getRotulo() + " (opções): ";
+    }
+
+    /** Rótulos das opções, na ordem gravada, seguidos do complemento livre; {@code null} se não há nada. */
+    static String opcoes(CampoOpcoesAvaliacao campo, List<String> valores, String complemento) {
+        String selecionadas = valores == null
+                ? ""
+                : valores.stream().map(valor -> rotuloDaOpcao(campo, valor)).collect(Collectors.joining(", "));
+        return comComplemento(selecionadas, complemento);
+    }
+
+    static String opcao(CampoOpcoesAvaliacao campo, String valor, String complemento) {
+        return comComplemento(valor == null || valor.isBlank() ? "" : rotuloDaOpcao(campo, valor), complemento);
+    }
+
+    static String testesFuncionais(List<TesteFuncionalRealizado> testes, String complemento) {
+        String realizados = testes == null
+                ? ""
+                : testes.stream()
+                        .map(t -> rotuloDaOpcao(CampoOpcoesAvaliacao.TESTES_FUNCIONAIS, t.teste()) + " ("
+                                + ("POSITIVO".equals(t.resultado()) ? "positivo" : "negativo") + ")")
+                        .collect(Collectors.joining(", "));
+        return comComplemento(realizados, complemento);
+    }
+
+    /** Valor que saiu do catálogo continua legível: sem rótulo conhecido, sai o próprio valor gravado. */
+    private static String rotuloDaOpcao(CampoOpcoesAvaliacao campo, String valor) {
+        return campo.getOpcoes().stream()
+                .filter(o -> o.name().equals(valor))
+                .map(OpcaoAvaliacao::getRotulo)
+                .findFirst()
+                .orElse(valor);
+    }
+
+    private static String comComplemento(String texto, String complemento) {
+        boolean temComplemento = complemento != null && !complemento.isBlank();
+        if (texto.isEmpty()) {
+            return temComplemento ? complemento.trim() : null;
+        }
+        return temComplemento ? texto + ". " + complemento.trim() : texto;
     }
 
     private void evolucao(Document document, EvolucaoSessao evolucao) throws DocumentException {

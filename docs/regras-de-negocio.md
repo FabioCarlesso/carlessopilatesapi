@@ -468,6 +468,7 @@ Como o sistema atende:
   - anamnese sempre entra: é uma por paciente e é a base do prontuário, sem data de vigência;
   - avaliação fisioterapêutica **vigente** = a última feita antes do `inicio` (ainda valia quando o período começou) mais as feitas dentro do período;
   - plano de tratamento **vigente** = plano não excluído cuja vigência (`dataInicio` até `dataFimPrevista`, aberta quando nula) cruza o período
+- **Opções pré-definidas (#248)**: a anamnese, a avaliação e a reavaliação saem também com os campos estruturados, pelos rótulos do catálogo (ex.: "Hiperlordose lombar", "Schober (positivo)") e com o complemento livre; campo vazio não sai, e um valor que saiu do catálogo aparece como foi gravado
 - **Rastreio da exportação**: não há tabela de auditoria de ações, então cada exportação gera um log `INFO` (`Prontuário exportado` / `Evolução exportada`) com paciente, período, número de evoluções e o e-mail mascarado de quem exportou — ver [logging](operacao.md#logging-estruturado-e-correlation-id)
 - **Guarda — decidido (2026-11-26)**: o prontuário é mantido **pelo maior tempo possível**. Não há descarte nem exclusão automática de evoluções, avaliações, reavaliações, planos ou sessões por tempo — nenhum scheduler apaga dado clínico, e um processo desse tipo não deve ser criado. As exclusões que existem são ações manuais (ex.: excluir a sessão leva a evolução junto; o plano de tratamento é inativado, não apagado)
 
