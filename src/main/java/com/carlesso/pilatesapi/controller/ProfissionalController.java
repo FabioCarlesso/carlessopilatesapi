@@ -47,7 +47,9 @@ public class ProfissionalController {
                     "Registra um novo profissional no sistema. Retorna 201 com o header Location apontando para o recurso criado.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Profissional cadastrado com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
+        @ApiResponse(
+                responseCode = "400",
+                description = "Dados inválidos ou campos obrigatórios ausentes, inclusive o número no CREFITO (#250)"),
         @ApiResponse(responseCode = "409", description = "E-mail ou CPF já cadastrado")
     })
     @PostMapping
@@ -97,10 +99,13 @@ public class ProfissionalController {
 
     @Operation(
             summary = "Atualizar profissional",
-            description = "Atualiza os dados de um profissional. Apenas os campos enviados serão alterados.")
+            description =
+                    "Atualiza os dados de um profissional. Apenas os campos enviados serão alterados. Profissional"
+                            + " ativo não pode ficar sem número no CREFITO: numeroRegistro em branco, ou ausente quando o"
+                            + " cadastro ainda não o tem, retorna 400.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Profissional atualizado com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou profissional ativo sem número no CREFITO"),
         @ApiResponse(responseCode = "404", description = "Profissional não encontrado"),
         @ApiResponse(
                 responseCode = "409",
@@ -116,10 +121,12 @@ public class ProfissionalController {
 
     @Operation(
             summary = "Ativar profissional",
-            description = "Reativa um profissional previamente inativado, definindo ativo = true.")
+            description = "Reativa um profissional previamente inativado, definindo ativo = true. Exige o número no"
+                    + " CREFITO já cadastrado.")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Profissional ativado com sucesso"),
-        @ApiResponse(responseCode = "404", description = "Profissional não encontrado")
+        @ApiResponse(responseCode = "404", description = "Profissional não encontrado"),
+        @ApiResponse(responseCode = "422", description = "Profissional sem número no CREFITO")
     })
     @PatchMapping("/{id}/ativar")
     public ResponseEntity<Void> ativar(

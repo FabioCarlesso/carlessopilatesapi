@@ -20,6 +20,7 @@ import com.carlesso.pilatesapi.dto.ProfissionalResumoDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.dto.ResumoFinanceiroDTO;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
@@ -106,27 +107,39 @@ class ProfissionalControllerTest {
     }
 
     @Test
-    void cadastrar_semNumeroRegistro_deveRetornar201ComCampoNulo() throws Exception {
-        var request = request(null);
+    void cadastrar_semNumeroRegistro_deveRetornar400ComDetailDoCrefito() throws Exception {
         when(service.cadastrar(any()))
-                .thenReturn(new ProfissionalResponseDTO(
-                        1L,
-                        "Paula Mendes",
-                        "paula@email.com",
-                        "12345678900",
-                        "11999999999",
-                        TipoContrato.PJ,
-                        new BigDecimal("45.00"),
-                        LocalDate.of(2024, 1, 15),
-                        true,
-                        null,
-                        null));
+                .thenThrow(new IllegalArgumentException("Número de registro no CREFITO é obrigatório"));
 
         mvc.perform(post("/profissionais")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.numeroRegistro").isEmpty());
+                        .content(mapper.writeValueAsString(request(null))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Número de registro no CREFITO é obrigatório"));
+    }
+
+    @Test
+    void atualizar_ativoSemNumeroRegistro_deveRetornar400ComDetailDoCrefito() throws Exception {
+        when(service.atualizar(eq(1L), any()))
+                .thenThrow(new IllegalArgumentException("Número de registro no CREFITO é obrigatório"));
+
+        mvc.perform(put("/profissionais/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(
+                                new ProfissionalUpdateDTO(null, null, null, null, null, null, " ", null))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Número de registro no CREFITO é obrigatório"));
+    }
+
+    @Test
+    void ativar_semNumeroRegistro_deveRetornar422() throws Exception {
+        doThrow(new BusinessException("Número de registro no CREFITO é obrigatório"))
+                .when(service)
+                .ativar(1L);
+
+        mvc.perform(patch("/profissionais/1/ativar"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value("Número de registro no CREFITO é obrigatório"));
     }
 
     @Test

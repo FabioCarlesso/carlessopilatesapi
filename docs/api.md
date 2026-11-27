@@ -80,6 +80,7 @@ da tabela abaixo. Rota que o
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `/aulas/{id}/atendimento` (#246: agenda e prontuário juntos) | ✓ | | |
 | `/pacientes/{id}/pontos-dor` (#249: histórico de prontuário debaixo de `/pacientes`) | ✓ | | |
+| `/pacientes/{id}/prontuario/pdf` (#250) | ✓ | | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
@@ -166,7 +167,11 @@ Leitura (`GET`/`HEAD`) para a equipe toda — o formulário de paciente escolhe 
 
 Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula` e `dataInicio`.
 
-`numeroRegistro` é opcional (máx. 30 caracteres), sem validação de formato — acomoda CREFITO, CREF e outros conselhos. No `PUT /profissionais/{id}`, enviá-lo como string vazia limpa o campo; omitir mantém o valor atual.
+`numeroRegistro` (número no CREFITO, máx. 30 caracteres, sem validação de formato) é obrigatório para profissional
+ativo (#250): `POST` sem ele ou em branco → `400`; `PUT /profissionais/{id}` que deixaria o ativo sem número → `400`
+(omitir mantém o valor atual; string vazia limpa o campo, o que só é aceito para inativo); `PATCH .../ativar` de quem
+não tem número → `422`. O `detail` é "Número de registro no CREFITO é obrigatório". Regra completa em
+[Profissionais](regras-de-negocio.md#profissionais).
 
 ### Disponibilidade semanal
 
@@ -647,12 +652,28 @@ liberando a vista para uma nova análise.
 | `GET` | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução pela sessão vinculada |
 | `GET` | `/evolucoes-sessao/paciente/{pacienteId}` | Listar evoluções do paciente, da sessão mais recente para a mais antiga |
 | `PUT` | `/evolucoes-sessao/{id}` | Atualizar dados da evolução |
+| `GET` | `/evolucoes-sessao/{id}/pdf` | Exportar a evolução em PDF, com a identificação do paciente e do fisioterapeuta (#250) |
 
 A resposta traz `profissionalId`, `profissionalNome` e `profissionalNumeroRegistro`: um **snapshot** do profissional
 da sessão, congelado no momento do registro. Editar depois o cadastro do profissional não reescreve as evoluções já
 gravadas, e o `PUT` acima preserva os três campos. Sessões sem profissional vinculado geram evolução com os três
 campos `null`. Evoluções anteriores à migration `V32` têm `profissionalNumeroRegistro` `null`, já que o dado não
 existia à época do registro.
+
+## Prontuário em PDF
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/pacientes/{id}/prontuario/pdf?inicio=&fim=` | Prontuário do paciente em PDF (COFFITO 414/2012, #250) |
+| `GET` | `/evolucoes-sessao/{id}/pdf` | Uma evolução em PDF |
+
+- Só `ADMIN` e `PROFISSIONAL`; os demais papéis recebem `403` — inclusive sob `/pacientes`, que no resto é da equipe toda
+- `inicio` e `fim` (`yyyy-MM-dd`) são opcionais e inclusivos; `inicio > fim` → `400`; paciente ou evolução inexistente → `404`
+- Resposta `application/pdf` com `Content-Disposition: attachment; filename="..."`:
+  - `prontuario-<slug-do-paciente>-<inicio>-a-<fim>.pdf`; sem período, `prontuario-<slug>-completo.pdf`; com um lado só, o ausente vira `inicio` ou `hoje` (`prontuario-ana-silva-2026-01-01-a-hoje.pdf`, `prontuario-ana-silva-inicio-a-2026-06-30.pdf`);
+  - `evolucao-<slug-do-paciente>-<data-da-sessão>.pdf`;
+  - o slug é o nome em minúsculas, sem acento, com hífen no lugar de espaços e símbolos
+- O que entra no PDF e como o período recorta cada parte: [Prontuário e COFFITO 414/2012](regras-de-negocio.md#prontuário-e-coffito-4142012)
 
 ## Relatórios
 

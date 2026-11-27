@@ -73,6 +73,8 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - O `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Profissionais inativos são mantidos no banco (soft delete)
+- **CREFITO obrigatório para profissional ativo** ([#250](https://github.com/FabioCarlesso/carlessopilatesapi/issues/250)): todos os profissionais do estúdio são fisioterapeutas, e a evolução copia o `numeroRegistro` do cadastro no momento do registro — sem ele, o prontuário sai sem a identificação que a [COFFITO 414/2012](#prontuário-e-coffito-4142012) exige. `POST /profissionais` sem número (ou em branco) e `PUT /profissionais/{id}` que deixaria o ativo sem número retornam `400` com `detail` "Número de registro no CREFITO é obrigatório". O `PUT` é parcial, então vale o estado resultante: omitir o campo mantém o número atual, e só é recusado quando o cadastro ainda não tem número. `PATCH /profissionais/{id}/ativar` de quem não tem número retorna `422` com o mesmo `detail` — complete o cadastro antes. O profissional inativo pode ficar sem número (inclusive limpá-lo com string vazia)
+- Profissionais ativos cadastrados antes da regra continuam ativos sem número até a próxima edição; a tela lista quem está sem (`numeroRegistro: null`) para ajuste
 - O relatório de pagamento considera apenas aulas `realizada = true` vinculadas ao profissional, dentro do período informado e associadas a pacientes ativos
 - A consulta do relatório de pagamento consolida dados da aula, paciente, pagamento e contagem de aulas por pagamento em um único `JOIN` com `GROUP BY`, sem round-trips adicionais
 - Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
@@ -443,6 +445,31 @@ frontend monte os seletores sem duplicar as listas. Cada campo tem um complement
 - O histórico do paciente agrupa os pontos por registro e ordena pela data do registro (`dataAvaliacao`/`dataReavaliacao`), do mais antigo para o mais recente; no mesmo dia a avaliação vem antes da reavaliação, e o `id` desempata. Registros sem pontos ficam de fora
 - Excluir a avaliação ou a reavaliação apaga os pontos dela (`ON DELETE CASCADE`). Hoje a API não exclui nenhum dos dois; a cascata cobre a exclusão que vier a existir e a feita direto no banco
 - Acesso: o mesmo das avaliações (`ADMIN` e `PROFISSIONAL`), inclusive no histórico sob `/pacientes/{id}/pontos-dor`
+
+## Prontuário e COFFITO 414/2012
+
+A fiscalização do CREFITO-8 pede o prontuário com as evoluções e a identificação de quem atendeu
+([#250](https://github.com/FabioCarlesso/carlessopilatesapi/issues/250)). A norma federal é a
+[Resolução COFFITO nº 414/2012](https://www.normasbrasil.com.br/norma/resolucao-414-2012_240928.html), que determina:
+
+- o prontuário pode ser eletrônico;
+- no prontuário eletrônico, o fisioterapeuta informa, **logo após cada registro, o nome completo e o número no CREFITO**;
+- o prontuário contém, no mínimo, a identificação do paciente, a avaliação, o diagnóstico, o plano terapêutico e as evoluções;
+- o prontuário pertence ao paciente, e o conteúdo é sigiloso.
+
+Como o sistema atende:
+
+- **Exportação em PDF** (`GET /pacientes/{id}/prontuario/pdf`, e `GET /evolucoes-sessao/{id}/pdf` para uma evolução avulsa), só para os papéis clínicos (`ADMIN`, `PROFISSIONAL`). O PDF traz cabeçalho com o estúdio e a data de geração (fuso do estúdio), identificação do paciente (nome, nascimento, CPF, telefone, e-mail e endereço), anamnese, avaliações (com o diagnóstico), planos de tratamento, reavaliações e evoluções em ordem cronológica, e "Página X de Y" no rodapé
+- **Assinatura de cada evolução**: logo após o conteúdo, a linha "Fisioterapeuta: _nome completo_ — CREFITO nº _número_", tirada do snapshot gravado na evolução (vale quem atendeu e o número que tinha no dia, não o cadastro atual). Evolução anterior à exigência do CREFITO sai com "CREFITO não informado"; sessão sem profissional, com "Fisioterapeuta: não informado"
+- **Decidido (2026-11-26)**: o PDF com nome completo e CREFITO em cada registro basta para a fiscalização — **sem assinatura digital certificada** (ICP-Brasil)
+- **Período** (`inicio`/`fim`, ambos opcionais e inclusivos; `inicio > fim` → `400`; sem nenhum, o prontuário completo):
+  - evoluções pela **data da sessão**, e não por `dataHoraRegistro`: é a sessão que posiciona o atendimento na linha do tempo (mesma ordem da tela), e a evolução pode ser registrada dias depois. Ordem: `sessao.data`, `sessao.horario` (sem horário primeiro), `sessao.id`;
+  - reavaliações pela `dataReavaliacao`;
+  - anamnese sempre entra: é uma por paciente e é a base do prontuário, sem data de vigência;
+  - avaliação fisioterapêutica **vigente** = a última feita antes do `inicio` (ainda valia quando o período começou) mais as feitas dentro do período;
+  - plano de tratamento **vigente** = plano não excluído cuja vigência (`dataInicio` até `dataFimPrevista`, aberta quando nula) cruza o período
+- **Rastreio da exportação**: não há tabela de auditoria de ações, então cada exportação gera um log `INFO` (`Prontuário exportado` / `Evolução exportada`) com paciente, período, número de evoluções e o e-mail mascarado de quem exportou — ver [logging](operacao.md#logging-estruturado-e-correlation-id)
+- **Guarda — decidido (2026-11-26)**: o prontuário é mantido **pelo maior tempo possível**. Não há descarte nem exclusão automática de evoluções, avaliações, reavaliações, planos ou sessões por tempo — nenhum scheduler apaga dado clínico, e um processo desse tipo não deve ser criado. As exclusões que existem são ações manuais (ex.: excluir a sessão leva a evolução junto; o plano de tratamento é inativado, não apagado)
 
 ## Histórico clínico de paciente inativo
 

@@ -134,9 +134,12 @@ public class SecurityConfig {
                         // PATCH /aulas/{id}/realizar, mas não lê nem escreve evolução. Antes da regra de /aulas/**.
                         .requestMatchers("/aulas/*/atendimento")
                         .hasAnyRole(CLINICA)
-                        // Histórico de pontos de dor (#249): mora debaixo de /pacientes, mas é prontuário. Antes da
-                        // regra de /pacientes/**, que é da equipe toda e liberaria a recepção e o financeiro.
-                        .requestMatchers("/pacientes/*/pontos-dor")
+                        // Dados clínicos que moram debaixo de /pacientes: o histórico de pontos de dor (#249) e o
+                        // prontuário em PDF (#250). Antes da regra de /pacientes/**, que é da equipe toda e liberaria a
+                        // recepção e o financeiro. A evolução avulsa (/evolucoes-sessao/{id}/pdf) já cai na regra
+                        // clínica.
+                        .requestMatchers(
+                                "/pacientes/*/pontos-dor", "/pacientes/*/prontuario", "/pacientes/*/prontuario/**")
                         .hasAnyRole(CLINICA)
                         .requestMatchers("/pacientes", "/pacientes/**")
                         .hasAnyRole(EQUIPE)

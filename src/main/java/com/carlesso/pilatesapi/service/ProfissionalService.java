@@ -36,6 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProfissionalService {
 
+    /** {@code detail} do 400/422 sem CREFITO: contrato com o frontend (#250), que o exibe como veio. */
+    static final String ERRO_CREFITO_OBRIGATORIO = "Número de registro no CREFITO é obrigatório";
+
     private static final long LIMITE_DIAS_RELATORIO_PAGAMENTO = 366;
     private static final int LIMITE_AULAS_RELATORIO_PAGAMENTO = 5_000;
 
@@ -64,6 +67,8 @@ public class ProfissionalService {
         profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
         profissional.setDataInicio(dto.dataInicio());
         profissional.setNumeroRegistro(normalizar(dto.numeroRegistro()));
+        // Todo cadastro nasce ativo, então o CREFITO é sempre exigido aqui.
+        exigirCrefitoSeAtivo(profissional);
         return ProfissionalResponseDTO.from(repository.save(profissional));
     }
 
@@ -97,6 +102,10 @@ public class ProfissionalService {
             profissional.setPercentualPagamentoAula(dto.percentualPagamentoAula());
         if (dto.dataInicio() != null) profissional.setDataInicio(dto.dataInicio());
         if (dto.numeroRegistro() != null) profissional.setNumeroRegistro(normalizar(dto.numeroRegistro()));
+        // O PUT é parcial: confere o estado resultante, não o corpo. Omitir o campo preserva o número atual; enviá-lo
+        // em
+        // branco, ou omiti-lo quando o cadastro ainda não tem número, deixa o ativo sem CREFITO e é recusado.
+        exigirCrefitoSeAtivo(profissional);
         return ProfissionalResponseDTO.from(repository.saveAndFlush(profissional));
     }
 
@@ -108,9 +117,36 @@ public class ProfissionalService {
         return numeroRegistro.trim();
     }
 
+    /**
+     * COFFITO 414/2012 (#250): o fisioterapeuta assina cada evolução com nome e número no CREFITO, e a evolução copia o
+     * número do cadastro no momento do registro. Profissional ativo sem número geraria evoluções sem a identificação
+     * que a fiscalização exige; o inativo não atende mais, por isso pode ficar sem.
+     *
+     * @throws IllegalArgumentException mapeada para {@code 400}: o dado faltante veio (ou deixou de vir) no corpo
+     */
+    private void exigirCrefitoSeAtivo(Profissional profissional) {
+        if (profissional.isAtivo() && semCrefito(profissional)) {
+            throw new IllegalArgumentException(ERRO_CREFITO_OBRIGATORIO);
+        }
+    }
+
+    /** Em branco conta como ausente: cadastros anteriores à normalização podem ter gravado string vazia. */
+    private static boolean semCrefito(Profissional profissional) {
+        return profissional.getNumeroRegistro() == null
+                || profissional.getNumeroRegistro().isBlank();
+    }
+
+    /**
+     * Reativar quem não tem CREFITO é 422, e não 400: a requisição em si é válida, o que falta está no cadastro, que
+     * precisa ser completado antes (PUT com o número) — pela regra de {@link #exigirCrefitoSeAtivo}.
+     */
     @Transactional
     public void ativar(Long id) {
-        encontrar(id).setAtivo(true);
+        Profissional profissional = encontrar(id);
+        if (semCrefito(profissional)) {
+            throw new BusinessException(ERRO_CREFITO_OBRIGATORIO);
+        }
+        profissional.setAtivo(true);
     }
 
     @Transactional

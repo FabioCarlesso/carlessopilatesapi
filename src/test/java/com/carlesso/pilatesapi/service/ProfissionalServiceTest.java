@@ -13,6 +13,7 @@ import com.carlesso.pilatesapi.dto.ProfissionalResponseDTO;
 import com.carlesso.pilatesapi.dto.ProfissionalUpdateDTO;
 import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.enums.TipoContrato;
+import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
@@ -85,27 +86,37 @@ class ProfissionalServiceTest {
     }
 
     @Test
-    void cadastrar_deveNormalizarNumeroRegistroEmBrancoParaNull() {
+    void cadastrar_comNumeroRegistroEmBranco_deveRecusarComCrefitoObrigatorio() {
         var dto = requestDTO("   ");
         when(repository.existsByEmail(dto.email())).thenReturn(false);
         when(repository.existsByCpf(dto.cpf())).thenReturn(false);
-        when(repository.save(any(Profissional.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ProfissionalResponseDTO response = service.cadastrar(dto);
-
-        assertThat(response.numeroRegistro()).isNull();
+        assertThatThrownBy(() -> service.cadastrar(dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Número de registro no CREFITO é obrigatório");
+        verify(repository, never()).save(any(Profissional.class));
     }
 
     @Test
-    void cadastrar_semNumeroRegistro_devePersistirNull() {
+    void cadastrar_semNumeroRegistro_deveRecusarComCrefitoObrigatorio() {
         var dto = requestDTO(null);
+        when(repository.existsByEmail(dto.email())).thenReturn(false);
+        when(repository.existsByCpf(dto.cpf())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.cadastrar(dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Número de registro no CREFITO é obrigatório");
+        verify(repository, never()).save(any(Profissional.class));
+    }
+
+    @Test
+    void cadastrar_deveGravarNumeroRegistroSemEspacos() {
+        var dto = requestDTO("  350544-F ");
         when(repository.existsByEmail(dto.email())).thenReturn(false);
         when(repository.existsByCpf(dto.cpf())).thenReturn(false);
         when(repository.save(any(Profissional.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ProfissionalResponseDTO response = service.cadastrar(dto);
-
-        assertThat(response.numeroRegistro()).isNull();
+        assertThat(service.cadastrar(dto).numeroRegistro()).isEqualTo("350544-F");
     }
 
     @Test
@@ -179,8 +190,46 @@ class ProfissionalServiceTest {
     }
 
     @Test
-    void atualizar_comNumeroRegistroEmBranco_deveLimparOCampo() {
+    void atualizar_ativoComNumeroRegistroEmBranco_deveRecusar() {
         when(repository.findById(1L)).thenReturn(Optional.of(profissional()));
+
+        assertThatThrownBy(() -> service.atualizar(
+                        1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "  ", null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Número de registro no CREFITO é obrigatório");
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void atualizar_ativoSemNumeroNoCadastroENoCorpo_deveRecusar() {
+        Profissional semRegistro = profissional();
+        semRegistro.setNumeroRegistro(null);
+        when(repository.findById(1L)).thenReturn(Optional.of(semRegistro));
+
+        assertThatThrownBy(() -> service.atualizar(
+                        1L, new ProfissionalUpdateDTO("Novo Nome", null, null, null, null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Número de registro no CREFITO é obrigatório");
+    }
+
+    @Test
+    void atualizar_ativoSemNumeroNoCadastro_aceitaQuandoOCorpoTrazONumero() {
+        Profissional semRegistro = profissional();
+        semRegistro.setNumeroRegistro(null);
+        when(repository.findById(1L)).thenReturn(Optional.of(semRegistro));
+        when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-F", null));
+
+        assertThat(response.numeroRegistro()).isEqualTo("123456-F");
+    }
+
+    @Test
+    void atualizar_inativoComNumeroRegistroEmBranco_deveLimparOCampo() {
+        Profissional inativo = profissional();
+        inativo.setAtivo(false);
+        when(repository.findById(1L)).thenReturn(Optional.of(inativo));
         when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response = service.atualizar(1L, new ProfissionalUpdateDTO(null, null, null, null, null, null, "  ", null));
@@ -206,6 +255,19 @@ class ProfissionalServiceTest {
         service.ativar(1L);
 
         assertThat(p.isAtivo()).isTrue();
+    }
+
+    @Test
+    void ativar_semNumeroRegistro_deveRecusarComRegraDeNegocio() {
+        Profissional p = profissional();
+        p.setAtivo(false);
+        p.setNumeroRegistro(null);
+        when(repository.findById(1L)).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> service.ativar(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Número de registro no CREFITO é obrigatório");
+        assertThat(p.isAtivo()).isFalse();
     }
 
     @Test

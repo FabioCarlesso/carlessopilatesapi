@@ -1363,6 +1363,8 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /api/relatorios/aulas-sem-evolucao             | ",
                 "GET    | /api/relatorios/aulas-sem-evolucao/xlsx        | ",
                 "GET    | /api/relatorios/ocupacao                       | RECEPCAO",
+                "GET    | /pacientes/999999/prontuario/pdf               | PROFISSIONAL",
+                "GET    | /evolucoes-sessao/999999/pdf                   | PROFISSIONAL",
                 "GET    | /profissionais                                 | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999                          | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /profissionais/999999/relatorio-pagamento      | FINANCEIRO",
