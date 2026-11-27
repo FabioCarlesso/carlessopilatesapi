@@ -55,6 +55,11 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Pacientes **inativos** não recebem novas cobranças nem têm aulas geradas
 - Consultas de aulas não retornam registros associados a pacientes inativos — exceto os indicadores históricos do dashboard (ver [Indicadores do dashboard](#indicadores-do-dashboard))
 - O cadastro grava `dataCadastro` com a data do dia. Inativar grava `dataInativacao` com a data do dia, e inativar quem já está inativo não muda essa data; reativar a limpa
+- **Fisioterapeuta padrão** (#245): opcional. As aulas geradas pelo pagamento nascem com ele; trocar o profissional
+  de uma aula é exceção (folga, ausência) e não muda o padrão, e trocar o padrão não muda as aulas já geradas
+  - Vínculo novo exige profissional ativo (`422`). O padrão que já existe continua mesmo se o profissional for
+    inativado depois, mas a geração não usa profissional inativo: as aulas nascem sem profissional
+  - Os pacientes anteriores à V49 ficam sem padrão; a recepção escolhe
 
 ## Tomadores da NFSE
 
@@ -111,18 +116,27 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 ## Frequência de Aulas
 
-| Frequência | Vezes/semana | Aulas/mês (referência) |
+| Frequência | Vezes/semana | Aulas por mês (pacote) |
 |---|---|---|
 | `UMA_VEZ` | 1 | 4 |
 | `DUAS_VEZES` | 2 | 8 |
 | `TRES_VEZES` | 3 | 12 |
+
+O plano é mensal, mas com **limite de aulas** (#243): cada pagamento cobre um pacote de `aulasPorMes × meses do tipo`
+aulas (MENSAL ×1, TRIMESTRAL ×3, ANUAL ×12). Consumido o pacote, começa o pagamento seguinte (a renovação). Um mês
+com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeira do pacote seguinte.
 
 ## Pagamentos
 
 - Status: `PENDENTE` → `PAGO` ou `VENCIDO`
 - Valor não pode ser menor que o valor do plano
 - Não pode haver dois pagamentos para o mesmo plano no mesmo período (`UNIQUE plano_id + periodo_inicio`)
-- Ao confirmar (`PAGO`), as aulas do período são geradas automaticamente
+- Ao confirmar (`PAGO`), as aulas do pacote são geradas automaticamente
+- `periodoFim` é a **data da última aula do pacote** (#243), calculada na criação e na renovação pelo mesmo método que
+  gera as aulas, para os dois nunca divergirem. Antes da #243 era o fim do mês de calendário; os pagamentos já
+  existentes não foram recalculados (decisão de 2026-11-26) e mantêm o `periodoFim` antigo
+- Toda resposta de pagamento traz `aulasPacote` (tamanho do pacote do plano) e `aulasRealizadas` (aulas do pagamento
+  já realizadas, inclusive as de feriado), para a tela mostrar "X de N"
 - A confirmação de pagamento recebe `dataPagamento` no corpo da requisição; se omitida, usa a data atual
 - A forma de pagamento (`PIX`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `DINHEIRO`, `TRANSFERENCIA`) é registrada na **confirmação**, que é quando ela vira fato, e não na criação: a cobrança nasce no scheduler sem saber como o paciente vai pagar (#215). Serve para conferir o caixa e conciliar com o extrato
 - Por enquanto a forma é **opcional** na confirmação: sem ela o pagamento é confirmado com a forma nula, como antes. Pagamentos confirmados antes da #215 também ficam sem forma — não há como reconstruí-la. Ela passa a ser obrigatória quando o frontend que a envia (carlessopilatesfe#132) estiver publicado
@@ -163,8 +177,15 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 
 ## Geração de Aulas
 
-- Aulas geradas com base nos dias da semana do plano e no período do pagamento, percorrendo dia a dia entre `periodoInicio` e `periodoFim`
-- Sem duplicatas: ignora datas onde o paciente já tem aula registrada
+- Aulas geradas nos dias da semana do plano, a partir de `periodoInicio`, até completar o pacote (#243) — a última
+  data é o `periodoFim`
+- Sem duplicatas: ignora datas onde o paciente já tem aula registrada, mas a data **conta para o pacote** (a aula já
+  existente ocupa a vaga)
+- Cada aula gerada nasce com o **fisioterapeuta padrão** do paciente (#245), desde que ele esteja ativo, o horário
+  caiba na disponibilidade dele (sem disponibilidade cadastrada, não há restrição) e ele tenha vaga pela capacidade por
+  horário. Senão a aula nasce sem profissional, e o pagamento informa quantas ficaram assim em
+  `aulasSemProfissional`. A checagem trava o profissional (`SELECT ... FOR UPDATE`), como a atribuição manual. Aula sem
+  horário ou de feriado recebe o padrão sem checagem: não disputa agenda
 - Cada aula gerada recebe o `horario` do plano — um único horário para todos os `diasSemana` (#106). Plano sem horário gera aulas sem horário, que continuam válidas e consultáveis; o horário entra depois, aula a aula, por `PATCH /aulas/{id}/remarcar`. Planos não têm edição, então mudar o horário de um aluno exige novo plano, e as aulas já geradas mantêm o horário antigo
 - O paciente continua com no máximo **uma aula por dia**: a constraint `(paciente_id, data)` foi mantida com a chegada do horário, e com ela a regra de colisão da remarcação (#170)
 - Requer paciente ativo e pagamento `PAGO`
@@ -189,12 +210,33 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Nenhuma constraint do banco garante a capacidade, então a checagem trava o profissional (`SELECT ... FOR UPDATE`) antes de contar: duas atribuições simultâneas ao mesmo horário são serializadas em vez de passarem juntas do limite (`AulaCapacidadeConcurrencyIntegrationTest`)
 - `Aula` tem locking otimista (`@Version`, coluna `version` da `V34`). As três rotas de escrita — `realizar`, `profissional` e `remarcar` — gravam campos diferentes da mesma linha, e sem versão duas recepcionistas simultâneas se sobrescrevem em silêncio. O caso caro é realizar e remarcar ao mesmo tempo: a aula fica realizada numa data em que não foi ministrada e o erro segue direto para o repasse, que agrupa por `data`. Quem perde a corrida recebe `409` e refaz sobre o estado novo
 - `GET /aulas?inicio=&fim=` é a agenda do estúdio: período fechado e obrigatório (`400` se ausente, invertido, acima de 92 dias ou com mais de 5000 registros no resultado), sem paginação, ordenado por `data`, `horario` e `id` — aulas sem `horario` no fim do dia; filtros opcionais `profissionalId`, `pacienteId` e `realizada` são combináveis. A consulta projeta direto no DTO para não arrastar a cadeia EAGER `pagamento → plano → diasSemana`
-- A geração **não** consulta bloqueios de agenda: feriado e manutenção são avisos, não impedimentos (ver *Bloqueios de Agenda*)
+- A geração não deixa de criar aula por causa de bloqueio: manutenção e evento são avisos. A única consulta é ao `FERIADO` de dia inteiro, que faz a aula nascer marcada como feriado (ver *Bloqueios de Agenda*)
 
 ## Bloqueios de Agenda
 
 - Registram períodos em que o estúdio não funciona: feriados, manutenção de equipamentos, eventos, férias coletivas
-- **O bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada. A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
+- **Tipo** (#244): `FERIADO` ou `OUTRO` (ausente no corpo = `OUTRO`; os bloqueios anteriores à V48 viraram `OUTRO`)
+- **Feriado de dia inteiro marca as aulas.** A aula que cai num bloqueio `FERIADO` sem faixa de horário fica
+  `realizada = true` e `feriado = true`: o aluno pagou por ela, então **gera repasse** pelo profissional da aula,
+  **consome o pacote** do pagamento e **não é falta** na frequência. Fica fora do relatório de aulas sem evolução,
+  porque não houve atendimento. Feriado parcial (com horário) e bloqueio `OUTRO` não marcam nada
+  - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas, exceto as de paciente inativo:
+    marcadas, elas contariam como realizadas nas séries sem filtro de ativo e voltariam realizadas numa reativação.
+    Ao **reativar** o paciente (`PATCH /pacientes/{id}/ativar`), as aulas pendentes dele que caem num feriado são
+    marcadas nesse momento. Aulas geradas depois para essas datas
+    já nascem marcadas, e uma aula **remarcada** para uma data de feriado também é marcada na hora. Assim, toda aula
+    pendente num feriado é de feriado, e o resultado não depende de o bloqueio ser editado depois. A turma que treina
+    no feriado é registrada com o bloqueio como `OUTRO`
+  - A aula marcada sem profissional recebe o fisioterapeuta padrão ativo do paciente, porque o repasse precisa de dono
+  - A aula guarda o bloqueio que a marcou (`bloqueio_feriado_id`). Ao excluir o bloqueio, ou editá-lo mudando
+    período ou tipo, só as aulas que **ele** marcou voltam a não realizadas — uma aula realizada de verdade nunca é
+    tocada. Se outro feriado ainda cobre a data, a aula continua marcada, agora por ele. Senão, a aula volta a
+    disputar o horário: se o profissional dela não tem mais vaga ou disponibilidade (ele pode ter sido atribuído no
+    feriado, sem checagem), a aula fica sem profissional e entra em `aulasSemProfissional`
+  - Como toda aula realizada, a de feriado não pode ser remarcada; para isso, desfaça o feriado. O profissional, ao
+    contrário, **pode** ser atribuído ou trocado: ele só define quem recebe o repasse, então a troca não confere vaga
+    no horário. A aula de feriado sem profissional entra em `aulasSemProfissional` do pagamento
+- **Fora o feriado, o bloqueio é informativo, nunca bloqueante.** Não impede a geração automática de aulas, o agendamento de sessões nem a remarcação para uma data bloqueada (a remarcação para um feriado marca a aula, como descrito acima). A decisão de negócio (#171) foi que existem exceções legítimas — a turma que treina no feriado — e uma recusa automática obrigaria a recepção a apagar o bloqueio para registrar a exceção. O contrato é avisar, via `GET /bloqueios`, e deixar a decisão humana
 - Consequência assumida: um feriado no meio do mês continua gerando aula, e cabe à recepção decidir entre manter e remarcar (`PATCH /aulas/{id}/remarcar`). O ganho da funcionalidade é enxergar o conflito na agenda em vez de descobri-lo no dia
 - `dataInicio` e `dataFim` são obrigatórias e ambas inclusivas; um feriado de um dia só repete a mesma data nas duas pontas. `dataFim` anterior a `dataInicio` retorna `400`
 - `horaInicio`/`horaFim` são opcionais e **só valem juntas**: as duas ausentes bloqueiam o dia inteiro (`diaInteiro = true` na resposta), as duas presentes bloqueiam a faixa em cada dia do período. Informar apenas uma retorna `400`, assim como `horaFim` não posterior a `horaInicio`
@@ -203,7 +245,7 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Sobreposição é permitida: "feriado" e "manutenção" no mesmo dia são dois registros legítimos, não um erro
 - `GET /bloqueios?inicio=&fim=` retorna os bloqueios que **intersectam** o período (`dataInicio <= fim AND dataFim >= inicio`), inclusive os que começam antes ou terminam depois dele — férias de 20/12 a 05/01 precisam aparecer na consulta de janeiro. Ordenado por `dataInicio` e `id`, reusando o `PeriodoGuard` de aulas e sessões (período obrigatório e fechado), porém com teto de **366 dias** em vez dos 92 da agenda: o cadastro de feriados é conferido para o ano inteiro de uma vez e rende poucos registros por ano, não milhares por trimestre
 - `PUT /bloqueios/{id}` é substituição completa: omitir `horaInicio`/`horaFim` remove a faixa e devolve o bloqueio para dia inteiro
-- `DELETE /bloqueios/{id}` é exclusão física — o bloqueio não é referenciado por nenhum outro registro, então apagar não deixa órfãos e não afeta aulas ou sessões do período
+- `DELETE /bloqueios/{id}` é exclusão física. Antes de apagar, desfaz a marcação das aulas de feriado que o bloqueio marcou (#244)
 - Autorização: escrita (`POST`, `PUT`, `DELETE`) exige `ADMIN`; a leitura é liberada a toda a equipe (`PROFISSIONAL`, `RECEPCAO`, `FINANCEIRO`) porque é ela que alimenta o aviso nas telas de agenda e sessão usadas pela recepção
 
 ## Lista de Espera
@@ -383,12 +425,15 @@ Não muda a listagem `GET /pacientes`, que continua servindo a tela de cadastro.
   `situacao`. São os que estão desatualizados ou não estão sendo cobrados.
 - **Plano:** o plano ativo do paciente; se a base tiver dois ativos, vale o de início mais recente.
 - **Profissional:** o da próxima aula não realizada (data a partir de hoje, no fuso `app.fuso-horario`) que tenha
-  profissional definido. Aulas sem profissional são puladas. `profissionalId` filtra por ele.
+  profissional definido. Aulas sem profissional são puladas. `profissionalId` filtra pelo **fisioterapeuta padrão** (#245) ou, para
+  quem não tem esse padrão, pelo profissional das próximas aulas. Cada item traz também `profissionalPadrao` (`id`, `nome`).
 - **Aniversariantes:** `mesNascimento` compara só o mês da data de nascimento; quem não tem a data fica de fora.
 - **Idade:** anos completos na data da consulta.
 - **Teto:** sem paginação, porque o volume do estúdio é pequeno. Acima de 5.000 linhas, a resposta é `400`, o mesmo
   teto dos demais relatórios sem paginação.
-- PDF e XLSX reusam o JSON, com as mesmas linhas e totais.
+- PDF e XLSX reusam o JSON, com as mesmas linhas e totais. A coluna Profissional mostra o que a tela mostra: o
+  padrão e, quando o das próximas aulas é outro, `Padrão (próximas aulas: Outro)`; sem padrão,
+  `Outro (próximas aulas, sem padrão)`. Assim a linha filtrada sempre exibe o profissional do filtro.
 ## Relatório de recebimentos
 
 `GET /api/relatorios/recebimentos` (#231) é a lista de "quem pagou" no período, para conferir o caixa e conciliar com
@@ -436,6 +481,7 @@ próprias aulas porque `User` e `Profissional` não têm vínculo.
 - **Correspondência aula ↔ sessão:** uma aula `realizada = true` conta como "com evolução" quando existe ao menos uma
   sessão do **mesmo paciente** na **mesma data** com `EvolucaoSessao` registrada. Vale qualquer sessão do dia, de
   qualquer profissional e status, e o horário não é comparado.
+- **Aula de feriado** (#244) não entra: ela conta como realizada, mas não teve atendimento a evoluir.
 - **Só a evolução estruturada conta:** o campo legado `sessoes_pilates.evolucao` (texto livre, fora do contrato REST)
   é ignorado. Sessão sem `EvolucaoSessao` não basta.
 - **Entram também** aulas de paciente inativo (o controle do prontuário vale para o período em que ele frequentou) e
@@ -507,7 +553,7 @@ superclasse `EntidadeAuditavel`. Nenhum service preenche esses campos, e o que o
 | Cron (default) | Horário | Ação | Propriedade |
 |---|---|---|---|
 | `0 0 6 * * *` | 06:00 todo dia | Marca como `VENCIDO` pagamentos `PENDENTE` com `dataVencimento` passada | `app.cobranca.cron-vencidos` (env `APP_COBRANCA_CRON_VENCIDOS`) |
-| `0 0 7 * * *` | 07:00 todo dia | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual | `app.cobranca.cron-cobrancas-futuras` (env `APP_COBRANCA_CRON_COBRANCAS_FUTURAS`) |
+| `0 0 7 * * *` | 07:00 todo dia | Gera cobranças futuras para planos ativos quando faltam ≤ 7 dias para o fim do período atual; a renovação começa no dia seguinte ao `periodoFim` anterior e termina na última aula do novo pacote (#243) | `app.cobranca.cron-cobrancas-futuras` (env `APP_COBRANCA_CRON_COBRANCAS_FUTURAS`) |
 
 O vencimento das cobranças geradas pelo scheduler é definido por `app.cobranca.vencimento-dias` (env
 `APP_COBRANCA_VENCIMENTO_DIAS`, default `10`), somado ao início do período. O tamanho padrão de página nas

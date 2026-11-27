@@ -11,6 +11,8 @@ import static org.mockito.Mockito.*;
 import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.entity.Aula;
+import com.carlesso.pilatesapi.entity.BloqueioAgenda;
+import com.carlesso.pilatesapi.entity.DisponibilidadeProfissional;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.Pagamento;
 import com.carlesso.pilatesapi.entity.Plano;
@@ -23,6 +25,8 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AulaRepository;
+import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
+import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.lang.reflect.Method;
@@ -51,6 +55,12 @@ class AulaServiceTest {
     @Mock
     ProfissionalRepository profissionalRepository;
 
+    @Mock
+    BloqueioAgendaRepository bloqueioAgendaRepository;
+
+    @Mock
+    DisponibilidadeProfissionalRepository disponibilidadeRepository;
+
     AulaService service;
 
     private Paciente paciente;
@@ -59,7 +69,12 @@ class AulaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AulaService(aulaRepository, profissionalRepository, new AgendaProperties(60, 3));
+        service = new AulaService(
+                aulaRepository,
+                profissionalRepository,
+                new AgendaProperties(60, 3),
+                bloqueioAgendaRepository,
+                disponibilidadeRepository);
 
         paciente = new Paciente();
         paciente.setNome("Ana");
@@ -96,7 +111,7 @@ class AulaServiceTest {
     @Test
     void listarPorPeriodo_repassaFiltrosAoRepositorio() {
         AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), null, true);
+                new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), null, true, false);
         when(aulaRepository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 7L, 1L, true))
                 .thenReturn(List.of(aula));
 
@@ -126,7 +141,7 @@ class AulaServiceTest {
     @Test
     void listarPorPeriodo_acimaDoLimiteDeRegistros_lancaIllegalArgument() {
         AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false);
+                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false);
         when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
                 .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA + 1, aula));
 
@@ -139,7 +154,7 @@ class AulaServiceTest {
     @Test
     void listarPorPeriodo_noLimiteExatoDeRegistros_retornaLista() {
         AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false);
+                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false);
         when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
                 .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA, aula));
 
@@ -201,6 +216,165 @@ class AulaServiceTest {
         List<Aula> aulas = service.gerarAulas(pagamentoPago);
 
         assertThat(aulas).hasSize(7); // 8 - 1 existente
+    }
+
+    @Test
+    void gerarAulas_mesComCincoSegundas_geraSoOPacoteDeQuatro() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.UMA_VEZ);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY));
+        pagamentoPago.setPeriodoInicio(LocalDate.of(2026, 3, 1)); // segundas: 2, 9, 16, 23 e 30
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        assertThat(aulas)
+                .extracting(Aula::getData)
+                .containsExactly(
+                        LocalDate.of(2026, 3, 2),
+                        LocalDate.of(2026, 3, 9),
+                        LocalDate.of(2026, 3, 16),
+                        LocalDate.of(2026, 3, 23));
+    }
+
+    @Test
+    void gerarAulas_aulaExistenteContaParaOPacote() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.UMA_VEZ);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY));
+        pagamentoPago.setPeriodoInicio(LocalDate.of(2026, 3, 1));
+        when(aulaRepository.existsByPacienteAndData(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1).equals(LocalDate.of(2026, 3, 9)));
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        // A do dia 9 já existe e consome uma vaga do pacote: a do dia 30 não é gerada.
+        assertThat(aulas)
+                .extracting(Aula::getData)
+                .containsExactly(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 16), LocalDate.of(2026, 3, 23));
+    }
+
+    @Test
+    void tamanhoDoPacote_multiplicaAulasPorMesPelosMesesDoTipo() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.TRES_VEZES);
+        assertThat(plano.getTamanhoDoPacote()).isEqualTo(12);
+        plano.setTipo(TipoPagamento.TRIMESTRAL);
+        assertThat(plano.getTamanhoDoPacote()).isEqualTo(36);
+        plano.setFrequenciaSemanal(FrequenciaSemanal.DUAS_VEZES);
+        plano.setTipo(TipoPagamento.ANUAL);
+        assertThat(plano.getTamanhoDoPacote()).isEqualTo(96);
+    }
+
+    @Test
+    void datasDoPacote_tresVezesCruzandoAViradaDoAno() {
+        plano.setFrequenciaSemanal(FrequenciaSemanal.TRES_VEZES);
+        plano.setDiasSemana(List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY));
+
+        List<LocalDate> datas = AulaService.datasDoPacote(plano, LocalDate.of(2026, 12, 20));
+
+        assertThat(datas).hasSize(12).isSorted().doesNotHaveDuplicates();
+        assertThat(datas.get(0)).isEqualTo(LocalDate.of(2026, 12, 21));
+        assertThat(AulaService.fimDoPacote(plano, LocalDate.of(2026, 12, 20))).isEqualTo(LocalDate.of(2027, 1, 15));
+    }
+
+    @Test
+    void datasDoPacote_trimestralDuasVezes_geraVinteEQuatro() {
+        plano.setTipo(TipoPagamento.TRIMESTRAL);
+
+        assertThat(AulaService.datasDoPacote(plano, LocalDate.of(2025, 2, 1))).hasSize(24);
+    }
+
+    @Test
+    void datasDoPacote_planoSemDias_lancaBusinessException() {
+        plano.setDiasSemana(List.of());
+
+        assertThatThrownBy(() -> AulaService.datasDoPacote(plano, LocalDate.of(2025, 2, 1)))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void gerarAulas_comPadraoComVaga_nasceComOProfissionalPadrao() {
+        Profissional padrao = profissionalAtivo(7L, "Camila");
+        paciente.setProfissionalPadrao(padrao);
+        plano.setHorario(LocalTime.of(8, 0));
+        when(profissionalRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(padrao));
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.countConcorrentesDoProfissional(eq(7L), any(), any(), any(), eq(-1L)))
+                .thenReturn(2L);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        assertThat(aulas).hasSize(8).allSatisfy(a -> assertThat(a.getProfissional())
+                .isEqualTo(padrao));
+    }
+
+    @Test
+    void gerarAulas_padraoLotadoNumHorario_aulaNasceSemProfissional() {
+        Profissional padrao = profissionalAtivo(7L, "Camila");
+        paciente.setProfissionalPadrao(padrao);
+        plano.setHorario(LocalTime.of(8, 0));
+        when(profissionalRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(padrao));
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.countConcorrentesDoProfissional(eq(7L), any(), any(), any(), eq(-1L)))
+                .thenAnswer(inv -> inv.getArgument(1).equals(LocalDate.of(2025, 2, 3)) ? 3L : 0L);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        assertThat(aulas)
+                .filteredOn(a -> a.getProfissional() == null)
+                .extracting(Aula::getData)
+                .containsExactly(LocalDate.of(2025, 2, 3));
+    }
+
+    @Test
+    void gerarAulas_foraDaDisponibilidadeDoPadrao_aulaNasceSemProfissional() {
+        Profissional padrao = profissionalAtivo(7L, "Camila");
+        paciente.setProfissionalPadrao(padrao);
+        plano.setHorario(LocalTime.of(8, 0));
+        DisponibilidadeProfissional segunda = new DisponibilidadeProfissional();
+        segunda.setDiaSemana(DayOfWeek.MONDAY);
+        segunda.setHoraInicio(LocalTime.of(7, 0));
+        segunda.setHoraFim(LocalTime.of(12, 0));
+        when(profissionalRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(padrao));
+        when(disponibilidadeRepository.existsByProfissionalId(7L)).thenReturn(true);
+        when(disponibilidadeRepository.findByProfissionalIdAndDiaSemana(7L, DayOfWeek.MONDAY))
+                .thenReturn(List.of(segunda));
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Aula> aulas = service.gerarAulas(pagamentoPago);
+
+        // Atende só às segundas: as quartas nascem sem profissional.
+        assertThat(aulas).allSatisfy(a -> assertThat(a.getProfissional() == null)
+                .isEqualTo(a.getData().getDayOfWeek() == DayOfWeek.WEDNESDAY));
+    }
+
+    @Test
+    void gerarAulas_padraoInativo_naoEhUsado() {
+        Profissional padrao = profissionalAtivo(7L, "Camila");
+        padrao.setAtivo(false);
+        paciente.setProfissionalPadrao(padrao);
+        when(profissionalRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(padrao));
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service.gerarAulas(pagamentoPago))
+                .allSatisfy(a -> assertThat(a.getProfissional()).isNull());
+    }
+
+    @Test
+    void gerarAulas_planoSemHorario_recebeOPadraoSemChecarAgenda() {
+        Profissional padrao = profissionalAtivo(7L, "Camila");
+        paciente.setProfissionalPadrao(padrao);
+        when(profissionalRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(padrao));
+        when(aulaRepository.existsByPacienteAndData(any(), any())).thenReturn(false);
+        when(aulaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service.gerarAulas(pagamentoPago))
+                .allSatisfy(a -> assertThat(a.getProfissional()).isEqualTo(padrao));
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -588,7 +762,7 @@ class AulaServiceTest {
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
         when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissional));
         when(aulaRepository.countConcorrentesDoProfissional(
-                        1L, LocalDate.of(2025, 2, 3), LocalTime.of(7, 0), LocalTime.of(9, 0), null))
+                        1L, LocalDate.of(2025, 2, 3), LocalTime.of(7, 0), LocalTime.of(9, 0), -1L))
                 .thenReturn(2L);
 
         service.atribuirProfissional(1L, 1L);
@@ -630,6 +804,23 @@ class AulaServiceTest {
         assertThat(aula.getProfissional()).isSameAs(atribuido);
         verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
         verify(profissionalRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void atribuirProfissional_aulaDeFeriado_atribuiSemConferirCapacidade() {
+        Aula aula = aulaPendente();
+        aula.setHorario(LocalTime.of(8, 0));
+        aula.marcarFeriado(new BloqueioAgenda());
+
+        when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
+        when(profissionalRepository.findById(1L)).thenReturn(Optional.of(profissionalAtivo(1L, "Paula Mendes")));
+
+        var response = service.atribuirProfissional(1L, 1L);
+
+        // Sem atendimento, o profissional da aula de feriado só define quem recebe o repasse (#244).
+        assertThat(response.profissionalId()).isEqualTo(1L);
+        assertThat(aula.isRealizada()).isTrue();
+        verify(aulaRepository, never()).countConcorrentesDoProfissional(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -723,7 +914,7 @@ class AulaServiceTest {
 
         when(aulaRepository.findByIdAndPacienteAtivoTrue(1L)).thenReturn(Optional.of(aula));
         when(aulaRepository.countConcorrentesDoProfissional(
-                        1L, LocalDate.of(2025, 2, 3), LocalTime.of(17, 0), LocalTime.of(19, 0), null))
+                        1L, LocalDate.of(2025, 2, 3), LocalTime.of(17, 0), LocalTime.of(19, 0), -1L))
                 .thenReturn(3L);
 
         assertThatThrownBy(() -> service.remarcar(1L, LocalDate.of(2025, 2, 3), LocalTime.of(18, 0)))

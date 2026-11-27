@@ -5,11 +5,13 @@ import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteUpdateDTO;
 import com.carlesso.pilatesapi.entity.Endereco;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Profissional;
 import com.carlesso.pilatesapi.entity.Tomador;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.repository.ProfissionalRepository;
 import com.carlesso.pilatesapi.repository.TomadorRepository;
 import com.carlesso.pilatesapi.util.VersaoGuard;
 import java.time.LocalDate;
@@ -25,10 +27,18 @@ public class PacienteService {
 
     private final PacienteRepository repository;
     private final TomadorRepository tomadorRepository;
+    private final ProfissionalRepository profissionalRepository;
+    private final AulaService aulaService;
 
-    public PacienteService(PacienteRepository repository, TomadorRepository tomadorRepository) {
+    public PacienteService(
+            PacienteRepository repository,
+            TomadorRepository tomadorRepository,
+            ProfissionalRepository profissionalRepository,
+            AulaService aulaService) {
         this.repository = repository;
         this.tomadorRepository = tomadorRepository;
+        this.profissionalRepository = profissionalRepository;
+        this.aulaService = aulaService;
     }
 
     @Transactional
@@ -50,6 +60,9 @@ public class PacienteService {
         if (dto.tomadorId() != null) {
             paciente.setTomador(tomadorAtivo(dto.tomadorId()));
         }
+        if (dto.profissionalPadraoId() != null) {
+            paciente.setProfissionalPadrao(profissionalAtivo(dto.profissionalPadraoId()));
+        }
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -64,9 +77,15 @@ public class PacienteService {
 
     @Transactional(readOnly = true)
     public Page<PacienteResponseDTO> listar(
-            String nome, String email, String cpf, String telefone, Boolean ativo, Pageable pageable) {
+            String nome,
+            String email,
+            String cpf,
+            String telefone,
+            Boolean ativo,
+            Long profissionalId,
+            Pageable pageable) {
         return repository
-                .findAll(filtros(nome, email, cpf, telefone, ativo), pageable)
+                .findAll(filtros(nome, email, cpf, telefone, ativo, profissionalId), pageable)
                 .map(PacienteResponseDTO::from);
     }
 
@@ -84,6 +103,7 @@ public class PacienteService {
         if (dto.dataNascimento() != null) paciente.setDataNascimento(dto.dataNascimento());
         atualizarCpf(paciente, dto.cpf());
         if (dto.cpfNaNota() != null) paciente.setCpfNaNota(dto.cpfNaNota());
+        if (dto.profissionalPadraoId() != null) definirProfissionalPadrao(paciente, dto.profissionalPadraoId());
         if (dto.endereco() != null) {
             paciente.setEndereco(new Endereco(
                     dto.endereco().logradouro(),
@@ -99,8 +119,14 @@ public class PacienteService {
     @Transactional
     public void ativar(Long id) {
         Paciente paciente = encontrar(id);
+        boolean estavaInativo = !paciente.isAtivo();
         paciente.setAtivo(true);
         paciente.setDataInativacao(null);
+        // Inativo, o paciente ficou fora da marcação de feriado (#244); de volta, as aulas pendentes dele em feriado
+        // são marcadas.
+        if (estavaInativo) {
+            aulaService.marcarFeriadosDoPaciente(paciente.getId());
+        }
     }
 
     @Transactional
@@ -144,6 +170,39 @@ public class PacienteService {
         return PacienteResponseDTO.from(repository.saveAndFlush(paciente));
     }
 
+    /**
+     * Define ({@code profissionalId}) ou remove ({@code null}) o fisioterapeuta padrão (#245). As aulas já geradas não
+     * mudam: só as próximas gerações usam o novo padrão.
+     */
+    @Transactional
+    public PacienteResponseDTO definirProfissionalPadrao(Long id, Long profissionalId) {
+        Paciente paciente = encontrar(id);
+        if (profissionalId == null) {
+            paciente.setProfissionalPadrao(null);
+        } else {
+            definirProfissionalPadrao(paciente, profissionalId);
+        }
+        return PacienteResponseDTO.from(repository.saveAndFlush(paciente));
+    }
+
+    /** Manter o padrão que já existe vale mesmo com o profissional inativado depois; vínculo novo exige ativo. */
+    private void definirProfissionalPadrao(Paciente paciente, Long profissionalId) {
+        Profissional atual = paciente.getProfissionalPadrao();
+        if (atual == null || !profissionalId.equals(atual.getId())) {
+            paciente.setProfissionalPadrao(profissionalAtivo(profissionalId));
+        }
+    }
+
+    private Profissional profissionalAtivo(Long profissionalId) {
+        Profissional profissional = profissionalRepository
+                .findById(profissionalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profissional não encontrado: " + profissionalId));
+        if (!profissional.isAtivo()) {
+            throw new BusinessException("Profissional inativo não pode ser o padrão do paciente: " + profissionalId);
+        }
+        return profissional;
+    }
+
     private Tomador tomadorAtivo(Long tomadorId) {
         Tomador tomador = tomadorRepository
                 .findById(tomadorId)
@@ -164,8 +223,13 @@ public class PacienteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + id));
     }
 
-    private Specification<Paciente> filtros(String nome, String email, String cpf, String telefone, Boolean ativo) {
+    private Specification<Paciente> filtros(
+            String nome, String email, String cpf, String telefone, Boolean ativo, Long profissionalId) {
         Specification<Paciente> spec = porStatus(ativo);
+        if (profissionalId != null) {
+            spec = spec.and(
+                    (root, query, cb) -> cb.equal(root.get("profissionalPadrao").get("id"), profissionalId));
+        }
         spec = spec.and(contemIgnorandoCase("nome", nome));
         spec = spec.and(contemIgnorandoCase("email", email));
         spec = spec.and(contemIgnorandoCase("cpf", cpf));

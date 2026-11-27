@@ -26,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -159,9 +160,7 @@ public class RelatorioPacientesExporterService {
             adicionarCelula(table, data(item.dataCadastro()));
             adicionarCelula(table, data(item.dataInativacao()));
             adicionarCelula(table, plano(item.planoAtivo()));
-            adicionarCelula(
-                    table,
-                    item.profissional() == null ? null : item.profissional().nome());
+            adicionarCelula(table, profissional(item));
             adicionarCelula(table, pendencias(item.pendencias()));
         }
         return table;
@@ -236,11 +235,8 @@ public class RelatorioPacientesExporterService {
                     row.createCell(12).setCellValue(plano.valor().doubleValue());
                 }
             }
-            row.createCell(13)
-                    .setCellValue(
-                            item.profissional() == null
-                                    ? ""
-                                    : item.profissional().nome());
+            String profissional = profissional(item);
+            row.createCell(13).setCellValue(profissional == null ? "" : profissional);
             row.createCell(14).setCellValue(pendencias(item.pendencias()));
         }
         for (int i = 0; i < CABECALHO_XLSX.length; i++) {
@@ -327,6 +323,21 @@ public class RelatorioPacientesExporterService {
         return dias.stream()
                 .map(dia -> dia.getDisplayName(TextStyle.SHORT, PT_BR))
                 .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * Coluna Profissional, igual à tela: o fisioterapeuta padrão (#245) e, quando o das próximas aulas é outro, também
+     * esse. O filtro de profissional casa pelos dois, então a linha exportada sempre mostra o profissional filtrado.
+     */
+    static String profissional(RelatorioPacientesDTO.PacienteItem item) {
+        var padrao = item.profissionalPadrao();
+        var proximas = item.profissional();
+        if (padrao != null) {
+            return proximas == null || Objects.equals(proximas.id(), padrao.id())
+                    ? padrao.nome()
+                    : "%s (próximas aulas: %s)".formatted(padrao.nome(), proximas.nome());
+        }
+        return proximas == null ? null : "%s (próximas aulas, sem padrão)".formatted(proximas.nome());
     }
 
     private String pendencias(List<PendenciaCadastroPaciente> pendencias) {

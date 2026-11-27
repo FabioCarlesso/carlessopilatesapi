@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.carlesso.pilatesapi.dto.BloqueioAgendaResponseDTO;
+import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.BloqueioAgendaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
@@ -198,6 +199,7 @@ class BloqueioAgendaControllerTest {
                         LocalTime.of(12, 0),
                         false,
                         "Manutenção dos aparelhos",
+                        TipoBloqueio.OUTRO,
                         LocalDateTime.of(2026, 8, 10, 10, 0),
                         null));
         var corpo = corpo();
@@ -231,6 +233,7 @@ class BloqueioAgendaControllerTest {
                 null,
                 true,
                 "Feriado da Independência",
+                TipoBloqueio.FERIADO,
                 LocalDateTime.of(2026, 8, 10, 10, 0),
                 null);
     }

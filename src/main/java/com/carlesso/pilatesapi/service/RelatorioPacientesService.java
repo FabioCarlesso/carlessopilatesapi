@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
@@ -99,11 +100,20 @@ public class RelatorioPacientesService {
         List<Paciente> pacientes = buscarPacientes(situacaoEfetiva);
         Map<Long, Plano> planosAtivos = planosAtivosPorPaciente();
         Map<Long, RelatorioPacientesDTO.ProfissionalResumo> profissionais = profissionalDasProximasAulas(hoje);
+        Map<Long, String> nomesProfissionais = profissionalRepository.findAll().stream()
+                .collect(Collectors.toMap(Profissional::getId, Profissional::getNome));
 
         List<RelatorioPacientesDTO.PacienteItem> itens = new ArrayList<>();
         for (Paciente paciente : pacientes) {
             Plano plano = planosAtivos.get(paciente.getId());
             RelatorioPacientesDTO.ProfissionalResumo profissional = profissionais.get(paciente.getId());
+            // Só o id do proxy LAZY: o nome vem do mapa, sem um select por paciente.
+            Long padraoId = paciente.getProfissionalPadrao() == null
+                    ? null
+                    : paciente.getProfissionalPadrao().getId();
+            RelatorioPacientesDTO.ProfissionalResumo padrao = padraoId == null
+                    ? null
+                    : new RelatorioPacientesDTO.ProfissionalResumo(padraoId, nomesProfissionais.get(padraoId));
             List<PendenciaCadastroPaciente> pendencias = pendencias(paciente, plano);
 
             if (somenteSemPlano && !(paciente.isAtivo() && plano == null)) {
@@ -117,10 +127,14 @@ public class RelatorioPacientesService {
                             || paciente.getDataNascimento().getMonthValue() != mesNascimento)) {
                 continue;
             }
-            if (profissionalId != null && (profissional == null || !profissionalId.equals(profissional.id()))) {
+            // O filtro casa pelo padrão (#245) ou pelo profissional das próximas aulas: quem cobre a folga do padrão
+            // também enxerga o paciente.
+            if (profissionalId != null
+                    && !profissionalId.equals(padraoId)
+                    && (profissional == null || !profissionalId.equals(profissional.id()))) {
                 continue;
             }
-            itens.add(montarItem(paciente, plano, profissional, pendencias, hoje));
+            itens.add(montarItem(paciente, plano, profissional, padrao, pendencias, hoje));
         }
 
         if (itens.size() > LIMITE_REGISTROS) {
@@ -199,6 +213,7 @@ public class RelatorioPacientesService {
             Paciente paciente,
             Plano plano,
             RelatorioPacientesDTO.ProfissionalResumo profissional,
+            RelatorioPacientesDTO.ProfissionalResumo profissionalPadrao,
             List<PendenciaCadastroPaciente> pendencias,
             LocalDate hoje) {
         Integer idade = paciente.getDataNascimento() == null
@@ -217,6 +232,7 @@ public class RelatorioPacientesService {
                 paciente.getDataInativacao(),
                 plano == null ? null : planoAtivo(plano),
                 profissional,
+                profissionalPadrao,
                 pendencias);
     }
 

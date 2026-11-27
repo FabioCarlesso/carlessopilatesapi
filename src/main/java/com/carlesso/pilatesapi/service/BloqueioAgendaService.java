@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import com.carlesso.pilatesapi.dto.BloqueioAgendaRequestDTO;
 import com.carlesso.pilatesapi.dto.BloqueioAgendaResponseDTO;
 import com.carlesso.pilatesapi.entity.BloqueioAgenda;
+import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
@@ -15,9 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class BloqueioAgendaService {
 
     private final BloqueioAgendaRepository repository;
+    private final AulaService aulaService;
 
-    public BloqueioAgendaService(BloqueioAgendaRepository repository) {
+    public BloqueioAgendaService(BloqueioAgendaRepository repository, AulaService aulaService) {
         this.repository = repository;
+        this.aulaService = aulaService;
     }
 
     @Transactional
@@ -25,7 +28,9 @@ public class BloqueioAgendaService {
         validar(dto);
         BloqueioAgenda bloqueio = new BloqueioAgenda();
         aplicar(dto, bloqueio);
-        return BloqueioAgendaResponseDTO.from(repository.save(bloqueio));
+        BloqueioAgenda salvo = repository.save(bloqueio);
+        aulaService.sincronizarFeriado(null, salvo);
+        return BloqueioAgendaResponseDTO.from(salvo);
     }
 
     /**
@@ -55,17 +60,20 @@ public class BloqueioAgendaService {
         validar(dto);
         BloqueioAgenda bloqueio = encontrar(id);
         aplicar(dto, bloqueio);
+        // Desfaz o que o bloqueio marcou com o período e o tipo antigos e remarca com os novos (#244).
+        aulaService.sincronizarFeriado(bloqueio.getId(), bloqueio);
         return BloqueioAgendaResponseDTO.from(bloqueio);
     }
 
     /**
-     * Exclusão física: o bloqueio não é referenciado por nenhum outro registro — não impede geração de aula nem
-     * agendamento de sessão — então apagar não deixa órfãos, e um feriado cadastrado por engano não precisa
-     * sobreviver como histórico.
+     * Exclusão física: um feriado cadastrado por engano não precisa sobreviver como histórico. As aulas que o feriado
+     * marcou voltam a não realizadas antes (#244), e as realizadas de verdade não são tocadas.
      */
     @Transactional
     public void excluir(Long id) {
-        repository.delete(encontrar(id));
+        BloqueioAgenda bloqueio = encontrar(id);
+        aulaService.sincronizarFeriado(id, null);
+        repository.delete(bloqueio);
     }
 
     private void aplicar(BloqueioAgendaRequestDTO dto, BloqueioAgenda bloqueio) {
@@ -74,6 +82,7 @@ public class BloqueioAgendaService {
         bloqueio.setHoraInicio(dto.horaInicio());
         bloqueio.setHoraFim(dto.horaFim());
         bloqueio.setMotivo(dto.motivo().trim());
+        bloqueio.setTipo(dto.tipo() != null ? dto.tipo() : TipoBloqueio.OUTRO);
     }
 
     /**

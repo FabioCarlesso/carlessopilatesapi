@@ -49,6 +49,14 @@ public class Plano extends EntidadeAuditavel {
 
     public Plano() {}
 
+    /**
+     * Tamanho do pacote de aulas de cada pagamento (#243): {@code aulasPorMes} da frequência (4, 8 ou 12) vezes os
+     * meses do tipo (MENSAL ×1, TRIMESTRAL ×3, ANUAL ×12).
+     */
+    public int getTamanhoDoPacote() {
+        return frequenciaSemanal.getAulasPorMes() * tipo.getMeses();
+    }
+
     public Long getId() {
         return id;
     }

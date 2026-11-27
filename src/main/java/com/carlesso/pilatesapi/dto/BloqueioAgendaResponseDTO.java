@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.dto;
 
 import com.carlesso.pilatesapi.entity.BloqueioAgenda;
+import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -13,6 +14,7 @@ public record BloqueioAgendaResponseDTO(
         LocalTime horaFim,
         boolean diaInteiro,
         String motivo,
+        TipoBloqueio tipo,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualizacao) {
 
@@ -25,6 +27,7 @@ public record BloqueioAgendaResponseDTO(
                 bloqueio.getHoraFim(),
                 bloqueio.isDiaInteiro(),
                 bloqueio.getMotivo(),
+                bloqueio.getTipo(),
                 bloqueio.getDataCriacao(),
                 bloqueio.getDataAtualizacao());
     }

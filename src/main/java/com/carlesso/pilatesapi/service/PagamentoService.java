@@ -12,6 +12,7 @@ import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.metrics.BusinessMetrics;
+import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.PagamentoRepository;
 import com.carlesso.pilatesapi.repository.PlanoRepository;
@@ -19,10 +20,13 @@ import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -55,6 +59,7 @@ public class PagamentoService {
     private final PacienteRepository pacienteRepository;
     private final PlanoRepository planoRepository;
     private final AulaService aulaService;
+    private final AulaRepository aulaRepository;
     private final AppProperties appProperties;
     private final BusinessMetrics businessMetrics;
 
@@ -63,12 +68,14 @@ public class PagamentoService {
             PacienteRepository pacienteRepository,
             PlanoRepository planoRepository,
             AulaService aulaService,
+            AulaRepository aulaRepository,
             AppProperties appProperties,
             BusinessMetrics businessMetrics) {
         this.pagamentoRepository = pagamentoRepository;
         this.pacienteRepository = pacienteRepository;
         this.planoRepository = planoRepository;
         this.aulaService = aulaService;
+        this.aulaRepository = aulaRepository;
         this.appProperties = appProperties;
         this.businessMetrics = businessMetrics;
     }
@@ -93,8 +100,8 @@ public class PagamentoService {
                             .formatted(dto.valor(), plano.getValor()));
         }
 
-        LocalDate periodoFim =
-                dto.periodoInicio().plusMonths(plano.getTipo().getMeses()).minusDays(1);
+        // O período termina na última aula do pacote (#243), e não mais no fim do mês de calendário.
+        LocalDate periodoFim = AulaService.fimDoPacote(plano, dto.periodoInicio());
 
         if (pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, dto.periodoInicio())) {
             throw new ConflictException(
@@ -148,19 +155,19 @@ public class PagamentoService {
                 pagamento.getValor(),
                 pagamento.getDataPagamento(),
                 pagamento.getFormaPagamento());
-        return PagamentoResponseDTO.from(pagamento);
+        return comContadores(pagamento);
     }
 
+    @Transactional(readOnly = true)
     public PagamentoResponseDTO buscarPorId(Long id) {
-        return PagamentoResponseDTO.from(encontrar(id));
+        return comContadores(encontrar(id));
     }
 
+    @Transactional(readOnly = true)
     public Page<PagamentoResponseDTO> listarPorPaciente(Long pacienteId, Pageable pageable) {
-        return pagamentoRepository
-                .findByPacienteId(
-                        pacienteId,
-                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC))
-                .map(PagamentoResponseDTO::from);
+        return comContadores(pagamentoRepository.findByPacienteId(
+                pacienteId,
+                PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS_POR_PACIENTE, Sort.Direction.DESC)));
     }
 
     /**
@@ -178,11 +185,9 @@ public class PagamentoService {
         if (vencimentoDe != null && vencimentoAte != null && vencimentoDe.isAfter(vencimentoAte)) {
             throw new IllegalArgumentException("vencimentoDe não pode ser posterior a vencimentoAte");
         }
-        return pagamentoRepository
-                .findAll(
-                        filtros(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento),
-                        PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.ASC))
-                .map(PagamentoResponseDTO::from);
+        return comContadores(pagamentoRepository.findAll(
+                filtros(status, vencimentoDe, vencimentoAte, pacienteId, formaPagamento),
+                PaginacaoGuard.comDesempatePorId(pageable, CAMPOS_ORDENAVEIS, Sort.Direction.ASC)));
     }
 
     /**
@@ -246,8 +251,7 @@ public class PagamentoService {
                 if (pagamentoRepository.existsByPlanoAndPeriodoInicio(plano, periodoInicio)) continue;
             }
 
-            LocalDate periodoFim =
-                    periodoInicio.plusMonths(plano.getTipo().getMeses()).minusDays(1);
+            LocalDate periodoFim = AulaService.fimDoPacote(plano, periodoInicio);
 
             Pagamento novoPagamento = new Pagamento();
             novoPagamento.setPaciente(plano.getPaciente());
@@ -263,6 +267,26 @@ public class PagamentoService {
 
         businessMetrics.registrarCobrancasGeradas(count);
         return count;
+    }
+
+    private PagamentoResponseDTO comContadores(Pagamento pagamento) {
+        return comContadores(new PageImpl<>(List.of(pagamento))).getContent().get(0);
+    }
+
+    /** Preenche os contadores de aulas (#243) da página inteira com uma consulta só, sem N+1. */
+    private Page<PagamentoResponseDTO> comContadores(Page<Pagamento> pagina) {
+        List<Long> ids = pagina.getContent().stream().map(Pagamento::getId).toList();
+        Map<Long, AulaRepository.ContadoresAulasPagamentoProjection> contadores = ids.isEmpty()
+                ? Map.of()
+                : aulaRepository.contarPorPagamento(ids).stream()
+                        .collect(Collectors.toMap(
+                                AulaRepository.ContadoresAulasPagamentoProjection::getPagamentoId, c -> c));
+        return pagina.map(p -> {
+            var c = contadores.get(p.getId());
+            return c == null
+                    ? PagamentoResponseDTO.from(p)
+                    : PagamentoResponseDTO.from(p, c.getRealizadas(), c.getSemProfissional());
+        });
     }
 
     private Specification<Pagamento> filtros(

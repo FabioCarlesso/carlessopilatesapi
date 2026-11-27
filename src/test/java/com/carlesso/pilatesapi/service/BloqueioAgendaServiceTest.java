@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.carlesso.pilatesapi.dto.BloqueioAgendaRequestDTO;
 import com.carlesso.pilatesapi.entity.BloqueioAgenda;
+import com.carlesso.pilatesapi.entity.enums.TipoBloqueio;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
@@ -28,6 +29,9 @@ class BloqueioAgendaServiceTest {
 
     @Mock
     BloqueioAgendaRepository repository;
+
+    @Mock
+    AulaService aulaService;
 
     @InjectMocks
     BloqueioAgendaService service;
@@ -251,7 +255,7 @@ class BloqueioAgendaServiceTest {
 
     private BloqueioAgendaRequestDTO request(
             LocalDate dataInicio, LocalDate dataFim, LocalTime horaInicio, LocalTime horaFim, String motivo) {
-        return new BloqueioAgendaRequestDTO(dataInicio, dataFim, horaInicio, horaFim, motivo);
+        return new BloqueioAgendaRequestDTO(dataInicio, dataFim, horaInicio, horaFim, motivo, null);
     }
 
     private BloqueioAgenda bloqueio(LocalDate dataInicio, LocalDate dataFim, String motivo) {
@@ -260,5 +264,37 @@ class BloqueioAgendaServiceTest {
         bloqueio.setDataFim(dataFim);
         bloqueio.setMotivo(motivo);
         return bloqueio;
+    }
+
+    @Test
+    void criar_semTipo_gravaOutroESincronizaAsAulas() {
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.criar(request(FERIADO, FERIADO, null, null, "Feriado"));
+
+        assertThat(response.tipo()).isEqualTo(TipoBloqueio.OUTRO);
+        verify(aulaService).sincronizarFeriado(isNull(), any(BloqueioAgenda.class));
+    }
+
+    @Test
+    void criar_feriado_gravaOTipo() {
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.criar(
+                new BloqueioAgendaRequestDTO(FERIADO, FERIADO, null, null, "Feriado", TipoBloqueio.FERIADO));
+
+        assertThat(response.tipo()).isEqualTo(TipoBloqueio.FERIADO);
+    }
+
+    @Test
+    void excluir_desfazAMarcacaoAntesDeApagar() {
+        BloqueioAgenda bloqueio = new BloqueioAgenda();
+        when(repository.findById(9L)).thenReturn(java.util.Optional.of(bloqueio));
+
+        service.excluir(9L);
+
+        var ordem = inOrder(aulaService, repository);
+        ordem.verify(aulaService).sincronizarFeriado(9L, null);
+        ordem.verify(repository).delete(bloqueio);
     }
 }

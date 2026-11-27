@@ -48,6 +48,14 @@ public class Paciente extends EntidadeAuditavel {
     @JoinColumn(name = "tomador_id")
     private Tomador tomador;
 
+    /**
+     * Fisioterapeuta que atende o paciente (#245): as aulas geradas nascem com ele. Trocar o profissional de uma aula
+     * é exceção e não muda o padrão; trocar o padrão não muda as aulas já geradas.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "profissional_padrao_id")
+    private Profissional profissionalPadrao;
+
     public Paciente() {}
 
     public Long getVersion() {
@@ -136,6 +144,14 @@ public class Paciente extends EntidadeAuditavel {
 
     public void setCpfNaNota(boolean cpfNaNota) {
         this.cpfNaNota = cpfNaNota;
+    }
+
+    public Profissional getProfissionalPadrao() {
+        return profissionalPadrao;
+    }
+
+    public void setProfissionalPadrao(Profissional profissionalPadrao) {
+        this.profissionalPadrao = profissionalPadrao;
     }
 
     public Tomador getTomador() {

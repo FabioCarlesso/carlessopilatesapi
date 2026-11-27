@@ -19,4 +19,10 @@ public record PacienteRequestDTO(
                                 "Tomador da nota (responsável ou empresa, ver /tomadores). Ausente: a nota sai no CPF do"
                                         + " próprio paciente. Depois do cadastro, o vínculo muda por PATCH /pacientes/{id}/tomador",
                         example = "3")
-                Long tomadorId) {}
+                Long tomadorId,
+        @Schema(
+                        description =
+                                "Fisioterapeuta padrão (#245): as aulas geradas nascem com ele. Ausente: sem padrão."
+                                        + " Depois do cadastro, o vínculo muda por PATCH /pacientes/{id}/profissional-padrao",
+                        example = "7")
+                Long profissionalPadraoId) {}

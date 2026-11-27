@@ -14,7 +14,8 @@ public record AulaResponseDTO(
         Long pagamentoId,
         LocalDate data,
         LocalTime horario,
-        boolean realizada) {
+        boolean realizada,
+        boolean feriado) {
     public static AulaResponseDTO from(Aula aula) {
         Profissional profissional = aula.getProfissional();
         return new AulaResponseDTO(
@@ -26,6 +27,7 @@ public record AulaResponseDTO(
                 aula.getPagamento().getId(),
                 aula.getData(),
                 aula.getHorario(),
-                aula.isRealizada());
+                aula.isRealizada(),
+                aula.isFeriado());
     }
 }

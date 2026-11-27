@@ -1,5 +1,6 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.PacienteProfissionalPadraoRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.dto.PacienteResponseDTO;
 import com.carlesso.pilatesapi.dto.PacienteTomadorRequestDTO;
@@ -62,8 +63,12 @@ public class PacienteController {
             @Parameter(description = "Filtra por status. Quando omitido, retorna apenas ativos.")
                     @RequestParam(required = false)
                     Boolean ativo,
+            @Parameter(description = "Só os pacientes com este fisioterapeuta padrão (#245)")
+                    @RequestParam(required = false)
+                    Long profissionalId,
             @ParameterObject @SortDefault(sort = "nome") Pageable pageable) {
-        return ResponseEntity.ok(new PagedModel<>(service.listar(nome, email, cpf, telefone, ativo, pageable)));
+        return ResponseEntity.ok(
+                new PagedModel<>(service.listar(nome, email, cpf, telefone, ativo, profissionalId, pageable)));
     }
 
     @Operation(
@@ -128,6 +133,23 @@ public class PacienteController {
             @Parameter(description = "ID do paciente", required = true) @PathVariable Long id,
             @RequestBody PacienteTomadorRequestDTO dto) {
         return ResponseEntity.ok(service.vincularTomador(id, dto.tomadorId()));
+    }
+
+    @Operation(
+            summary = "Definir ou remover o fisioterapeuta padrão",
+            description = "Vincula o fisioterapeuta padrão do paciente (#245), usado nas próximas aulas geradas pelo"
+                    + " pagamento. `profissionalId: null` remove o padrão. As aulas já geradas não mudam.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Vínculo atualizado"),
+        @ApiResponse(responseCode = "400", description = "Campo profissionalId ausente"),
+        @ApiResponse(responseCode = "404", description = "Paciente ou profissional não encontrado"),
+        @ApiResponse(responseCode = "422", description = "Profissional inativo")
+    })
+    @PatchMapping("/{id}/profissional-padrao")
+    public ResponseEntity<PacienteResponseDTO> definirProfissionalPadrao(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long id,
+            @RequestBody PacienteProfissionalPadraoRequestDTO dto) {
+        return ResponseEntity.ok(service.definirProfissionalPadrao(id, dto.profissionalId()));
     }
 
     @Operation(

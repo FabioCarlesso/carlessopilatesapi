@@ -70,11 +70,58 @@ class RelatorioPacientesExporterServiceTest {
             assertThat(bruna.getCell(9).getStringCellValue()).isEqualTo("2x por semana");
             assertThat(bruna.getCell(11).getStringCellValue()).isEqualTo("08:00");
             assertThat(bruna.getCell(12).getNumericCellValue()).isEqualTo(300.0);
-            assertThat(bruna.getCell(13).getStringCellValue()).isEqualTo("Paula Mendes");
+            assertThat(bruna.getCell(13).getStringCellValue()).isEqualTo("Paula Mendes (próximas aulas, sem padrão)");
             Row carlos = pacientes.getRow(2);
             assertThat(carlos.getCell(6).getStringCellValue()).isEqualTo("Inativo");
             assertThat(carlos.getCell(14).getStringCellValue()).isEqualTo("Sem CPF, Sem e-mail");
         }
+    }
+
+    @Test
+    void profissional_mostraOPadraoEODasProximasAulasQuandoEOutro() {
+        var ana = new RelatorioPacientesDTO.ProfissionalResumo(1L, "Ana");
+        var bruno = new RelatorioPacientesDTO.ProfissionalResumo(2L, "Bruno");
+
+        assertThat(RelatorioPacientesExporterService.profissional(comProfissionais(bruno, ana)))
+                .isEqualTo("Bruno (próximas aulas: Ana)");
+        assertThat(RelatorioPacientesExporterService.profissional(comProfissionais(bruno, bruno)))
+                .isEqualTo("Bruno");
+        assertThat(RelatorioPacientesExporterService.profissional(comProfissionais(bruno, null)))
+                .isEqualTo("Bruno");
+        assertThat(RelatorioPacientesExporterService.profissional(comProfissionais(null, ana)))
+                .isEqualTo("Ana (próximas aulas, sem padrão)");
+        assertThat(RelatorioPacientesExporterService.profissional(comProfissionais(null, null)))
+                .isNull();
+    }
+
+    @Test
+    void exportarPdf_mostraOPadrao() throws Exception {
+        var padrao = new RelatorioPacientesDTO.ProfissionalResumo(2L, "Bruno Teste");
+        var proximas = new RelatorioPacientesDTO.ProfissionalResumo(1L, "Camila Teste");
+
+        String texto = textoDoPdf(service.exportarPdf(relatorio(List.of(comProfissionais(padrao, proximas)))));
+
+        assertThat(texto).contains("Bruno Teste").contains("Camila Teste");
+    }
+
+    private RelatorioPacientesDTO.PacienteItem comProfissionais(
+            RelatorioPacientesDTO.ProfissionalResumo padrao, RelatorioPacientesDTO.ProfissionalResumo proximas) {
+        RelatorioPacientesDTO.PacienteItem base = bruna();
+        return new RelatorioPacientesDTO.PacienteItem(
+                base.id(),
+                base.nome(),
+                base.cpf(),
+                base.telefone(),
+                base.email(),
+                base.dataNascimento(),
+                base.idade(),
+                base.ativo(),
+                base.dataCadastro(),
+                base.dataInativacao(),
+                base.planoAtivo(),
+                proximas,
+                padrao,
+                base.pendencias());
     }
 
     private RelatorioPacientesDTO relatorio(List<RelatorioPacientesDTO.PacienteItem> pacientes) {
@@ -110,6 +157,7 @@ class RelatorioPacientesExporterServiceTest {
                         LocalTime.of(8, 0),
                         new BigDecimal("300.00")),
                 new RelatorioPacientesDTO.ProfissionalResumo(5L, "Paula Mendes"),
+                null,
                 List.of());
     }
 
@@ -125,6 +173,7 @@ class RelatorioPacientesExporterServiceTest {
                 false,
                 null,
                 LocalDate.of(2026, 10, 1),
+                null,
                 null,
                 null,
                 List.of(PendenciaCadastroPaciente.SEM_CPF, PendenciaCadastroPaciente.SEM_EMAIL));

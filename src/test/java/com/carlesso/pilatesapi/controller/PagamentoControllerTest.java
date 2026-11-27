@@ -81,7 +81,10 @@ class PagamentoControllerTest {
                 null,
                 LocalDate.now().plusDays(10),
                 LocalDate.now(),
-                LocalDate.now().plusMonths(1).minusDays(1));
+                LocalDate.now().plusMonths(1).minusDays(1),
+                8,
+                0,
+                0);
     }
 
     private PagamentoResponseDTO pagamentoPago() {
@@ -96,7 +99,10 @@ class PagamentoControllerTest {
                 FormaPagamento.PIX,
                 LocalDate.now().plusDays(10),
                 LocalDate.now(),
-                LocalDate.now().plusMonths(1).minusDays(1));
+                LocalDate.now().plusMonths(1).minusDays(1),
+                8,
+                2,
+                1);
     }
 
     @Test

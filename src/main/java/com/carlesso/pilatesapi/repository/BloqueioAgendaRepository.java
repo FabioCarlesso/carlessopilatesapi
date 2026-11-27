@@ -26,4 +26,19 @@ public interface BloqueioAgendaRepository extends JpaRepository<BloqueioAgenda, 
             ORDER BY b.dataInicio, b.id
             """)
     List<BloqueioAgenda> findQueIntersectamPeriodo(@Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
+
+    /** Feriados de dia inteiro que intersectam o período: os que marcam aulas como realizadas (#244). */
+    @Query(
+            """
+            SELECT b
+            FROM BloqueioAgenda b
+            WHERE b.tipo = com.carlesso.pilatesapi.entity.enums.TipoBloqueio.FERIADO
+              AND b.horaInicio IS NULL
+              AND b.horaFim IS NULL
+              AND b.dataInicio <= :fim
+              AND b.dataFim >= :inicio
+            ORDER BY b.dataInicio, b.id
+            """)
+    List<BloqueioAgenda> findFeriadosDiaInteiroQueIntersectam(
+            @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 }

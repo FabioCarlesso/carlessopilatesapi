@@ -120,8 +120,14 @@ Preferência para a NFSE (#229):
 | `tomadorId` | `POST`, resposta | Tomador da nota ([Tomadores](#tomadores)). No cadastro, vincula; tomador inexistente `404`, inativo `422` |
 | `tomadorNome`, `tomadorCpfCnpj` | resposta | Dados do tomador vinculado, para exibição |
 
+Fisioterapeuta padrão (#245): `profissionalPadraoId` no `POST` vincula; no `PUT`, ausente ou nulo **mantém** o atual
+(o `PUT` é parcial), então remover o padrão é pelo `PATCH /pacientes/{id}/profissional-padrao`. A resposta traz
+`profissionalPadraoId` e `profissionalPadraoNome`. `GET /pacientes?profissionalId=7` lista só os pacientes com esse
+padrão, combinável com os demais filtros.
+
 | Método | Endpoint | Descrição |
 |---|---|---|
+| `PATCH` | `/pacientes/{id}/profissional-padrao` | Define (`{"profissionalId": 7}`) ou remove (`{"profissionalId": null}`) o fisioterapeuta padrão (#245). Campo obrigatório mas anulável (omitir = `400`); profissional inexistente `404`, inativo `422` |
 | `PATCH` | `/pacientes/{id}/tomador` | Vincula (`{"tomadorId": 3}`) ou desvincula (`{"tomadorId": null}`) o tomador. O campo é obrigatório mas anulável: omitir retorna `400`, como em `PATCH /aulas/{id}/profissional`. Tomador inativo não recebe vínculo novo (`422`); o vínculo que já existe com um tomador inativado depois continua |
 
 ## Tomadores
@@ -216,6 +222,16 @@ pagamento copiam esse horário. Sem ele, as aulas nascem sem horário e ficam fo
 | `GET` | `/pagamentos/{id}/cobrancas` | Histórico de contatos de cobrança do pagamento, do mais recente para o mais antigo (`ADMIN`) |
 | `GET` | `/pagamentos/{id}/cobrancas/{contatoId}` | Buscar contato de cobrança (é o alvo do `Location` devolvido no registro; `ADMIN`) |
 
+### Pacote de aulas
+
+Toda resposta de pagamento traz o pacote do plano (#243):
+
+- `periodoFim`: data da última aula do pacote (pagamentos criados antes da #243 mantêm o fim do mês).
+- `aulasPacote`: tamanho do pacote — 4, 8 ou 12 aulas por mês, vezes os meses do tipo do plano.
+- `aulasRealizadas`: aulas do pagamento já realizadas, inclusive as de feriado. Com `aulasPacote`, dá o "X de N".
+- `aulasSemProfissional`: aulas do pagamento sem profissional, ainda não realizadas ou de feriado — por exemplo, as
+  que o fisioterapeuta padrão não pôde assumir por lotação ou indisponibilidade (#245). Acima de zero, a tela avisa.
+
 ### Confirmação e forma de pagamento
 
 ```
@@ -284,8 +300,12 @@ GET /pagamentos/xlsx?status=PENDENTE&vencimentoDe=2026-11-25&vencimentoAte=2026-
 | `GET` | `/aulas/paciente/{id}` | Listar aulas do paciente (paginado) |
 | `GET` | `/aulas/pagamento/{id}` | Listar aulas de um pagamento |
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
-| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada (corpo) |
+| `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada ou de feriado (corpo; na de feriado, sem checar vaga) |
 | `PATCH` | `/aulas/{id}/remarcar` | Trocar a data e/ou o horário de uma aula ainda não realizada (corpo) |
+
+Toda aula na resposta traz `feriado` (#244): `true` quando um bloqueio `FERIADO` de dia inteiro a marcou, sempre com
+`realizada: true`. Serve para a tela distinguir a aula de feriado de uma realizada com atendimento. Remarcar para uma
+data de feriado devolve a aula já com `realizada: true` e `feriado: true`.
 
 ### Remarcação
 
@@ -341,8 +361,10 @@ profissional para um horário lotado retorna `409` com `type` `conflict` e a ocu
 | `PUT` | `/bloqueios/{id}` | Atualizar bloqueio (substituição completa) — exige `ADMIN` |
 | `DELETE` | `/bloqueios/{id}` | Excluir bloqueio permanentemente — exige `ADMIN` |
 
-O bloqueio **avisa, não impede**: nem a geração automática de aulas nem o agendamento de sessões consultam esta
-tabela. `GET /bloqueios` é a consulta que permite ao frontend marcar as datas na agenda e sugerir que não se marque
+O bloqueio **avisa, não impede**: não recusa a geração automática de aulas nem o agendamento de sessões. A exceção é
+o feriado (#244): `tipo` (`FERIADO` ou `OUTRO`, ausente = `OUTRO`) vai no corpo e na resposta, e um `FERIADO` sem
+faixa de horário marca as aulas do período com `realizada: true` e `feriado: true`. Editar ou excluir o bloqueio
+desfaz a marcação das aulas que ele marcou. `GET /bloqueios` é a consulta que permite ao frontend marcar as datas na agenda e sugerir que não se marque
 nada ali — a decisão continua com quem opera, porque exceções (a turma que treina no feriado) são legítimas.
 
 - `horaInicio`/`horaFim` ausentes bloqueiam o dia inteiro e a resposta traz `diaInteiro: true`; presentes, bloqueiam

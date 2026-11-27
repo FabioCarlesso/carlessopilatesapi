@@ -68,6 +68,8 @@ class PacienteControllerTest {
                 false,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -79,6 +81,7 @@ class PacienteControllerTest {
                 "11912345678",
                 LocalDate.of(1990, 5, 20),
                 new EnderecoDTO("Rua das Flores", "42", "Centro", "São Paulo", "SP", "01001000"),
+                null,
                 null,
                 null);
     }
@@ -104,7 +107,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_semNome_deveRetornar400() throws Exception {
-        var dto = new PacienteRequestDTO(null, "maria@email.com", "12345678900", null, null, null, null, null);
+        var dto = new PacienteRequestDTO(null, "maria@email.com", "12345678900", null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -113,7 +116,7 @@ class PacienteControllerTest {
     @Test
     void cadastrar_semCpfEsemEmail_deveCadastrar() throws Exception {
         when(service.cadastrar(any())).thenReturn(responseDTO());
-        var dto = new PacienteRequestDTO("Maria", null, null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", null, null, null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated());
@@ -121,7 +124,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_emailInvalido_deveRetornar400() throws Exception {
-        var dto = new PacienteRequestDTO("Maria", "nao-e-email", "12345678900", null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", "nao-e-email", "12345678900", null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -135,7 +138,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_semNome_deveRetornar400ComDetalheDoCampo() throws Exception {
-        var dto = new PacienteRequestDTO(null, "maria@email.com", null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO(null, "maria@email.com", null, null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
@@ -151,7 +154,7 @@ class PacienteControllerTest {
 
     @Test
     void cadastrar_emailInvalido_deveRetornar400ComDetalheDoCampo() throws Exception {
-        var dto = new PacienteRequestDTO("Maria", "nao-e-email", null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", "nao-e-email", null, null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
@@ -184,7 +187,7 @@ class PacienteControllerTest {
     @Test
     void cadastrar_erroInesperado_deveRetornar500SemVazarDetalhes() throws Exception {
         when(service.cadastrar(any())).thenThrow(new RuntimeException("falha interna do banco"));
-        var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null, null, null);
+        var dto = new PacienteRequestDTO("Maria", "maria@email.com", null, null, null, null, null, null, null);
 
         mvc.perform(post("/pacientes").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
@@ -198,7 +201,7 @@ class PacienteControllerTest {
     @Test
     void listar_deveRetornar200ComPaginaDeResultados() throws Exception {
         var page = new PageImpl<>(List.of(responseDTO()), PageRequest.of(0, 10), 1);
-        when(service.listar(any(), any(), any(), any(), any(), any())).thenReturn(page);
+        when(service.listar(any(), any(), any(), any(), any(), any(), any())).thenReturn(page);
 
         mvc.perform(get("/pacientes"))
                 .andExpect(status().isOk())
@@ -208,7 +211,7 @@ class PacienteControllerTest {
 
     @Test
     void listar_semPacientes_deveRetornar200ComPaginaVazia() throws Exception {
-        when(service.listar(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+        when(service.listar(any(), any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
         mvc.perform(get("/pacientes"))
                 .andExpect(status().isOk())
@@ -219,7 +222,7 @@ class PacienteControllerTest {
     @Test
     void listar_comFiltros_deveEncaminharParametrosParaService() throws Exception {
         var page = new PageImpl<>(List.of(responseDTO()), PageRequest.of(0, 10), 1);
-        when(service.listar(any(), any(), any(), any(), any(), any())).thenReturn(page);
+        when(service.listar(any(), any(), any(), any(), any(), any(), any())).thenReturn(page);
 
         mvc.perform(get("/pacientes")
                         .param("nome", "Maria")
@@ -230,7 +233,7 @@ class PacienteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nome").value("Maria Souza"));
 
-        verify(service).listar(eq("Maria"), eq("maria@email.com"), eq("123"), eq("119"), eq(false), any());
+        verify(service).listar(eq("Maria"), eq("maria@email.com"), eq("123"), eq("119"), eq(false), any(), any());
     }
 
     // -------------------------------------------------------------------------
@@ -266,7 +269,7 @@ class PacienteControllerTest {
 
     @Test
     void atualizar_deveRetornar200ComDadosAtualizados() throws Exception {
-        var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null, null, null, null);
+        var update = new PacienteUpdateDTO("Novo Nome", null, null, null, null, null, null, null, null);
         var updated = new PacienteResponseDTO(
                 1L,
                 "Novo Nome",
@@ -278,6 +281,8 @@ class PacienteControllerTest {
                 true,
                 null,
                 false,
+                null,
+                null,
                 null,
                 null,
                 null);
@@ -298,7 +303,7 @@ class PacienteControllerTest {
         mvc.perform(put("/pacientes/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(
-                                new PacienteUpdateDTO("Nome", null, null, null, null, null, null, null))))
+                                new PacienteUpdateDTO("Nome", null, null, null, null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 
@@ -374,5 +379,44 @@ class PacienteControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /pacientes/{id}/profissional-padrao e filtro profissionalId (#245)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void definirProfissionalPadrao_comIdENull_repassaAoServico() throws Exception {
+        when(service.definirProfissionalPadrao(eq(1L), any())).thenReturn(responseDTO());
+
+        mvc.perform(patch("/pacientes/1/profissional-padrao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"profissionalId\":7}"))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/pacientes/1/profissional-padrao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"profissionalId\":null}"))
+                .andExpect(status().isOk());
+
+        verify(service).definirProfissionalPadrao(1L, 7L);
+        verify(service).definirProfissionalPadrao(1L, null);
+    }
+
+    @Test
+    void definirProfissionalPadrao_semOCampo_deveRetornar400() throws Exception {
+        mvc.perform(patch("/pacientes/1/profissional-padrao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listar_comProfissionalId_repassaOFiltro() throws Exception {
+        when(service.listar(any(), any(), any(), any(), any(), eq(7L), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        mvc.perform(get("/pacientes").param("profissionalId", "7")).andExpect(status().isOk());
+
+        verify(service).listar(any(), any(), any(), any(), any(), eq(7L), any());
     }
 }
