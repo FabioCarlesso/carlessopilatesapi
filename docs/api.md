@@ -79,6 +79,7 @@ da tabela abaixo. Rota que o
 | `GET /tomadores` (leitura); escrita em `/tomadores` | ✓ (só leitura) | ✓ | ✓ |
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `/aulas/{id}/atendimento` (#246: agenda e prontuário juntos) | ✓ | | |
+| `/pacientes/{id}/pontos-dor` (#249: histórico de prontuário debaixo de `/pacientes`) | ✓ | | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
@@ -501,6 +502,28 @@ consultada por nenhuma outra rota — não bloqueia o cancelamento nem vira sess
 | `PUT` | `/avaliacoes-fisioterapeuticas/{id}` | Atualizar dados da avaliação fisioterapêutica |
 
 Campos obrigatórios: `pacienteId`, `dataAvaliacao`, `queixaFuncional`, `escalaDor` (0 a 10) e `diagnosticoFisioterapeutico`.
+
+### Pontos de dor (mapa corporal)
+
+Pontos marcados sobre o desenho do corpo, ligados à avaliação ou à reavaliação (#249). Acesso igual ao das
+avaliações, inclusive no histórico, que fica sob `/pacientes`.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/avaliacoes-fisioterapeuticas/{id}/pontos-dor` | Pontos da avaliação |
+| `PUT` | `/avaliacoes-fisioterapeuticas/{id}/pontos-dor` | Substitui o conjunto de pontos da avaliação |
+| `GET` | `/reavaliacoes/{id}/pontos-dor` | Pontos da reavaliação |
+| `PUT` | `/reavaliacoes/{id}/pontos-dor` | Substitui o conjunto de pontos da reavaliação |
+| `GET` | `/pacientes/{pacienteId}/pontos-dor` | Histórico do paciente agrupado por registro |
+
+- O `PUT` recebe `{ "pontos": [...] }` (pontos sem `id`), **substitui** o conjunto inteiro — lista vazia apaga
+  todos — e responde a lista gravada, já com os `id`s.
+- Cada ponto: `vista` (`FRENTE`, `COSTAS`, `LATERAL_DIREITA`, `LATERAL_ESQUERDA`), `x` e `y` de 0 a 1 relativos ao
+  `viewBox` do desenho, `desenhoVersao` (inteiro ≥ 1), `intensidade` opcional (0 a 10) e `observacao` opcional
+  (até 200 caracteres). Coordenada fora de 0–1, vista inválida, `desenhoVersao` < 1 ou mais de 50 pontos → `400`.
+- O histórico devolve `[{ "origem": "AVALIACAO" | "REAVALIACAO", "registroId", "data", "pontos": [...] }]`, do
+  registro mais antigo para o mais recente; `data` é a `dataAvaliacao` ou a `dataReavaliacao`. Só aparecem os
+  registros com pontos.
 
 ## Análises Posturais (simetrógrafo virtual)
 

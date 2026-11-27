@@ -400,6 +400,18 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
 - As análises anteriores à #247 foram atribuídas ao paciente da avaliação em que nasceram (migration `V51`)
 - Ciclo de vida, landmarks, foto e métricas: ver [`api.md`](api.md#análises-posturais-simetrógrafo-virtual) e [`simetrografo-virtual.md`](simetrografo-virtual.md)
 
+## Pontos de dor (mapa corporal)
+
+- O ponto de dor pertence a **exatamente um** registro: a avaliação fisioterapêutica ou a reavaliação em que foi marcado (`CHECK` no banco); o paciente vem do registro
+- `x` e `y` são normalizados de 0 a 1 em relação ao `viewBox` do desenho (240 × 520), o que deixa o ponto independente do tamanho em que o FE o exibe; a API grava com 6 casas decimais
+- `desenhoVersao` guarda a versão do desenho em que o ponto foi marcado: quando o desenho for trocado, os registros antigos continuam abrindo sobre o desenho original
+- O conjunto do registro é sempre **substituído por inteiro** numa transação: os pontos antigos são apagados e os enviados gravados; lista vazia apaga todos. Dois `PUT` simultâneos no mesmo registro são serializados por trava pessimista na linha da avaliação/reavaliação, para os conjuntos não se somarem
+- Máximo de **50 pontos** por registro; `observacao` em branco é gravada como nula
+- Como a atualização da avaliação, substituir os pontos **não exige paciente ativo**
+- O histórico do paciente agrupa os pontos por registro e ordena pela data do registro (`dataAvaliacao`/`dataReavaliacao`), do mais antigo para o mais recente; no mesmo dia a avaliação vem antes da reavaliação, e o `id` desempata. Registros sem pontos ficam de fora
+- Excluir a avaliação ou a reavaliação apaga os pontos dela (`ON DELETE CASCADE`). Hoje a API não exclui nenhum dos dois; a cascata cobre a exclusão que vier a existir e a feita direto no banco
+- Acesso: o mesmo das avaliações (`ADMIN` e `PROFISSIONAL`), inclusive no histórico sob `/pacientes/{id}/pontos-dor`
+
 ## Histórico clínico de paciente inativo
 
 - `ativo = false` em paciente marca um **ex-aluno**, não um registro apagado: todo o prontuário dele continua consultável pela API

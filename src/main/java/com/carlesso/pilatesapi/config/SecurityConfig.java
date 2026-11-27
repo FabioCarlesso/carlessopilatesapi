@@ -132,6 +132,10 @@ public class SecurityConfig {
                         // PATCH /aulas/{id}/realizar, mas não lê nem escreve evolução. Antes da regra de /aulas/**.
                         .requestMatchers("/aulas/*/atendimento")
                         .hasAnyRole(CLINICA)
+                        // Histórico de pontos de dor (#249): mora debaixo de /pacientes, mas é prontuário. Antes da
+                        // regra de /pacientes/**, que é da equipe toda e liberaria a recepção e o financeiro.
+                        .requestMatchers("/pacientes/*/pontos-dor")
+                        .hasAnyRole(CLINICA)
                         .requestMatchers("/pacientes", "/pacientes/**")
                         .hasAnyRole(EQUIPE)
                         // Tomadores da NFSE (#229): o formulário de paciente escolhe o tomador numa lista, então a
