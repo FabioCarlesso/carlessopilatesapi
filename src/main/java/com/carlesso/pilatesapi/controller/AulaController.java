@@ -1,8 +1,11 @@
 package com.carlesso.pilatesapi.controller;
 
+import com.carlesso.pilatesapi.dto.AtendimentoRequestDTO;
+import com.carlesso.pilatesapi.dto.AtendimentoResponseDTO;
 import com.carlesso.pilatesapi.dto.AulaProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.AulaRemarcacaoRequestDTO;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
+import com.carlesso.pilatesapi.service.AtendimentoService;
 import com.carlesso.pilatesapi.service.AulaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,9 +29,11 @@ import org.springframework.web.bind.annotation.*;
 public class AulaController {
 
     private final AulaService service;
+    private final AtendimentoService atendimentoService;
 
-    public AulaController(AulaService service) {
+    public AulaController(AulaService service, AtendimentoService atendimentoService) {
         this.service = service;
+        this.atendimentoService = atendimentoService;
     }
 
     @Operation(
@@ -160,5 +165,52 @@ public class AulaController {
             @Parameter(description = "ID da aula") @PathVariable Long id,
             @RequestBody @Valid AulaRemarcacaoRequestDTO dto) {
         return ResponseEntity.ok(service.remarcar(id, dto.data(), dto.horario()));
+    }
+
+    @Operation(
+            summary = "Registrar o atendimento da aula",
+            description =
+                    """
+                    Registra o atendimento a partir da aula (#246). Cria a sessão vinculada à aula — paciente, data e
+                    horário da aula, profissional informado ou o da aula, tipo `PILATES` por padrão, status
+                    `REALIZADA` — ou reaproveita a que já existe: chamar de novo nunca cria a segunda. Marca a aula
+                    como realizada, se ainda não estiver, com a regra de `PATCH /aulas/{id}/realizar` (o profissional
+                    informado sobrescreve o da aula, sem conferir a capacidade); a aula já realizada não muda de
+                    profissional. Com `evolucao`, registra a evolução da sessão (`dataHoraRegistro` ausente vale o
+                    horário atual do estúdio); se a sessão já tem evolução, a edição é por
+                    `PUT /evolucoes-sessao/{id}`. O corpo é opcional. Só `ADMIN` e `PROFISSIONAL`.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Atendimento registrado; devolve aula, sessão e evolução"),
+        @ApiResponse(responseCode = "400", description = "`dorAntes`/`dorDepois` fora de 0–10 ou corpo malformado"),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Aula inexistente ou de paciente inativo, ou profissional inexistente"),
+        @ApiResponse(
+                responseCode = "409",
+                description =
+                        "A sessão da aula já tem evolução e o corpo traz outra, a sessão vinculada está cancelada, ou a aula foi alterada por outra operação simultânea"),
+        @ApiResponse(responseCode = "422", description = "Aula de feriado ou profissional inativo")
+    })
+    @PostMapping("/{id}/atendimento")
+    public ResponseEntity<AtendimentoResponseDTO> registrarAtendimento(
+            @Parameter(description = "ID da aula") @PathVariable Long id,
+            @RequestBody(required = false) @Valid AtendimentoRequestDTO dto) {
+        return ResponseEntity.ok(atendimentoService.registrar(id, dto));
+    }
+
+    @Operation(
+            summary = "Buscar o atendimento da aula",
+            description =
+                    "Aula, sessão vinculada e evolução da sessão (nula se ainda não houver). Só `ADMIN` e `PROFISSIONAL`.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Atendimento encontrado"),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Aula inexistente, de paciente inativo, ou sem atendimento registrado")
+    })
+    @GetMapping("/{id}/atendimento")
+    public ResponseEntity<AtendimentoResponseDTO> buscarAtendimento(
+            @Parameter(description = "ID da aula") @PathVariable Long id) {
+        return ResponseEntity.ok(atendimentoService.buscar(id));
     }
 }

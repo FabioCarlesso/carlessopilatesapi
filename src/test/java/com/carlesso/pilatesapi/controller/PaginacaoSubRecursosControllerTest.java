@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
+import com.carlesso.pilatesapi.service.AtendimentoService;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.AvaliacaoFisioterapeuticaService;
 import com.carlesso.pilatesapi.service.ContatoCobrancaService;
@@ -61,6 +62,9 @@ class PaginacaoSubRecursosControllerTest {
 
     @MockitoBean
     AulaService aulaService;
+
+    @MockitoBean
+    AtendimentoService atendimentoService;
 
     @MockitoBean
     AvaliacaoFisioterapeuticaService avaliacaoService;
@@ -188,7 +192,8 @@ class PaginacaoSubRecursosControllerTest {
 
     @Test
     void resposta_segueFormatoDePaginaComMetadados() throws Exception {
-        var aula = new AulaResponseDTO(7L, 1L, "Ana", null, null, 3L, LocalDate.of(2026, 5, 10), null, false, false);
+        var aula = new AulaResponseDTO(
+                7L, 1L, "Ana", null, null, 3L, LocalDate.of(2026, 5, 10), null, false, false, null, false);
         when(aulaService.buscarPorPaciente(eq(1L), any()))
                 .thenReturn(new PageImpl<>(List.of(aula), PageRequest.of(1, 10), 11));
 

@@ -15,6 +15,7 @@ public record SessaoPilatesResponseDTO(
         Long profissionalId,
         String nomeProfissional,
         Long planoTratamentoId,
+        @Schema(description = "Aula da agenda que a sessão registra (#246); nulo na sessão avulsa") Long aulaId,
         TipoSessao tipo,
         StatusSessao status,
         LocalDate data,
@@ -37,6 +38,8 @@ public record SessaoPilatesResponseDTO(
                 s.getProfissional() != null ? s.getProfissional().getId() : null,
                 s.getProfissional() != null ? s.getProfissional().getNome() : null,
                 s.getPlanoTratamento() != null ? s.getPlanoTratamento().getId() : null,
+                // O proxy LAZY devolve o id pela FK, sem carregar a aula.
+                s.getAula() != null ? s.getAula().getId() : null,
                 s.getTipo(),
                 s.getStatus(),
                 s.getData(),

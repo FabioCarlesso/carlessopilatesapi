@@ -31,6 +31,15 @@ public class SessaoPilates extends EntidadeAuditavel {
     @JoinColumn(name = "plano_tratamento_id")
     private PlanoTratamento planoTratamento;
 
+    /**
+     * Aula da agenda que esta sessão registra (#246); nula na sessão avulsa (avaliação, reposição fora da agenda). A
+     * aula continua sendo a base do financeiro e a sessão o registro clínico: o vínculo une os dois sem fundi-los, e
+     * uma aula tem no máximo uma sessão.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "aula_id", unique = true)
+    private Aula aula;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TipoSessao tipo;
@@ -87,6 +96,14 @@ public class SessaoPilates extends EntidadeAuditavel {
 
     public void setPlanoTratamento(PlanoTratamento planoTratamento) {
         this.planoTratamento = planoTratamento;
+    }
+
+    public Aula getAula() {
+        return aula;
+    }
+
+    public void setAula(Aula aula) {
+        this.aula = aula;
     }
 
     public TipoSessao getTipo() {

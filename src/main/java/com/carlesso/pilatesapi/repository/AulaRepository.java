@@ -54,10 +54,14 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                             a.data,
                             a.horario,
                             a.realizada,
-                            a.feriado)
+                            a.feriado,
+                            sessao.id,
+                            CASE WHEN evolucao.id IS NOT NULL THEN true ELSE false END)
                     FROM Aula a
                     JOIN a.paciente paciente
                     LEFT JOIN a.profissional profissional
+                    LEFT JOIN SessaoPilates sessao ON sessao.aula = a
+                    LEFT JOIN EvolucaoSessao evolucao ON evolucao.sessao = sessao
                     WHERE paciente.id = :pacienteId
                       AND paciente.ativo = true
                     """,
@@ -82,6 +86,10 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
      * (a cadeia é toda EAGER) e a coleção de dias vira um select por plano — um
      * N+1 numa listagem que só precisa do {@code pagamento.id}. Como
      * {@code a.pagamento.id} é a própria FK, nem join gera.
+     *
+     * <p>{@code sessaoId} e {@code temEvolucao} (#246) vêm de {@code LEFT JOIN}s com a sessão vinculada e a evolução
+     * dela, ambas únicas por aula ({@code sessoes_pilates.aula_id} e {@code evolucoes_sessao.sessao_id} são UNIQUE):
+     * as junções não multiplicam linhas e não geram uma consulta por aula.
      */
     @Query(
             """
@@ -95,10 +103,14 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                     a.data,
                     a.horario,
                     a.realizada,
-                    a.feriado)
+                    a.feriado,
+                    sessao.id,
+                    CASE WHEN evolucao.id IS NOT NULL THEN true ELSE false END)
             FROM Aula a
             JOIN a.paciente paciente
             LEFT JOIN a.profissional profissional
+            LEFT JOIN SessaoPilates sessao ON sessao.aula = a
+            LEFT JOIN EvolucaoSessao evolucao ON evolucao.sessao = sessao
             WHERE a.data BETWEEN :inicio AND :fim
               AND paciente.ativo = true
               AND (:profissionalId IS NULL OR profissional.id = :profissionalId)
@@ -335,10 +347,13 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
     }
 
     /**
-     * Aulas realizadas no período sem evolução registrada para o mesmo paciente na mesma data, para o relatório de
-     * aulas sem evolução (#234). Aula e sessão não têm vínculo: a correspondência é paciente + data, e vale só a
-     * evolução estruturada ({@code EvolucaoSessao}), não o campo legado {@code sessoes_pilates.evolucao}. Inclui
-     * paciente inativo e aula sem profissional; exclui a de feriado (#244), que não teve atendimento; ordena por data, horário (sem horário por último) e paciente.
+     * Aulas realizadas no período sem evolução registrada, para o relatório de aulas sem evolução (#234). A aula com
+     * sessão vinculada (#246) usa o vínculo: sai do relatório só se a sessão dela tem evolução, ainda que outra sessão
+     * do paciente no mesmo dia tenha. A aula sem vínculo — anterior à #246, ou que a V50 não conseguiu vincular — cai
+     * para a correspondência por paciente + data, contra as sessões avulsas: uma sessão vinculada a outra aula é dela.
+     * Vale só a evolução estruturada ({@code EvolucaoSessao}), não o campo legado {@code sessoes_pilates.evolucao}.
+     * Inclui paciente inativo e aula sem profissional; exclui a de feriado (#244), que não teve atendimento; ordena por
+     * data, horário (sem horário por último) e paciente.
      */
     @Query(
             """
@@ -346,10 +361,12 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
                    pa.id AS pacienteId, pa.nome AS pacienteNome,
                    pr.id AS profissionalId, pr.nome AS profissionalNome
             FROM Aula a JOIN a.paciente pa LEFT JOIN a.profissional pr
+            LEFT JOIN SessaoPilates vinculada ON vinculada.aula = a
             WHERE a.realizada = true AND a.feriado = false AND a.data BETWEEN :inicio AND :fim
               AND NOT EXISTS (
                   SELECT 1 FROM EvolucaoSessao e JOIN e.sessao s
-                  WHERE s.paciente.id = pa.id AND s.data = a.data)
+                  WHERE (vinculada.id IS NOT NULL AND s.id = vinculada.id)
+                     OR (vinculada.id IS NULL AND s.aula IS NULL AND s.paciente.id = pa.id AND s.data = a.data))
             ORDER BY a.data ASC, a.horario ASC NULLS LAST, pa.nome ASC, a.id ASC
             """)
     List<AulaSemEvolucaoProjection> findRealizadasSemEvolucao(

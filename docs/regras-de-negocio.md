@@ -297,6 +297,43 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Exclusão é lógica: `DELETE /planos-tratamento/{id}` marca `ativo = false` e preserva o histórico clínico
 - `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
+## Aula × Sessão × Atendimento
+
+A **aula** (`Aula`) é o compromisso da agenda e a base do financeiro: nasce do pagamento e alimenta o repasse, a
+frequência e a ocupação. A **sessão** (`SessaoPilates`), com a sua **evolução** (`EvolucaoSessao`), é o registro
+clínico do prontuário. Os dois cadastros continuam separados (#246) e se unem no **atendimento**: a sessão aponta para
+a aula que ela registra (`sessoes_pilates.aula_id`).
+
+- Uma aula tem no máximo uma sessão (`UNIQUE`). A sessão sem aula — avaliação, reposição fora da agenda — continua
+  permitida e é criada por `POST /sessoes`, como antes; ela não ganha vínculo por essa rota.
+- `POST /aulas/{id}/atendimento` registra o atendimento numa transação só:
+  - aula inexistente ou de paciente inativo → `404`, como nas demais rotas de aula;
+  - aula de feriado (#244) → `422` "Aula de feriado não aceita atendimento": ela conta como realizada, mas ninguém
+    compareceu;
+  - sem sessão vinculada, cria a sessão com o paciente, a data e o horário da aula, o profissional informado (ou, sem
+    ele, o da aula), o tipo informado (padrão `PILATES`) e status `REALIZADA`. Com sessão vinculada, reaproveita a
+    existente — chamar de novo nunca cria a segunda — e, se ela estava `AGENDADA` (vínculo da V50), passa a
+    `REALIZADA`. Sessão vinculada `CANCELADA` → `409`;
+  - a aula ainda não realizada é marcada com a regra de `PATCH /aulas/{id}/realizar`: o profissional informado
+    sobrescreve o da aula sem conferir a capacidade do horário; sem ele, o da aula é preservado. A aula **já
+    realizada não muda de profissional** — é ele quem recebe o repasse, e só o `realizar` mexe nisso —, então o
+    `profissionalId` vale só para a sessão nova;
+  - com `evolucao`, registra a evolução da sessão com as validações de `POST /evolucoes-sessao` (`dorAntes` e
+    `dorDepois` de 0 a 10; snapshot do profissional da sessão). `dataHoraRegistro` ausente vale o horário atual do
+    estúdio (`app.fuso-horario`). Se a sessão já tem evolução → `409`: a edição é pelo `PUT /evolucoes-sessao/{id}`,
+    que confere a versão. Sem `evolucao`, ela pode ser registrada depois, pela mesma rota ou por
+    `POST /evolucoes-sessao` com o `sessaoId` do atendimento.
+- Dois atendimentos simultâneos da mesma aula: o segundo recebe `409` (a `UNIQUE` de `aula_id` ou o locking otimista
+  da aula recusam).
+- Toda resposta de aula traz `sessaoId` (nulo sem atendimento) e `temEvolucao` (a sessão vinculada tem evolução); a
+  sessão traz `aulaId` (nulo na avulsa).
+- Excluir a sessão vinculada (`DELETE /sessoes/{id}`) apaga a evolução e libera o vínculo; a aula **continua
+  realizada**, porque a realização é fato da agenda e do repasse, não do prontuário.
+- A V50 vinculou as sessões existentes só quando a correspondência era inequívoca: uma única sessão não cancelada do
+  paciente na data de uma aula que não é de feriado. As demais seguem avulsas.
+- Só `ADMIN` e `PROFISSIONAL` registram e consultam o atendimento: ele escreve na agenda e no prontuário, e a
+  `RECEPCAO`, que realiza a aula pelo `PATCH /aulas/{id}/realizar`, não acessa evolução.
+
 ## Sessões de Pilates/Fisioterapia
 
 - Um paciente pode possuir múltiplas sessões para manter histórico clínico
@@ -305,6 +342,8 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - `tipo` aceita `PILATES` ou `FISIOTERAPIA`
 - `status` padrão é `AGENDADA`; mudanças de status devem usar `PATCH /sessoes/{id}/realizar` ou `PATCH /sessoes/{id}/cancelar`
 - Transições de status permitidas: apenas `AGENDADA -> REALIZADA` e `AGENDADA -> CANCELADA`; sessões `REALIZADA` ou `CANCELADA` não podem mudar de status novamente
+- A sessão criada por `POST /sessoes` é avulsa (`aulaId` nulo); a sessão vinculada a uma aula nasce do atendimento da
+  aula (ver [Aula × Sessão × Atendimento](#aula--sessão--atendimento))
 - `profissionalId` e `planoTratamentoId` são opcionais; quando informados, o recurso deve existir e estar ativo, e o plano de tratamento deve pertencer ao mesmo `pacienteId` da sessão
 - `duracaoMinutos` aceita apenas valores positivos quando informado
 - Atualização parcial: `PUT /sessoes/{id}` aplica apenas campos não-nulos do DTO de update; `status` não faz parte do payload
@@ -475,12 +514,16 @@ para a recepção agir quando um aluno começa a faltar. É do `ADMIN` e da `REC
 
 `GET /api/relatorios/aulas-sem-evolucao` (#234) aponta as aulas realizadas que ficaram sem evolução no prontuário. A
 agenda e o repasse ficam na **aula** (`Aula`), e o prontuário na **sessão** (`SessaoPilates`) com a sua evolução
-(`EvolucaoSessao`); os dois cadastros não têm vínculo entre si. É só do `ADMIN`: o profissional ainda não pode ver as
+(`EvolucaoSessao`); desde a #246 a sessão pode estar vinculada à aula
+(ver [Aula × Sessão × Atendimento](#aula--sessão--atendimento)). É só do `ADMIN`: o profissional ainda não pode ver as
 próprias aulas porque `User` e `Profissional` não têm vínculo.
 
-- **Correspondência aula ↔ sessão:** uma aula `realizada = true` conta como "com evolução" quando existe ao menos uma
-  sessão do **mesmo paciente** na **mesma data** com `EvolucaoSessao` registrada. Vale qualquer sessão do dia, de
-  qualquer profissional e status, e o horário não é comparado.
+- **Correspondência aula ↔ sessão:** a aula com sessão vinculada (#246) usa o vínculo: conta como "com evolução" só se
+  a sessão **dela** tem `EvolucaoSessao` — outra sessão do paciente no mesmo dia, evoluída, não a tira do relatório.
+  A aula sem vínculo (anterior à #246, ou que a V50 não vinculou) cai para o casamento antigo: conta como "com
+  evolução" quando existe ao menos uma sessão **avulsa** do **mesmo paciente** na **mesma data** com
+  `EvolucaoSessao`. Vale qualquer sessão avulsa do dia, de qualquer profissional e status, e o horário não é
+  comparado; a sessão vinculada a outra aula é dessa aula e não conta.
 - **Aula de feriado** (#244) não entra: ela conta como realizada, mas não teve atendimento a evoluir.
 - **Só a evolução estruturada conta:** o campo legado `sessoes_pilates.evolucao` (texto livre, fora do contrato REST)
   é ignorado. Sessão sem `EvolucaoSessao` não basta.

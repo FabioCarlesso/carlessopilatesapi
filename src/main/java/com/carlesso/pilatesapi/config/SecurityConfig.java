@@ -127,6 +127,11 @@ public class SecurityConfig {
                                 "/reavaliacoes/**",
                                 "/planos-tratamento/**")
                         .hasAnyRole(CLINICA)
+                        // Atendimento da aula (#246): marca a aula realizada (agenda) e registra a evolução
+                        // (prontuário). Fica com a interseção das duas áreas — a recepção realiza a aula por
+                        // PATCH /aulas/{id}/realizar, mas não lê nem escreve evolução. Antes da regra de /aulas/**.
+                        .requestMatchers("/aulas/*/atendimento")
+                        .hasAnyRole(CLINICA)
                         .requestMatchers("/pacientes", "/pacientes/**")
                         .hasAnyRole(EQUIPE)
                         // Tomadores da NFSE (#229): o formulário de paciente escolhe o tomador numa lista, então a
