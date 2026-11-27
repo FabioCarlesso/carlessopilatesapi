@@ -390,6 +390,16 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
 
+## Análise postural (simetrógrafo virtual)
+
+- A análise pertence sempre a um paciente e pode estar **solta** (checagem rápida da postura, sem abrir uma avaliação completa) ou vinculada a **uma** avaliação fisioterapêutica **ou** a **uma** reavaliação do mesmo paciente — nunca às duas (#247)
+- Criar exige `pacienteId`: paciente inexistente retorna `404`, inativo `422`. Avaliação e reavaliação juntas retornam `400`; avaliação ou reavaliação de outro paciente, `422`
+- Cada avaliação e cada reavaliação admite no máximo uma análise ativa por vista (`409`); a análise solta não tem esse limite, e o paciente pode ter várias da mesma vista ao longo do tempo
+- O vínculo pode ser definido, trocado ou removido depois (`PATCH /avaliacoes-posturais/{id}/vinculo`), com as mesmas validações. Vale também para a análise concluída e para paciente inativo: a foto, os pontos e as métricas não mudam, só o registro a que a análise pertence
+- A listagem do paciente traz todas as análises ativas — soltas, de avaliações e de reavaliações —, da mais recente à mais antiga pela data de criação; canceladas ficam de fora
+- As análises anteriores à #247 foram atribuídas ao paciente da avaliação em que nasceram (migration `V51`)
+- Ciclo de vida, landmarks, foto e métricas: ver [`api.md`](api.md#análises-posturais-simetrógrafo-virtual) e [`simetrografo-virtual.md`](simetrografo-virtual.md)
+
 ## Histórico clínico de paciente inativo
 
 - `ativo = false` em paciente marca um **ex-aluno**, não um registro apagado: todo o prontuário dele continua consultável pela API

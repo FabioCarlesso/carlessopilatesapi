@@ -508,9 +508,11 @@ Especificação funcional completa em [`simetrografo-virtual.md`](simetrografo-v
 
 | Método | Endpoint | Descrição |
 |---|---|---|
-| `POST` | `/avaliacoes-posturais` | Criar análise postural (status `RASCUNHO`) para uma avaliação e vista |
+| `POST` | `/avaliacoes-posturais` | Criar análise postural (status `RASCUNHO`) para um paciente e vista — solta, de uma avaliação ou de uma reavaliação |
 | `GET` | `/avaliacoes-posturais/{id}` | Buscar análise por ID (com métricas calculadas) |
+| `GET` | `/avaliacoes-posturais/paciente/{pacienteId}` | Listar todas as análises ativas do paciente (soltas, de avaliações e de reavaliações), da mais recente à mais antiga |
 | `GET` | `/avaliacoes-posturais/avaliacao-fisioterapeutica/{avaliacaoId}` | Listar análises ativas da avaliação |
+| `PATCH` | `/avaliacoes-posturais/{id}/vinculo` | Vincular, trocar ou remover o vínculo da análise com uma avaliação ou reavaliação |
 | `PUT` | `/avaliacoes-posturais/{id}` | Atualizar landmarks, linha de prumo, calibração e observações (apenas `RASCUNHO`) |
 | `PUT` | `/avaliacoes-posturais/{id}/foto` | Enviar/substituir a foto da análise (multipart, JPEG/PNG até 2 MB, apenas `RASCUNHO`) |
 | `GET` | `/avaliacoes-posturais/{id}/foto` | Recuperar o binário da foto da análise |
@@ -518,7 +520,26 @@ Especificação funcional completa em [`simetrografo-virtual.md`](simetrografo-v
 | `PATCH` | `/avaliacoes-posturais/{id}/cancelar` | Cancelar análise (exclusão lógica) |
 
 `vista` aceita `FRENTE`, `COSTAS`, `LADO_DIREITO` ou `LADO_ESQUERDO`. A análise nasce em `RASCUNHO` e cada
-avaliação admite no máximo **uma análise ativa por vista** (duplicata retorna `409`).
+avaliação e cada reavaliação admite no máximo **uma análise ativa por vista** (duplicata retorna `409`); a análise
+solta não tem esse limite.
+
+### Paciente e vínculo
+
+A criação exige `pacienteId`; `avaliacaoFisioterapeuticaId` e `reavaliacaoId` são opcionais e exclusivos — sem
+nenhum dos dois a análise nasce **solta**. A resposta traz `pacienteId`, `avaliacaoFisioterapeuticaId` e
+`reavaliacaoId` (os dois últimos nulos quando não há o vínculo).
+
+`PATCH /avaliacoes-posturais/{id}/vinculo` recebe `{ "avaliacaoFisioterapeuticaId": n|null, "reavaliacaoId": n|null }`
+e substitui o vínculo atual; os dois nulos deixam a análise solta. Responde a análise atualizada e vale também para
+análise `CONCLUIDA`.
+
+| Situação (criação ou vínculo) | Status |
+|---|---|
+| Avaliação e reavaliação informadas juntas | `400` |
+| Paciente, avaliação ou reavaliação inexistente | `404` |
+| Avaliação ou reavaliação de outro paciente | `422` |
+| Paciente inativo (só na criação) | `422` |
+| Destino já tem análise ativa da mesma vista | `409` |
 
 ### Landmarks
 

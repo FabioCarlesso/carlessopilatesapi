@@ -53,6 +53,7 @@ class PostgresFotoStorageTest extends PostgresTestcontainerSupport {
         avaliacao = entityManager.persist(avaliacao);
 
         analise = new AvaliacaoPostural();
+        analise.setPaciente(paciente);
         analise.setAvaliacaoFisioterapeutica(avaliacao);
         analise.setVista(VistaPostural.FRENTE);
         analise = entityManager.persist(analise);

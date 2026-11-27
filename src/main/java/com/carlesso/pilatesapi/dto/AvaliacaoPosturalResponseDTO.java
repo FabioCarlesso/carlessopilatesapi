@@ -11,7 +11,10 @@ import java.util.List;
 @Schema(description = "Análise postural com os pontos marcados e as métricas calculadas pelo sistema")
 public record AvaliacaoPosturalResponseDTO(
         Long id,
-        Long avaliacaoFisioterapeuticaId,
+        @Schema(description = "Paciente dono da análise") Long pacienteId,
+        @Schema(description = "Avaliação fisioterapêutica vinculada; nulo na análise solta ou de reavaliação")
+                Long avaliacaoFisioterapeuticaId,
+        @Schema(description = "Reavaliação vinculada; nulo na análise solta ou de avaliação") Long reavaliacaoId,
         VistaPostural vista,
         StatusAvaliacaoPostural status,
         BigDecimal linhaPrumoX,
@@ -32,7 +35,11 @@ public record AvaliacaoPosturalResponseDTO(
             AvaliacaoPostural a, List<LandmarkDTO> landmarks, MetricasPosturaisDTO metricas) {
         return new AvaliacaoPosturalResponseDTO(
                 a.getId(),
-                a.getAvaliacaoFisioterapeutica().getId(),
+                a.getPaciente().getId(),
+                a.getAvaliacaoFisioterapeutica() != null
+                        ? a.getAvaliacaoFisioterapeutica().getId()
+                        : null,
+                a.getReavaliacao() != null ? a.getReavaliacao().getId() : null,
                 a.getVista(),
                 a.getStatus(),
                 a.getLinhaPrumoX(),

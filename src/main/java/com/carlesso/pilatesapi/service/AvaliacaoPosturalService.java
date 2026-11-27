@@ -4,10 +4,13 @@ import com.carlesso.pilatesapi.dto.AvaliacaoPosturalFotoResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalVinculoDTO;
 import com.carlesso.pilatesapi.dto.LandmarkDTO;
 import com.carlesso.pilatesapi.dto.MetricasPosturaisDTO;
 import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.AvaliacaoPostural;
+import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Reavaliacao;
 import com.carlesso.pilatesapi.entity.enums.CodigoLandmark;
 import com.carlesso.pilatesapi.entity.enums.StatusAvaliacaoPostural;
 import com.carlesso.pilatesapi.exception.BusinessException;
@@ -15,6 +18,8 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
+import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.carlesso.pilatesapi.storage.FotoStorage;
 import com.carlesso.pilatesapi.util.MetricasPosturaisCalculator;
@@ -25,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -43,9 +49,11 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Regras do simetrógrafo virtual: a análise vive dentro de uma avaliação
- * fisioterapêutica, admite no máximo uma vista ativa por avaliação e tem suas
- * métricas sempre derivadas dos landmarks — nunca informadas pelo cliente.
+ * Regras do simetrógrafo virtual: a análise pertence sempre a um paciente e pode
+ * estar solta ou vinculada a uma avaliação fisioterapêutica ou a uma reavaliação
+ * dele (#247); cada avaliação e cada reavaliação admite no máximo uma análise
+ * ativa por vista, e as métricas são sempre derivadas dos landmarks — nunca
+ * informadas pelo cliente.
  */
 @Service
 public class AvaliacaoPosturalService {
@@ -67,6 +75,8 @@ public class AvaliacaoPosturalService {
 
     private final AvaliacaoPosturalRepository avaliacaoPosturalRepository;
     private final AvaliacaoFisioterapeuticaRepository avaliacaoFisioterapeuticaRepository;
+    private final ReavaliacaoRepository reavaliacaoRepository;
+    private final PacienteRepository pacienteRepository;
     private final ObjectMapper objectMapper;
     private final FotoStorage fotoStorage;
 
@@ -80,10 +90,14 @@ public class AvaliacaoPosturalService {
     public AvaliacaoPosturalService(
             AvaliacaoPosturalRepository avaliacaoPosturalRepository,
             AvaliacaoFisioterapeuticaRepository avaliacaoFisioterapeuticaRepository,
+            ReavaliacaoRepository reavaliacaoRepository,
+            PacienteRepository pacienteRepository,
             ObjectMapper objectMapper,
             FotoStorage fotoStorage) {
         this.avaliacaoPosturalRepository = avaliacaoPosturalRepository;
         this.avaliacaoFisioterapeuticaRepository = avaliacaoFisioterapeuticaRepository;
+        this.reavaliacaoRepository = reavaliacaoRepository;
+        this.pacienteRepository = pacienteRepository;
         this.objectMapper = objectMapper;
         this.fotoStorage = fotoStorage;
     }
@@ -95,18 +109,17 @@ public class AvaliacaoPosturalService {
 
     @Transactional
     public AvaliacaoPosturalResponseDTO criar(AvaliacaoPosturalRequestDTO dto) {
-        AvaliacaoFisioterapeutica avaliacaoFisioterapeutica = encontrarAvaliacao(dto.avaliacaoFisioterapeuticaId());
+        exigirVinculoUnico(dto.avaliacaoFisioterapeuticaId(), dto.reavaliacaoId());
 
-        PacienteGuard.exigirAtivo(avaliacaoFisioterapeutica.getPaciente());
-
-        if (avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
-                dto.avaliacaoFisioterapeuticaId(), dto.vista())) {
-            throw new ConflictException("Avaliação já possui análise postural ativa da vista " + dto.vista());
-        }
+        Paciente paciente = pacienteRepository
+                .findById(dto.pacienteId())
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+        PacienteGuard.exigirAtivo(paciente);
 
         AvaliacaoPostural analise = new AvaliacaoPostural();
-        analise.setAvaliacaoFisioterapeutica(avaliacaoFisioterapeutica);
+        analise.setPaciente(paciente);
         analise.setVista(dto.vista());
+        aplicarVinculo(analise, dto.avaliacaoFisioterapeuticaId(), dto.reavaliacaoId());
         analise.setStatus(StatusAvaliacaoPostural.RASCUNHO);
         // dataCriacao/criadoPor preenchidos pelo Spring Data Auditing (EntidadeAuditavel)
 
@@ -124,6 +137,32 @@ public class AvaliacaoPosturalService {
         return avaliacaoPosturalRepository.findAtivasByAvaliacaoFisioterapeutica(avaliacaoFisioterapeuticaId).stream()
                 .map(this::montarResposta)
                 .toList();
+    }
+
+    /** Soltas, de avaliações e de reavaliações, da mais recente à mais antiga; não filtra por paciente ativo. */
+    @Transactional(readOnly = true)
+    public List<AvaliacaoPosturalResponseDTO> listarPorPaciente(Long pacienteId) {
+        if (!pacienteRepository.existsById(pacienteId)) {
+            throw new ResourceNotFoundException("Paciente não encontrado: " + pacienteId);
+        }
+        return avaliacaoPosturalRepository.findAtivasByPaciente(pacienteId).stream()
+                .map(this::montarResposta)
+                .toList();
+    }
+
+    /**
+     * Vincula, troca ou remove o vínculo da análise. Vale também para a análise concluída: a foto, os pontos e as
+     * métricas não mudam, só o registro clínico a que ela pertence — e a análise solta feita numa checagem rápida
+     * costuma ser anexada à avaliação depois. Paciente inativo também pode: não é registro novo.
+     */
+    @Transactional
+    public AvaliacaoPosturalResponseDTO alterarVinculo(Long id, AvaliacaoPosturalVinculoDTO dto) {
+        exigirVinculoUnico(dto.avaliacaoFisioterapeuticaId(), dto.reavaliacaoId());
+        AvaliacaoPostural analise = encontrar(id);
+
+        aplicarVinculo(analise, dto.avaliacaoFisioterapeuticaId(), dto.reavaliacaoId());
+
+        return montarResposta(avaliacaoPosturalRepository.saveAndFlush(analise));
     }
 
     @Transactional
@@ -301,6 +340,59 @@ public class AvaliacaoPosturalService {
                 .findByIdComPaciente(avaliacaoFisioterapeuticaId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Avaliação fisioterapêutica não encontrada: " + avaliacaoFisioterapeuticaId));
+    }
+
+    /** Os dois vínculos juntos são erro de requisição, não de regra: o CHECK da V51 também os recusaria. */
+    private void exigirVinculoUnico(Long avaliacaoFisioterapeuticaId, Long reavaliacaoId) {
+        if (avaliacaoFisioterapeuticaId != null && reavaliacaoId != null) {
+            throw new IllegalArgumentException(
+                    "Informe a avaliação fisioterapêutica ou a reavaliação da análise postural, não as duas");
+        }
+    }
+
+    /**
+     * Aponta a análise para a avaliação, para a reavaliação ou para nenhuma das duas. O registro tem de ser do mesmo
+     * paciente da análise ({@code 422}) e não pode já ter outra análise ativa da mesma vista ({@code 409}, a regra do
+     * índice parcial da V28/V51). Manter o vínculo atual não conta como duplicata da própria análise.
+     */
+    private void aplicarVinculo(AvaliacaoPostural analise, Long avaliacaoFisioterapeuticaId, Long reavaliacaoId) {
+        Long pacienteId = analise.getPaciente().getId();
+        AvaliacaoFisioterapeutica avaliacao = null;
+        Reavaliacao reavaliacao = null;
+
+        if (avaliacaoFisioterapeuticaId != null) {
+            avaliacao = encontrarAvaliacao(avaliacaoFisioterapeuticaId);
+            if (!Objects.equals(avaliacao.getPaciente().getId(), pacienteId)) {
+                throw new BusinessException("Avaliação fisioterapêutica não pertence ao paciente da análise postural");
+            }
+            boolean jaVinculada = analise.getAvaliacaoFisioterapeutica() != null
+                    && avaliacaoFisioterapeuticaId.equals(
+                            analise.getAvaliacaoFisioterapeutica().getId());
+            if (!jaVinculada
+                    && avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
+                            avaliacaoFisioterapeuticaId, analise.getVista())) {
+                throw new ConflictException(
+                        "Avaliação já possui análise postural ativa da vista " + analise.getVista());
+            }
+        } else if (reavaliacaoId != null) {
+            reavaliacao = reavaliacaoRepository
+                    .findByIdComPaciente(reavaliacaoId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Reavaliação não encontrada: " + reavaliacaoId));
+            if (!Objects.equals(reavaliacao.getPaciente().getId(), pacienteId)) {
+                throw new BusinessException("Reavaliação não pertence ao paciente da análise postural");
+            }
+            boolean jaVinculada = analise.getReavaliacao() != null
+                    && reavaliacaoId.equals(analise.getReavaliacao().getId());
+            if (!jaVinculada
+                    && avaliacaoPosturalRepository.existsByReavaliacaoIdAndVistaAndAtivoTrue(
+                            reavaliacaoId, analise.getVista())) {
+                throw new ConflictException(
+                        "Reavaliação já possui análise postural ativa da vista " + analise.getVista());
+            }
+        }
+
+        analise.setAvaliacaoFisioterapeutica(avaliacao);
+        analise.setReavaliacao(reavaliacao);
     }
 
     /** Análise concluída é imutável: se ficou ruim, cancela-se e cria-se outra. */
