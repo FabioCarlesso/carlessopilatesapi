@@ -1,7 +1,9 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -17,6 +19,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -62,6 +65,18 @@ class ReavaliacaoControllerTest {
                 "Ainda apresenta dor ao agachar",
                 "Aumentar carga nos exercícios de glúteo",
                 "Paciente motivado com a evolução",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 5, 1, 10, 0),
                 null,
                 "admin@carlessopilates.com",
@@ -83,7 +98,19 @@ class ReavaliacaoControllerTest {
                 "Retorno às atividades diárias",
                 "Ainda apresenta dor ao agachar",
                 "Aumentar carga nos exercícios de glúteo",
-                "Paciente motivado com a evolução");
+                "Paciente motivado com a evolução",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     @Test
@@ -104,7 +131,31 @@ class ReavaliacaoControllerTest {
     @Test
     void criar_semPacienteId_deveRetornar400() throws Exception {
         var dto = new ReavaliacaoRequestDTO(
-                null, null, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                null,
+                null,
+                null,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(post("/reavaliacoes")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +165,9 @@ class ReavaliacaoControllerTest {
 
     @Test
     void criar_semDataReavaliacao_deveRetornar400() throws Exception {
-        var dto = new ReavaliacaoRequestDTO(1L, null, null, null, null, null, null, null, null, null, null, null, null);
+        var dto = new ReavaliacaoRequestDTO(
+                1L, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null);
 
         mvc.perform(post("/reavaliacoes")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -180,6 +233,18 @@ class ReavaliacaoControllerTest {
                 "Ainda apresenta dor ao agachar",
                 "Aumentar carga nos exercícios de glúteo",
                 "Paciente motivado com a evolução",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 5, 1, 10, 0),
                 LocalDateTime.of(2026, 5, 10, 9, 0),
                 "admin@carlessopilates.com",
@@ -191,6 +256,18 @@ class ReavaliacaoControllerTest {
                 LocalDate.of(2026, 5, 10),
                 "Evolução excelente",
                 "Sem dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -215,12 +292,79 @@ class ReavaliacaoControllerTest {
                 .thenThrow(new ResourceNotFoundException("Reavaliação não encontrada: 99"));
 
         var dto = new ReavaliacaoUpdateDTO(
-                LocalDate.of(2026, 5, 10), null, null, null, null, null, null, null, null, null, null);
+                LocalDate.of(2026, 5, 10),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(put("/reavaliacoes/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Reavaliação não encontrada: 99"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Opções pré-definidas (#248)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void criar_comOpcoes_repassaRegioesDeDorEExameFisico() throws Exception {
+        when(service.criar(any())).thenReturn(responseDTO());
+
+        mvc.perform(
+                        post("/reavaliacoes")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"pacienteId": 1, "dataReavaliacao": "2026-11-20",
+                                 "regioesDor": ["LOMBAR"], "regioesDorComplemento": "Menos intensa",
+                                 "achadosPosturais": ["ESCOLIOSE"], "equilibrioOpcao": "PRESERVADO",
+                                 "testesFuncionais": [{"teste": "TRENDELENBURG", "resultado": "NEGATIVO"}]}
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<ReavaliacaoRequestDTO> captor = ArgumentCaptor.forClass(ReavaliacaoRequestDTO.class);
+        verify(service).criar(captor.capture());
+        ReavaliacaoRequestDTO enviado = captor.getValue();
+        assertThat(enviado.regioesDor()).containsExactly("LOMBAR");
+        assertThat(enviado.regioesDorComplemento()).isEqualTo("Menos intensa");
+        assertThat(enviado.achadosPosturais()).containsExactly("ESCOLIOSE");
+        assertThat(enviado.equilibrioOpcao()).isEqualTo("PRESERVADO");
+        assertThat(enviado.testesFuncionais()).hasSize(1);
+    }
+
+    @Test
+    void criar_comOpcaoInexistente_deveRetornar400() throws Exception {
+        when(service.criar(any())).thenThrow(new IllegalArgumentException("Opção inválida em regioesDor: 'NUCA'"));
+
+        mvc.perform(
+                        post("/reavaliacoes")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"pacienteId": 1, "dataReavaliacao": "2026-11-20", "regioesDor": ["NUCA"]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Opção inválida em regioesDor: 'NUCA'"));
     }
 }

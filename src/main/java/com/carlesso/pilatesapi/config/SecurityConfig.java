@@ -125,7 +125,9 @@ public class SecurityConfig {
                                 "/avaliacoes-posturais/**",
                                 "/evolucoes-sessao/**",
                                 "/reavaliacoes/**",
-                                "/planos-tratamento/**")
+                                "/planos-tratamento/**",
+                                // Catálogo de opções da anamnese/avaliação (#248): só quem preenche o prontuário.
+                                "/avaliacoes/opcoes")
                         .hasAnyRole(CLINICA)
                         // Atendimento da aula (#246): marca a aula realizada (agenda) e registra a evolução
                         // (prontuário). Fica com a interseção das duas áreas — a recepção realiza a aula por

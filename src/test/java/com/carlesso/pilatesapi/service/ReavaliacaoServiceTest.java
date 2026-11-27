@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.carlesso.pilatesapi.dto.ReavaliacaoRequestDTO;
 import com.carlesso.pilatesapi.dto.ReavaliacaoResponseDTO;
 import com.carlesso.pilatesapi.dto.ReavaliacaoUpdateDTO;
+import com.carlesso.pilatesapi.dto.TesteFuncionalRealizadoDTO;
 import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
@@ -103,7 +104,19 @@ class ReavaliacaoServiceTest {
                 "Retorno às atividades diárias",
                 "Ainda apresenta dor ao agachar",
                 "Aumentar carga nos exercícios de glúteo",
-                "Paciente motivado com a evolução");
+                "Paciente motivado com a evolução",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     private void setFieldId(Object obj, Class<?> clazz, Long id) {
@@ -149,7 +162,31 @@ class ReavaliacaoServiceTest {
         when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
-                99L, null, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                99L,
+                null,
+                null,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -171,7 +208,31 @@ class ReavaliacaoServiceTest {
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComVinculo);
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, 2L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                1L,
+                2L,
+                null,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         ReavaliacaoResponseDTO response = service.criar(dto);
 
@@ -193,7 +254,31 @@ class ReavaliacaoServiceTest {
         when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenReturn(reavaliacaoComPlano);
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, null, 3L, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                1L,
+                null,
+                3L,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         ReavaliacaoResponseDTO response = service.criar(dto);
 
@@ -207,7 +292,31 @@ class ReavaliacaoServiceTest {
         when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, 99L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                1L,
+                99L,
+                null,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -225,7 +334,31 @@ class ReavaliacaoServiceTest {
         when(avaliacaoRepository.findByIdComPaciente(2L)).thenReturn(Optional.of(avaliacao));
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, 2L, null, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                1L,
+                2L,
+                null,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -243,7 +376,31 @@ class ReavaliacaoServiceTest {
         when(planoTratamentoRepository.findAtivoById(3L)).thenReturn(Optional.of(plano));
 
         var dto = new ReavaliacaoRequestDTO(
-                1L, null, 3L, LocalDate.of(2026, 5, 1), null, null, null, null, null, null, null, null, null);
+                1L,
+                null,
+                3L,
+                LocalDate.of(2026, 5, 1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         assertThatThrownBy(() -> service.criar(dto))
                 .isInstanceOf(BusinessException.class)
@@ -319,6 +476,18 @@ class ReavaliacaoServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null);
 
         ReavaliacaoResponseDTO response = service.atualizar(1L, dto);
@@ -333,10 +502,91 @@ class ReavaliacaoServiceTest {
     void atualizar_comReavaliacaoInexistente_deveLancarResourceNotFoundException() {
         when(reavaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        var dto = new ReavaliacaoUpdateDTO(null, null, null, null, null, null, null, null, null, null, null);
+        var dto = new ReavaliacaoUpdateDTO(
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    // -------------------------------------------------------------------------
+    // Opções pré-definidas (#248)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void criar_comOpcoes_gravaRegioesDeDorEExameFisico() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
+        when(reavaliacaoRepository.save(any(Reavaliacao.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ReavaliacaoResponseDTO response = service.criar(new ReavaliacaoRequestDTO(
+                1L,
+                null,
+                null,
+                LocalDate.of(2026, 11, 20),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("JOELHO_DIREITO", "JOELHO_DIREITO"),
+                "Só na escada",
+                List.of("JOELHO_VALGO"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                "ALTERACAO_LEVE",
+                null,
+                List.of(new TesteFuncionalRealizadoDTO("SENTAR_E_ALCANCAR", "NEGATIVO")),
+                null));
+
+        assertThat(response.regioesDor()).containsExactly("JOELHO_DIREITO");
+        assertThat(response.regioesDorComplemento()).isEqualTo("Só na escada");
+        assertThat(response.achadosPosturais()).containsExactly("JOELHO_VALGO");
+        assertThat(response.coordenacaoMotoraOpcao()).isEqualTo("ALTERACAO_LEVE");
+        assertThat(response.testesFuncionais())
+                .containsExactly(new TesteFuncionalRealizadoDTO("SENTAR_E_ALCANCAR", "NEGATIVO"));
+    }
+
+    @Test
+    void atualizar_comRegiaoInexistente_deveLancarIllegalArgument() {
+        when(reavaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(reavaliacao(paciente())));
+
+        var dto = new ReavaliacaoUpdateDTO(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("NUCA"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        assertThatThrownBy(() -> service.atualizar(1L, dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Opção inválida em regioesDor: 'NUCA'");
+        verify(reavaliacaoRepository, never()).saveAndFlush(any());
     }
 }

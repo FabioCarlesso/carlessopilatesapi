@@ -74,7 +74,7 @@ da tabela abaixo. Rota que o
 
 | Rotas | `PROFISSIONAL` | `RECEPCAO` | `FINANCEIRO` |
 |---|---|---|---|
-| `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/avaliacoes-posturais`, `/evolucoes-sessao`, `/reavaliacoes`, `/planos-tratamento` | ✓ | | |
+| `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/avaliacoes-posturais`, `/evolucoes-sessao`, `/reavaliacoes`, `/planos-tratamento`, `GET /avaliacoes/opcoes` | ✓ | | |
 | `/pacientes` | ✓ | ✓ | ✓ |
 | `GET /tomadores` (leitura); escrita em `/tomadores` | ✓ (só leitura) | ✓ | ✓ |
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
@@ -524,6 +524,32 @@ avaliações, inclusive no histórico, que fica sob `/pacientes`.
 - O histórico devolve `[{ "origem": "AVALIACAO" | "REAVALIACAO", "registroId", "data", "pontos": [...] }]`, do
   registro mais antigo para o mais recente; `data` é a `dataAvaliacao` ou a `dataReavaliacao`. Só aparecem os
   registros com pontos.
+
+### Opções pré-definidas (#248)
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/avaliacoes/opcoes` | Catálogo dos campos estruturados de anamnese, avaliação e reavaliação, com as opções de cada um |
+
+O catálogo traz `campos: [{campo, rotulo, selecao, comResultado, opcoes: [{valor, rotulo, ativa}], campoComplemento}]`.
+`campo` é o nome da propriedade nos DTOs, `selecao` é `UNICA` ou `MULTIPLA`, `comResultado` só é `true` em
+`testesFuncionais` e `ativa: false` marca opção aposentada (exibir, não oferecer). `campoComplemento` é o nome da
+propriedade de texto livre que acompanha o campo.
+
+Os DTOs de criação, edição e resposta de `/anamneses`, `/avaliacoes-fisioterapeuticas` e `/reavaliacoes` ganharam os
+campos estruturados, todos opcionais e sem alterar os campos de texto existentes:
+
+- Anamnese: `regioesDor`, `condicoesSaude`, `objetivosOpcoes` (listas), `nivelAtividadeFisicaOpcao` (texto) e os
+  complementos `regioesDorComplemento`, `condicoesSaudeComplemento`, `nivelAtividadeFisicaComplemento`,
+  `objetivosComplemento`.
+- Avaliação e reavaliação (mesmos nomes): `achadosPosturais` (lista), `padraoRespiratorioOpcao`, `equilibrioOpcao`,
+  `coordenacaoMotoraOpcao` (texto), `testesFuncionais` (lista de `{teste, resultado}`) e os complementos
+  `achadosPosturaisComplemento`, `padraoRespiratorioComplemento`, `equilibrioComplemento`,
+  `coordenacaoMotoraComplemento`, `testesFuncionaisComplemento`. A reavaliação tem também `regioesDor` e
+  `regioesDorComplemento`.
+
+As listas sempre saem na resposta (vazias quando não há nada); valor fora do catálogo → `400`. Semântica do PUT e
+listas: [regras de negócio](regras-de-negocio.md#opções-pré-definidas-anamnese-avaliação-e-reavaliação).
 
 ## Análises Posturais (simetrógrafo virtual)
 

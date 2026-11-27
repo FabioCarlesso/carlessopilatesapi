@@ -7,6 +7,7 @@ import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.entity.PlanoTratamento;
 import com.carlesso.pilatesapi.entity.Reavaliacao;
+import com.carlesso.pilatesapi.entity.enums.CampoOpcoesAvaliacao;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
@@ -63,6 +64,10 @@ public class ReavaliacaoService {
         reavaliacao.setPontosAtencao(dto.pontosAtencao());
         reavaliacao.setAjustesRecomendados(dto.ajustesRecomendados());
         reavaliacao.setObservacoesGerais(dto.observacoesGerais());
+        OpcoesAvaliacaoNormalizador.aplicarMultipla(
+                CampoOpcoesAvaliacao.REGIOES_DOR, dto.regioesDor(), reavaliacao::setRegioesDor);
+        OpcoesAvaliacaoNormalizador.aplicarTexto(dto.regioesDorComplemento(), reavaliacao::setRegioesDorComplemento);
+        OpcoesAvaliacaoNormalizador.aplicarExameFisico(reavaliacao.getExameFisicoOpcoes(), dto);
 
         if (dto.avaliacaoFisioterapeuticaId() != null) {
             AvaliacaoFisioterapeutica avaliacao = avaliacaoRepository
@@ -123,6 +128,10 @@ public class ReavaliacaoService {
         if (dto.pontosAtencao() != null) reavaliacao.setPontosAtencao(dto.pontosAtencao());
         if (dto.ajustesRecomendados() != null) reavaliacao.setAjustesRecomendados(dto.ajustesRecomendados());
         if (dto.observacoesGerais() != null) reavaliacao.setObservacoesGerais(dto.observacoesGerais());
+        OpcoesAvaliacaoNormalizador.aplicarMultipla(
+                CampoOpcoesAvaliacao.REGIOES_DOR, dto.regioesDor(), reavaliacao::setRegioesDor);
+        OpcoesAvaliacaoNormalizador.aplicarTexto(dto.regioesDorComplemento(), reavaliacao::setRegioesDorComplemento);
+        OpcoesAvaliacaoNormalizador.aplicarExameFisico(reavaliacao.getExameFisicoOpcoes(), dto);
 
         return ReavaliacaoResponseDTO.from(reavaliacaoRepository.saveAndFlush(reavaliacao));
     }

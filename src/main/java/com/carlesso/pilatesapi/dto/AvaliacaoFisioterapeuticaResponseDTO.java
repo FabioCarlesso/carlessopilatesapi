@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record AvaliacaoFisioterapeuticaResponseDTO(
         Long id,
@@ -22,6 +23,16 @@ public record AvaliacaoFisioterapeuticaResponseDTO(
         String testesFuncionaisRealizados,
         String diagnosticoFisioterapeutico,
         String observacoesGerais,
+        List<String> achadosPosturais,
+        String achadosPosturaisComplemento,
+        String padraoRespiratorioOpcao,
+        String padraoRespiratorioComplemento,
+        String equilibrioOpcao,
+        String equilibrioComplemento,
+        String coordenacaoMotoraOpcao,
+        String coordenacaoMotoraComplemento,
+        List<TesteFuncionalRealizadoDTO> testesFuncionais,
+        String testesFuncionaisComplemento,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualizacao,
         @Schema(description = "E-mail de quem criou o registro; \"system\" para processos automáticos")
@@ -47,6 +58,18 @@ public record AvaliacaoFisioterapeuticaResponseDTO(
                 a.getTestesFuncionaisRealizados(),
                 a.getDiagnosticoFisioterapeutico(),
                 a.getObservacoesGerais(),
+                a.getExameFisicoOpcoes().getAchadosPosturais(),
+                a.getExameFisicoOpcoes().getAchadosPosturaisComplemento(),
+                a.getExameFisicoOpcoes().getPadraoRespiratorioOpcao(),
+                a.getExameFisicoOpcoes().getPadraoRespiratorioComplemento(),
+                a.getExameFisicoOpcoes().getEquilibrioOpcao(),
+                a.getExameFisicoOpcoes().getEquilibrioComplemento(),
+                a.getExameFisicoOpcoes().getCoordenacaoMotoraOpcao(),
+                a.getExameFisicoOpcoes().getCoordenacaoMotoraComplemento(),
+                a.getExameFisicoOpcoes().getTestesFuncionais().stream()
+                        .map(TesteFuncionalRealizadoDTO::from)
+                        .toList(),
+                a.getExameFisicoOpcoes().getTestesFuncionaisComplemento(),
                 a.getDataCriacao(),
                 a.getDataAtualizacao(),
                 a.getCriadoPor(),

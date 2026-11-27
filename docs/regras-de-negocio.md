@@ -274,6 +274,7 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Consultas e atualizações de anamnese não filtram por `paciente.ativo`: o histórico de paciente inativo continua legível e editável (ver *Histórico clínico de paciente inativo*)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `queixaPrincipal` e `objetivos` não aceitam strings em branco quando enviados
 - `dataAtualizacao` é registrada automaticamente em cada atualização
+- Campos estruturados (#248): `regioesDor`, `condicoesSaude`, `nivelAtividadeFisicaOpcao` e `objetivosOpcoes`, cada um com o seu complemento livre — ver [Opções pré-definidas](#opções-pré-definidas-anamnese-avaliação-e-reavaliação). Os textos `nivelAtividadeFisica` e `objetivos` continuam como antes (e `objetivos` segue obrigatório)
 
 ## Avaliações Fisioterapêuticas
 
@@ -284,6 +285,7 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Consultas e atualizações não filtram por `paciente.ativo`: o histórico de ex-aluno continua acessível
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; campos textuais obrigatórios não aceitam strings em branco quando enviados
 - `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
+- Campos estruturados do exame físico (#248): `achadosPosturais`, `padraoRespiratorioOpcao`, `equilibrioOpcao`, `coordenacaoMotoraOpcao` e `testesFuncionais`, cada um com o seu complemento livre — ver [Opções pré-definidas](#opções-pré-definidas-anamnese-avaliação-e-reavaliação). Os textos `equilibrio`, `coordenacaoMotora`, `padraoRespiratorio` e `testesFuncionaisRealizados` continuam como antes
 
 ## Planos de Tratamento
 
@@ -389,6 +391,34 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
 - Listagem por paciente é paginada e, por padrão, sai por `dataReavaliacao DESC, id DESC` — ver [Listagens por paciente](api.md#listagens-por-paciente)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
+- Campos estruturados (#248): os mesmos do exame físico da avaliação, com os mesmos nomes, mais `regioesDor`, para comparar a dor com a anamnese — ver [Opções pré-definidas](#opções-pré-definidas-anamnese-avaliação-e-reavaliação)
+
+## Opções pré-definidas (anamnese, avaliação e reavaliação)
+
+Os campos estruturados (#248) aceitam só valores de uma lista fixa, publicada em `GET /avaliacoes/opcoes` para que o
+frontend monte os seletores sem duplicar as listas. Cada campo tem um complemento de texto livre
+(`<campo>Complemento`; em `nivelAtividadeFisicaOpcao`/`objetivosOpcoes`/`padraoRespiratorioOpcao`/`equilibrioOpcao`/
+`coordenacaoMotoraOpcao` o complemento é `<nome sem o sufixo>Complemento`, informado em `campoComplemento` no catálogo).
+
+- Todos são opcionais. Na resposta, as listas vêm vazias (nunca `null`) e a seleção única vem `null` quando não há
+- Valor fora da lista do campo, item nulo ou valor de outro campo → `400` (`bad-request`, com o campo e o valor no `detail`). Os valores diferenciam maiúsculas
+- Seleção múltipla: valores repetidos são descartados, na ordem em que chegaram
+- Testes funcionais: cada item é `{teste, resultado}`, com `resultado` obrigatório (`POSITIVO`/`NEGATIVO`). O mesmo teste repetido com o mesmo resultado é deduplicado; com resultados diferentes → `400`
+- PUT parcial: campo ausente mantém o valor; lista vazia limpa a lista; texto vazio (`""`) limpa a seleção única
+- Os campos de texto anteriores continuam existindo e sendo aceitos, e não são migrados para as opções. Registro antigo, só com texto, abre com listas vazias e edita normalmente
+- **Evolução das listas**: uma opção nunca é apagada nem renomeada, porque o valor está gravado nos registros. Para retirá-la, ela fica com `ativa: false` no catálogo — o frontend continua exibindo-a nos registros que a usam e não a oferece em seleção nova — e a API continua aceitando-a, para que a edição de um registro antigo que a reenvia não falhe. Pedidos de inclusão, alteração ou remoção entram como issue própria
+- O banco não restringe os valores (sem `CHECK`): a validação é da aplicação, e um valor gravado que deixe de existir no código continua sendo lido
+
+| Campo (DTO) | Onde | Seleção | Opções (valor — rótulo) |
+|---|---|---|---|
+| `regioesDor` | anamnese, reavaliação | múltipla | `CERVICAL` Cervical, `TORACICA` Torácica, `LOMBAR` Lombar, `SACROILIACA` Sacroilíaca, `OMBRO_DIREITO`/`OMBRO_ESQUERDO` Ombro direito/esquerdo, `COTOVELO_DIREITO`/`_ESQUERDO`, `PUNHO_MAO_DIREITO`/`_ESQUERDO` Punho/mão, `QUADRIL_DIREITO`/`_ESQUERDO`, `JOELHO_DIREITO`/`_ESQUERDO`, `TORNOZELO_PE_DIREITO`/`_ESQUERDO` Tornozelo/pé, `CEFALEIA` Cefaleia |
+| `condicoesSaude` | anamnese | múltipla | `HERNIA_DE_DISCO` Hérnia de disco, `PROTRUSAO_DISCAL` Protrusão discal, `ESCOLIOSE` Escoliose, `ARTROSE` Artrose, `OSTEOPENIA_OSTEOPOROSE` Osteopenia/osteoporose, `FIBROMIALGIA` Fibromialgia, `TENDINOPATIA` Tendinopatia, `BURSITE` Bursite, `FRATURA_PREVIA` Fratura prévia, `CIRURGIA_ORTOPEDICA` Cirurgia ortopédica, `HIPERTENSAO` Hipertensão, `DIABETES` Diabetes, `CARDIOPATIA` Cardiopatia, `LABIRINTITE_VERTIGEM` Labirintite/vertigem, `GESTACAO` Gestação, `POS_PARTO` Pós-parto |
+| `nivelAtividadeFisicaOpcao` | anamnese | única | `SEDENTARIO` Sedentário, `IRREGULARMENTE_ATIVO` Irregularmente ativo, `ATIVO` Ativo, `MUITO_ATIVO` Muito ativo |
+| `objetivosOpcoes` | anamnese | múltipla | `ALIVIO_DE_DOR` Alívio de dor, `REABILITACAO` Reabilitação, `FORTALECIMENTO` Fortalecimento, `FLEXIBILIDADE_MOBILIDADE` Flexibilidade/mobilidade, `POSTURA` Postura, `CONDICIONAMENTO` Condicionamento, `GESTACAO_POS_PARTO` Gestação/pós-parto, `PREVENCAO` Prevenção, `QUALIDADE_DE_VIDA` Qualidade de vida |
+| `achadosPosturais` | avaliação, reavaliação | múltipla | `ANTERIORIZACAO_DE_CABECA`, `RETIFICACAO_CERVICAL`, `HIPERCIFOSE_TORACICA`, `HIPERLORDOSE_LOMBAR`, `RETIFICACAO_LOMBAR`, `ESCOLIOSE`, `OMBROS_PROTUSOS`, `DESNIVEL_DE_OMBROS`, `DESNIVEL_PELVICO`, `ANTEVERSAO_PELVICA`, `RETROVERSAO_PELVICA`, `JOELHO_VALGO`, `JOELHO_VARO`, `JOELHO_RECURVADO`, `PE_PLANO`, `PE_CAVO` (rótulos como na issue: Anteriorização de cabeça… Pé cavo) |
+| `padraoRespiratorioOpcao` | avaliação, reavaliação | única | `DIAFRAGMATICO` Diafragmático, `TORACICO_APICAL` Torácico/apical, `MISTO` Misto, `PARADOXAL` Paradoxal |
+| `equilibrioOpcao`, `coordenacaoMotoraOpcao` | avaliação, reavaliação | única (cada) | `PRESERVADO` Preservado, `ALTERACAO_LEVE` Alteração leve, `ALTERACAO_MODERADA` Alteração moderada, `ALTERACAO_GRAVE` Alteração grave |
+| `testesFuncionais` | avaliação, reavaliação | múltipla, com resultado | `SCHOBER` Schober, `ADAMS` Adams, `THOMAS` Thomas, `LASEGUE` Lasègue, `SENTAR_E_ALCANCAR` Sentar e alcançar, `TRENDELENBURG` Trendelenburg, `APOIO_UNIPODAL` Apoio unipodal — resultado `POSITIVO`/`NEGATIVO` |
 
 ## Análise postural (simetrógrafo virtual)
 

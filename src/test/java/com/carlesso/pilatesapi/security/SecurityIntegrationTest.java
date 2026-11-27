@@ -1334,6 +1334,7 @@ class SecurityIntegrationTest extends PostgresTestcontainerSupport {
                 "GET    | /reavaliacoes/999999/pontos-dor                | PROFISSIONAL",
                 "GET    | /pacientes/999999/pontos-dor                   | PROFISSIONAL",
                 "GET    | /planos-tratamento/999999                      | PROFISSIONAL",
+                "GET    | /avaliacoes/opcoes                             | PROFISSIONAL",
                 "GET    | /pacientes                                     | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "POST   | /pacientes                                     | PROFISSIONAL RECEPCAO FINANCEIRO",
                 "GET    | /aulas/999999                                  | PROFISSIONAL RECEPCAO",

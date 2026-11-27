@@ -1,7 +1,9 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -9,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaUpdateDTO;
+import com.carlesso.pilatesapi.dto.TesteFuncionalRealizadoDTO;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.service.AvaliacaoFisioterapeuticaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
@@ -17,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -63,6 +67,16 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 "Agachamento, ponte, apoio unipodal",
                 "Disfunção lombopélvica",
                 "Reavaliar em 30 dias",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 4, 20, 10, 0),
                 null,
                 "admin@carlessopilates.com",
@@ -85,7 +99,17 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 6,
                 "Agachamento, ponte, apoio unipodal",
                 "Disfunção lombopélvica",
-                "Reavaliar em 30 dias");
+                "Reavaliar em 30 dias",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     @Test
@@ -119,6 +143,16 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 5,
                 null,
                 "Diagnóstico",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null);
 
         mvc.perform(post("/avaliacoes-fisioterapeuticas")
@@ -130,7 +164,30 @@ class AvaliacaoFisioterapeuticaControllerTest {
     @Test
     void criar_semDataAvaliacao_deveRetornar400() throws Exception {
         var dto = new AvaliacaoFisioterapeuticaRequestDTO(
-                1L, null, "Dor", null, null, null, null, null, null, null, 5, null, "Diagnóstico", null);
+                1L,
+                null,
+                "Dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                5,
+                null,
+                "Diagnóstico",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(post("/avaliacoes-fisioterapeuticas")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -154,6 +211,16 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 11,
                 null,
                 "Diagnóstico",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null);
 
         mvc.perform(post("/avaliacoes-fisioterapeuticas")
@@ -222,6 +289,16 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 "Agachamento, ponte, apoio unipodal",
                 "Disfunção lombopélvica",
                 "Evoluiu com exercícios",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 4, 20, 10, 0),
                 LocalDateTime.of(2026, 5, 5, 9, 0),
                 "admin@carlessopilates.com",
@@ -243,6 +320,16 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 null,
                 null,
                 "Evoluiu com exercícios",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
@@ -257,7 +344,8 @@ class AvaliacaoFisioterapeuticaControllerTest {
     @Test
     void atualizar_comEscalaDorNegativa_deveRetornar400() throws Exception {
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, null, null, null, null, null, null, null, null, -1, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, -1, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -268,7 +356,8 @@ class AvaliacaoFisioterapeuticaControllerTest {
     @Test
     void atualizar_comQueixaFuncionalEmBranco_deveRetornar400() throws Exception {
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, "   ", null, null, null, null, null, null, null, null, null, null, null, null);
+                null, "   ", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -282,12 +371,132 @@ class AvaliacaoFisioterapeuticaControllerTest {
                 .thenThrow(new ResourceNotFoundException("Avaliação fisioterapêutica não encontrada: 99"));
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                LocalDate.of(2026, 5, 5), null, null, null, null, null, null, null, null, null, null, null, null, null);
+                LocalDate.of(2026, 5, 5),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(put("/avaliacoes-fisioterapeuticas/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Avaliação fisioterapêutica não encontrada: 99"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Opções pré-definidas (#248)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void criar_comOpcoes_repassaOsCamposEstruturados() throws Exception {
+        when(service.criar(any())).thenReturn(responseDTO());
+
+        mvc.perform(
+                        post("/avaliacoes-fisioterapeuticas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"pacienteId": 1, "dataAvaliacao": "2026-11-20", "queixaFuncional": "Dor",
+                                 "escalaDor": 5, "diagnosticoFisioterapeutico": "Lombalgia",
+                                 "equilibrio": "Texto livre de antes",
+                                 "achadosPosturais": ["PE_CAVO"], "padraoRespiratorioOpcao": "MISTO",
+                                 "equilibrioOpcao": "ALTERACAO_LEVE", "coordenacaoMotoraOpcao": "PRESERVADO",
+                                 "testesFuncionais": [{"teste": "SCHOBER", "resultado": "POSITIVO"}],
+                                 "testesFuncionaisComplemento": "3 cm"}
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<AvaliacaoFisioterapeuticaRequestDTO> captor =
+                ArgumentCaptor.forClass(AvaliacaoFisioterapeuticaRequestDTO.class);
+        verify(service).criar(captor.capture());
+        AvaliacaoFisioterapeuticaRequestDTO enviado = captor.getValue();
+        assertThat(enviado.equilibrio()).isEqualTo("Texto livre de antes");
+        assertThat(enviado.achadosPosturais()).containsExactly("PE_CAVO");
+        assertThat(enviado.padraoRespiratorioOpcao()).isEqualTo("MISTO");
+        assertThat(enviado.equilibrioOpcao()).isEqualTo("ALTERACAO_LEVE");
+        assertThat(enviado.coordenacaoMotoraOpcao()).isEqualTo("PRESERVADO");
+        assertThat(enviado.testesFuncionais()).containsExactly(new TesteFuncionalRealizadoDTO("SCHOBER", "POSITIVO"));
+        assertThat(enviado.testesFuncionaisComplemento()).isEqualTo("3 cm");
+    }
+
+    @Test
+    void buscarPorId_devolveOsCamposEstruturados() throws Exception {
+        var base = responseDTO();
+        var comOpcoes = new AvaliacaoFisioterapeuticaResponseDTO(
+                base.id(),
+                base.pacienteId(),
+                base.nomePaciente(),
+                base.dataAvaliacao(),
+                base.queixaFuncional(),
+                base.avaliacaoPostural(),
+                base.mobilidadeArticular(),
+                base.forcaMuscular(),
+                base.flexibilidade(),
+                base.equilibrio(),
+                base.coordenacaoMotora(),
+                base.padraoRespiratorio(),
+                base.escalaDor(),
+                base.testesFuncionaisRealizados(),
+                base.diagnosticoFisioterapeutico(),
+                base.observacoesGerais(),
+                List.of("JOELHO_VALGO"),
+                null,
+                "PARADOXAL",
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(new TesteFuncionalRealizadoDTO("ADAMS", "NEGATIVO")),
+                null,
+                base.dataCriacao(),
+                base.dataAtualizacao(),
+                base.criadoPor(),
+                base.alteradoPor(),
+                base.version());
+        when(service.buscarPorId(1L)).thenReturn(comOpcoes);
+
+        mvc.perform(get("/avaliacoes-fisioterapeuticas/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.achadosPosturais[0]").value("JOELHO_VALGO"))
+                .andExpect(jsonPath("$.padraoRespiratorioOpcao").value("PARADOXAL"))
+                .andExpect(jsonPath("$.testesFuncionais[0].teste").value("ADAMS"))
+                .andExpect(jsonPath("$.testesFuncionais[0].resultado").value("NEGATIVO"));
+    }
+
+    @Test
+    void atualizar_comOpcaoInexistente_deveRetornar400() throws Exception {
+        when(service.atualizar(eq(1L), any()))
+                .thenThrow(new IllegalArgumentException("Opção inválida em testesFuncionais: 'FABER'"));
+
+        mvc.perform(
+                        put("/avaliacoes-fisioterapeuticas/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"testesFuncionais": [{"teste": "FABER", "resultado": "POSITIVO"}]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Opção inválida em testesFuncionais: 'FABER'"));
     }
 }

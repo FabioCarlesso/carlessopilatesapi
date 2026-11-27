@@ -1,7 +1,9 @@
 package com.carlesso.pilatesapi.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -16,6 +18,7 @@ import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -62,6 +65,14 @@ class AnamneseControllerTest {
                 "Evitar impacto",
                 "Melhorar postura e reduzir dores",
                 "Paciente relata estresse",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 1, 15, 10, 0),
                 null,
                 "admin@carlessopilates.com",
@@ -81,7 +92,15 @@ class AnamneseControllerTest {
                 "Sedentário",
                 "Evitar impacto",
                 "Melhorar postura e reduzir dores",
-                "Paciente relata estresse");
+                "Paciente relata estresse",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     // -------------------------------------------------------------------------
@@ -105,7 +124,26 @@ class AnamneseControllerTest {
 
     @Test
     void criar_semQueixaPrincipal_deveRetornar400() throws Exception {
-        var dto = new AnamneseRequestDTO(1L, null, null, null, null, null, null, null, null, "Objetivo", null);
+        var dto = new AnamneseRequestDTO(
+                1L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Objetivo",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(post("/anamneses").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -113,7 +151,9 @@ class AnamneseControllerTest {
 
     @Test
     void criar_semObjetivos_deveRetornar400() throws Exception {
-        var dto = new AnamneseRequestDTO(1L, "Dor", null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseRequestDTO(
+                1L, "Dor", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null);
 
         mvc.perform(post("/anamneses").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -121,7 +161,26 @@ class AnamneseControllerTest {
 
     @Test
     void criar_semPacienteId_deveRetornar400() throws Exception {
-        var dto = new AnamneseRequestDTO(null, "Dor", null, null, null, null, null, null, null, "Objetivo", null);
+        var dto = new AnamneseRequestDTO(
+                null,
+                "Dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Objetivo",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(post("/anamneses").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -214,6 +273,14 @@ class AnamneseControllerTest {
                 "Evitar impacto",
                 "Melhorar postura e reduzir dores",
                 "Paciente relata estresse",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 1, 15, 10, 0),
                 LocalDateTime.of(2026, 3, 10, 9, 0),
                 "admin@carlessopilates.com",
@@ -221,7 +288,26 @@ class AnamneseControllerTest {
                 null);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
-        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO(
+                "Nova queixa",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -246,6 +332,14 @@ class AnamneseControllerTest {
                 null,
                 "Melhorar postura",
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.of(2026, 1, 15, 10, 0),
                 LocalDateTime.of(2026, 3, 10, 9, 0),
                 "recepcao@carlessopilates.com",
@@ -253,7 +347,26 @@ class AnamneseControllerTest {
                 1L);
         when(service.atualizar(eq(1L), any())).thenReturn(updated);
 
-        var dto = new AnamneseUpdateDTO("Nova queixa", null, null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO(
+                "Nova queixa",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -267,7 +380,9 @@ class AnamneseControllerTest {
     void atualizar_quandoNaoExistente_deveRetornar404() throws Exception {
         when(service.atualizar(eq(99L), any())).thenThrow(new ResourceNotFoundException("Anamnese não encontrada: 99"));
 
-        var dto = new AnamneseUpdateDTO("Queixa", null, null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO(
+                "Queixa", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null);
 
         mvc.perform(put("/anamneses/99")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -277,7 +392,9 @@ class AnamneseControllerTest {
 
     @Test
     void atualizar_comQueixaPrincipalEmBranco_deveRetornar400() throws Exception {
-        var dto = new AnamneseUpdateDTO(" ", null, null, null, null, null, null, null, null, null, null);
+        var dto = new AnamneseUpdateDTO(
+                " ", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -285,9 +402,94 @@ class AnamneseControllerTest {
 
     @Test
     void atualizar_comObjetivosEmBranco_deveRetornar400() throws Exception {
-        var dto = new AnamneseUpdateDTO(null, null, null, null, null, null, null, null, "", null, null);
+        var dto = new AnamneseUpdateDTO(
+                null, null, null, null, null, null, null, null, "", null, null, null, null, null, null, null, null,
+                null, null);
 
         mvc.perform(put("/anamneses/1").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // Opções pré-definidas (#248)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void criar_comOpcoes_repassaOsCamposEstruturadosEDevolveListas() throws Exception {
+        when(service.criar(any())).thenReturn(responseDTO());
+
+        mvc.perform(
+                        post("/anamneses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"pacienteId": 1, "queixaPrincipal": "Dor", "objetivos": "Postura",
+                                 "regioesDor": ["LOMBAR", "LOMBAR"], "regioesDorComplemento": "Ao sentar",
+                                 "condicoesSaude": ["HERNIA_DE_DISCO"], "nivelAtividadeFisicaOpcao": "ATIVO",
+                                 "objetivosOpcoes": ["POSTURA"], "objetivosComplemento": "Trabalho em pé"}
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<AnamneseRequestDTO> captor = ArgumentCaptor.forClass(AnamneseRequestDTO.class);
+        verify(service).criar(captor.capture());
+        AnamneseRequestDTO enviado = captor.getValue();
+        assertThat(enviado.regioesDor()).containsExactly("LOMBAR", "LOMBAR");
+        assertThat(enviado.regioesDorComplemento()).isEqualTo("Ao sentar");
+        assertThat(enviado.condicoesSaude()).containsExactly("HERNIA_DE_DISCO");
+        assertThat(enviado.nivelAtividadeFisicaOpcao()).isEqualTo("ATIVO");
+        assertThat(enviado.objetivosOpcoes()).containsExactly("POSTURA");
+        assertThat(enviado.objetivosComplemento()).isEqualTo("Trabalho em pé");
+        assertThat(enviado.objetivos()).isEqualTo("Postura");
+    }
+
+    @Test
+    void criar_comOpcaoInexistente_deveRetornar400() throws Exception {
+        when(service.criar(any())).thenThrow(new IllegalArgumentException("Opção inválida em regioesDor: 'NUCA'"));
+
+        mvc.perform(
+                        post("/anamneses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"pacienteId": 1, "queixaPrincipal": "Dor", "objetivos": "Postura",
+                                 "regioesDor": ["NUCA"]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("https://carlessopilates.com.br/problemas/bad-request"))
+                .andExpect(jsonPath("$.detail").value("Opção inválida em regioesDor: 'NUCA'"));
+    }
+
+    @Test
+    void criar_comListaNoLugarDeSelecaoUnica_deveRetornar400() throws Exception {
+        mvc.perform(
+                        post("/anamneses")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"pacienteId": 1, "queixaPrincipal": "Dor", "objetivos": "Postura",
+                                 "nivelAtividadeFisicaOpcao": ["ATIVO"]}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void atualizar_comOpcoes_repassaOsCamposEstruturados() throws Exception {
+        when(service.atualizar(eq(1L), any())).thenReturn(responseDTO());
+
+        mvc.perform(
+                        put("/anamneses/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"regioesDor": [], "nivelAtividadeFisicaOpcao": "", "version": 3}
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<AnamneseUpdateDTO> captor = ArgumentCaptor.forClass(AnamneseUpdateDTO.class);
+        verify(service).atualizar(eq(1L), captor.capture());
+        assertThat(captor.getValue().regioesDor()).isEmpty();
+        assertThat(captor.getValue().nivelAtividadeFisicaOpcao()).isEmpty();
+        assertThat(captor.getValue().condicoesSaude()).isNull();
+        assertThat(captor.getValue().version()).isEqualTo(3L);
     }
 }

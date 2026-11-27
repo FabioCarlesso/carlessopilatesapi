@@ -49,6 +49,7 @@ public class AnamneseService {
         anamnese.setRestricoesMedicas(dto.restricoesMedicas());
         anamnese.setObjetivos(dto.objetivos());
         anamnese.setObservacoes(dto.observacoes());
+        OpcoesAvaliacaoNormalizador.aplicarAnamnese(anamnese, dto);
 
         try {
             return AnamneseResponseDTO.from(anamneseRepository.saveAndFlush(anamnese));
@@ -92,6 +93,7 @@ public class AnamneseService {
         if (dto.restricoesMedicas() != null) anamnese.setRestricoesMedicas(dto.restricoesMedicas());
         if (dto.objetivos() != null) anamnese.setObjetivos(dto.objetivos());
         if (dto.observacoes() != null) anamnese.setObservacoes(dto.observacoes());
+        OpcoesAvaliacaoNormalizador.aplicarAnamnese(anamnese, dto);
 
         return AnamneseResponseDTO.from(anamneseRepository.saveAndFlush(anamnese));
     }
