@@ -220,14 +220,17 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
   `realizada = true` e `feriado = true`: o aluno pagou por ela, então **gera repasse** pelo profissional da aula,
   **consome o pacote** do pagamento e **não é falta** na frequência. Fica fora do relatório de aulas sem evolução,
   porque não houve atendimento. Feriado parcial (com horário) e bloqueio `OUTRO` não marcam nada
-  - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas. Aulas geradas depois para essas datas
+  - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas, exceto as de paciente inativo:
+    marcadas, elas contariam como realizadas nas séries sem filtro de ativo e voltariam realizadas numa reativação. Aulas geradas depois para essas datas
     já nascem marcadas, e uma aula **remarcada** para uma data de feriado também é marcada na hora. Assim, toda aula
     pendente num feriado é de feriado, e o resultado não depende de o bloqueio ser editado depois. A turma que treina
     no feriado é registrada com o bloqueio como `OUTRO`
   - A aula marcada sem profissional recebe o fisioterapeuta padrão ativo do paciente, porque o repasse precisa de dono
   - A aula guarda o bloqueio que a marcou (`bloqueio_feriado_id`). Ao excluir o bloqueio, ou editá-lo mudando
     período ou tipo, só as aulas que **ele** marcou voltam a não realizadas — uma aula realizada de verdade nunca é
-    tocada. Se outro feriado ainda cobre a data, a aula continua marcada, agora por ele
+    tocada. Se outro feriado ainda cobre a data, a aula continua marcada, agora por ele. Senão, a aula volta a
+    disputar o horário: se o profissional dela não tem mais vaga ou disponibilidade (ele pode ter sido atribuído no
+    feriado, sem checagem), a aula fica sem profissional e entra em `aulasSemProfissional`
   - Como toda aula realizada, a de feriado não pode ser remarcada; para isso, desfaça o feriado. O profissional, ao
     contrário, **pode** ser atribuído ou trocado: ele só define quem recebe o repasse, então a troca não confere vaga
     no horário. A aula de feriado sem profissional entra em `aulasSemProfissional` do pagamento
@@ -426,7 +429,9 @@ Não muda a listagem `GET /pacientes`, que continua servindo a tela de cadastro.
 - **Idade:** anos completos na data da consulta.
 - **Teto:** sem paginação, porque o volume do estúdio é pequeno. Acima de 5.000 linhas, a resposta é `400`, o mesmo
   teto dos demais relatórios sem paginação.
-- PDF e XLSX reusam o JSON, com as mesmas linhas e totais.
+- PDF e XLSX reusam o JSON, com as mesmas linhas e totais. A coluna Profissional mostra o que a tela mostra: o
+  padrão e, quando o das próximas aulas é outro, `Padrão (próximas aulas: Outro)`; sem padrão,
+  `Outro (próximas aulas, sem padrão)`. Assim a linha filtrada sempre exibe o profissional do filtro.
 ## Relatório de recebimentos
 
 `GET /api/relatorios/recebimentos` (#231) é a lista de "quem pagou" no período, para conferir o caixa e conciliar com

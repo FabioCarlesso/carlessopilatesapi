@@ -242,6 +242,60 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
         assertFeriado(aula, bloqueio);
     }
 
+    @Test
+    void criarFeriado_naoMarcaAulaDePacienteInativo() {
+        Paciente inativo = paciente("Ana");
+        inativo.setAtivo(false);
+        Long aula = aula(pagamento(inativo), FERIADO, false);
+        limpar();
+
+        bloqueioService.criar(feriado(FERIADO, FERIADO));
+        limpar();
+
+        // Marcada, ela contaria como realizada nas séries sem filtro de ativo e voltaria realizada numa reativação.
+        assertNaoMarcada(aula);
+    }
+
+    @Test
+    void excluirFeriado_aulaQueVoltaAPendenteSemVagaPerdeOProfissionalAtribuidoNoFeriado() {
+        Profissional camila = entityManager.persist(profissional("Camila"));
+        LocalTime oito = LocalTime.of(8, 0);
+        // Três aulas realizadas de verdade ocupam a capacidade (3) da Camila às 8h no dia.
+        for (int i = 0; i < 3; i++) {
+            aula(pagamento(paciente("Ocupa" + i)), FERIADO, true, oito, camila);
+        }
+        Long semVaga = aula(pagamento(paciente("Ana")), FERIADO, false, oito, null);
+        Long bloqueio = bloqueioService.criar(feriado(FERIADO, FERIADO)).id();
+        limpar();
+        // Na aula de feriado a atribuição não confere vaga.
+        aulaService.atribuirProfissional(semVaga, camila.getId());
+        limpar();
+
+        bloqueioService.excluir(bloqueio);
+        limpar();
+
+        Aula aula = aulaRepository.findById(semVaga).orElseThrow();
+        assertThat(aula.isRealizada()).isFalse();
+        assertThat(aula.getProfissional()).isNull();
+    }
+
+    @Test
+    void excluirFeriado_aulaQueVoltaAPendenteComVagaMantemOProfissional() {
+        Profissional camila = entityManager.persist(profissional("Camila"));
+        LocalTime oito = LocalTime.of(8, 0);
+        aula(pagamento(paciente("Ocupa")), FERIADO, true, oito, camila);
+        Long comVaga = aula(pagamento(paciente("Ana")), FERIADO, false, oito, camila);
+        Long bloqueio = bloqueioService.criar(feriado(FERIADO, FERIADO)).id();
+        limpar();
+
+        bloqueioService.excluir(bloqueio);
+        limpar();
+
+        Aula aula = aulaRepository.findById(comVaga).orElseThrow();
+        assertThat(aula.isRealizada()).isFalse();
+        assertThat(aula.getProfissional().getId()).isEqualTo(camila.getId());
+    }
+
     private void assertFeriado(Long aulaId, Long bloqueioId) {
         Aula aula = aulaRepository.findById(aulaId).orElseThrow();
         assertThat(aula.isRealizada()).isTrue();
@@ -296,7 +350,14 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
     }
 
     private Long aula(Pagamento pagamento, LocalDate data, boolean realizada) {
+        return aula(pagamento, data, realizada, null, null);
+    }
+
+    private Long aula(
+            Pagamento pagamento, LocalDate data, boolean realizada, LocalTime horario, Profissional profissional) {
         Aula aula = new Aula();
+        aula.setHorario(horario);
+        aula.setProfissional(profissional);
         aula.setPaciente(pagamento.getPaciente());
         aula.setPagamento(pagamento);
         aula.setData(data);

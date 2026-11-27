@@ -22,8 +22,12 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
     Optional<Aula> findByIdAndPacienteAtivoTrue(Long id);
 
-    /** Aulas ainda não realizadas no intervalo (datas inclusivas), candidatas à marcação de feriado (#244). */
-    List<Aula> findByRealizadaFalseAndDataBetween(LocalDate inicio, LocalDate fim);
+    /**
+     * Aulas ainda não realizadas de pacientes ativos no intervalo (datas inclusivas), candidatas à marcação de feriado
+     * (#244). A aula de paciente inativo fica de fora: marcada, ela entraria como realizada nas séries que não filtram
+     * paciente ativo e voltaria realizada numa reativação.
+     */
+    List<Aula> findByRealizadaFalseAndPacienteAtivoTrueAndDataBetween(LocalDate inicio, LocalDate fim);
 
     /** Aulas marcadas como feriado pelo bloqueio, para desfazer a marcação (#244). */
     List<Aula> findByBloqueioFeriadoId(Long bloqueioId);

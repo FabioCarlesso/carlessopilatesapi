@@ -126,8 +126,9 @@ public class AulaService {
     /**
      * Aplica a marcação de feriado de um bloqueio que foi criado, editado ou excluído (#244). Primeiro desfaz o que o
      * bloqueio marcou antes — só as aulas que ele marcou, nunca uma realizada de verdade. Depois, se o bloqueio
-     * ({@code null} na exclusão) é feriado de dia inteiro, marca as aulas ainda não realizadas do período dele. Por fim,
-     * as datas desmarcadas que outro feriado ainda cobre voltam a ser marcadas por esse outro.
+     * ({@code null} na exclusão) é feriado de dia inteiro, marca as aulas ainda não realizadas de pacientes ativos do
+     * período dele. Por fim, as datas desmarcadas que outro feriado ainda cobre voltam a ser marcadas por esse outro, e
+     * as que voltam a pendentes têm o profissional conferido: na aula de feriado ele foi atribuído sem checar vaga.
      */
     @Transactional
     public void sincronizarFeriado(Long bloqueioId, BloqueioAgenda bloqueio) {
@@ -136,11 +137,14 @@ public class AulaService {
 
         if (bloqueio != null && bloqueio.marcaAulasComoFeriado()) {
             aulaRepository
-                    .findByRealizadaFalseAndDataBetween(bloqueio.getDataInicio(), bloqueio.getDataFim())
+                    .findByRealizadaFalseAndPacienteAtivoTrueAndDataBetween(
+                            bloqueio.getDataInicio(), bloqueio.getDataFim())
                     .forEach(aula -> marcarFeriado(aula, bloqueio));
         }
 
-        List<Aula> soltas = desmarcadas.stream().filter(a -> !a.isRealizada()).toList();
+        List<Aula> soltas = desmarcadas.stream()
+                .filter(a -> !a.isRealizada() && a.getPaciente().isAtivo())
+                .toList();
         if (!soltas.isEmpty()) {
             LocalDate de =
                     soltas.stream().map(Aula::getData).min(LocalDate::compareTo).orElseThrow();
@@ -151,6 +155,23 @@ public class AulaService {
                             .filter(b -> !Objects.equals(b.getId(), bloqueioId))
                             .toList();
             soltas.forEach(aula -> feriadoQueCobre(outros, aula.getData()).ifPresent(b -> marcarFeriado(aula, b)));
+        }
+        // Uma a uma: o flush automático antes de cada contagem faz a aula liberada antes abrir a vaga para a seguinte.
+        soltas.stream().filter(a -> !a.isRealizada()).forEach(this::liberarProfissionalSemVaga);
+    }
+
+    /**
+     * A aula que deixou de ser feriado volta a disputar o horário. O profissional dela pode ter sido atribuído durante o
+     * feriado, sem checar vaga nem disponibilidade; se ele não cabe mais, a aula fica sem profissional e entra em
+     * {@code aulasSemProfissional} do pagamento, para a recepção decidir — como na geração (#245).
+     */
+    private void liberarProfissionalSemVaga(Aula aula) {
+        Profissional profissional = aula.getProfissional();
+        if (profissional == null || aula.getHorario() == null) {
+            return;
+        }
+        if (!cabeNoHorario(profissional, aula)) {
+            aula.setProfissional(null);
         }
     }
 
@@ -193,13 +214,14 @@ public class AulaService {
         if (padrao == null || aula.getHorario() == null || aula.isFeriado()) {
             return padrao;
         }
-        if (!dentroDaDisponibilidade(padrao, aula.getData(), aula.getHorario())) {
-            return null;
-        }
-        return ocupadasNoHorario(aula, padrao, aula.getData(), aula.getHorario())
-                        < agendaProperties.capacidadePorHorario()
-                ? padrao
-                : null;
+        return cabeNoHorario(padrao, aula) ? padrao : null;
+    }
+
+    /** O horário da aula cabe na disponibilidade do profissional e ainda há vaga nele. */
+    private boolean cabeNoHorario(Profissional profissional, Aula aula) {
+        return dentroDaDisponibilidade(profissional, aula.getData(), aula.getHorario())
+                && ocupadasNoHorario(aula, profissional, aula.getData(), aula.getHorario())
+                        < agendaProperties.capacidadePorHorario();
     }
 
     /** Sem disponibilidade cadastrada não há restrição, como em {@code GET /disponibilidades/verificar} (#216). */
