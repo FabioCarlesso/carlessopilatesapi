@@ -124,7 +124,11 @@ public class SessaoPilatesController {
         @ApiResponse(
                 responseCode = "409",
                 description =
-                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição")
+                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição"),
+        @ApiResponse(
+                responseCode = "422",
+                description =
+                        "Sessão vinculada a uma aula: a data e o horário seguem a aula (remarque por PATCH /aulas/{id}/remarcar)")
     })
     @PutMapping("/{id}")
     public ResponseEntity<SessaoPilatesResponseDTO> atualizar(

@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.dto.AtendimentoRequestDTO;
 import com.carlesso.pilatesapi.dto.AtendimentoResponseDTO;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
 import com.carlesso.pilatesapi.dto.SessaoPilatesRequestDTO;
+import com.carlesso.pilatesapi.dto.SessaoPilatesUpdateDTO;
 import com.carlesso.pilatesapi.entity.Aula;
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
 import com.carlesso.pilatesapi.entity.Paciente;
@@ -370,6 +371,39 @@ class AtendimentoIntegrationTest extends PostgresTestcontainerSupport {
         // Excluir a sessão não desfaz a realização: a aula segue no repasse.
         assertThat(aula.realizada()).isTrue();
         assertThatThrownBy(() -> atendimentoService.buscar(aulaId)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void remarcarAulaComSessaoVinculada_moveASessaoEOPutDaSessaoNaoSeparaAsDatas() {
+        Paciente ana = entityManager.persist(paciente("Ana", true));
+        Long aulaId = aula(ana, DIA, LocalTime.of(8, 0), camila, false);
+        // Sessão agendada vinculada à aula pendente, como a V50 deixa.
+        Long sessaoId = sessaoAvulsa(ana, DIA, false, StatusSessao.AGENDADA);
+        SessaoPilates sessao = entityManager.find(SessaoPilates.class, sessaoId);
+        sessao.setAula(entityManager.find(Aula.class, aulaId));
+        sessao.setHorario(LocalTime.of(8, 0));
+        limpar();
+
+        aulaService.remarcar(aulaId, DIA.plusDays(2), LocalTime.of(9, 0));
+        limpar();
+
+        var movida = sessaoService.buscarPorId(sessaoId);
+        assertThat(movida.data()).isEqualTo(DIA.plusDays(2));
+        assertThat(movida.horario()).isEqualTo(LocalTime.of(9, 0));
+
+        // Mudar a data só na sessão separaria o registro clínico da aula.
+        assertThatThrownBy(() -> sessaoService.atualizar(
+                        sessaoId, new SessaoPilatesUpdateDTO(DIA.plusDays(3), null, null, null, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Remarque pela aula");
+        // Reenviar os mesmos valores, como o formulário faz, é aceito.
+        assertThat(sessaoService
+                        .atualizar(
+                                sessaoId,
+                                new SessaoPilatesUpdateDTO(
+                                        DIA.plusDays(2), LocalTime.of(9, 0), "Sala 1", null, null, null))
+                        .local())
+                .isEqualTo("Sala 1");
     }
 
     @Test

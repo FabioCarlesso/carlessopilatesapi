@@ -141,6 +141,7 @@ public class SessaoPilatesService {
     public SessaoPilatesResponseDTO atualizar(Long id, SessaoPilatesUpdateDTO dto) {
         SessaoPilates sessao = encontrar(id);
         VersaoGuard.exigirVersaoAtual(dto.version(), sessao.getVersion(), SessaoPilates.class, id);
+        exigirDataDaAula(sessao, dto);
 
         if (dto.data() != null) sessao.setData(dto.data());
         if (dto.horario() != null) sessao.setHorario(dto.horario());
@@ -149,6 +150,23 @@ public class SessaoPilatesService {
         if (dto.observacoes() != null) sessao.setObservacoes(dto.observacoes());
 
         return SessaoPilatesResponseDTO.from(sessaoRepository.saveAndFlush(sessao));
+    }
+
+    /**
+     * A sessão vinculada a uma aula (#246) tem a data e o horário da aula. Mudá-los só na sessão separaria o registro
+     * clínico do compromisso que ele registra; a remarcação é pela aula ({@code PATCH /aulas/{id}/remarcar}), que move
+     * a sessão junto. Reenviar os mesmos valores, como faz o formulário, é aceito.
+     */
+    private static void exigirDataDaAula(SessaoPilates sessao, SessaoPilatesUpdateDTO dto) {
+        if (sessao.getAula() == null) {
+            return;
+        }
+        boolean mudaData = dto.data() != null && !dto.data().equals(sessao.getData());
+        boolean mudaHorario = dto.horario() != null && !dto.horario().equals(sessao.getHorario());
+        if (mudaData || mudaHorario) {
+            throw new BusinessException(
+                    "A sessão está vinculada a uma aula: a data e o horário seguem a aula. Remarque pela aula");
+        }
     }
 
     @Transactional

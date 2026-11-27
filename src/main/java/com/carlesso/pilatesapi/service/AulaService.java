@@ -395,6 +395,12 @@ public class AulaService {
         aula.setData(novaData);
         aula.setHorario(horario);
         feriado.ifPresent(b -> marcarFeriado(aula, b));
+        // A sessão vinculada (#246) é o registro clínico desta aula: a data e o horário dela acompanham a remarcação.
+        // Só a aula pendente chega aqui, então só a sessão vinculada pela V50, ainda agendada, é movida.
+        sessaoRepository.findByAulaId(aula.getId()).ifPresent(sessao -> {
+            sessao.setData(novaData);
+            sessao.setHorario(horario);
+        });
         // A checagem acima não fecha a janela entre o exists e o update — a constraint (paciente_id, data) é a única
         // garantia real. Sem este flush a violação só apareceria no commit, longe deste catch, e escaparia como 500.
         try {

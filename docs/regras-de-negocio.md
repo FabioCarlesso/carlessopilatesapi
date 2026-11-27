@@ -327,6 +327,9 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
   da aula recusam).
 - Toda resposta de aula traz `sessaoId` (nulo sem atendimento) e `temEvolucao` (a sessão vinculada tem evolução); a
   sessão traz `aulaId` (nulo na avulsa).
+- A data e o horário da sessão vinculada seguem a aula. Remarcar a aula (`PATCH /aulas/{id}/remarcar`) move a
+  sessão junto, e `PUT /sessoes/{id}` recusa com `422` mudar a data ou o horário de uma sessão vinculada. Reenviar
+  os mesmos valores, como o formulário faz, é aceito
 - Excluir a sessão vinculada (`DELETE /sessoes/{id}`) apaga a evolução e libera o vínculo; a aula **continua
   realizada**, porque a realização é fato da agenda e do repasse, não do prontuário.
 - A V50 vinculou as sessões existentes só quando a correspondência era inequívoca: uma única sessão não cancelada do
