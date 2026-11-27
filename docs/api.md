@@ -78,6 +78,7 @@ da tabela abaixo. Rota que o
 | `/pacientes` | ✓ | ✓ | ✓ |
 | `GET /tomadores` (leitura); escrita em `/tomadores` | ✓ (só leitura) | ✓ | ✓ |
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
+| `/aulas/{id}/atendimento` (#246: agenda e prontuário juntos) | ✓ | | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
@@ -302,10 +303,47 @@ GET /pagamentos/xlsx?status=PENDENTE&vencimentoDe=2026-11-25&vencimentoAte=2026-
 | `PATCH` | `/aulas/{id}/realizar` | Marcar aula como realizada, opcionalmente com `profissionalId` (query param) |
 | `PATCH` | `/aulas/{id}/profissional` | Atribuir ou desvincular o profissional de uma aula ainda não realizada ou de feriado (corpo; na de feriado, sem checar vaga) |
 | `PATCH` | `/aulas/{id}/remarcar` | Trocar a data e/ou o horário de uma aula ainda não realizada (corpo) |
+| `POST` | `/aulas/{id}/atendimento` | Registrar o atendimento da aula: sessão vinculada, realização e evolução opcional (corpo opcional) |
+| `GET` | `/aulas/{id}/atendimento` | Buscar o atendimento da aula (aula, sessão e evolução) |
 
 Toda aula na resposta traz `feriado` (#244): `true` quando um bloqueio `FERIADO` de dia inteiro a marcou, sempre com
 `realizada: true`. Serve para a tela distinguir a aula de feriado de uma realizada com atendimento. Remarcar para uma
 data de feriado devolve a aula já com `realizada: true` e `feriado: true`.
+
+Toda aula na resposta — inclusive a agenda (`GET /aulas`), as listagens por paciente e por pagamento e as rotas de
+escrita — traz também `sessaoId` e `temEvolucao` (#246): a sessão do atendimento vinculada à aula (`null` sem
+atendimento) e se ela já tem evolução (`false` sem sessão). A tela usa os dois para mostrar "evoluir" ou "ver
+evolução" sem uma chamada por aula.
+
+### Atendimento
+
+`POST /aulas/{id}/atendimento` registra o atendimento a partir da aula. O corpo é opcional e todos os campos também:
+
+```json
+{
+  "profissionalId": 7,
+  "tipo": "PILATES",
+  "evolucao": {
+    "dataHoraRegistro": "2026-11-18T08:50:00",
+    "exerciciosRealizados": "...", "equipamentosUtilizados": "...", "cargasMolas": "...",
+    "dorAntes": 3, "dorDepois": 1,
+    "respostaPaciente": "...", "intercorrencias": "...", "orientacoes": "...", "observacoesFisioterapeuta": "..."
+  }
+}
+```
+
+`evolucao` tem os campos de `POST /evolucoes-sessao` menos `sessaoId`; `dataHoraRegistro` ausente vale o horário
+atual do estúdio. A resposta é `200` com `{ "aula": AulaResponse, "sessao": SessaoPilatesResponse, "evolucao":
+EvolucaoSessaoResponse | null }`, a mesma de `GET /aulas/{id}/atendimento`. As regras (sessão criada ou reaproveitada,
+realização da aula, profissional) estão em
+[regras de negócio](regras-de-negocio.md#aula--sessão--atendimento).
+
+- `400`: `dorAntes`/`dorDepois` fora de 0–10, `tipo` inválido ou corpo malformado.
+- `404`: aula inexistente ou de paciente inativo, profissional inexistente; no `GET`, também a aula sem atendimento.
+- `409`: a sessão da aula já tem evolução e o corpo traz outra (edite por `PUT /evolucoes-sessao/{id}`), a sessão
+  vinculada está cancelada, ou outro atendimento da mesma aula foi registrado ao mesmo tempo.
+- `422`: aula de feriado ou profissional inativo.
+- Só `ADMIN` e `PROFISSIONAL` (ver [Autorização por papel](#autorização-por-papel)).
 
 ### Remarcação
 
@@ -389,10 +427,14 @@ nada ali — a decisão continua com quem opera, porque exceções (a turma que 
 | `GET` | `/sessoes` | Listar sessões por período (agenda do estúdio); filtros `profissionalId`, `pacienteId`, `tipo` e `status` |
 | `GET` | `/sessoes/{id}` | Buscar sessão por ID |
 | `GET` | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente (paginado) |
-| `PUT` | `/sessoes/{id}` | Atualizar sessão (parcial, exceto `status`) |
+| `PUT` | `/sessoes/{id}` | Atualizar sessão (parcial, exceto `status`). Na sessão vinculada a uma aula, mudar a data ou o horário → `422` (remarque pela aula) |
 | `PATCH` | `/sessoes/{id}/realizar` | Marcar sessão como `REALIZADA` (apenas a partir de `AGENDADA`) |
-| `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`) |
+| `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`; sessão vinculada a uma aula → `422`) |
 | `DELETE` | `/sessoes/{id}` | Excluir sessão permanentemente |
+
+A sessão traz `aulaId` (#246): a aula da agenda que ela registra, ou `null` na sessão avulsa. `POST /sessoes` cria
+sempre sessão avulsa; a vinculada nasce de `POST /aulas/{id}/atendimento`. Excluir a sessão vinculada libera o vínculo
+e mantém a aula realizada.
 
 ### Listagem por período — agenda do estúdio
 
@@ -1006,7 +1048,8 @@ faltas, nome e id.
 ## Relatório de aulas sem evolução — contrato JSON
 
 `GET /api/relatorios/aulas-sem-evolucao?inicio=2026-10-01&fim=2026-11-30` lista as aulas realizadas no período (datas
-inclusivas, até 366 dias) que não têm evolução registrada para o mesmo paciente na mesma data. Só `ADMIN`. Filtro
+inclusivas, até 366 dias) que não têm evolução registrada: pela sessão vinculada à aula, quando houver (#246), ou,
+sem vínculo, por uma sessão avulsa do mesmo paciente na mesma data. Só `ADMIN`. Filtro
 opcional: `profissionalId`. Período ausente, invertido, acima do teto ou com mais de 5.000 linhas retorna `400`.
 Período sem aulas retorna zeros.
 

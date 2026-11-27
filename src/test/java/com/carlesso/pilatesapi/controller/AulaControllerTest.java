@@ -9,11 +9,18 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.carlesso.pilatesapi.dto.AtendimentoEvolucaoDTO;
+import com.carlesso.pilatesapi.dto.AtendimentoRequestDTO;
+import com.carlesso.pilatesapi.dto.AtendimentoResponseDTO;
 import com.carlesso.pilatesapi.dto.AulaProfissionalRequestDTO;
 import com.carlesso.pilatesapi.dto.AulaResponseDTO;
+import com.carlesso.pilatesapi.dto.SessaoPilatesResponseDTO;
+import com.carlesso.pilatesapi.entity.enums.StatusSessao;
+import com.carlesso.pilatesapi.entity.enums.TipoSessao;
 import com.carlesso.pilatesapi.exception.BusinessException;
 import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
+import com.carlesso.pilatesapi.service.AtendimentoService;
 import com.carlesso.pilatesapi.service.AulaService;
 import com.carlesso.pilatesapi.service.CustomUserDetailsService;
 import com.carlesso.pilatesapi.service.JwtService;
@@ -45,13 +52,17 @@ class AulaControllerTest {
     AulaService aulaService;
 
     @MockitoBean
+    AtendimentoService atendimentoService;
+
+    @MockitoBean
     JwtService jwtService;
 
     @MockitoBean
     CustomUserDetailsService customUserDetailsService;
 
     private AulaResponseDTO aulaResponse(boolean realizada) {
-        return new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), null, realizada, false);
+        return new AulaResponseDTO(
+                1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), null, realizada, false, null, false);
     }
 
     @Test
@@ -226,7 +237,7 @@ class AulaControllerTest {
     void atribuirProfissional_comProfissionalIdNulo_retorna200SemVinculo() throws Exception {
         when(aulaService.atribuirProfissional(eq(1L), isNull()))
                 .thenReturn(new AulaResponseDTO(
-                        1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false));
+                        1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false, null, false));
 
         mockMvc.perform(patchProfissional("/aulas/1/profissional", null))
                 .andExpect(status().isOk())
@@ -297,7 +308,7 @@ class AulaControllerTest {
     void remarcar_retorna200ComNovaData() throws Exception {
         when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), null))
                 .thenReturn(new AulaResponseDTO(
-                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), null, false, false));
+                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), null, false, false, null, false));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\"}"))
                 .andExpect(status().isOk())
@@ -331,7 +342,18 @@ class AulaControllerTest {
     void remarcar_comHorario_repassaOHorarioAoService() throws Exception {
         when(aulaService.remarcar(1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0)))
                 .thenReturn(new AulaResponseDTO(
-                        1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 20), LocalTime.of(8, 0), false, false));
+                        1L,
+                        1L,
+                        "Ana",
+                        7L,
+                        "Paula",
+                        1L,
+                        LocalDate.of(2025, 2, 20),
+                        LocalTime.of(8, 0),
+                        false,
+                        false,
+                        null,
+                        false));
 
         mockMvc.perform(patchRemarcar("/aulas/1/remarcar", "{\"data\":\"2025-02-20\",\"horario\":\"08:00\"}"))
                 .andExpect(status().isOk())
@@ -387,5 +409,106 @@ class AulaControllerTest {
         return patch(url)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new AulaProfissionalRequestDTO(profissionalId)));
+    }
+
+    private AtendimentoResponseDTO atendimento() {
+        AulaResponseDTO aula = new AulaResponseDTO(
+                1L, 1L, "Ana", 7L, "Paula", 1L, LocalDate.of(2025, 2, 3), null, true, false, 30L, false);
+        SessaoPilatesResponseDTO sessao = new SessaoPilatesResponseDTO(
+                30L,
+                1L,
+                "Ana",
+                7L,
+                "Paula",
+                null,
+                1L,
+                TipoSessao.PILATES,
+                StatusSessao.REALIZADA,
+                LocalDate.of(2025, 2, 3),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                0L);
+        return new AtendimentoResponseDTO(aula, sessao, null);
+    }
+
+    @Test
+    void registrarAtendimento_retorna200ComAulaESessaoVinculadas() throws Exception {
+        when(atendimentoService.registrar(eq(1L), any())).thenReturn(atendimento());
+
+        mockMvc.perform(post("/aulas/1/atendimento")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"profissionalId\":7,\"tipo\":\"PILATES\",\"evolucao\":{\"dorAntes\":3}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aula.sessaoId").value(30))
+                .andExpect(jsonPath("$.aula.temEvolucao").value(false))
+                .andExpect(jsonPath("$.sessao.aulaId").value(1))
+                .andExpect(jsonPath("$.evolucao").doesNotExist());
+    }
+
+    @Test
+    void registrarAtendimento_semCorpo_repassaNuloAoService() throws Exception {
+        when(atendimentoService.registrar(1L, null)).thenReturn(atendimento());
+
+        mockMvc.perform(post("/aulas/1/atendimento")).andExpect(status().isOk());
+    }
+
+    @Test
+    void registrarAtendimento_dorAntesAcimaDe10_retorna400SemChamarOService() throws Exception {
+        mockMvc.perform(post("/aulas/1/atendimento")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AtendimentoRequestDTO(
+                                null,
+                                null,
+                                new AtendimentoEvolucaoDTO(null, null, null, null, 11, null, null, null, null, null)))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos[0].campo").value(containsString("dorAntes")));
+
+        verifyNoInteractions(atendimentoService);
+    }
+
+    @Test
+    void registrarAtendimento_aulaDeFeriado_retorna422() throws Exception {
+        when(atendimentoService.registrar(eq(1L), any()))
+                .thenThrow(new BusinessException("Aula de feriado não aceita atendimento"));
+
+        mockMvc.perform(post("/aulas/1/atendimento")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail").value("Aula de feriado não aceita atendimento"));
+    }
+
+    @Test
+    void registrarAtendimento_evolucaoJaRegistrada_retorna409() throws Exception {
+        when(atendimentoService.registrar(eq(1L), any()))
+                .thenThrow(new ConflictException("A sessão da aula já possui evolução registrada"));
+
+        mockMvc.perform(post("/aulas/1/atendimento")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"evolucao\":{}}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void buscarAtendimento_retorna200() throws Exception {
+        when(atendimentoService.buscar(1L)).thenReturn(atendimento());
+
+        mockMvc.perform(get("/aulas/1/atendimento"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessao.id").value(30));
+    }
+
+    @Test
+    void buscarAtendimento_aulaSemAtendimento_retorna404() throws Exception {
+        when(atendimentoService.buscar(1L))
+                .thenThrow(new ResourceNotFoundException("Aula sem atendimento registrado: 1"));
+
+        mockMvc.perform(get("/aulas/1/atendimento")).andExpect(status().isNotFound());
     }
 }

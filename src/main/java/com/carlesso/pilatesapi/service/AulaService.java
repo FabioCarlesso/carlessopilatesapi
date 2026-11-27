@@ -15,6 +15,8 @@ import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
+import com.carlesso.pilatesapi.repository.SessaoPilatesRepository.AtendimentoDaAulaProjection;
 import com.carlesso.pilatesapi.util.PaginacaoGuard;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.time.DayOfWeek;
@@ -22,9 +24,12 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,14 +47,17 @@ public class AulaService {
     private final AgendaProperties agendaProperties;
     private final BloqueioAgendaRepository bloqueioAgendaRepository;
     private final DisponibilidadeProfissionalRepository disponibilidadeRepository;
+    private final SessaoPilatesRepository sessaoRepository;
 
     public AulaService(
             AulaRepository aulaRepository,
             ProfissionalRepository profissionalRepository,
             AgendaProperties agendaProperties,
             BloqueioAgendaRepository bloqueioAgendaRepository,
-            DisponibilidadeProfissionalRepository disponibilidadeRepository) {
+            DisponibilidadeProfissionalRepository disponibilidadeRepository,
+            SessaoPilatesRepository sessaoRepository) {
         this.disponibilidadeRepository = disponibilidadeRepository;
+        this.sessaoRepository = sessaoRepository;
         this.aulaRepository = aulaRepository;
         this.profissionalRepository = profissionalRepository;
         this.agendaProperties = agendaProperties;
@@ -283,14 +291,12 @@ public class AulaService {
 
     @Transactional(readOnly = true)
     public List<AulaResponseDTO> buscarPorPagamento(Long pagamentoId) {
-        return aulaRepository.findByPagamentoIdOrderByData(pagamentoId).stream()
-                .map(AulaResponseDTO::from)
-                .toList();
+        return respostas(aulaRepository.findByPagamentoIdOrderByData(pagamentoId));
     }
 
     @Transactional(readOnly = true)
     public AulaResponseDTO buscarPorId(Long id) {
-        return AulaResponseDTO.from(encontrar(id));
+        return resposta(encontrar(id));
     }
 
     @Transactional
@@ -309,13 +315,19 @@ public class AulaService {
         if (aula.isRealizada()) {
             throw new ConflictException("Aula já foi marcada como realizada");
         }
-        Profissional profissional = resolverProfissional(profissionalId);
-        // Sem profissionalId no corpo, o vínculo previamente atribuído é preservado.
+        marcarRealizada(aula, resolverProfissional(profissionalId));
+        return resposta(aula);
+    }
+
+    /**
+     * A regra de {@link #realizarAula(Long, Long)}, compartilhada com o atendimento da aula (#246): sem profissional, o
+     * vínculo previamente atribuído é preservado; com ele, é sobrescrito sem conferir a capacidade do horário.
+     */
+    public void marcarRealizada(Aula aula, Profissional profissional) {
         if (profissional != null) {
             aula.setProfissional(profissional);
         }
         aula.setRealizada(true);
-        return AulaResponseDTO.from(aula);
     }
 
     @Transactional
@@ -329,16 +341,16 @@ public class AulaService {
         Profissional profissional = resolverProfissional(profissionalId);
         if (aula.isFeriado()) {
             aula.setProfissional(profissional);
-            return AulaResponseDTO.from(aula);
+            return resposta(aula);
         }
         // Reatribuir quem já está na aula não ocupa vaga nova. Sem este atalho, um horário que passou da capacidade
         // por um realizar (que não confere vaga) recusaria com 409 uma operação que não muda nada.
         if (mesmoProfissional(profissional, aula.getProfissional())) {
-            return AulaResponseDTO.from(aula);
+            return resposta(aula);
         }
         exigirVagaNoHorario(aula, profissional, aula.getData(), aula.getHorario());
         aula.setProfissional(profissional);
-        return AulaResponseDTO.from(aula);
+        return resposta(aula);
     }
 
     /**
@@ -363,7 +375,7 @@ public class AulaService {
         LocalTime horario = novoHorario != null ? novoHorario : aula.getHorario();
         boolean mudaData = !novaData.equals(aula.getData());
         if (!mudaData && Objects.equals(horario, aula.getHorario())) {
-            return AulaResponseDTO.from(aula);
+            return resposta(aula);
         }
         // Só a troca de dia pode colidir com a (paciente_id, data): mudar a hora no mesmo dia mantém a própria aula.
         if (mudaData && aulaRepository.existsByPacienteAndData(aula.getPaciente(), novaData)) {
@@ -383,6 +395,12 @@ public class AulaService {
         aula.setData(novaData);
         aula.setHorario(horario);
         feriado.ifPresent(b -> marcarFeriado(aula, b));
+        // A sessão vinculada (#246) é o registro clínico desta aula: a data e o horário dela acompanham a remarcação.
+        // Só a aula pendente chega aqui, então só a sessão vinculada pela V50, ainda agendada, é movida.
+        sessaoRepository.findByAulaId(aula.getId()).ifPresent(sessao -> {
+            sessao.setData(novaData);
+            sessao.setHorario(horario);
+        });
         // A checagem acima não fecha a janela entre o exists e o update — a constraint (paciente_id, data) é a única
         // garantia real. Sem este flush a violação só apareceria no commit, longe deste catch, e escaparia como 500.
         try {
@@ -390,7 +408,7 @@ public class AulaService {
         } catch (DataIntegrityViolationException e) {
             throw new ConflictException(conflitoDeData(novaData));
         }
-        return AulaResponseDTO.from(aula);
+        return resposta(aula);
     }
 
     /**
@@ -442,7 +460,37 @@ public class AulaService {
         return "Paciente já possui aula na data " + data;
     }
 
-    private Profissional resolverProfissional(Long profissionalId) {
+    /** Resposta de uma aula com o atendimento vinculado a ela (#246). */
+    public AulaResponseDTO resposta(Aula aula) {
+        return respostas(List.of(aula)).get(0);
+    }
+
+    /**
+     * Respostas das aulas carregadas como entidade, com o atendimento vinculado a cada uma (#246) numa consulta só para
+     * o lote. As listagens projetadas em JPQL trazem o mesmo dado por {@code LEFT JOIN}.
+     */
+    private List<AulaResponseDTO> respostas(List<Aula> aulas) {
+        if (aulas.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, AtendimentoDaAulaProjection> atendimentos =
+                sessaoRepository
+                        .findAtendimentosDasAulas(
+                                aulas.stream().map(Aula::getId).toList())
+                        .stream()
+                        .collect(Collectors.toMap(AtendimentoDaAulaProjection::getAulaId, Function.identity()));
+        return aulas.stream()
+                .map(aula -> {
+                    AtendimentoDaAulaProjection atendimento = atendimentos.get(aula.getId());
+                    return atendimento == null
+                            ? AulaResponseDTO.from(aula, null, false)
+                            : AulaResponseDTO.from(
+                                    aula, atendimento.getSessaoId(), Boolean.TRUE.equals(atendimento.getTemEvolucao()));
+                })
+                .toList();
+    }
+
+    public Profissional resolverProfissional(Long profissionalId) {
         if (profissionalId == null) {
             return null;
         }
@@ -455,7 +503,13 @@ public class AulaService {
         return profissional;
     }
 
-    private Aula encontrar(Long id) {
+    /**
+     * Aula de paciente ativo; a de paciente inativo responde {@code 404}, como em todas as rotas de aula. Este método e
+     * os auxiliares do atendimento ({@link #resposta}, {@link #marcarRealizada}, {@link #resolverProfissional}) são
+     * públicos porque o {@link AtendimentoService} os chama pelo proxy transacional, que só garante delegar ao alvo os
+     * métodos públicos.
+     */
+    public Aula encontrar(Long id) {
         return aulaRepository
                 .findByIdAndPacienteAtivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Aula não encontrada: " + id));

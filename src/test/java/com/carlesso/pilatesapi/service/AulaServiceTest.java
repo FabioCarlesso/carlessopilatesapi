@@ -28,6 +28,7 @@ import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.repository.SessaoPilatesRepository;
 import com.carlesso.pilatesapi.util.PeriodoGuard;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -61,6 +62,9 @@ class AulaServiceTest {
     @Mock
     DisponibilidadeProfissionalRepository disponibilidadeRepository;
 
+    @Mock
+    SessaoPilatesRepository sessaoRepository;
+
     AulaService service;
 
     private Paciente paciente;
@@ -74,7 +78,8 @@ class AulaServiceTest {
                 profissionalRepository,
                 new AgendaProperties(60, 3),
                 bloqueioAgendaRepository,
-                disponibilidadeRepository);
+                disponibilidadeRepository,
+                sessaoRepository);
 
         paciente = new Paciente();
         paciente.setNome("Ana");
@@ -110,8 +115,8 @@ class AulaServiceTest {
 
     @Test
     void listarPorPeriodo_repassaFiltrosAoRepositorio() {
-        AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), null, true, false);
+        AulaResponseDTO aula = new AulaResponseDTO(
+                1L, 1L, "Ana", 7L, "Paula Mendes", 1L, LocalDate.of(2025, 2, 3), null, true, false, null, false);
         when(aulaRepository.findAgendaPorPeriodo(LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), 7L, 1L, true))
                 .thenReturn(List.of(aula));
 
@@ -140,8 +145,8 @@ class AulaServiceTest {
 
     @Test
     void listarPorPeriodo_acimaDoLimiteDeRegistros_lancaIllegalArgument() {
-        AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false);
+        AulaResponseDTO aula = new AulaResponseDTO(
+                1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false, null, false);
         when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
                 .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA + 1, aula));
 
@@ -153,8 +158,8 @@ class AulaServiceTest {
 
     @Test
     void listarPorPeriodo_noLimiteExatoDeRegistros_retornaLista() {
-        AulaResponseDTO aula =
-                new AulaResponseDTO(1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false);
+        AulaResponseDTO aula = new AulaResponseDTO(
+                1L, 1L, "Ana", null, null, 1L, LocalDate.of(2025, 2, 3), null, false, false, null, false);
         when(aulaRepository.findAgendaPorPeriodo(any(), any(), any(), any(), any()))
                 .thenReturn(Collections.nCopies(PeriodoGuard.LIMITE_REGISTROS_AGENDA, aula));
 

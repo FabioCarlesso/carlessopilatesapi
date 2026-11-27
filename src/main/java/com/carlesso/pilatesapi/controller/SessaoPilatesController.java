@@ -124,7 +124,11 @@ public class SessaoPilatesController {
         @ApiResponse(
                 responseCode = "409",
                 description =
-                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição")
+                        "Registro alterado por outra operação simultânea (concurrent-modification): recarregue e reaplique a edição"),
+        @ApiResponse(
+                responseCode = "422",
+                description =
+                        "Sessão vinculada a uma aula: a data e o horário seguem a aula (remarque por PATCH /aulas/{id}/remarcar)")
     })
     @PutMapping("/{id}")
     public ResponseEntity<SessaoPilatesResponseDTO> atualizar(
@@ -151,7 +155,9 @@ public class SessaoPilatesController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Sessão cancelada"),
         @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
-        @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
+        @ApiResponse(
+                responseCode = "422",
+                description = "Transição inválida (sessão não está AGENDADA) ou sessão vinculada a uma aula")
     })
     @PatchMapping("/{id}/cancelar")
     public ResponseEntity<SessaoPilatesResponseDTO> cancelar(
