@@ -73,7 +73,8 @@ class ProfissionalPadraoIntegrationTest extends PostgresTestcontainerSupport {
                 new AgendaProperties(60, 1),
                 bloqueioRepository,
                 disponibilidadeRepository);
-        pacienteService = new PacienteService(pacienteRepository, tomadorRepository, profissionalRepository);
+        pacienteService =
+                new PacienteService(pacienteRepository, tomadorRepository, profissionalRepository, aulaService);
     }
 
     @Test

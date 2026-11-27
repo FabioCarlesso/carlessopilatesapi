@@ -221,7 +221,9 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
   **consome o pacote** do pagamento e **não é falta** na frequência. Fica fora do relatório de aulas sem evolução,
   porque não houve atendimento. Feriado parcial (com horário) e bloqueio `OUTRO` não marcam nada
   - Ao criar o bloqueio, as aulas ainda não realizadas do período são marcadas, exceto as de paciente inativo:
-    marcadas, elas contariam como realizadas nas séries sem filtro de ativo e voltariam realizadas numa reativação. Aulas geradas depois para essas datas
+    marcadas, elas contariam como realizadas nas séries sem filtro de ativo e voltariam realizadas numa reativação.
+    Ao **reativar** o paciente (`PATCH /pacientes/{id}/ativar`), as aulas pendentes dele que caem num feriado são
+    marcadas nesse momento. Aulas geradas depois para essas datas
     já nascem marcadas, e uma aula **remarcada** para uma data de feriado também é marcada na hora. Assim, toda aula
     pendente num feriado é de feriado, e o resultado não depende de o bloqueio ser editado depois. A turma que treina
     no feriado é registrada com o bloqueio como `OUTRO`

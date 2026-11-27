@@ -3,6 +3,7 @@ package com.carlesso.pilatesapi.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.carlesso.pilatesapi.config.AgendaProperties;
 import com.carlesso.pilatesapi.dto.PacienteRequestDTO;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.ConflictException;
@@ -12,11 +13,13 @@ import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 
 @PostgresDataJpaTest
-@Import(PacienteService.class)
+@Import({PacienteService.class, AulaService.class})
+@EnableConfigurationProperties(AgendaProperties.class)
 class PacienteServiceIntegrationTest extends PostgresTestcontainerSupport {
 
     @Autowired

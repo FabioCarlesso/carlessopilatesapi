@@ -17,7 +17,9 @@ import com.carlesso.pilatesapi.entity.enums.TipoPagamento;
 import com.carlesso.pilatesapi.repository.AulaRepository;
 import com.carlesso.pilatesapi.repository.BloqueioAgendaRepository;
 import com.carlesso.pilatesapi.repository.DisponibilidadeProfissionalRepository;
+import com.carlesso.pilatesapi.repository.PacienteRepository;
 import com.carlesso.pilatesapi.repository.ProfissionalRepository;
+import com.carlesso.pilatesapi.repository.TomadorRepository;
 import com.carlesso.pilatesapi.support.PostgresDataJpaTest;
 import com.carlesso.pilatesapi.support.PostgresTestcontainerSupport;
 import java.math.BigDecimal;
@@ -49,10 +51,17 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
     DisponibilidadeProfissionalRepository disponibilidadeRepository;
 
     @Autowired
+    PacienteRepository pacienteRepository;
+
+    @Autowired
+    TomadorRepository tomadorRepository;
+
+    @Autowired
     TestEntityManager entityManager;
 
     AulaService aulaService;
     BloqueioAgendaService bloqueioService;
+    PacienteService pacienteService;
 
     private int sequencial;
 
@@ -65,6 +74,8 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
                 bloqueioRepository,
                 disponibilidadeRepository);
         bloqueioService = new BloqueioAgendaService(bloqueioRepository, aulaService);
+        pacienteService =
+                new PacienteService(pacienteRepository, tomadorRepository, profissionalRepository, aulaService);
     }
 
     @Test
@@ -254,6 +265,32 @@ class FeriadoAulasIntegrationTest extends PostgresTestcontainerSupport {
 
         // Marcada, ela contaria como realizada nas séries sem filtro de ativo e voltaria realizada numa reativação.
         assertNaoMarcada(aula);
+    }
+
+    @Test
+    void reativarPaciente_marcaAsAulasPendentesDeleEmFeriado() {
+        Profissional camila = entityManager.persist(profissional("Camila"));
+        Paciente paciente = paciente("Ana");
+        paciente.setProfissionalPadrao(camila);
+        paciente.setAtivo(false);
+        Pagamento pagamento = pagamento(paciente);
+        Long noFeriado = aula(pagamento, FERIADO, false);
+        Long outroDia = aula(pagamento, FERIADO.plusDays(2), false);
+        Long bloqueio = bloqueioService.criar(feriado(FERIADO, FERIADO)).id();
+        limpar();
+        assertNaoMarcada(noFeriado);
+
+        pacienteService.ativar(paciente.getId());
+        limpar();
+
+        assertFeriado(noFeriado, bloqueio);
+        assertThat(aulaRepository
+                        .findById(noFeriado)
+                        .orElseThrow()
+                        .getProfissional()
+                        .getId())
+                .isEqualTo(camila.getId());
+        assertNaoMarcada(outroDia);
     }
 
     @Test

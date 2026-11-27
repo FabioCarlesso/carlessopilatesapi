@@ -49,6 +49,9 @@ class PacienteServiceTest {
     @Mock
     private ProfissionalRepository profissionalRepository;
 
+    @Mock
+    private AulaService aulaService;
+
     @InjectMocks
     private PacienteService service;
 
@@ -447,6 +450,18 @@ class PacienteServiceTest {
 
         assertThat(existente.isAtivo()).isTrue();
         assertThat(existente.getDataInativacao()).isNull();
+        // Inativo, ele ficou fora da marcação de feriado (#244).
+        verify(aulaService).marcarFeriadosDoPaciente(existente.getId());
+    }
+
+    @Test
+    void ativar_pacienteJaAtivo_naoRefazAMarcacaoDeFeriado() {
+        Paciente existente = paciente();
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+
+        service.ativar(1L);
+
+        verify(aulaService, never()).marcarFeriadosDoPaciente(any());
     }
 
     @Test

@@ -161,6 +161,28 @@ public class AulaService {
     }
 
     /**
+     * Reativação do paciente (#244): enquanto inativo, as aulas dele ficaram fora da marcação de feriado. Ao voltar, as
+     * pendentes que caem num {@code FERIADO} de dia inteiro são marcadas agora, para valer a regra de que toda aula
+     * pendente num feriado é de feriado — sem isso, ela ficaria sem repasse e viraria falta depois da data.
+     */
+    @Transactional
+    public void marcarFeriadosDoPaciente(Long pacienteId) {
+        List<Aula> pendentes = aulaRepository.findByPacienteIdAndRealizadaFalse(pacienteId);
+        if (pendentes.isEmpty()) {
+            return;
+        }
+        LocalDate de =
+                pendentes.stream().map(Aula::getData).min(LocalDate::compareTo).orElseThrow();
+        LocalDate ate =
+                pendentes.stream().map(Aula::getData).max(LocalDate::compareTo).orElseThrow();
+        List<BloqueioAgenda> feriados = bloqueioAgendaRepository.findFeriadosDiaInteiroQueIntersectam(de, ate);
+        if (feriados.isEmpty()) {
+            return;
+        }
+        pendentes.forEach(aula -> feriadoQueCobre(feriados, aula.getData()).ifPresent(b -> marcarFeriado(aula, b)));
+    }
+
+    /**
      * A aula que deixou de ser feriado volta a disputar o horário. O profissional dela pode ter sido atribuído durante o
      * feriado, sem checar vaga nem disponibilidade; se ele não cabe mais, a aula fica sem profissional e entra em
      * {@code aulasSemProfissional} do pagamento, para a recepção decidir — como na geração (#245).

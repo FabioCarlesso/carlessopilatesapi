@@ -28,14 +28,17 @@ public class PacienteService {
     private final PacienteRepository repository;
     private final TomadorRepository tomadorRepository;
     private final ProfissionalRepository profissionalRepository;
+    private final AulaService aulaService;
 
     public PacienteService(
             PacienteRepository repository,
             TomadorRepository tomadorRepository,
-            ProfissionalRepository profissionalRepository) {
+            ProfissionalRepository profissionalRepository,
+            AulaService aulaService) {
         this.repository = repository;
         this.tomadorRepository = tomadorRepository;
         this.profissionalRepository = profissionalRepository;
+        this.aulaService = aulaService;
     }
 
     @Transactional
@@ -116,8 +119,14 @@ public class PacienteService {
     @Transactional
     public void ativar(Long id) {
         Paciente paciente = encontrar(id);
+        boolean estavaInativo = !paciente.isAtivo();
         paciente.setAtivo(true);
         paciente.setDataInativacao(null);
+        // Inativo, o paciente ficou fora da marcação de feriado (#244); de volta, as aulas pendentes dele em feriado
+        // são marcadas.
+        if (estavaInativo) {
+            aulaService.marcarFeriadosDoPaciente(paciente.getId());
+        }
     }
 
     @Transactional
