@@ -429,7 +429,7 @@ nada ali — a decisão continua com quem opera, porque exceções (a turma que 
 | `GET` | `/sessoes/paciente/{pacienteId}` | Listar sessões do paciente (paginado) |
 | `PUT` | `/sessoes/{id}` | Atualizar sessão (parcial, exceto `status`). Na sessão vinculada a uma aula, mudar a data ou o horário → `422` (remarque pela aula) |
 | `PATCH` | `/sessoes/{id}/realizar` | Marcar sessão como `REALIZADA` (apenas a partir de `AGENDADA`) |
-| `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`) |
+| `PATCH` | `/sessoes/{id}/cancelar` | Cancelar sessão (apenas a partir de `AGENDADA`; sessão vinculada a uma aula → `422`) |
 | `DELETE` | `/sessoes/{id}` | Excluir sessão permanentemente |
 
 A sessão traz `aulaId` (#246): a aula da agenda que ela registra, ou `null` na sessão avulsa. `POST /sessoes` cria

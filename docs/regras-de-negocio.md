@@ -330,6 +330,9 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
 - A data e o horário da sessão vinculada seguem a aula. Remarcar a aula (`PATCH /aulas/{id}/remarcar`) move a
   sessão junto, e `PUT /sessoes/{id}` recusa com `422` mudar a data ou o horário de uma sessão vinculada. Reenviar
   os mesmos valores, como o formulário faz, é aceito
+- A sessão vinculada não pode ser cancelada (`PATCH /sessoes/{id}/cancelar` → `422`): cancelada, ela travaria o
+  atendimento da aula, que não reaproveita sessão cancelada. A aula não tem cancelamento; o que mudou de dia se
+  remarca pela aula
 - Excluir a sessão vinculada (`DELETE /sessoes/{id}`) apaga a evolução e libera o vínculo; a aula **continua
   realizada**, porque a realização é fato da agenda e do repasse, não do prontuário.
 - A V50 vinculou as sessões existentes só quando a correspondência era inequívoca: uma única sessão não cancelada do

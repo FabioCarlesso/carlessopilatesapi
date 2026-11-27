@@ -155,7 +155,9 @@ public class SessaoPilatesController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Sessão cancelada"),
         @ApiResponse(responseCode = "404", description = "Sessão não encontrada"),
-        @ApiResponse(responseCode = "422", description = "Transição inválida (sessão não está AGENDADA)")
+        @ApiResponse(
+                responseCode = "422",
+                description = "Transição inválida (sessão não está AGENDADA) ou sessão vinculada a uma aula")
     })
     @PatchMapping("/{id}/cancelar")
     public ResponseEntity<SessaoPilatesResponseDTO> cancelar(

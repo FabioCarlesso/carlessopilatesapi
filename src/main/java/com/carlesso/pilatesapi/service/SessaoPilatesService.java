@@ -182,6 +182,12 @@ public class SessaoPilatesService {
     private SessaoPilatesResponseDTO aplicarTransicaoStatus(Long id, StatusSessao novoStatus) {
         SessaoPilates sessao = encontrar(id);
 
+        // A sessão vinculada (#246) é o registro clínico da aula: cancelada, ela travaria o atendimento da aula, que
+        // não reaproveita sessão cancelada. A aula não tem cancelamento, e a remarcação é por ela.
+        if (novoStatus == StatusSessao.CANCELADA && sessao.getAula() != null) {
+            throw new BusinessException(
+                    "A sessão está vinculada a uma aula e não pode ser cancelada: remarque ou atenda pela aula");
+        }
         if (sessao.getStatus() != StatusSessao.AGENDADA) {
             throw new BusinessException(
                     "Transição inválida: sessão " + sessao.getStatus() + " não pode ser alterada para " + novoStatus);

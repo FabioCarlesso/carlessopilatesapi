@@ -396,6 +396,16 @@ class AtendimentoIntegrationTest extends PostgresTestcontainerSupport {
                         sessaoId, new SessaoPilatesUpdateDTO(DIA.plusDays(3), null, null, null, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Remarque pela aula");
+        // Cancelada, ela travaria o atendimento da aula, que não reaproveita sessão cancelada.
+        assertThatThrownBy(() -> sessaoService.cancelar(sessaoId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("vinculada a uma aula");
+        assertThat(atendimentoService
+                        .registrar(aulaId, new AtendimentoRequestDTO(null, null, evolucao(1)))
+                        .sessao()
+                        .id())
+                .isEqualTo(sessaoId);
+        limpar();
         // Reenviar os mesmos valores, como o formulário faz, é aceito.
         assertThat(sessaoService
                         .atualizar(
