@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.entity.Reavaliacao;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ReavaliacaoResponseDTO(
         Long id,
@@ -21,6 +22,18 @@ public record ReavaliacaoResponseDTO(
         String pontosAtencao,
         String ajustesRecomendados,
         String observacoesGerais,
+        List<String> regioesDor,
+        String regioesDorComplemento,
+        List<String> achadosPosturais,
+        String achadosPosturaisComplemento,
+        String padraoRespiratorioOpcao,
+        String padraoRespiratorioComplemento,
+        String equilibrioOpcao,
+        String equilibrioComplemento,
+        String coordenacaoMotoraOpcao,
+        String coordenacaoMotoraComplemento,
+        List<TesteFuncionalRealizadoDTO> testesFuncionais,
+        String testesFuncionaisComplemento,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualizacao,
         @Schema(description = "E-mail de quem criou o registro; \"system\" para processos automáticos")
@@ -47,6 +60,20 @@ public record ReavaliacaoResponseDTO(
                 r.getPontosAtencao(),
                 r.getAjustesRecomendados(),
                 r.getObservacoesGerais(),
+                r.getRegioesDor(),
+                r.getRegioesDorComplemento(),
+                r.getExameFisicoOpcoes().getAchadosPosturais(),
+                r.getExameFisicoOpcoes().getAchadosPosturaisComplemento(),
+                r.getExameFisicoOpcoes().getPadraoRespiratorioOpcao(),
+                r.getExameFisicoOpcoes().getPadraoRespiratorioComplemento(),
+                r.getExameFisicoOpcoes().getEquilibrioOpcao(),
+                r.getExameFisicoOpcoes().getEquilibrioComplemento(),
+                r.getExameFisicoOpcoes().getCoordenacaoMotoraOpcao(),
+                r.getExameFisicoOpcoes().getCoordenacaoMotoraComplemento(),
+                r.getExameFisicoOpcoes().getTestesFuncionais().stream()
+                        .map(TesteFuncionalRealizadoDTO::from)
+                        .toList(),
+                r.getExameFisicoOpcoes().getTestesFuncionaisComplemento(),
                 r.getDataCriacao(),
                 r.getDataAtualizacao(),
                 r.getCriadoPor(),

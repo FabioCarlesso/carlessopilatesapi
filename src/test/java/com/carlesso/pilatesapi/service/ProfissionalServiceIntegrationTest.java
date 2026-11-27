@@ -102,8 +102,8 @@ class ProfissionalServiceIntegrationTest extends PostgresTestcontainerSupport {
                 TipoContrato.PJ,
                 new BigDecimal("42.00"),
                 LocalDate.of(2025, 3, 1),
-                null));
-        assertThat(criado.numeroRegistro()).isNull();
+                "350544-F"));
+        assertThat(criado.numeroRegistro()).isEqualTo("350544-F");
 
         service.atualizar(
                 criado.id(), new ProfissionalUpdateDTO(null, null, null, null, null, null, "123456-TO", null));

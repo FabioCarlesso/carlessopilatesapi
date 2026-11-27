@@ -54,6 +54,7 @@ public class AvaliacaoFisioterapeuticaService {
         avaliacao.setTestesFuncionaisRealizados(dto.testesFuncionaisRealizados());
         avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         avaliacao.setObservacoesGerais(dto.observacoesGerais());
+        OpcoesAvaliacaoNormalizador.aplicarExameFisico(avaliacao.getExameFisicoOpcoes(), dto);
         // dataCriacao/criadoPor preenchidos pelo Spring Data Auditing (EntidadeAuditavel)
 
         return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.save(avaliacao));
@@ -97,6 +98,7 @@ public class AvaliacaoFisioterapeuticaService {
         if (dto.diagnosticoFisioterapeutico() != null)
             avaliacao.setDiagnosticoFisioterapeutico(dto.diagnosticoFisioterapeutico());
         if (dto.observacoesGerais() != null) avaliacao.setObservacoesGerais(dto.observacoesGerais());
+        OpcoesAvaliacaoNormalizador.aplicarExameFisico(avaliacao.getExameFisicoOpcoes(), dto);
 
         return AvaliacaoFisioterapeuticaResponseDTO.from(avaliacaoRepository.saveAndFlush(avaliacao));
     }

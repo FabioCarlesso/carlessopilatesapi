@@ -2,6 +2,10 @@ package com.carlesso.pilatesapi.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "reavaliacoes")
@@ -57,6 +61,18 @@ public class Reavaliacao extends EntidadeAuditavel {
 
     @Column(columnDefinition = "TEXT")
     private String observacoesGerais;
+
+    /** Regiões de dor/queixa (#248): {@code name()} de {@link com.carlesso.pilatesapi.entity.enums.RegiaoDor}. */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "regioes_dor")
+    private List<String> regioesDor = new ArrayList<>();
+
+    @Column(columnDefinition = "TEXT")
+    private String regioesDorComplemento;
+
+    /** Campos estruturados do exame físico (#248); ver {@link ExameFisicoOpcoes}. */
+    @Embedded
+    private ExameFisicoOpcoes exameFisicoOpcoes = new ExameFisicoOpcoes();
 
     public Reavaliacao() {}
 
@@ -170,5 +186,32 @@ public class Reavaliacao extends EntidadeAuditavel {
 
     public void setObservacoesGerais(String observacoesGerais) {
         this.observacoesGerais = observacoesGerais;
+    }
+
+    public List<String> getRegioesDor() {
+        return regioesDor == null ? List.of() : List.copyOf(regioesDor);
+    }
+
+    public void setRegioesDor(List<String> regioesDor) {
+        this.regioesDor = regioesDor == null ? new ArrayList<>() : new ArrayList<>(regioesDor);
+    }
+
+    public String getRegioesDorComplemento() {
+        return regioesDorComplemento;
+    }
+
+    public void setRegioesDorComplemento(String regioesDorComplemento) {
+        this.regioesDorComplemento = regioesDorComplemento;
+    }
+
+    /**
+     * Nunca nulo: o Hibernate devolve {@code null} para um embutido cujas colunas vêm todas nulas, e o registro
+     * anterior à #248 não pode quebrar a resposta.
+     */
+    public ExameFisicoOpcoes getExameFisicoOpcoes() {
+        if (exameFisicoOpcoes == null) {
+            exameFisicoOpcoes = new ExameFisicoOpcoes();
+        }
+        return exameFisicoOpcoes;
     }
 }

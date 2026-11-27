@@ -1,6 +1,7 @@
 package com.carlesso.pilatesapi.repository;
 
 import com.carlesso.pilatesapi.entity.EvolucaoSessao;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -45,4 +46,21 @@ public interface EvolucaoSessaoRepository extends JpaRepository<EvolucaoSessao, 
             ORDER BY s.data DESC, s.horario DESC NULLS LAST, s.id DESC
             """)
     List<EvolucaoSessao> findByPacienteOrdenadas(@Param("pacienteId") Long pacienteId);
+
+    /**
+     * Evoluções do prontuário em PDF (#250), em ordem cronológica: o inverso exato de {@link #findByPacienteOrdenadas}
+     * (sessão sem horário antes das com horário no mesmo dia, como lá). O período filtra pela data da sessão, pelo
+     * mesmo motivo da ordenação: é ela que posiciona o atendimento na linha do tempo. Os limites são inclusivos e
+     * sempre preenchidos — o serviço troca o lado aberto por uma data-sentinela.
+     */
+    @Query(
+            """
+            SELECT e FROM EvolucaoSessao e
+            JOIN FETCH e.sessao s
+            WHERE s.paciente.id = :pacienteId
+              AND s.data BETWEEN :inicio AND :fim
+            ORDER BY s.data ASC, s.horario ASC NULLS FIRST, s.id ASC
+            """)
+    List<EvolucaoSessao> findProntuario(
+            @Param("pacienteId") Long pacienteId, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 }

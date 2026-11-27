@@ -87,7 +87,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/prometh
 
 ### Logging estruturado e correlation-id
 
-Operações de negócio críticas registram logs (nível `INFO` para eventos, `WARN` para bloqueios/rejeições) em `PagamentoService`, `AuthService`, `PasswordResetService`, `NotaFiscalEmitidaService`, `UserService`, nos schedulers e no bootstrap do admin. Dados sensíveis (senha, token) nunca são logados; e-mail e CPF são sempre mascarados via `LogMasker` (ex.: `j***@dominio.com`, `***.***.***-44`).
+Operações de negócio críticas registram logs (nível `INFO` para eventos, `WARN` para bloqueios/rejeições) em `PagamentoService`, `AuthService`, `PasswordResetService`, `NotaFiscalEmitidaService`, `UserService`, `ProntuarioService` (cada exportação do prontuário ou de evolução em PDF, com o usuário — #250), nos schedulers e no bootstrap do admin. Dados sensíveis (senha, token) nunca são logados; e-mail e CPF são sempre mascarados via `LogMasker` (ex.: `j***@dominio.com`, `***.***.***-44`).
 
 Cada requisição recebe um **correlation-id** propagado pelo header `X-Request-Id`:
 

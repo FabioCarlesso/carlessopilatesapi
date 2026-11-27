@@ -35,11 +35,13 @@ class AvaliacaoPosturalRepositoryTest extends PostgresTestcontainerSupport {
     @Autowired
     private TestEntityManager entityManager;
 
+    private Paciente paciente;
+
     private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica;
 
     @BeforeEach
     void setUp() {
-        Paciente paciente = new Paciente();
+        paciente = new Paciente();
         paciente.setNome("Ana Souza");
         paciente = entityManager.persist(paciente);
 
@@ -139,6 +141,7 @@ class AvaliacaoPosturalRepositoryTest extends PostgresTestcontainerSupport {
 
     private AvaliacaoPostural analise(VistaPostural vista) {
         AvaliacaoPostural analise = new AvaliacaoPostural();
+        analise.setPaciente(paciente);
         analise.setAvaliacaoFisioterapeutica(avaliacaoFisioterapeutica);
         analise.setVista(vista);
         analise.setLandmarks(LANDMARKS_JSON);

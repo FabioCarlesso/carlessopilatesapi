@@ -7,6 +7,10 @@ import java.math.BigDecimal;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+/**
+ * Análise do simetrógrafo virtual. Pertence sempre a um paciente e pode estar solta (checagem rápida da postura) ou
+ * vinculada a uma avaliação fisioterapêutica ou a uma reavaliação — nunca às duas (CHECK da V51). Ver #247.
+ */
 @Entity
 @Table(name = "avaliacoes_posturais")
 public class AvaliacaoPostural extends EntidadeAuditavel {
@@ -16,8 +20,16 @@ public class AvaliacaoPostural extends EntidadeAuditavel {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "avaliacao_fisioterapeutica_id", nullable = false)
+    @JoinColumn(name = "paciente_id", nullable = false)
+    private Paciente paciente;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "avaliacao_fisioterapeutica_id")
     private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reavaliacao_id")
+    private Reavaliacao reavaliacao;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -63,6 +75,22 @@ public class AvaliacaoPostural extends EntidadeAuditavel {
 
     public Long getId() {
         return id;
+    }
+
+    public Paciente getPaciente() {
+        return paciente;
+    }
+
+    public void setPaciente(Paciente paciente) {
+        this.paciente = paciente;
+    }
+
+    public Reavaliacao getReavaliacao() {
+        return reavaliacao;
+    }
+
+    public void setReavaliacao(Reavaliacao reavaliacao) {
+        this.reavaliacao = reavaliacao;
     }
 
     public AvaliacaoFisioterapeutica getAvaliacaoFisioterapeutica() {

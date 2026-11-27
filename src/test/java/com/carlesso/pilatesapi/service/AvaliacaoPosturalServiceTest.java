@@ -12,10 +12,12 @@ import static org.mockito.Mockito.when;
 
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalVinculoDTO;
 import com.carlesso.pilatesapi.dto.LandmarkDTO;
 import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.AvaliacaoPostural;
 import com.carlesso.pilatesapi.entity.Paciente;
+import com.carlesso.pilatesapi.entity.Reavaliacao;
 import com.carlesso.pilatesapi.entity.enums.CodigoLandmark;
 import com.carlesso.pilatesapi.entity.enums.StatusAvaliacaoPostural;
 import com.carlesso.pilatesapi.entity.enums.VistaPostural;
@@ -24,6 +26,8 @@ import com.carlesso.pilatesapi.exception.ConflictException;
 import com.carlesso.pilatesapi.exception.ResourceNotFoundException;
 import com.carlesso.pilatesapi.repository.AvaliacaoFisioterapeuticaRepository;
 import com.carlesso.pilatesapi.repository.AvaliacaoPosturalRepository;
+import com.carlesso.pilatesapi.repository.PacienteRepository;
+import com.carlesso.pilatesapi.repository.ReavaliacaoRepository;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import com.carlesso.pilatesapi.storage.FotoStorage;
 import java.awt.image.BufferedImage;
@@ -55,6 +59,12 @@ class AvaliacaoPosturalServiceTest {
     private AvaliacaoFisioterapeuticaRepository avaliacaoFisioterapeuticaRepository;
 
     @Mock
+    private ReavaliacaoRepository reavaliacaoRepository;
+
+    @Mock
+    private PacienteRepository pacienteRepository;
+
+    @Mock
     private FotoStorage fotoStorage;
 
     private AvaliacaoPosturalService service;
@@ -62,16 +72,28 @@ class AvaliacaoPosturalServiceTest {
     @BeforeEach
     void setUp() {
         service = new AvaliacaoPosturalService(
-                avaliacaoPosturalRepository, avaliacaoFisioterapeuticaRepository, new ObjectMapper(), fotoStorage);
+                avaliacaoPosturalRepository,
+                avaliacaoFisioterapeuticaRepository,
+                reavaliacaoRepository,
+                pacienteRepository,
+                new ObjectMapper(),
+                fotoStorage);
         // apontamos o "self" para a própria instância para que enviarFoto() delegue ao substituirFoto().
         service.setSelf(service);
     }
 
-    private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica() {
+    private Paciente paciente(Long id) {
         Paciente paciente = new Paciente();
         paciente.setNome("Maria Souza");
-        setId(Paciente.class, paciente, 1L);
+        setId(Paciente.class, paciente, id);
+        return paciente;
+    }
 
+    private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica() {
+        return avaliacaoFisioterapeutica(paciente(1L));
+    }
+
+    private AvaliacaoFisioterapeutica avaliacaoFisioterapeutica(Paciente paciente) {
         AvaliacaoFisioterapeutica a = new AvaliacaoFisioterapeutica();
         a.setPaciente(paciente);
         a.setDataAvaliacao(LocalDate.of(2026, 4, 20));
@@ -79,9 +101,19 @@ class AvaliacaoPosturalServiceTest {
         return a;
     }
 
+    private Reavaliacao reavaliacao(Paciente paciente, Long id) {
+        Reavaliacao r = new Reavaliacao();
+        r.setPaciente(paciente);
+        r.setDataReavaliacao(LocalDate.of(2026, 10, 1));
+        setId(Reavaliacao.class, r, id);
+        return r;
+    }
+
     private AvaliacaoPostural analise(VistaPostural vista, StatusAvaliacaoPostural status) {
         AvaliacaoPostural analise = new AvaliacaoPostural();
-        analise.setAvaliacaoFisioterapeutica(avaliacaoFisioterapeutica());
+        AvaliacaoFisioterapeutica avaliacao = avaliacaoFisioterapeutica();
+        analise.setPaciente(avaliacao.getPaciente());
+        analise.setAvaliacaoFisioterapeutica(avaliacao);
         analise.setVista(vista);
         analise.setStatus(status);
         analise.setDataCriacao(LocalDateTime.of(2026, 4, 20, 10, 0));
@@ -118,6 +150,7 @@ class AvaliacaoPosturalServiceTest {
 
     @Test
     void criar_comAvaliacaoValida_deveNascerEmRascunho() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
         when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
                 .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
         when(avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
@@ -125,22 +158,128 @@ class AvaliacaoPosturalServiceTest {
                 .thenReturn(false);
         devolverAnaliseSalva();
 
-        var response = service.criar(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE));
+        var response = service.criar(new AvaliacaoPosturalRequestDTO(1L, 1L, null, VistaPostural.FRENTE));
 
         assertThat(response.status()).isEqualTo(StatusAvaliacaoPostural.RASCUNHO);
         assertThat(response.vista()).isEqualTo(VistaPostural.FRENTE);
+        assertThat(response.pacienteId()).isEqualTo(1L);
         assertThat(response.avaliacaoFisioterapeuticaId()).isEqualTo(1L);
+        assertThat(response.reavaliacaoId()).isNull();
         assertThat(response.temFoto()).isFalse();
         assertThat(response.landmarks()).isEmpty();
     }
 
     @Test
-    void criar_comPacienteInativo_deveLancarBusinessException() {
-        AvaliacaoFisioterapeutica avaliacao = avaliacaoFisioterapeutica();
-        avaliacao.getPaciente().setAtivo(false);
-        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(avaliacao));
+    void criar_semPacienteIdComAvaliacao_usaOPacienteDaAvaliacao() {
+        // FE anterior à #247: cria a análise só com a avaliação.
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
+        devolverAnaliseSalva();
 
-        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE)))
+        var response = service.criar(new AvaliacaoPosturalRequestDTO(null, 1L, null, VistaPostural.FRENTE));
+
+        assertThat(response.pacienteId()).isEqualTo(1L);
+        assertThat(response.avaliacaoFisioterapeuticaId()).isEqualTo(1L);
+    }
+
+    @Test
+    void criar_semPacienteIdESemVinculo_deveLancarIllegalArgument() {
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(null, null, null, VistaPostural.FRENTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pacienteId");
+        verifyNoInteractions(pacienteRepository);
+    }
+
+    @Test
+    void criar_soComPaciente_deveNascerSolta() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
+        devolverAnaliseSalva();
+
+        var response = service.criar(new AvaliacaoPosturalRequestDTO(1L, null, null, VistaPostural.COSTAS));
+
+        assertThat(response.pacienteId()).isEqualTo(1L);
+        assertThat(response.avaliacaoFisioterapeuticaId()).isNull();
+        assertThat(response.reavaliacaoId()).isNull();
+        verifyNoInteractions(avaliacaoFisioterapeuticaRepository, reavaliacaoRepository);
+        verify(avaliacaoPosturalRepository, never())
+                .existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(any(), any());
+    }
+
+    @Test
+    void criar_comReavaliacaoDoPaciente_deveVincularAReavaliacao() {
+        Paciente paciente = paciente(1L);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
+        when(reavaliacaoRepository.findByIdComPaciente(3L)).thenReturn(Optional.of(reavaliacao(paciente, 3L)));
+        when(avaliacaoPosturalRepository.existsByReavaliacaoIdAndVistaAndAtivoTrue(3L, VistaPostural.FRENTE))
+                .thenReturn(false);
+        devolverAnaliseSalva();
+
+        var response = service.criar(new AvaliacaoPosturalRequestDTO(1L, null, 3L, VistaPostural.FRENTE));
+
+        assertThat(response.reavaliacaoId()).isEqualTo(3L);
+        assertThat(response.avaliacaoFisioterapeuticaId()).isNull();
+    }
+
+    @Test
+    void criar_comAvaliacaoEReavaliacao_deveLancarIllegalArgumentSemConsultarNada() {
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, 1L, 3L, VistaPostural.FRENTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não as duas");
+
+        verifyNoInteractions(pacienteRepository, avaliacaoFisioterapeuticaRepository, reavaliacaoRepository);
+        verify(avaliacaoPosturalRepository, never()).save(any());
+    }
+
+    @Test
+    void criar_comAvaliacaoDeOutroPaciente_deveLancarBusinessException() {
+        when(pacienteRepository.findById(2L)).thenReturn(Optional.of(paciente(2L)));
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(2L, 1L, null, VistaPostural.FRENTE)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não pertence ao paciente");
+
+        verify(avaliacaoPosturalRepository, never()).save(any());
+    }
+
+    @Test
+    void criar_comReavaliacaoDeOutroPaciente_deveLancarBusinessException() {
+        when(pacienteRepository.findById(2L)).thenReturn(Optional.of(paciente(2L)));
+        when(reavaliacaoRepository.findByIdComPaciente(3L)).thenReturn(Optional.of(reavaliacao(paciente(1L), 3L)));
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(2L, null, 3L, VistaPostural.FRENTE)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Reavaliação não pertence ao paciente");
+    }
+
+    @Test
+    void criar_comReavaliacaoInexistente_deveLancarResourceNotFound() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
+        when(reavaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, null, 99L, VistaPostural.FRENTE)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Reavaliação não encontrada: 99");
+    }
+
+    @Test
+    void criar_comPacienteInexistente_deveLancarResourceNotFound() {
+        when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(99L, null, null, VistaPostural.FRENTE)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Paciente não encontrado: 99");
+    }
+
+    @Test
+    void criar_comPacienteInativo_deveLancarBusinessException() {
+        Paciente inativo = paciente(1L);
+        inativo.setAtivo(false);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(inativo));
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, 1L, null, VistaPostural.FRENTE)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Paciente inativo não aceita novos registros clínicos");
 
@@ -149,9 +288,10 @@ class AvaliacaoPosturalServiceTest {
 
     @Test
     void criar_comAvaliacaoInexistente_deveLancarResourceNotFound() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
         when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(99L, VistaPostural.FRENTE)))
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, 99L, null, VistaPostural.FRENTE)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Avaliação fisioterapêutica não encontrada: 99");
 
@@ -160,17 +300,128 @@ class AvaliacaoPosturalServiceTest {
 
     @Test
     void criar_comVistaJaAtivaNaAvaliacao_deveLancarConflict() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
         when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
                 .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
         when(avaliacaoPosturalRepository.existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(
                         1L, VistaPostural.FRENTE))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE)))
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, 1L, null, VistaPostural.FRENTE)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("FRENTE");
 
         verify(avaliacaoPosturalRepository, never()).save(any());
+    }
+
+    @Test
+    void criar_comVistaJaAtivaNaReavaliacao_deveLancarConflict() {
+        Paciente paciente = paciente(1L);
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente));
+        when(reavaliacaoRepository.findByIdComPaciente(3L)).thenReturn(Optional.of(reavaliacao(paciente, 3L)));
+        when(avaliacaoPosturalRepository.existsByReavaliacaoIdAndVistaAndAtivoTrue(3L, VistaPostural.FRENTE))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(1L, null, 3L, VistaPostural.FRENTE)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Reavaliação já possui");
+    }
+
+    @Test
+    void listarPorPaciente_comPacienteInexistente_deveLancarResourceNotFound() {
+        when(pacienteRepository.existsById(99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.listarPorPaciente(99L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Paciente não encontrado: 99");
+    }
+
+    @Test
+    void listarPorPaciente_deveDevolverAsAnalisesDoRepositorio() {
+        AvaliacaoPostural solta = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        solta.setAvaliacaoFisioterapeutica(null);
+        when(pacienteRepository.existsById(1L)).thenReturn(true);
+        when(avaliacaoPosturalRepository.findAtivasByPaciente(1L)).thenReturn(List.of(solta));
+
+        assertThat(service.listarPorPaciente(1L)).singleElement().satisfies(r -> {
+            assertThat(r.pacienteId()).isEqualTo(1L);
+            assertThat(r.avaliacaoFisioterapeuticaId()).isNull();
+        });
+    }
+
+    @Test
+    void alterarVinculo_comOsDoisNulos_deveDeixarAAnaliseSolta() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.CONCLUIDA);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        devolverAnaliseAtualizada();
+
+        var response = service.alterarVinculo(10L, new AvaliacaoPosturalVinculoDTO(null, null));
+
+        assertThat(response.avaliacaoFisioterapeuticaId()).isNull();
+        assertThat(response.reavaliacaoId()).isNull();
+        assertThat(analise.getAvaliacaoFisioterapeutica()).isNull();
+    }
+
+    @Test
+    void alterarVinculo_daAvaliacaoParaAReavaliacao_deveTrocarOVinculo() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        when(reavaliacaoRepository.findByIdComPaciente(3L))
+                .thenReturn(Optional.of(reavaliacao(analise.getPaciente(), 3L)));
+        when(avaliacaoPosturalRepository.existsByReavaliacaoIdAndVistaAndAtivoTrue(3L, VistaPostural.FRENTE))
+                .thenReturn(false);
+        devolverAnaliseAtualizada();
+
+        var response = service.alterarVinculo(10L, new AvaliacaoPosturalVinculoDTO(null, 3L));
+
+        assertThat(response.reavaliacaoId()).isEqualTo(3L);
+        assertThat(response.avaliacaoFisioterapeuticaId()).isNull();
+    }
+
+    @Test
+    void alterarVinculo_mantendoAMesmaAvaliacao_naoContaComoDuplicata() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(analise.getAvaliacaoFisioterapeutica()));
+        devolverAnaliseAtualizada();
+
+        var response = service.alterarVinculo(10L, new AvaliacaoPosturalVinculoDTO(1L, null));
+
+        assertThat(response.avaliacaoFisioterapeuticaId()).isEqualTo(1L);
+        verify(avaliacaoPosturalRepository, never())
+                .existsByAvaliacaoFisioterapeuticaIdAndVistaAndAtivoTrue(any(), any());
+    }
+
+    @Test
+    void alterarVinculo_comAvaliacaoDeOutroPaciente_deveLancarBusinessExceptionSemAlterar() {
+        AvaliacaoPostural analise = analise(VistaPostural.FRENTE, StatusAvaliacaoPostural.RASCUNHO);
+        analise.setAvaliacaoFisioterapeutica(null);
+        when(avaliacaoPosturalRepository.findAtivaById(10L)).thenReturn(Optional.of(analise));
+        AvaliacaoFisioterapeutica deOutro = avaliacaoFisioterapeutica(paciente(2L));
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(deOutro));
+
+        assertThatThrownBy(() -> service.alterarVinculo(10L, new AvaliacaoPosturalVinculoDTO(1L, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não pertence ao paciente");
+
+        verify(avaliacaoPosturalRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void alterarVinculo_comOsDoisPreenchidos_deveLancarIllegalArgument() {
+        assertThatThrownBy(() -> service.alterarVinculo(10L, new AvaliacaoPosturalVinculoDTO(1L, 3L)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(avaliacaoPosturalRepository);
+    }
+
+    @Test
+    void alterarVinculo_comAnaliseInexistente_deveLancarResourceNotFound() {
+        when(avaliacaoPosturalRepository.findAtivaById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.alterarVinculo(99L, new AvaliacaoPosturalVinculoDTO(null, null)))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

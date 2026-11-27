@@ -4,6 +4,7 @@ import com.carlesso.pilatesapi.dto.AvaliacaoPosturalFotoResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalVinculoDTO;
 import com.carlesso.pilatesapi.service.AvaliacaoPosturalService;
 import com.carlesso.pilatesapi.storage.FotoArmazenada;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,13 +37,19 @@ public class AvaliacaoPosturalController {
     @Operation(
             summary = "Criar análise postural",
             description =
-                    "Cria a análise em RASCUNHO dentro de uma avaliação fisioterapêutica. Cada avaliação admite no máximo uma análise ativa por vista.")
+                    "Cria a análise em RASCUNHO para o paciente: solta, ou vinculada a uma avaliação fisioterapêutica ou a uma reavaliação dele. Cada avaliação e cada reavaliação admite no máximo uma análise ativa por vista; a análise solta não tem esse limite.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Análise criada com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou campos obrigatórios ausentes"),
-        @ApiResponse(responseCode = "404", description = "Avaliação fisioterapêutica não encontrada"),
-        @ApiResponse(responseCode = "409", description = "Já existe análise ativa dessa vista na avaliação"),
-        @ApiResponse(responseCode = "422", description = "Paciente inativo não aceita novos registros clínicos")
+        @ApiResponse(
+                responseCode = "400",
+                description = "Dados inválidos, campos obrigatórios ausentes ou avaliação e reavaliação juntas"),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Paciente, avaliação fisioterapêutica ou reavaliação não encontrada"),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Já existe análise ativa dessa vista na avaliação ou reavaliação"),
+        @ApiResponse(responseCode = "422", description = "Paciente inativo, ou avaliação/reavaliação de outro paciente")
     })
     @PostMapping
     public ResponseEntity<AvaliacaoPosturalResponseDTO> criar(
@@ -78,6 +85,40 @@ public class AvaliacaoPosturalController {
             @Parameter(description = "ID da avaliação fisioterapêutica", required = true) @PathVariable
                     Long avaliacaoId) {
         return ResponseEntity.ok(service.listarPorAvaliacaoFisioterapeutica(avaliacaoId));
+    }
+
+    @Operation(
+            summary = "Listar análises posturais ativas do paciente",
+            description =
+                    "Todas as análises ativas do paciente — soltas, de avaliações e de reavaliações —, da mais recente à mais antiga (data de criação).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Análises encontradas"),
+        @ApiResponse(responseCode = "404", description = "Paciente não encontrado")
+    })
+    @GetMapping("/paciente/{pacienteId}")
+    public ResponseEntity<List<AvaliacaoPosturalResponseDTO>> listarPorPaciente(
+            @Parameter(description = "ID do paciente", required = true) @PathVariable Long pacienteId) {
+        return ResponseEntity.ok(service.listarPorPaciente(pacienteId));
+    }
+
+    @Operation(
+            summary = "Vincular, trocar ou remover o vínculo da análise postural",
+            description =
+                    "Substitui o vínculo da análise: avaliação fisioterapêutica OU reavaliação do mesmo paciente; os dois nulos deixam a análise solta. Aceito também em análise concluída — a foto, os pontos e as métricas não mudam.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Vínculo atualizado"),
+        @ApiResponse(responseCode = "400", description = "Avaliação e reavaliação informadas juntas"),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Análise não encontrada ou cancelada, ou avaliação/reavaliação inexistente"),
+        @ApiResponse(responseCode = "409", description = "O destino já tem análise ativa da mesma vista"),
+        @ApiResponse(responseCode = "422", description = "Avaliação ou reavaliação de outro paciente")
+    })
+    @PatchMapping("/{id}/vinculo")
+    public ResponseEntity<AvaliacaoPosturalResponseDTO> alterarVinculo(
+            @Parameter(description = "ID da análise postural", required = true) @PathVariable Long id,
+            @RequestBody AvaliacaoPosturalVinculoDTO dto) {
+        return ResponseEntity.ok(service.alterarVinculo(id, dto));
     }
 
     @Operation(

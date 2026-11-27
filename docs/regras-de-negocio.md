@@ -73,6 +73,8 @@ design; o comportamento por endpoint está em [`api.md`](api.md).
 - Tipos de contrato: `CLT`, `PJ`, `AUTONOMO`
 - O `percentualPagamentoAula` representa o percentual recebido por aula ministrada
 - Profissionais inativos são mantidos no banco (soft delete)
+- **CREFITO obrigatório para profissional ativo** ([#250](https://github.com/FabioCarlesso/carlessopilatesapi/issues/250)): todos os profissionais do estúdio são fisioterapeutas, e a evolução copia o `numeroRegistro` do cadastro no momento do registro — sem ele, o prontuário sai sem a identificação que a [COFFITO 414/2012](#prontuário-e-coffito-4142012) exige. `POST /profissionais` sem número (ou em branco) e `PUT /profissionais/{id}` que deixaria o ativo sem número retornam `400` com `detail` "Número de registro no CREFITO é obrigatório". O `PUT` é parcial, então vale o estado resultante: omitir o campo mantém o número atual, e só é recusado quando o cadastro ainda não tem número. `PATCH /profissionais/{id}/ativar` de quem não tem número retorna `422` com o mesmo `detail` — complete o cadastro antes. O profissional inativo pode ficar sem número (inclusive limpá-lo com string vazia)
+- Profissionais ativos cadastrados antes da regra continuam ativos sem número até a próxima edição; a tela lista quem está sem (`numeroRegistro: null`) para ajuste
 - O relatório de pagamento considera apenas aulas `realizada = true` vinculadas ao profissional, dentro do período informado e associadas a pacientes ativos
 - A consulta do relatório de pagamento consolida dados da aula, paciente, pagamento e contagem de aulas por pagamento em um único `JOIN` com `GROUP BY`, sem round-trips adicionais
 - Valor por aula no relatório: `valor do pagamento / quantidade de aulas do pagamento`
@@ -274,6 +276,7 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Consultas e atualizações de anamnese não filtram por `paciente.ativo`: o histórico de paciente inativo continua legível e editável (ver *Histórico clínico de paciente inativo*)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; `queixaPrincipal` e `objetivos` não aceitam strings em branco quando enviados
 - `dataAtualizacao` é registrada automaticamente em cada atualização
+- Campos estruturados (#248): `regioesDor`, `condicoesSaude`, `nivelAtividadeFisicaOpcao` e `objetivosOpcoes`, cada um com o seu complemento livre — ver [Opções pré-definidas](#opções-pré-definidas-anamnese-avaliação-e-reavaliação). Os textos `nivelAtividadeFisica` e `objetivos` continuam como antes (e `objetivos` segue obrigatório)
 
 ## Avaliações Fisioterapêuticas
 
@@ -284,6 +287,7 @@ com cinco segundas não gera a quinta aula num plano 1x/semana: ela é a primeir
 - Consultas e atualizações não filtram por `paciente.ativo`: o histórico de ex-aluno continua acessível
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados; campos textuais obrigatórios não aceitam strings em branco quando enviados
 - `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
+- Campos estruturados do exame físico (#248): `achadosPosturais`, `padraoRespiratorioOpcao`, `equilibrioOpcao`, `coordenacaoMotoraOpcao` e `testesFuncionais`, cada um com o seu complemento livre — ver [Opções pré-definidas](#opções-pré-definidas-anamnese-avaliação-e-reavaliação). Os textos `equilibrio`, `coordenacaoMotora`, `padraoRespiratorio` e `testesFuncionaisRealizados` continuam como antes
 
 ## Planos de Tratamento
 
@@ -389,6 +393,84 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
 - Listagem por paciente é paginada e, por padrão, sai por `dataReavaliacao DESC, id DESC` — ver [Listagens por paciente](api.md#listagens-por-paciente)
 - Atualização parcial: apenas campos não-nulos do DTO de update são aplicados
 - `dataCriacao`/`criadoPor` são registrados na criação e `dataAtualizacao`/`alteradoPor` em cada atualização ([auditoria](#auditoria-de-criação-e-alteração))
+- Campos estruturados (#248): os mesmos do exame físico da avaliação, com os mesmos nomes, mais `regioesDor`, para comparar a dor com a anamnese — ver [Opções pré-definidas](#opções-pré-definidas-anamnese-avaliação-e-reavaliação)
+
+## Opções pré-definidas (anamnese, avaliação e reavaliação)
+
+Os campos estruturados (#248) aceitam só valores de uma lista fixa, publicada em `GET /avaliacoes/opcoes` para que o
+frontend monte os seletores sem duplicar as listas. Cada campo tem um complemento de texto livre
+(`<campo>Complemento`; em `nivelAtividadeFisicaOpcao`/`objetivosOpcoes`/`padraoRespiratorioOpcao`/`equilibrioOpcao`/
+`coordenacaoMotoraOpcao` o complemento é `<nome sem o sufixo>Complemento`, informado em `campoComplemento` no catálogo).
+
+- Todos são opcionais. Na resposta, as listas vêm vazias (nunca `null`) e a seleção única vem `null` quando não há
+- Valor fora da lista do campo, item nulo ou valor de outro campo → `400` (`bad-request`, com o campo e o valor no `detail`). Os valores diferenciam maiúsculas
+- Seleção múltipla: valores repetidos são descartados, na ordem em que chegaram
+- Testes funcionais: cada item é `{teste, resultado}`, com `resultado` obrigatório (`POSITIVO`/`NEGATIVO`). O mesmo teste repetido com o mesmo resultado é deduplicado; com resultados diferentes → `400`
+- PUT parcial: campo ausente mantém o valor; lista vazia limpa a lista; texto vazio (`""`) limpa a seleção única
+- Os campos de texto anteriores continuam existindo e sendo aceitos, e não são migrados para as opções. Registro antigo, só com texto, abre com listas vazias e edita normalmente
+- **Evolução das listas**: uma opção nunca é apagada nem renomeada, porque o valor está gravado nos registros. Para retirá-la, ela fica com `ativa: false` no catálogo — o frontend continua exibindo-a nos registros que a usam e não a oferece em seleção nova — e a API continua aceitando-a, para que a edição de um registro antigo que a reenvia não falhe. Pedidos de inclusão, alteração ou remoção entram como issue própria
+- O banco não restringe os valores (sem `CHECK`): a validação é da aplicação, e um valor gravado que deixe de existir no código continua sendo lido
+
+| Campo (DTO) | Onde | Seleção | Opções (valor — rótulo) |
+|---|---|---|---|
+| `regioesDor` | anamnese, reavaliação | múltipla | `CERVICAL` Cervical, `TORACICA` Torácica, `LOMBAR` Lombar, `SACROILIACA` Sacroilíaca, `OMBRO_DIREITO`/`OMBRO_ESQUERDO` Ombro direito/esquerdo, `COTOVELO_DIREITO`/`_ESQUERDO`, `PUNHO_MAO_DIREITO`/`_ESQUERDO` Punho/mão, `QUADRIL_DIREITO`/`_ESQUERDO`, `JOELHO_DIREITO`/`_ESQUERDO`, `TORNOZELO_PE_DIREITO`/`_ESQUERDO` Tornozelo/pé, `CEFALEIA` Cefaleia |
+| `condicoesSaude` | anamnese | múltipla | `HERNIA_DE_DISCO` Hérnia de disco, `PROTRUSAO_DISCAL` Protrusão discal, `ESCOLIOSE` Escoliose, `ARTROSE` Artrose, `OSTEOPENIA_OSTEOPOROSE` Osteopenia/osteoporose, `FIBROMIALGIA` Fibromialgia, `TENDINOPATIA` Tendinopatia, `BURSITE` Bursite, `FRATURA_PREVIA` Fratura prévia, `CIRURGIA_ORTOPEDICA` Cirurgia ortopédica, `HIPERTENSAO` Hipertensão, `DIABETES` Diabetes, `CARDIOPATIA` Cardiopatia, `LABIRINTITE_VERTIGEM` Labirintite/vertigem, `GESTACAO` Gestação, `POS_PARTO` Pós-parto |
+| `nivelAtividadeFisicaOpcao` | anamnese | única | `SEDENTARIO` Sedentário, `IRREGULARMENTE_ATIVO` Irregularmente ativo, `ATIVO` Ativo, `MUITO_ATIVO` Muito ativo |
+| `objetivosOpcoes` | anamnese | múltipla | `ALIVIO_DE_DOR` Alívio de dor, `REABILITACAO` Reabilitação, `FORTALECIMENTO` Fortalecimento, `FLEXIBILIDADE_MOBILIDADE` Flexibilidade/mobilidade, `POSTURA` Postura, `CONDICIONAMENTO` Condicionamento, `GESTACAO_POS_PARTO` Gestação/pós-parto, `PREVENCAO` Prevenção, `QUALIDADE_DE_VIDA` Qualidade de vida |
+| `achadosPosturais` | avaliação, reavaliação | múltipla | `ANTERIORIZACAO_DE_CABECA`, `RETIFICACAO_CERVICAL`, `HIPERCIFOSE_TORACICA`, `HIPERLORDOSE_LOMBAR`, `RETIFICACAO_LOMBAR`, `ESCOLIOSE`, `OMBROS_PROTUSOS`, `DESNIVEL_DE_OMBROS`, `DESNIVEL_PELVICO`, `ANTEVERSAO_PELVICA`, `RETROVERSAO_PELVICA`, `JOELHO_VALGO`, `JOELHO_VARO`, `JOELHO_RECURVADO`, `PE_PLANO`, `PE_CAVO` (rótulos como na issue: Anteriorização de cabeça… Pé cavo) |
+| `padraoRespiratorioOpcao` | avaliação, reavaliação | única | `DIAFRAGMATICO` Diafragmático, `TORACICO_APICAL` Torácico/apical, `MISTO` Misto, `PARADOXAL` Paradoxal |
+| `equilibrioOpcao`, `coordenacaoMotoraOpcao` | avaliação, reavaliação | única (cada) | `PRESERVADO` Preservado, `ALTERACAO_LEVE` Alteração leve, `ALTERACAO_MODERADA` Alteração moderada, `ALTERACAO_GRAVE` Alteração grave |
+| `testesFuncionais` | avaliação, reavaliação | múltipla, com resultado | `SCHOBER` Schober, `ADAMS` Adams, `THOMAS` Thomas, `LASEGUE` Lasègue, `SENTAR_E_ALCANCAR` Sentar e alcançar, `TRENDELENBURG` Trendelenburg, `APOIO_UNIPODAL` Apoio unipodal — resultado `POSITIVO`/`NEGATIVO` |
+
+## Análise postural (simetrógrafo virtual)
+
+- A análise pertence sempre a um paciente e pode estar **solta** (checagem rápida da postura, sem abrir uma avaliação completa) ou vinculada a **uma** avaliação fisioterapêutica **ou** a **uma** reavaliação do mesmo paciente — nunca às duas (#247)
+- Criar exige `pacienteId`: paciente inexistente retorna `404`, inativo `422`. Avaliação e reavaliação juntas retornam `400`; avaliação ou reavaliação de outro paciente, `422`
+- Compatibilidade: sem `pacienteId`, mas com avaliação ou reavaliação, a análise fica com o paciente dela. É o
+  pedido do FE anterior à #247, que continua no ar entre o deploy da API e o do FE. A análise solta exige o campo (`400`)
+- Cada avaliação e cada reavaliação admite no máximo uma análise ativa por vista (`409`); a análise solta não tem esse limite, e o paciente pode ter várias da mesma vista ao longo do tempo
+- O vínculo pode ser definido, trocado ou removido depois (`PATCH /avaliacoes-posturais/{id}/vinculo`), com as mesmas validações. Vale também para a análise concluída e para paciente inativo: a foto, os pontos e as métricas não mudam, só o registro a que a análise pertence
+- A listagem do paciente traz todas as análises ativas — soltas, de avaliações e de reavaliações —, da mais recente à mais antiga pela data de criação; canceladas ficam de fora
+- As análises anteriores à #247 foram atribuídas ao paciente da avaliação em que nasceram (migration `V51`)
+- Ciclo de vida, landmarks, foto e métricas: ver [`api.md`](api.md#análises-posturais-simetrógrafo-virtual) e [`simetrografo-virtual.md`](simetrografo-virtual.md)
+
+## Pontos de dor (mapa corporal)
+
+- O ponto de dor pertence a **exatamente um** registro: a avaliação fisioterapêutica ou a reavaliação em que foi marcado (`CHECK` no banco); o paciente vem do registro
+- `x` e `y` são normalizados de 0 a 1 em relação ao `viewBox` do desenho (240 × 520), o que deixa o ponto independente do tamanho em que o FE o exibe; a API grava com 6 casas decimais
+- `desenhoVersao` guarda a versão do desenho em que o ponto foi marcado: quando o desenho for trocado, os registros antigos continuam abrindo sobre o desenho original
+- O conjunto do registro é sempre **substituído por inteiro** numa transação: os pontos antigos são apagados e os enviados gravados; lista vazia apaga todos. Dois `PUT` simultâneos no mesmo registro são serializados por trava pessimista na linha da avaliação/reavaliação, para os conjuntos não se somarem
+- Máximo de **50 pontos** por registro; `observacao` em branco é gravada como nula
+- Como a atualização da avaliação, substituir os pontos **não exige paciente ativo**
+- O histórico do paciente agrupa os pontos por registro e ordena pela data do registro (`dataAvaliacao`/`dataReavaliacao`), do mais antigo para o mais recente; no mesmo dia a avaliação vem antes da reavaliação, e o `id` desempata. Registros sem pontos ficam de fora
+- Excluir a avaliação ou a reavaliação apaga os pontos dela (`ON DELETE CASCADE`). Hoje a API não exclui nenhum dos dois; a cascata cobre a exclusão que vier a existir e a feita direto no banco
+- Acesso: o mesmo das avaliações (`ADMIN` e `PROFISSIONAL`), inclusive no histórico sob `/pacientes/{id}/pontos-dor`
+
+## Prontuário e COFFITO 414/2012
+
+A fiscalização do CREFITO-8 pede o prontuário com as evoluções e a identificação de quem atendeu
+([#250](https://github.com/FabioCarlesso/carlessopilatesapi/issues/250)). A norma federal é a
+[Resolução COFFITO nº 414/2012](https://www.normasbrasil.com.br/norma/resolucao-414-2012_240928.html), que determina:
+
+- o prontuário pode ser eletrônico;
+- no prontuário eletrônico, o fisioterapeuta informa, **logo após cada registro, o nome completo e o número no CREFITO**;
+- o prontuário contém, no mínimo, a identificação do paciente, a avaliação, o diagnóstico, o plano terapêutico e as evoluções;
+- o prontuário pertence ao paciente, e o conteúdo é sigiloso.
+
+Como o sistema atende:
+
+- **Exportação em PDF** (`GET /pacientes/{id}/prontuario/pdf`, e `GET /evolucoes-sessao/{id}/pdf` para uma evolução avulsa), só para os papéis clínicos (`ADMIN`, `PROFISSIONAL`). O PDF traz cabeçalho com o estúdio e a data de geração (fuso do estúdio), identificação do paciente (nome, nascimento, CPF, telefone, e-mail e endereço), anamnese, avaliações (com o diagnóstico), planos de tratamento, reavaliações e evoluções em ordem cronológica, e "Página X de Y" no rodapé
+- **Assinatura de cada evolução**: logo após o conteúdo, a linha "Fisioterapeuta: _nome completo_ — CREFITO nº _número_", tirada do snapshot gravado na evolução (vale quem atendeu e o número que tinha no dia, não o cadastro atual). Evolução anterior à exigência do CREFITO sai com "CREFITO não informado"; sessão sem profissional, com "Fisioterapeuta: não informado"
+- **Decidido (2026-11-26)**: o PDF com nome completo e CREFITO em cada registro basta para a fiscalização — **sem assinatura digital certificada** (ICP-Brasil)
+- **Período** (`inicio`/`fim`, ambos opcionais e inclusivos; `inicio > fim` → `400`; sem nenhum, o prontuário completo):
+  - evoluções pela **data da sessão**, e não por `dataHoraRegistro`: é a sessão que posiciona o atendimento na linha do tempo (mesma ordem da tela), e a evolução pode ser registrada dias depois. Ordem: `sessao.data`, `sessao.horario` (sem horário primeiro), `sessao.id`;
+  - reavaliações pela `dataReavaliacao`;
+  - anamnese sempre entra: é uma por paciente e é a base do prontuário, sem data de vigência;
+  - avaliação fisioterapêutica **vigente** = a última feita antes do `inicio` (ainda valia quando o período começou) mais as feitas dentro do período;
+  - plano de tratamento **vigente** = plano não excluído cuja vigência (`dataInicio` até `dataFimPrevista`, aberta quando nula) cruza o período
+- **Opções pré-definidas (#248)**: a anamnese, a avaliação e a reavaliação saem também com os campos estruturados, pelos rótulos do catálogo (ex.: "Hiperlordose lombar", "Schober (positivo)") e com o complemento livre; campo vazio não sai, e um valor que saiu do catálogo aparece como foi gravado
+- **Rastreio da exportação**: não há tabela de auditoria de ações, então cada exportação gera um log `INFO` (`Prontuário exportado` / `Evolução exportada`) com paciente, período, número de evoluções e o e-mail mascarado de quem exportou — ver [logging](operacao.md#logging-estruturado-e-correlation-id)
+- **Guarda — decidido (2026-11-26)**: o prontuário é mantido **pelo maior tempo possível**. Não há descarte nem exclusão automática de evoluções, avaliações, reavaliações, planos ou sessões por tempo — nenhum scheduler apaga dado clínico, e um processo desse tipo não deve ser criado. As exclusões que existem são ações manuais (ex.: excluir a sessão leva a evolução junto; o plano de tratamento é inativado, não apagado)
 
 ## Histórico clínico de paciente inativo
 

@@ -74,11 +74,13 @@ da tabela abaixo. Rota que o
 
 | Rotas | `PROFISSIONAL` | `RECEPCAO` | `FINANCEIRO` |
 |---|---|---|---|
-| `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/avaliacoes-posturais`, `/evolucoes-sessao`, `/reavaliacoes`, `/planos-tratamento` | ✓ | | |
+| `/anamneses`, `/avaliacoes-fisioterapeuticas`, `/avaliacoes-posturais`, `/evolucoes-sessao`, `/reavaliacoes`, `/planos-tratamento`, `GET /avaliacoes/opcoes` | ✓ | | |
 | `/pacientes` | ✓ | ✓ | ✓ |
 | `GET /tomadores` (leitura); escrita em `/tomadores` | ✓ (só leitura) | ✓ | ✓ |
 | `/aulas`, `/sessoes`, `/lista-espera` | ✓ | ✓ | |
 | `/aulas/{id}/atendimento` (#246: agenda e prontuário juntos) | ✓ | | |
+| `/pacientes/{id}/pontos-dor` (#249: histórico de prontuário debaixo de `/pacientes`) | ✓ | | |
+| `/pacientes/{id}/prontuario/pdf` (#250) | ✓ | | |
 | `GET /bloqueios` | ✓ | ✓ | ✓ |
 | `/planos`, `/pagamentos` (exceto as rotas só de `ADMIN`) | | ✓ | ✓ |
 | `/api/relatorios/pacientes` (JSON, PDF e XLSX) | | ✓ | |
@@ -165,7 +167,11 @@ Leitura (`GET`/`HEAD`) para a equipe toda — o formulário de paciente escolhe 
 
 Campos obrigatórios: `nome`, `email`, `cpf`, `tipoContrato`, `percentualPagamentoAula` e `dataInicio`.
 
-`numeroRegistro` é opcional (máx. 30 caracteres), sem validação de formato — acomoda CREFITO, CREF e outros conselhos. No `PUT /profissionais/{id}`, enviá-lo como string vazia limpa o campo; omitir mantém o valor atual.
+`numeroRegistro` (número no CREFITO, máx. 30 caracteres, sem validação de formato) é obrigatório para profissional
+ativo (#250): `POST` sem ele ou em branco → `400`; `PUT /profissionais/{id}` que deixaria o ativo sem número → `400`
+(omitir mantém o valor atual; string vazia limpa o campo, o que só é aceito para inativo); `PATCH .../ativar` de quem
+não tem número → `422`. O `detail` é "Número de registro no CREFITO é obrigatório". Regra completa em
+[Profissionais](regras-de-negocio.md#profissionais).
 
 ### Disponibilidade semanal
 
@@ -502,15 +508,65 @@ consultada por nenhuma outra rota — não bloqueia o cancelamento nem vira sess
 
 Campos obrigatórios: `pacienteId`, `dataAvaliacao`, `queixaFuncional`, `escalaDor` (0 a 10) e `diagnosticoFisioterapeutico`.
 
+### Pontos de dor (mapa corporal)
+
+Pontos marcados sobre o desenho do corpo, ligados à avaliação ou à reavaliação (#249). Acesso igual ao das
+avaliações, inclusive no histórico, que fica sob `/pacientes`.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/avaliacoes-fisioterapeuticas/{id}/pontos-dor` | Pontos da avaliação |
+| `PUT` | `/avaliacoes-fisioterapeuticas/{id}/pontos-dor` | Substitui o conjunto de pontos da avaliação |
+| `GET` | `/reavaliacoes/{id}/pontos-dor` | Pontos da reavaliação |
+| `PUT` | `/reavaliacoes/{id}/pontos-dor` | Substitui o conjunto de pontos da reavaliação |
+| `GET` | `/pacientes/{pacienteId}/pontos-dor` | Histórico do paciente agrupado por registro |
+
+- O `PUT` recebe `{ "pontos": [...] }` (pontos sem `id`), **substitui** o conjunto inteiro — lista vazia apaga
+  todos — e responde a lista gravada, já com os `id`s.
+- Cada ponto: `vista` (`FRENTE`, `COSTAS`, `LATERAL_DIREITA`, `LATERAL_ESQUERDA`), `x` e `y` de 0 a 1 relativos ao
+  `viewBox` do desenho, `desenhoVersao` (inteiro ≥ 1), `intensidade` opcional (0 a 10) e `observacao` opcional
+  (até 200 caracteres). Coordenada fora de 0–1, vista inválida, `desenhoVersao` < 1 ou mais de 50 pontos → `400`.
+- O histórico devolve `[{ "origem": "AVALIACAO" | "REAVALIACAO", "registroId", "data", "pontos": [...] }]`, do
+  registro mais antigo para o mais recente; `data` é a `dataAvaliacao` ou a `dataReavaliacao`. Só aparecem os
+  registros com pontos.
+
+### Opções pré-definidas (#248)
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/avaliacoes/opcoes` | Catálogo dos campos estruturados de anamnese, avaliação e reavaliação, com as opções de cada um |
+
+O catálogo traz `campos: [{campo, rotulo, selecao, comResultado, opcoes: [{valor, rotulo, ativa}], campoComplemento}]`.
+`campo` é o nome da propriedade nos DTOs, `selecao` é `UNICA` ou `MULTIPLA`, `comResultado` só é `true` em
+`testesFuncionais` e `ativa: false` marca opção aposentada (exibir, não oferecer). `campoComplemento` é o nome da
+propriedade de texto livre que acompanha o campo.
+
+Os DTOs de criação, edição e resposta de `/anamneses`, `/avaliacoes-fisioterapeuticas` e `/reavaliacoes` ganharam os
+campos estruturados, todos opcionais e sem alterar os campos de texto existentes:
+
+- Anamnese: `regioesDor`, `condicoesSaude`, `objetivosOpcoes` (listas), `nivelAtividadeFisicaOpcao` (texto) e os
+  complementos `regioesDorComplemento`, `condicoesSaudeComplemento`, `nivelAtividadeFisicaComplemento`,
+  `objetivosComplemento`.
+- Avaliação e reavaliação (mesmos nomes): `achadosPosturais` (lista), `padraoRespiratorioOpcao`, `equilibrioOpcao`,
+  `coordenacaoMotoraOpcao` (texto), `testesFuncionais` (lista de `{teste, resultado}`) e os complementos
+  `achadosPosturaisComplemento`, `padraoRespiratorioComplemento`, `equilibrioComplemento`,
+  `coordenacaoMotoraComplemento`, `testesFuncionaisComplemento`. A reavaliação tem também `regioesDor` e
+  `regioesDorComplemento`.
+
+As listas sempre saem na resposta (vazias quando não há nada); valor fora do catálogo → `400`. Semântica do PUT e
+listas: [regras de negócio](regras-de-negocio.md#opções-pré-definidas-anamnese-avaliação-e-reavaliação).
+
 ## Análises Posturais (simetrógrafo virtual)
 
 Especificação funcional completa em [`simetrografo-virtual.md`](simetrografo-virtual.md).
 
 | Método | Endpoint | Descrição |
 |---|---|---|
-| `POST` | `/avaliacoes-posturais` | Criar análise postural (status `RASCUNHO`) para uma avaliação e vista |
+| `POST` | `/avaliacoes-posturais` | Criar análise postural (status `RASCUNHO`) para um paciente e vista — solta, de uma avaliação ou de uma reavaliação |
 | `GET` | `/avaliacoes-posturais/{id}` | Buscar análise por ID (com métricas calculadas) |
+| `GET` | `/avaliacoes-posturais/paciente/{pacienteId}` | Listar todas as análises ativas do paciente (soltas, de avaliações e de reavaliações), da mais recente à mais antiga |
 | `GET` | `/avaliacoes-posturais/avaliacao-fisioterapeutica/{avaliacaoId}` | Listar análises ativas da avaliação |
+| `PATCH` | `/avaliacoes-posturais/{id}/vinculo` | Vincular, trocar ou remover o vínculo da análise com uma avaliação ou reavaliação |
 | `PUT` | `/avaliacoes-posturais/{id}` | Atualizar landmarks, linha de prumo, calibração e observações (apenas `RASCUNHO`) |
 | `PUT` | `/avaliacoes-posturais/{id}/foto` | Enviar/substituir a foto da análise (multipart, JPEG/PNG até 2 MB, apenas `RASCUNHO`) |
 | `GET` | `/avaliacoes-posturais/{id}/foto` | Recuperar o binário da foto da análise |
@@ -518,7 +574,26 @@ Especificação funcional completa em [`simetrografo-virtual.md`](simetrografo-v
 | `PATCH` | `/avaliacoes-posturais/{id}/cancelar` | Cancelar análise (exclusão lógica) |
 
 `vista` aceita `FRENTE`, `COSTAS`, `LADO_DIREITO` ou `LADO_ESQUERDO`. A análise nasce em `RASCUNHO` e cada
-avaliação admite no máximo **uma análise ativa por vista** (duplicata retorna `409`).
+avaliação e cada reavaliação admite no máximo **uma análise ativa por vista** (duplicata retorna `409`); a análise
+solta não tem esse limite.
+
+### Paciente e vínculo
+
+A criação exige `pacienteId`; `avaliacaoFisioterapeuticaId` e `reavaliacaoId` são opcionais e exclusivos — sem
+nenhum dos dois a análise nasce **solta**. A resposta traz `pacienteId`, `avaliacaoFisioterapeuticaId` e
+`reavaliacaoId` (os dois últimos nulos quando não há o vínculo).
+
+`PATCH /avaliacoes-posturais/{id}/vinculo` recebe `{ "avaliacaoFisioterapeuticaId": n|null, "reavaliacaoId": n|null }`
+e substitui o vínculo atual; os dois nulos deixam a análise solta. Responde a análise atualizada e vale também para
+análise `CONCLUIDA`.
+
+| Situação (criação ou vínculo) | Status |
+|---|---|
+| Avaliação e reavaliação informadas juntas | `400` |
+| Paciente, avaliação ou reavaliação inexistente | `404` |
+| Avaliação ou reavaliação de outro paciente | `422` |
+| Paciente inativo (só na criação) | `422` |
+| Destino já tem análise ativa da mesma vista | `409` |
 
 ### Landmarks
 
@@ -577,12 +652,28 @@ liberando a vista para uma nova análise.
 | `GET` | `/evolucoes-sessao/sessao/{sessaoId}` | Buscar evolução pela sessão vinculada |
 | `GET` | `/evolucoes-sessao/paciente/{pacienteId}` | Listar evoluções do paciente, da sessão mais recente para a mais antiga |
 | `PUT` | `/evolucoes-sessao/{id}` | Atualizar dados da evolução |
+| `GET` | `/evolucoes-sessao/{id}/pdf` | Exportar a evolução em PDF, com a identificação do paciente e do fisioterapeuta (#250) |
 
 A resposta traz `profissionalId`, `profissionalNome` e `profissionalNumeroRegistro`: um **snapshot** do profissional
 da sessão, congelado no momento do registro. Editar depois o cadastro do profissional não reescreve as evoluções já
 gravadas, e o `PUT` acima preserva os três campos. Sessões sem profissional vinculado geram evolução com os três
 campos `null`. Evoluções anteriores à migration `V32` têm `profissionalNumeroRegistro` `null`, já que o dado não
 existia à época do registro.
+
+## Prontuário em PDF
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/pacientes/{id}/prontuario/pdf?inicio=&fim=` | Prontuário do paciente em PDF (COFFITO 414/2012, #250) |
+| `GET` | `/evolucoes-sessao/{id}/pdf` | Uma evolução em PDF |
+
+- Só `ADMIN` e `PROFISSIONAL`; os demais papéis recebem `403` — inclusive sob `/pacientes`, que no resto é da equipe toda
+- `inicio` e `fim` (`yyyy-MM-dd`) são opcionais e inclusivos; `inicio > fim` → `400`; paciente ou evolução inexistente → `404`
+- Resposta `application/pdf` com `Content-Disposition: attachment; filename="..."`:
+  - `prontuario-<slug-do-paciente>-<inicio>-a-<fim>.pdf`; sem período, `prontuario-<slug>-completo.pdf`; com um lado só, o ausente vira `inicio` ou `hoje` (`prontuario-ana-silva-2026-01-01-a-hoje.pdf`, `prontuario-ana-silva-inicio-a-2026-06-30.pdf`);
+  - `evolucao-<slug-do-paciente>-<data-da-sessão>.pdf`;
+  - o slug é o nome em minúsculas, sem acento, com hífen no lugar de espaços e símbolos
+- O que entra no PDF e como o período recorta cada parte: [Prontuário e COFFITO 414/2012](regras-de-negocio.md#prontuário-e-coffito-4142012)
 
 ## Relatórios
 

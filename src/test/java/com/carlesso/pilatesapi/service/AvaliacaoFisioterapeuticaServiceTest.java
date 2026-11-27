@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoFisioterapeuticaUpdateDTO;
+import com.carlesso.pilatesapi.dto.TesteFuncionalRealizadoDTO;
 import com.carlesso.pilatesapi.entity.AvaliacaoFisioterapeutica;
 import com.carlesso.pilatesapi.entity.Paciente;
 import com.carlesso.pilatesapi.exception.BusinessException;
@@ -88,7 +89,17 @@ class AvaliacaoFisioterapeuticaServiceTest {
                 6,
                 "Agachamento, ponte, apoio unipodal",
                 "Disfunção lombopélvica",
-                "Reavaliar em 30 dias");
+                "Reavaliar em 30 dias",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     private void setId(Paciente p, Long id) {
@@ -158,6 +169,16 @@ class AvaliacaoFisioterapeuticaServiceTest {
                 5,
                 null,
                 "Diagnóstico",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null);
 
         assertThatThrownBy(() -> service.criar(dto))
@@ -237,6 +258,16 @@ class AvaliacaoFisioterapeuticaServiceTest {
                 null,
                 null,
                 "Evoluiu com exercícios",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null);
 
         AvaliacaoFisioterapeuticaResponseDTO response = service.atualizar(1L, dto);
@@ -252,10 +283,105 @@ class AvaliacaoFisioterapeuticaServiceTest {
         when(avaliacaoRepository.findByIdComPaciente(99L)).thenReturn(Optional.empty());
 
         var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.atualizar(99L, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    // -------------------------------------------------------------------------
+    // Opções pré-definidas (#248)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void criar_comOpcoes_gravaOExameFisicoEstruturado() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
+        when(avaliacaoRepository.save(any(AvaliacaoFisioterapeutica.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AvaliacaoFisioterapeuticaResponseDTO response = service.criar(new AvaliacaoFisioterapeuticaRequestDTO(
+                1L,
+                LocalDate.of(2026, 11, 20),
+                "Dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                5,
+                null,
+                "Diag",
+                null,
+                List.of("PE_PLANO", "PE_PLANO"),
+                null,
+                "DIAFRAGMATICO",
+                null,
+                "ALTERACAO_GRAVE",
+                null,
+                null,
+                null,
+                List.of(
+                        new TesteFuncionalRealizadoDTO("APOIO_UNIPODAL", "POSITIVO"),
+                        new TesteFuncionalRealizadoDTO("APOIO_UNIPODAL", "POSITIVO")),
+                "Não sustenta 10 s"));
+
+        assertThat(response.achadosPosturais()).containsExactly("PE_PLANO");
+        assertThat(response.padraoRespiratorioOpcao()).isEqualTo("DIAFRAGMATICO");
+        assertThat(response.equilibrioOpcao()).isEqualTo("ALTERACAO_GRAVE");
+        assertThat(response.coordenacaoMotoraOpcao()).isNull();
+        assertThat(response.testesFuncionais())
+                .containsExactly(new TesteFuncionalRealizadoDTO("APOIO_UNIPODAL", "POSITIVO"));
+        assertThat(response.testesFuncionaisComplemento()).isEqualTo("Não sustenta 10 s");
+    }
+
+    @Test
+    void criar_comTesteSemResultado_deveLancarIllegalArgumentESemGravar() {
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente()));
+
+        var dto = new AvaliacaoFisioterapeuticaRequestDTO(
+                1L,
+                LocalDate.of(2026, 11, 20),
+                "Dor",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                5,
+                null,
+                "Diag",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(new TesteFuncionalRealizadoDTO("SCHOBER", null)),
+                null);
+
+        assertThatThrownBy(() -> service.criar(dto)).isInstanceOf(IllegalArgumentException.class);
+        verify(avaliacaoRepository, never()).save(any());
+    }
+
+    @Test
+    void atualizar_comOpcaoInexistente_deveLancarIllegalArgument() {
+        when(avaliacaoRepository.findByIdComPaciente(1L)).thenReturn(Optional.of(avaliacao(paciente())));
+
+        var dto = new AvaliacaoFisioterapeuticaUpdateDTO(
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "NASAL", null,
+                null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.atualizar(1L, dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Opção inválida em padraoRespiratorioOpcao: 'NASAL'");
+        verify(avaliacaoRepository, never()).saveAndFlush(any());
     }
 }

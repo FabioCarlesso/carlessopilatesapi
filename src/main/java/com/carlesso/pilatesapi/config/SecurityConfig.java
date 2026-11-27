@@ -125,12 +125,21 @@ public class SecurityConfig {
                                 "/avaliacoes-posturais/**",
                                 "/evolucoes-sessao/**",
                                 "/reavaliacoes/**",
-                                "/planos-tratamento/**")
+                                "/planos-tratamento/**",
+                                // Catálogo de opções da anamnese/avaliação (#248): só quem preenche o prontuário.
+                                "/avaliacoes/opcoes")
                         .hasAnyRole(CLINICA)
                         // Atendimento da aula (#246): marca a aula realizada (agenda) e registra a evolução
                         // (prontuário). Fica com a interseção das duas áreas — a recepção realiza a aula por
                         // PATCH /aulas/{id}/realizar, mas não lê nem escreve evolução. Antes da regra de /aulas/**.
                         .requestMatchers("/aulas/*/atendimento")
+                        .hasAnyRole(CLINICA)
+                        // Dados clínicos que moram debaixo de /pacientes: o histórico de pontos de dor (#249) e o
+                        // prontuário em PDF (#250). Antes da regra de /pacientes/**, que é da equipe toda e liberaria a
+                        // recepção e o financeiro. A evolução avulsa (/evolucoes-sessao/{id}/pdf) já cai na regra
+                        // clínica.
+                        .requestMatchers(
+                                "/pacientes/*/pontos-dor", "/pacientes/*/prontuario", "/pacientes/*/prontuario/**")
                         .hasAnyRole(CLINICA)
                         .requestMatchers("/pacientes", "/pacientes/**")
                         .hasAnyRole(EQUIPE)

@@ -10,6 +10,7 @@ import com.carlesso.pilatesapi.dto.AvaliacaoPosturalFotoResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalRequestDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalResponseDTO;
 import com.carlesso.pilatesapi.dto.AvaliacaoPosturalUpdateDTO;
+import com.carlesso.pilatesapi.dto.AvaliacaoPosturalVinculoDTO;
 import com.carlesso.pilatesapi.dto.LandmarkDTO;
 import com.carlesso.pilatesapi.dto.MetricasPosturaisDTO;
 import com.carlesso.pilatesapi.entity.enums.CodigoLandmark;
@@ -58,7 +59,9 @@ class AvaliacaoPosturalControllerTest {
     private AvaliacaoPosturalResponseDTO responseDTO(StatusAvaliacaoPostural status) {
         return new AvaliacaoPosturalResponseDTO(
                 10L,
+                5L,
                 1L,
+                null,
                 VistaPostural.FRENTE,
                 status,
                 new BigDecimal("0.502"),
@@ -76,6 +79,27 @@ class AvaliacaoPosturalControllerTest {
                 null);
     }
 
+    private AvaliacaoPosturalResponseDTO semVinculo(AvaliacaoPosturalResponseDTO r) {
+        return new AvaliacaoPosturalResponseDTO(
+                r.id(),
+                r.pacienteId(),
+                null,
+                null,
+                r.vista(),
+                r.status(),
+                r.linhaPrumoX(),
+                r.calibracaoCmPorUnidade(),
+                r.proporcaoImagem(),
+                r.observacoes(),
+                r.temFoto(),
+                r.landmarks(),
+                r.metricas(),
+                r.dataCriacao(),
+                r.dataAtualizacao(),
+                r.criadoPor(),
+                r.alteradoPor());
+    }
+
     private AvaliacaoPosturalUpdateDTO updateDTO(List<LandmarkDTO> landmarks) {
         return new AvaliacaoPosturalUpdateDTO(new BigDecimal("0.502"), null, null, "Observação", landmarks);
     }
@@ -86,7 +110,8 @@ class AvaliacaoPosturalControllerTest {
 
         mvc.perform(post("/avaliacoes-posturais")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE))))
+                        .content(mapper.writeValueAsString(
+                                new AvaliacaoPosturalRequestDTO(5L, 1L, null, VistaPostural.FRENTE))))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.id").value(10))
@@ -98,12 +123,125 @@ class AvaliacaoPosturalControllerTest {
     }
 
     @Test
-    void criar_semAvaliacaoFisioterapeuticaId_deveRetornar400() throws Exception {
+    void criar_semVista_deveRetornar400() throws Exception {
         mvc.perform(post("/avaliacoes-posturais")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(
-                                mapper.writeValueAsString(new AvaliacaoPosturalRequestDTO(null, VistaPostural.FRENTE))))
+                        .content("{\"pacienteId\":5}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void criar_soComPaciente_deveRetornar201ComAnaliseSolta() throws Exception {
+        AvaliacaoPosturalResponseDTO base = responseDTO(StatusAvaliacaoPostural.RASCUNHO);
+        when(service.criar(eq(new AvaliacaoPosturalRequestDTO(5L, null, null, VistaPostural.FRENTE))))
+                .thenReturn(semVinculo(base));
+
+        mvc.perform(post("/avaliacoes-posturais")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pacienteId\":5,\"vista\":\"FRENTE\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pacienteId").value(5))
+                .andExpect(jsonPath("$.avaliacaoFisioterapeuticaId").doesNotExist())
+                .andExpect(jsonPath("$.reavaliacaoId").doesNotExist());
+    }
+
+    @Test
+    void criar_comAvaliacaoEReavaliacao_deveRetornar400() throws Exception {
+        when(service.criar(any()))
+                .thenThrow(new IllegalArgumentException(
+                        "Informe a avaliação fisioterapêutica ou a reavaliação da análise postural, não as duas"));
+
+        mvc.perform(post("/avaliacoes-posturais")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(
+                                new AvaliacaoPosturalRequestDTO(5L, 1L, 3L, VistaPostural.FRENTE))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void criar_comAvaliacaoDeOutroPaciente_deveRetornar422() throws Exception {
+        when(service.criar(any()))
+                .thenThrow(new BusinessException(
+                        "Avaliação fisioterapêutica não pertence ao paciente da análise postural"));
+
+        mvc.perform(post("/avaliacoes-posturais")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(
+                                new AvaliacaoPosturalRequestDTO(5L, 1L, null, VistaPostural.FRENTE))))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail")
+                        .value("Avaliação fisioterapêutica não pertence ao paciente da análise postural"));
+    }
+
+    @Test
+    void listarPorPaciente_deveRetornar200() throws Exception {
+        when(service.listarPorPaciente(5L))
+                .thenReturn(List.of(
+                        semVinculo(responseDTO(StatusAvaliacaoPostural.RASCUNHO)),
+                        responseDTO(StatusAvaliacaoPostural.CONCLUIDA)));
+
+        mvc.perform(get("/avaliacoes-posturais/paciente/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].pacienteId").value(5))
+                .andExpect(jsonPath("$[0].avaliacaoFisioterapeuticaId").doesNotExist())
+                .andExpect(jsonPath("$[1].avaliacaoFisioterapeuticaId").value(1));
+    }
+
+    @Test
+    void listarPorPaciente_comPacienteInexistente_deveRetornar404() throws Exception {
+        when(service.listarPorPaciente(99L)).thenThrow(new ResourceNotFoundException("Paciente não encontrado: 99"));
+
+        mvc.perform(get("/avaliacoes-posturais/paciente/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Paciente não encontrado: 99"));
+    }
+
+    @Test
+    void alterarVinculo_deveRetornar200ComOVinculoNovo() throws Exception {
+        when(service.alterarVinculo(eq(10L), eq(new AvaliacaoPosturalVinculoDTO(null, null))))
+                .thenReturn(semVinculo(responseDTO(StatusAvaliacaoPostural.CONCLUIDA)));
+
+        mvc.perform(patch("/avaliacoes-posturais/10/vinculo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avaliacaoFisioterapeuticaId\":null,\"reavaliacaoId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.avaliacaoFisioterapeuticaId").doesNotExist());
+    }
+
+    @Test
+    void alterarVinculo_comOsDoisVinculos_deveRetornar400() throws Exception {
+        when(service.alterarVinculo(eq(10L), any()))
+                .thenThrow(new IllegalArgumentException(
+                        "Informe a avaliação fisioterapêutica ou a reavaliação da análise postural, não as duas"));
+
+        mvc.perform(patch("/avaliacoes-posturais/10/vinculo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AvaliacaoPosturalVinculoDTO(1L, 3L))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void alterarVinculo_comReavaliacaoDeOutroPaciente_deveRetornar422() throws Exception {
+        when(service.alterarVinculo(eq(10L), any()))
+                .thenThrow(new BusinessException("Reavaliação não pertence ao paciente da análise postural"));
+
+        mvc.perform(patch("/avaliacoes-posturais/10/vinculo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AvaliacaoPosturalVinculoDTO(null, 3L))))
+                .andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
+    void alterarVinculo_comVistaJaOcupadaNoDestino_deveRetornar409() throws Exception {
+        when(service.alterarVinculo(eq(10L), any()))
+                .thenThrow(new ConflictException("Avaliação já possui análise postural ativa da vista FRENTE"));
+
+        mvc.perform(patch("/avaliacoes-posturais/10/vinculo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new AvaliacaoPosturalVinculoDTO(2L, null))))
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -121,7 +259,8 @@ class AvaliacaoPosturalControllerTest {
 
         mvc.perform(post("/avaliacoes-posturais")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new AvaliacaoPosturalRequestDTO(99L, VistaPostural.FRENTE))))
+                        .content(mapper.writeValueAsString(
+                                new AvaliacaoPosturalRequestDTO(5L, 99L, null, VistaPostural.FRENTE))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Avaliação fisioterapêutica não encontrada: 99"));
     }
@@ -133,7 +272,8 @@ class AvaliacaoPosturalControllerTest {
 
         mvc.perform(post("/avaliacoes-posturais")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(new AvaliacaoPosturalRequestDTO(1L, VistaPostural.FRENTE))))
+                        .content(mapper.writeValueAsString(
+                                new AvaliacaoPosturalRequestDTO(5L, 1L, null, VistaPostural.FRENTE))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Avaliação já possui análise postural ativa da vista FRENTE"));
     }
