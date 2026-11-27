@@ -394,6 +394,8 @@ a aula que ela registra (`sessoes_pilates.aula_id`).
 
 - A análise pertence sempre a um paciente e pode estar **solta** (checagem rápida da postura, sem abrir uma avaliação completa) ou vinculada a **uma** avaliação fisioterapêutica **ou** a **uma** reavaliação do mesmo paciente — nunca às duas (#247)
 - Criar exige `pacienteId`: paciente inexistente retorna `404`, inativo `422`. Avaliação e reavaliação juntas retornam `400`; avaliação ou reavaliação de outro paciente, `422`
+- Compatibilidade: sem `pacienteId`, mas com avaliação ou reavaliação, a análise fica com o paciente dela. É o
+  pedido do FE anterior à #247, que continua no ar entre o deploy da API e o do FE. A análise solta exige o campo (`400`)
 - Cada avaliação e cada reavaliação admite no máximo uma análise ativa por vista (`409`); a análise solta não tem esse limite, e o paciente pode ter várias da mesma vista ao longo do tempo
 - O vínculo pode ser definido, trocado ou removido depois (`PATCH /avaliacoes-posturais/{id}/vinculo`), com as mesmas validações. Vale também para a análise concluída e para paciente inativo: a foto, os pontos e as métricas não mudam, só o registro a que a análise pertence
 - A listagem do paciente traz todas as análises ativas — soltas, de avaliações e de reavaliações —, da mais recente à mais antiga pela data de criação; canceladas ficam de fora

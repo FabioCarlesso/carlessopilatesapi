@@ -170,6 +170,28 @@ class AvaliacaoPosturalServiceTest {
     }
 
     @Test
+    void criar_semPacienteIdComAvaliacao_usaOPacienteDaAvaliacao() {
+        // FE anterior à #247: cria a análise só com a avaliação.
+        when(avaliacaoFisioterapeuticaRepository.findByIdComPaciente(1L))
+                .thenReturn(Optional.of(avaliacaoFisioterapeutica()));
+        when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
+        devolverAnaliseSalva();
+
+        var response = service.criar(new AvaliacaoPosturalRequestDTO(null, 1L, null, VistaPostural.FRENTE));
+
+        assertThat(response.pacienteId()).isEqualTo(1L);
+        assertThat(response.avaliacaoFisioterapeuticaId()).isEqualTo(1L);
+    }
+
+    @Test
+    void criar_semPacienteIdESemVinculo_deveLancarIllegalArgument() {
+        assertThatThrownBy(() -> service.criar(new AvaliacaoPosturalRequestDTO(null, null, null, VistaPostural.FRENTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pacienteId");
+        verifyNoInteractions(pacienteRepository);
+    }
+
+    @Test
     void criar_soComPaciente_deveNascerSolta() {
         when(pacienteRepository.findById(1L)).thenReturn(Optional.of(paciente(1L)));
         devolverAnaliseSalva();

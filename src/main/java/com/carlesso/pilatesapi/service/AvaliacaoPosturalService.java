@@ -111,9 +111,10 @@ public class AvaliacaoPosturalService {
     public AvaliacaoPosturalResponseDTO criar(AvaliacaoPosturalRequestDTO dto) {
         exigirVinculoUnico(dto.avaliacaoFisioterapeuticaId(), dto.reavaliacaoId());
 
+        Long pacienteId = pacienteDoPedido(dto);
         Paciente paciente = pacienteRepository
-                .findById(dto.pacienteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + dto.pacienteId()));
+                .findById(pacienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente não encontrado: " + pacienteId));
         PacienteGuard.exigirAtivo(paciente);
 
         AvaliacaoPostural analise = new AvaliacaoPostural();
@@ -355,6 +356,31 @@ public class AvaliacaoPosturalService {
      * paciente da análise ({@code 422}) e não pode já ter outra análise ativa da mesma vista ({@code 409}, a regra do
      * índice parcial da V28/V51). Manter o vínculo atual não conta como duplicata da própria análise.
      */
+    /**
+     * O paciente da análise. Sem {@code pacienteId}, vale o da avaliação ou da reavaliação: o FE anterior à #247 cria
+     * a análise só com {@code avaliacaoFisioterapeuticaId}, e entre o deploy da API e o do FE ele continua no ar. A
+     * análise solta, sem vínculo, não tem de onde tirar o paciente e exige o campo ({@code 400}).
+     */
+    private Long pacienteDoPedido(AvaliacaoPosturalRequestDTO dto) {
+        if (dto.pacienteId() != null) {
+            return dto.pacienteId();
+        }
+        if (dto.avaliacaoFisioterapeuticaId() != null) {
+            return encontrarAvaliacao(dto.avaliacaoFisioterapeuticaId())
+                    .getPaciente()
+                    .getId();
+        }
+        if (dto.reavaliacaoId() != null) {
+            return reavaliacaoRepository
+                    .findByIdComPaciente(dto.reavaliacaoId())
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Reavaliação não encontrada: " + dto.reavaliacaoId()))
+                    .getPaciente()
+                    .getId();
+        }
+        throw new IllegalArgumentException("pacienteId é obrigatório na análise postural sem vínculo");
+    }
+
     private void aplicarVinculo(AvaliacaoPostural analise, Long avaliacaoFisioterapeuticaId, Long reavaliacaoId) {
         Long pacienteId = analise.getPaciente().getId();
         AvaliacaoFisioterapeutica avaliacao = null;

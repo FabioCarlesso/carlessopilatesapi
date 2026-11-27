@@ -12,7 +12,11 @@ import jakarta.validation.constraints.NotNull;
         description =
                 "Criação de análise postural (nasce em RASCUNHO). Solta, ou vinculada a uma avaliação fisioterapêutica ou a uma reavaliação do mesmo paciente — no máximo um dos dois vínculos")
 public record AvaliacaoPosturalRequestDTO(
-        @Schema(description = "ID do paciente dono da análise", example = "1") @NotNull Long pacienteId,
+        @Schema(
+                        description =
+                                "ID do paciente dono da análise. Obrigatório na análise solta; com vínculo, ausente vale o paciente da avaliação/reavaliação (compatibilidade com o FE anterior à #247)",
+                        example = "1")
+                Long pacienteId,
         @Schema(description = "ID da avaliação fisioterapêutica do mesmo paciente (opcional)", example = "1")
                 Long avaliacaoFisioterapeuticaId,
         @Schema(description = "ID da reavaliação do mesmo paciente (opcional)", example = "3") Long reavaliacaoId,

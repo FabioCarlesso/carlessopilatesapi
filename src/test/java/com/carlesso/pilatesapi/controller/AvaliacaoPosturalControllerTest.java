@@ -123,11 +123,10 @@ class AvaliacaoPosturalControllerTest {
     }
 
     @Test
-    void criar_semPacienteId_deveRetornar400() throws Exception {
+    void criar_semVista_deveRetornar400() throws Exception {
         mvc.perform(post("/avaliacoes-posturais")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(
-                                new AvaliacaoPosturalRequestDTO(null, 1L, null, VistaPostural.FRENTE))))
+                        .content("{\"pacienteId\":5}"))
                 .andExpect(status().isBadRequest());
     }
 
